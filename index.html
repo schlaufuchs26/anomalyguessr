@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Temporal Detective – Zeitdetektiv</title>
+    <meta
+      name="description"
+      content="Finde den einen modernen Gegenstand, den eine KI in ein historisches Foto geschmuggelt hat."
+    />
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main>
+      <header class="top">
+        <h1>🦊 Temporal Detective</h1>
+        <p class="tagline">
+          Zeitreisen-Schutzstaffel. Eine Anomalie wurde in einem historischen Foto gemeldet –
+          klicke auf die Stelle, an der etwas nicht in die Zeit gehört.
+        </p>
+      </header>
+
+      <section class="controls" aria-label="Schwierigkeit wählen">
+        <div id="filter" class="chips"></div>
+      </section>
+
+      <section id="game" class="game" hidden>
+        <div class="meta">
+          <span id="scene-title" class="scene-title"></span>
+          <span id="scene-place" class="scene-place"></span>
+          <span id="scene-difficulty" class="badge"></span>
+          <span id="scene-progress" class="progress"></span>
+        </div>
+        <div id="photo" class="photo">
+          <img id="photo-img" alt="" />
+          <div id="overlay" class="overlay"></div>
+        </div>
+        <div class="hud">
+          <div id="hint-box" class="hint-box" aria-live="polite">
+            <button id="hint-btn" class="btn" type="button">💡 Tipp zeigen</button>
+            <p id="hint-text" class="hint-text"></p>
+          </div>
+          <div id="result" class="result" aria-live="polite"></div>
+          <div class="nav">
+            <button id="compare-btn" class="btn ghost" type="button" hidden>
+              📷 Original anzeigen
+            </button>
+            <button id="next-btn" class="btn primary" type="button" hidden>Weiter →</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="end" class="end" hidden>
+        <h2>Einsatz beendet</h2>
+        <p id="end-text"></p>
+        <button id="restart-btn" class="btn primary" type="button">Nochmal spielen</button>
+      </section>
+
+      <p id="load-error" class="load-error" hidden>
+        Die Szenen konnten nicht geladen werden. Läuft die Seite über einen Server?
+      </p>
+
+      <footer class="foot">
+        <p>
+          Historische Fotos: gemeinfreie Aufnahmen (Public Domain / CC0) via Wikimedia Commons.
+          Die Anomalien wurden mit KI-Bildbearbeitung eingefügt.
+        </p>
+      </footer>
+    </main>
+    <script type="module" src="./game.ts"></script>
+  </body>
+</html>

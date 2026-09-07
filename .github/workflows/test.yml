@@ -1,0 +1,54 @@
+name: Test
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install
+      - run: bun test --coverage
+      - run: bun test --coverage --coverage-reporter=lcov
+
+      - name: Generate coverage report
+        run: bash scripts/coverage-report.sh > coverage.md
+
+      - name: Post coverage comment
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          path: coverage.md
+
+      - name: Generate coverage badge
+        if: github.event_name == 'push'
+        run: |
+          mkdir -p badges
+          bash scripts/badge.sh > badges/coverage.svg
+
+      - name: Push badge
+        if: github.event_name == 'push'
+        run: |
+          cp badges/coverage.svg /tmp/coverage.svg
+          git branch -D badge 2>/dev/null || true
+          git checkout --orphan badge
+          git rm -rf . 2>/dev/null || true
+          cp /tmp/coverage.svg coverage.svg
+          git add coverage.svg
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "coverage: $(grep -oP '\d+%' coverage.svg | head -1)"
+          git push origin badge --force

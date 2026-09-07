@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -e
+
+echo "🔍 Running pre-commit checks..."
+
+if bun run checks; then
+  echo "✅ All checks passed!"
+  exit 0
+else
+  echo ""
+  echo "❌ Pre-commit checks failed. Please fix the errors above before committing."
+  echo "   Run 'bun run checks' locally to see the full output."
+  exit 1
+fi

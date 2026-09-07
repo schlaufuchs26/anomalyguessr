@@ -1,0 +1,203 @@
+{
+  "version": 1,
+  "scenes": [
+    {
+      "id": "brisbane-fruit-market",
+      "title": "Obstmarkt in der Turbot Street",
+      "place": "Brisbane, Australien",
+      "year": "1907",
+      "credit": "State Library of Queensland (CC0), via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Fruit_market_on_Turbot_Street_in_Brisbane_September_1907.jpg",
+      "difficulty": "klassisch",
+      "image": "scenes/brisbane-fruit-market.jpg",
+      "original": "scenes/brisbane-fruit-market-original.jpg",
+      "anomaly": "Plastikflasche",
+      "answer": {
+        "x": 0.322,
+        "y": 0.636,
+        "r": 0.035
+      },
+      "hints": [
+        "Es steht zwischen Waren auf einem Wagen.",
+        "Linke Bildhälfte, mittlere Höhe.",
+        "Auf dem Wagen mit heller Plane, zwischen den Obstkisten: eine Plastikflasche."
+      ]
+    },
+    {
+      "id": "pike-place-seattle",
+      "title": "Marktstraße am Pike Place",
+      "place": "Seattle, USA",
+      "year": "ca. 1907",
+      "credit": "Public Domain (DPLA), via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Market_vendors_gathering_on_Pike_Place,_ca._1907_-_DPLA_-_f62ac740d22b6ca81f281666c4c52882_(page_1).jpg",
+      "difficulty": "klassisch",
+      "image": "scenes/pike-place-seattle.jpg",
+      "original": "scenes/pike-place-seattle-original.jpg",
+      "anomaly": "Plastikflasche",
+      "answer": {
+        "x": 0.326,
+        "y": 0.837,
+        "r": 0.035
+      },
+      "hints": [
+        "Es steht zwischen Waren auf einem Verkaufsstand.",
+        "Untere linke Bildhälfte.",
+        "Im Obstkorb auf dem Stand links unten: eine Plastikflasche."
+      ]
+    },
+    {
+      "id": "jammu-bazaar",
+      "title": "Butcher's Bazaar",
+      "place": "Jammu, Indien",
+      "year": "ca. 1900",
+      "credit": "Public Domain, via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Butcher%27s_Bazaar,_Jammu,_ca.1875-ca.1940_(imp-cswc-GB-237-CSWC47-LS10-028).jpg",
+      "difficulty": "dezent",
+      "image": "scenes/jammu-bazaar.jpg",
+      "original": "scenes/jammu-bazaar-original.jpg",
+      "anomaly": "Digitaluhr",
+      "answer": {
+        "x": 0.11,
+        "y": 0.62,
+        "r": 0.03
+      },
+      "hints": [
+        "Eine Person trägt es am Körper.",
+        "Linke Bildhälfte, unterer Bereich.",
+        "Am Handgelenk des Mannes in heller Kleidung links: eine Digitaluhr."
+      ]
+    },
+    {
+      "id": "chicago-fair-crowd",
+      "title": "Carter Harrisons letzte Rede",
+      "place": "Chicago (World's Fair), USA",
+      "year": "1893",
+      "credit": "National Library of Ireland (Public Domain), via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Carter_H._Harrison%27s_last_speech,_World%27s_Fair,_October_28,_1893_(NBY_3023).jpg",
+      "difficulty": "dezent",
+      "image": "scenes/chicago-fair-crowd.jpg",
+      "original": "scenes/chicago-fair-crowd-original.jpg",
+      "anomaly": "Digitaluhr",
+      "answer": {
+        "x": 0.647,
+        "y": 0.772,
+        "r": 0.03
+      },
+      "hints": [
+        "Eine Person trägt es am Körper.",
+        "Rechte Bildhälfte, unterer Bereich.",
+        "Am Handgelenk des Mannes im dunklen Anzug, rechts unten: eine Digitaluhr."
+      ]
+    },
+    {
+      "id": "budapest-market-1900",
+      "title": "Markt mit Obstständen",
+      "place": "Ungarn",
+      "year": "ca. 1900",
+      "credit": "Fortepan (Public Domain), via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Market_Fortepan_70496.jpg",
+      "difficulty": "klassisch",
+      "image": "scenes/budapest-market-1900.jpg",
+      "original": "scenes/budapest-market-1900-original.jpg",
+      "anomaly": "Plastikflasche",
+      "answer": {
+        "x": 0.553,
+        "y": 0.646,
+        "r": 0.035
+      },
+      "hints": [
+        "Es steht auf einem Tisch mit Waren.",
+        "Rechte Bildhälfte, mittlere Höhe.",
+        "Auf dem Holztisch zwischen Obst und Gemüse: eine Plastikflasche."
+      ]
+    },
+    {
+      "id": "hungary-market-square",
+      "title": "Marktplatz",
+      "place": "Ungarn",
+      "year": "ca. 1915",
+      "credit": "Fortepan (Public Domain), via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Market_Fortepan_85983.jpg",
+      "difficulty": "klassisch",
+      "image": "scenes/hungary-market-square.jpg",
+      "original": "scenes/hungary-market-square-original.jpg",
+      "anomaly": "Plastikflasche",
+      "answer": {
+        "x": 0.123,
+        "y": 0.667,
+        "r": 0.035
+      },
+      "hints": [
+        "Es steht auf einem Verkaufsstand.",
+        "Linke Bildhälfte, untere Mitte.",
+        "Auf dem Holzgestell links, neben den Warenkörben: eine Plastikflasche."
+      ]
+    },
+    {
+      "id": "townsville-parade",
+      "title": "Föderationsparade in der Flinders Street",
+      "place": "Townsville, Australien",
+      "year": "1910",
+      "credit": "State Library of Queensland (Public Domain), via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:StateLibQld_1_120568_Federation_parade_in_Flinders_Street,_Townsville,_Queensland,_1910.jpg",
+      "difficulty": "auffaellig",
+      "image": "scenes/townsville-parade.jpg",
+      "original": "scenes/townsville-parade-original.jpg",
+      "anomaly": "Smartphone",
+      "answer": {
+        "x": 0.746,
+        "y": 0.688,
+        "r": 0.035
+      },
+      "hints": [
+        "Eine Person hält es in der Hand.",
+        "Rechte Bildhälfte, untere Hälfte.",
+        "Der Mann im Vordergrund rechts hält ein Smartphone in der erhobenen Hand."
+      ]
+    },
+    {
+      "id": "cheyenne-frontier-days",
+      "title": "Frontier Days Parade",
+      "place": "Cheyenne, USA",
+      "year": "1908",
+      "credit": "Public Domain (DPLA), via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Frontier_Days_street_scene_in_Cheyenne,_Wyoming_-_DPLA_-_0f0ebfa81a4f1ece008ddc42ba8161a2.jpg",
+      "difficulty": "auffaellig",
+      "image": "scenes/cheyenne-frontier-days.jpg",
+      "original": "scenes/cheyenne-frontier-days-original.jpg",
+      "anomaly": "Smartphone",
+      "answer": {
+        "x": 0.455,
+        "y": 0.74,
+        "r": 0.035
+      },
+      "hints": [
+        "Es liegt auf einem Notenständer.",
+        "Bildmitte, untere Hälfte.",
+        "Auf dem Notenständer neben den Notenblättern: ein Smartphone."
+      ]
+    },
+    {
+      "id": "brisbane-queen-street",
+      "title": "Parade in der Queen Street",
+      "place": "Brisbane, Australien",
+      "year": "1900",
+      "credit": "State Library of Queensland (Public Domain), via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:StateLibQld_2_201107_Street_parade_in_Queen_Street,_Brisbane,_January_1900.jpg",
+      "difficulty": "auffaellig",
+      "image": "scenes/brisbane-queen-street.jpg",
+      "original": "scenes/brisbane-queen-street-original.jpg",
+      "anomaly": "Smartphone",
+      "answer": {
+        "x": 0.19,
+        "y": 0.78,
+        "r": 0.04
+      },
+      "hints": [
+        "Ein Zuschauer hält es in der Hand.",
+        "Linke untere Ecke.",
+        "Der Mann am linken unteren Bildrand fotografiert die Parade mit einem Smartphone."
+      ]
+    }
+  ]
+}
