@@ -1,15 +1,11 @@
 import { fitInto } from "./layout";
 import {
-  DIFFICULTIES,
   DIFFICULTY_LABELS,
-  type Difficulty,
   type Manifest,
   parseManifest,
   type Scene,
 } from "./manifest";
 import { clickDistance, scoreFor, type Verdict, verdictFor } from "./scoring";
-
-type DifficultyFilter = Difficulty | "alle";
 
 interface RunState {
   queue: Scene[];
@@ -27,7 +23,6 @@ function $<T extends HTMLElement>(selector: string): T {
 }
 
 const els = {
-  filter: $("#filter"),
   game: $("#game"),
   end: $("#end"),
   stage: $(".stage"),
@@ -65,7 +60,6 @@ const VERDICT_COPY: Record<Verdict, { headline: string; note: string }> = {
 };
 
 let manifest: Manifest | null = null;
-let activeFilter: DifficultyFilter = "alle";
 let state: RunState = {
   queue: [],
   index: 0,
@@ -92,15 +86,10 @@ function scene(): Scene {
   return s;
 }
 
-function startRun(filter: DifficultyFilter): void {
+function startRun(): void {
   if (!manifest) return;
-  activeFilter = filter;
-  const scenes =
-    filter === "alle"
-      ? manifest.scenes
-      : manifest.scenes.filter((s) => s.difficulty === filter);
   state = {
-    queue: shuffle(scenes),
+    queue: shuffle(manifest.scenes),
     index: 0,
     hintsUsed: 0,
     totalScore: 0,
@@ -245,33 +234,6 @@ function showEnd(): void {
   els.restartBtn.focus();
 }
 
-function buildFilters(): void {
-  if (!manifest) return;
-  const counts = new Map<DifficultyFilter, number>();
-  counts.set("alle", manifest.scenes.length);
-  for (const d of DIFFICULTIES)
-    counts.set(d, manifest.scenes.filter((s) => s.difficulty === d).length);
-  const chips: DifficultyFilter[] = ["alle", ...DIFFICULTIES];
-  for (const filter of chips) {
-    const btn = document.createElement("button");
-    const count = counts.get(filter) ?? 0;
-    const label = filter === "alle" ? "Alle" : DIFFICULTY_LABELS[filter];
-    btn.type = "button";
-    btn.className = `chip ${filter === "alle" ? "" : filter}`;
-    btn.setAttribute("aria-pressed", "false");
-    btn.textContent = `${label} (${count})`;
-    btn.addEventListener("click", () => {
-      for (const c of els.filter.querySelectorAll(".chip")) {
-        c.setAttribute("aria-pressed", c === btn ? "true" : "false");
-      }
-      startRun(filter);
-    });
-    els.filter.append(btn);
-  }
-  const all = els.filter.querySelector(".chip");
-  all?.setAttribute("aria-pressed", "true");
-}
-
 /**
  * Fit the current photo into the stage box on the laptop layout. The stage
  * has a fixed viewport-derived size there (CSS media query), so the image
@@ -308,7 +270,7 @@ async function init(): Promise<void> {
   els.overlay.addEventListener("click", onOverlayClick);
   els.compareBtn.addEventListener("click", toggleCompare);
   els.nextBtn.addEventListener("click", nextScene);
-  els.restartBtn.addEventListener("click", () => startRun(activeFilter));
+  els.restartBtn.addEventListener("click", () => startRun());
   els.img.addEventListener("load", fitPhotoToStage);
   window.addEventListener("resize", () => fitPhotoToStage());
   window
@@ -323,8 +285,7 @@ async function init(): Promise<void> {
     els.loadError.hidden = false;
     return;
   }
-  buildFilters();
-  startRun("alle");
+  startRun();
 }
 
 init();

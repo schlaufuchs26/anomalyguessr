@@ -1,6 +1,6 @@
 export type Difficulty = "dezent" | "klassisch" | "auffaellig";
 
-export const DIFFICULTIES: Difficulty[] = ["dezent", "klassisch", "auffaellig"];
+const DIFFICULTIES: Difficulty[] = ["dezent", "klassisch", "auffaellig"];
 
 export const DIFFICULTY_LABELS: Record<Difficulty, string> = {
   dezent: "Dezent",

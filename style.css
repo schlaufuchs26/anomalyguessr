@@ -46,41 +46,6 @@ main {
   max-width: 62ch;
 }
 
-/* difficulty filter chips */
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-}
-
-.chip {
-  background: var(--panel);
-  color: var(--ink-dim);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 0.35rem 0.9rem;
-  cursor: pointer;
-  font-size: 0.9rem;
-}
-
-.chip[aria-pressed="true"] {
-  color: var(--ink);
-  border-color: var(--accent);
-}
-
-.chip.dezent[aria-pressed="true"] {
-  border-color: var(--dezent);
-}
-
-.chip.klassisch[aria-pressed="true"] {
-  border-color: var(--klassisch);
-}
-
-.chip.auffaellig[aria-pressed="true"] {
-  border-color: var(--auffaellig);
-}
-
 /* scene meta */
 .meta {
   display: flex;

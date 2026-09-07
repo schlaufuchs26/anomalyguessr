@@ -32,7 +32,9 @@ bun run checks     # format + tsc + biome + knip + tests
   used scales the score by 0.85 / 0.7 / 0.55.
 - Difficulty tiers label expected subtlety: **Dezent** (small muted object,
   e.g. a digital watch on a wrist), **Klassisch** (e.g. a plastic bottle among
-  stall goods), **Auffällig** (e.g. a smartphone in a hand).
+  stall goods), **Auffällig** (e.g. a smartphone in a hand). The badge on each
+  scene shows its tier.
+- All source photos are landscape (wider than tall).
 
 ## Scene manifest format
 
