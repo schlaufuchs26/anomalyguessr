@@ -155,19 +155,25 @@ function addMarker(
   els.overlay.append(m);
 }
 
-/** Photo base box in view coordinates (transform-independent layout box). */
+/**
+ * Untransformed photo base box in view coordinates. The zoom transform is
+ * applied to the photo wrapper (origin 0 0), so the image's layout offset
+ * inside it stays constant; measuring the wrapper rect + the image's own
+ * offset gives the base without the transform and without double-counting
+ * (the image's offsetParent is the positioned .photo wrapper).
+ */
 function photoBase(): {
   left: number;
   top: number;
   width: number;
   height: number;
 } {
-  const stageRect = els.stage.getBoundingClientRect();
+  const photoRect = els.photo.getBoundingClientRect();
   return {
-    left: stageRect.left + els.photo.offsetLeft,
-    top: stageRect.top + els.photo.offsetTop,
-    width: els.photo.offsetWidth,
-    height: els.photo.offsetHeight,
+    left: photoRect.left + els.img.offsetLeft,
+    top: photoRect.top + els.img.offsetTop,
+    width: els.img.offsetWidth,
+    height: els.img.offsetHeight,
   };
 }
 
