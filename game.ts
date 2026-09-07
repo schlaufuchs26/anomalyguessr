@@ -1,4 +1,4 @@
-import { fitInto } from "./layout";
+import { fitInto, panBy, type ViewState, zoomAt } from "./layout";
 import {
   DIFFICULTY_LABELS,
   type Manifest,
@@ -26,6 +26,7 @@ const els = {
   game: $("#game"),
   end: $("#end"),
   stage: $(".stage"),
+  photo: $("#photo"),
   sceneTitle: $("#scene-title"),
   scenePlace: $("#scene-place"),
   sceneDifficulty: $("#scene-difficulty"),
@@ -68,6 +69,12 @@ let state: RunState = {
   answered: false,
   originalView: false,
 };
+let view: ViewState = { scale: 1, x: 0, y: 0 };
+let dragMoved = false;
+let dragStart: { x: number; y: number; view: ViewState } | null = null;
+const activePointers = new Map<number, { x: number; y: number }>();
+let pinchLast: { dist: number; midX: number; midY: number } | null = null;
+let lastScoreDelta = 0;
 
 function shuffle<T>(items: T[]): T[] {
   const copy = [...items];
@@ -106,6 +113,12 @@ function renderScene(): void {
   state.hintsUsed = 0;
   state.answered = false;
   state.originalView = false;
+  view = { scale: 1, x: 0, y: 0 };
+  dragMoved = false;
+  dragStart = null;
+  activePointers.clear();
+  pinchLast = null;
+  applyTransform();
   els.game.hidden = false;
   els.end.hidden = true;
   els.sceneTitle.textContent = s.title;
@@ -149,14 +162,176 @@ function addMarker(
   els.overlay.append(m);
 }
 
+/** Photo base box in view coordinates (transform-independent layout box). */
+function photoBase(): {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+} {
+  const stageRect = els.stage.getBoundingClientRect();
+  return {
+    left: stageRect.left + els.photo.offsetLeft,
+    top: stageRect.top + els.photo.offsetTop,
+    width: els.photo.offsetWidth,
+    height: els.photo.offsetHeight,
+  };
+}
+
+function applyTransform(): void {
+  els.photo.style.transformOrigin = "0 0";
+  els.photo.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.scale})`;
+  els.overlay.classList.toggle("zoomed", view.scale > 1.001);
+}
+
 function onOverlayClick(e: MouseEvent): void {
   if (state.answered) return;
-  const rect = els.overlay.getBoundingClientRect();
-  if (rect.width === 0 || rect.height === 0) return;
-  const nx = (e.clientX - rect.left) / rect.width;
-  const ny = (e.clientY - rect.top) / rect.height;
+  if (dragMoved) {
+    // the gesture was a pan, not a guess
+    dragMoved = false;
+    return;
+  }
+  const base = photoBase();
+  if (base.width === 0 || base.height === 0) return;
+  // view-space cursor -> image-local -> normalized (score stays in original
+  // image coordinates; only the display is zoomed/panned)
+  const px = e.clientX - base.left;
+  const py = e.clientY - base.top;
+  const ux = (px - view.x) / view.scale;
+  const uy = (py - view.y) / view.scale;
+  const nx = ux / base.width;
+  const ny = uy / base.height;
   if (nx < 0 || nx > 1 || ny < 0 || ny > 1) return;
   resolve(nx, ny);
+}
+
+function zoomAtPoint(cursorX: number, cursorY: number, factor: number): void {
+  const base = photoBase();
+  if (base.width === 0) return;
+  const px = cursorX - base.left;
+  const py = cursorY - base.top;
+  view = zoomAt(view, base.width, base.height, px, py, factor);
+  applyTransform();
+}
+
+function resetZoom(): void {
+  view = { scale: 1, x: 0, y: 0 };
+  applyTransform();
+}
+
+function onWheel(e: WheelEvent): void {
+  if (state.answered) return;
+  e.preventDefault();
+  const factor = Math.exp(-e.deltaY * 0.0016);
+  zoomAtPoint(e.clientX, e.clientY, factor);
+}
+
+function onDblClick(e: MouseEvent): void {
+  e.preventDefault();
+  if (view.scale > 1.001) {
+    resetZoom();
+    return;
+  }
+  // a double-click means "zoom in here", not "guess twice": undo the first
+  // click's guess resolution, then zoom
+  if (state.answered) {
+    state.answered = false;
+    state.totalScore = Math.max(0, state.totalScore - lastScoreDelta);
+    lastScoreDelta = 0;
+    els.overlay.classList.remove("waiting");
+    clearMarkers();
+    els.result.className = "result";
+    els.result.innerHTML = "";
+    els.compareBtn.hidden = true;
+    els.nextBtn.hidden = true;
+  }
+  zoomAtPoint(e.clientX, e.clientY, 3);
+}
+
+function pointerPos(e: PointerEvent): { x: number; y: number } {
+  return { x: e.clientX, y: e.clientY };
+}
+
+function onPointerDown(e: PointerEvent): void {
+  if (state.answered) return;
+  activePointers.set(e.pointerId, pointerPos(e));
+  if (activePointers.size === 1) {
+    dragStart = { x: e.clientX, y: e.clientY, view: { ...view } };
+    dragMoved = false;
+    try {
+      els.overlay.setPointerCapture(e.pointerId);
+    } catch {
+      // pointer capture is best-effort
+    }
+  } else if (activePointers.size === 2) {
+    dragStart = null;
+    const pts = [...activePointers.values()];
+    const a = pts[0];
+    const b = pts[1];
+    if (a && b) {
+      pinchLast = {
+        dist: Math.hypot(a.x - b.x, a.y - b.y),
+        midX: (a.x + b.x) / 2,
+        midY: (a.y + b.y) / 2,
+      };
+    }
+  }
+}
+
+function onPointerMove(e: PointerEvent): void {
+  if (state.answered) return;
+  if (!activePointers.has(e.pointerId)) return;
+  activePointers.set(e.pointerId, pointerPos(e));
+  const pts = [...activePointers.values()];
+  if (pts.length === 2 && pinchLast) {
+    const a = pts[0];
+    const b = pts[1];
+    if (!a || !b) return;
+    const dist = Math.hypot(a.x - b.x, a.y - b.y);
+    const midX = (a.x + b.x) / 2;
+    const midY = (a.y + b.y) / 2;
+    if (pinchLast.dist > 0) {
+      const base = photoBase();
+      view = zoomAt(
+        view,
+        base.width,
+        base.height,
+        pinchLast.midX - base.left,
+        pinchLast.midY - base.top,
+        dist / pinchLast.dist,
+      );
+      // follow the pinch midpoint's movement
+      const dx = midX - pinchLast.midX;
+      const dy = midY - pinchLast.midY;
+      view = panBy(view, dx, dy, base.width, base.height);
+      applyTransform();
+    }
+    pinchLast = { dist, midX, midY };
+    return;
+  }
+  if (dragStart && pts.length === 1) {
+    const dx = e.clientX - dragStart.x;
+    const dy = e.clientY - dragStart.y;
+    if (Math.hypot(dx, dy) > 4) dragMoved = true;
+    if (view.scale > 1 || dragMoved) {
+      const base = photoBase();
+      view = panBy(dragStart.view, dx, dy, base.width, base.height);
+      applyTransform();
+    }
+  }
+}
+
+function onPointerUp(e: PointerEvent): void {
+  activePointers.delete(e.pointerId);
+  pinchLast = null;
+  if (activePointers.size < 2) pinchLast = null;
+  if (activePointers.size === 0) dragStart = null;
+}
+
+function onPointerCancel(e: PointerEvent): void {
+  activePointers.delete(e.pointerId);
+  pinchLast = null;
+  if (activePointers.size === 0) dragStart = null;
 }
 
 function resolve(nx: number, ny: number): void {
@@ -165,6 +340,7 @@ function resolve(nx: number, ny: number): void {
   els.overlay.classList.add("waiting");
   const distance = clickDistance({ x: nx, y: ny }, s.answer);
   const score = scoreFor(distance, s.answer.r, state.hintsUsed);
+  lastScoreDelta = score;
   state.totalScore += score;
   const verdict = verdictFor(score);
   addMarker("click", nx, ny);
@@ -268,6 +444,12 @@ function fitPhotoToStage(): void {
 async function init(): Promise<void> {
   els.hintBtn.addEventListener("click", onHint);
   els.overlay.addEventListener("click", onOverlayClick);
+  els.overlay.addEventListener("dblclick", onDblClick);
+  els.overlay.addEventListener("wheel", onWheel, { passive: false });
+  els.overlay.addEventListener("pointerdown", onPointerDown);
+  els.overlay.addEventListener("pointermove", onPointerMove);
+  els.overlay.addEventListener("pointerup", onPointerUp);
+  els.overlay.addEventListener("pointercancel", onPointerCancel);
   els.compareBtn.addEventListener("click", toggleCompare);
   els.nextBtn.addEventListener("click", nextScene);
   els.restartBtn.addEventListener("click", () => startRun());

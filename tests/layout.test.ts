@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { fitInto } from "../layout";
+import {
+  clampView,
+  fitInto,
+  panBy,
+  VIEW_MAX_SCALE,
+  VIEW_MIN_SCALE,
+  zoomAt,
+} from "../layout";
 
 describe("fitInto", () => {
   test("returns null when any dimension is non-positive", () => {
@@ -38,5 +45,56 @@ describe("fitInto", () => {
     expect(Number.isInteger(fit?.height)).toBe(true);
     // aspect ratio preserved within rounding tolerance
     expect((fit?.width ?? 0) / (fit?.height ?? 1)).toBeCloseTo(1.5, 1);
+  });
+});
+
+describe("clampView", () => {
+  test("identity at scale 1, no pan", () => {
+    expect(clampView(0, 0, 1, 800, 600)).toEqual({ scale: 1, x: 0, y: 0 });
+  });
+
+  test("clamps pan so the image cannot leave the view", () => {
+    const v = clampView(9999, -9999, 3, 800, 600);
+    expect(v.x).toBe(0); // right edge can come to x=0 at most... clamp keeps x<=0
+    expect(v.y).toBeLessThanOrEqual(0);
+    // when zoomed to 3x in an 800-wide view, x must be >= 800-2400
+    expect(v.x).toBeGreaterThanOrEqual(800 - 800 * 3);
+  });
+
+  test("clamps the scale to the allowed range", () => {
+    expect(clampView(0, 0, 100, 800, 600).scale).toBe(VIEW_MAX_SCALE);
+    expect(clampView(0, 0, 0.1, 800, 600).scale).toBe(1);
+  });
+});
+
+describe("zoomAt", () => {
+  const base = { scale: 1, x: 0, y: 0 };
+
+  test("zooming in keeps the image point under the cursor fixed", () => {
+    // cursor at (400, 300) on an 800x600 view -> that image point stays put
+    const v = zoomAt(base, 800, 600, 400, 300, 2);
+    expect(v.scale).toBe(2);
+    expect(v.x).toBe(400 - (400 / 1) * 2); // 400 - 800 = -400
+    expect(v.y).toBe(300 - (300 / 1) * 2); // 300 - 600 = -300
+  });
+
+  test("never zooms below 1", () => {
+    expect(zoomAt(base, 800, 600, 400, 300, 0.5).scale).toBe(VIEW_MIN_SCALE);
+  });
+
+  test("zooming out to scale 1 recentres on the origin", () => {
+    const v = zoomAt(base, 800, 600, 400, 300, 4);
+    const out = zoomAt(v, 800, 600, 400, 300, 0.25);
+    expect(out.scale).toBe(1);
+    expect(out.x).toBeCloseTo(0, 5);
+    expect(out.y).toBeCloseTo(0, 5);
+  });
+});
+
+describe("panBy", () => {
+  test("moves and clamps", () => {
+    const v = panBy({ scale: 2, x: -100, y: -50 }, 30, 20, 800, 600);
+    expect(v.x).toBe(-70);
+    expect(v.y).toBe(-30);
   });
 });

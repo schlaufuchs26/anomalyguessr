@@ -133,10 +133,23 @@ main {
   position: absolute;
   inset: 0;
   cursor: crosshair;
+  touch-action: none;
+}
+
+.overlay.zoomed {
+  cursor: grab;
+}
+
+.overlay.zoomed:active {
+  cursor: grabbing;
 }
 
 .overlay.waiting {
   cursor: default;
+}
+
+.stage {
+  overflow: hidden;
 }
 
 .marker {

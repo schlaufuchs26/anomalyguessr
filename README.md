@@ -26,7 +26,10 @@ bun run checks     # format + tsc + biome + knip + tests
 - One scene = one edited photo + one planted anomaly.
 - Click anywhere on the photo. Score: `100 * (1 - distance / 0.6)` in
   normalized image space; a click inside the anomaly's answer radius counts as
-  a perfect hit (100).
+  a perfect hit (100). The score always uses original-image coordinates.
+- Zoom & pan to inspect fine detail: mouse wheel zooms toward the cursor,
+  double-click zooms in (double-click again resets), drag pans when zoomed,
+  touch pinch works on mobile.
 - `💡 Tipp zeigen` reveals the next of three progressive hints
   (what it's attached to → which half → exact spot + object name). Each hint
   used scales the score by 0.85 / 0.7 / 0.55.
