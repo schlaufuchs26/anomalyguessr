@@ -46,10 +46,18 @@ bun run checks     # format + tsc + biome + knip + tests
 
 ## Daily selection
 
-`daily.ts` derives the day's set from the browser's local calendar date
-(`YYYY-MM-DD`): the date string hashes to a seed for a deterministic shuffle
-(mulberry32), from which the first 5 scenes are taken. Same date → same set and
-order for everyone; consecutive days rotate the set.
+Two manifest generations share one frontend:
+
+- **Version 1 (legacy pool):** the manifest holds every known scene. The
+  frontend derives the day's set from the browser's local calendar date
+  (`YYYY-MM-DD`): the date string hashes to a seed for a deterministic shuffle
+  (mulberry32), from which the first 5 scenes are taken. Same date → same set
+  and order for everyone; consecutive days rotate the set.
+- **Version 2 (pipeline daily manifest):** the daily content pipeline (fuchs
+  cron, see the game's wiki page) ships exactly the day's 5 scenes in play
+  order inside the manifest (root `date` = the quiz day, `YYYY-MM-DD`). The
+  frontend plays them in manifest order; no client-side selection. Everyone
+  sees the same 5 because they load the same manifest.
 
 ## Scene manifest format
 
@@ -61,14 +69,23 @@ Each scene entry:
   "id": "jammu-bazaar",
   "title": "Butcher's Bazaar",
   "place": "Jammu, Indien",
-  "year": "ca. 1900",
+  "year": "ca. 1875-1940",
   "credit": "Public Domain, via Wikimedia Commons",
   "sourceUrl": "https://commons.wikimedia.org/wiki/File:...",
+  "source": {
+    "repository": "Wikimedia Commons (USC Digital Library; Church of Scotland Foreign Missions Committee)",
+    "fileUrl": "https://commons.wikimedia.org/wiki/File:...",
+    "originalTitle": "Butcher's Bazaar, Jammu, ca.1875-ca.1940 (imp-cswc-GB-237-CSWC47-LS10-028)",
+    "date": "1875/1940",
+    "place": "Jammu",
+    "license": "Public Domain",
+    "description": "Photograph of a butcher's bazaar in the city of Jammu. ..."
+  },
   "difficulty": "dezent | klassisch | auffaellig",
   "image": "scenes/jammu-bazaar.jpg",
   "original": "scenes/jammu-bazaar-original.jpg",
   "anomaly": "Digitaluhr",
-  "description": "Der Butcher's Bazaar in Jammu, Indien, um 1900: eine enge Marktgasse mit Verkaufsständen, Körben und Passanten.",
+  "description": "Der Butcher's Bazaar in Jammu, aufgenommen zwischen ca. 1875 und ca. 1940: eine Marktstraße mit kleinen Läden und Ständen auf beiden Seiten (Katalogbeschreibung der USC Digital Library).",
   "answer": { "x": 0.11, "y": 0.62, "r": 0.03 },
   "hints": [
     "Eine Person trägt es am Körper.",
@@ -83,13 +100,24 @@ Each scene entry:
 - `answer.r`: normalized hit radius for a perfect 100-point click.
 - `image` must keep the original's aspect ratio, otherwise the answer
   coordinates no longer match what the player sees.
+- **Provenance discipline:** `source` holds the photo's catalog metadata
+  taken from the source record itself (never inferred from the image). The
+  `description` paragraph is written strictly from that metadata and plain
+  visible content; no invented dates, names, events or context. Version-2
+  manifests require `source` on every scene and a root `date`; the runtime
+  validator (`manifest.ts`) enforces both.
 - Adding a scene = drop `<id>.jpg` + `<id>-original.jpg` into `scenes/`,
-  append the manifest entry, done.
+  append the manifest entry, done. For pipeline-managed manifests, scenes are
+  managed by the fuchs queue instead (see `data/temporal-detective/` on the
+  fuchs box); `scenes/` then only ever holds the current day's 5.
 
 ## Sources & licensing
 
-All base photographs are public domain / CC0, pre-1928, sourced via Wikimedia
-Commons (Library of Congress / DPLA collections, State Library of Queensland,
-National Library of Ireland, Fortepan). Per-scene credit + file page link live
-in the manifest and are shown in the game's result panel. The anomalies are
-AI edits; the edited images are new derived works of public-domain photos.
+Base photographs are public domain / CC0 images (any era; the license status
+is verified per record rather than assumed from age) sourced via Wikimedia
+Commons (DPLA collections incl. Seattle Public Library and University of
+Colorado, State Library of Queensland, Fortepan, NYPL, USC Digital Library).
+Per-scene provenance + file page link live in the `source` block and are
+enforced by the validator. The planted anachronism is always from a LATER
+time than the photo. The anomalies are AI edits; the edited images are new
+derived works of the base photos.
