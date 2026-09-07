@@ -65,6 +65,13 @@ main {
   font-size: 0.95rem;
 }
 
+.scene-desc {
+  color: var(--ink-dim);
+  font-size: 0.9rem;
+  margin: 0 0 0.6rem;
+  max-width: 58ch;
+}
+
 .progress {
   margin-left: auto;
   color: var(--ink-dim);

@@ -13,6 +13,7 @@ function validScene(): Record<string, unknown> {
     image: "scenes/s1.jpg",
     original: "scenes/s1-original.jpg",
     anomaly: "Plastikflasche",
+    description: "Ein Markt um 1900 mit Ständen und Obst.",
     answer: { x: 0.3, y: 0.6, r: 0.04 },
     hints: [
       "auf einem Wagen",
@@ -83,5 +84,8 @@ describe("parseManifest", () => {
   test("rejects missing required string fields", () => {
     expect(() => parseManifest(validManifest({ image: "" }))).toThrow(/image/);
     expect(() => parseManifest(validManifest({ id: undefined }))).toThrow(/id/);
+    expect(() => parseManifest(validManifest({ description: "" }))).toThrow(
+      /description/,
+    );
   });
 });

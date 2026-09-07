@@ -27,6 +27,7 @@ const els = {
   photo: $("#photo"),
   sceneTitle: $("#scene-title"),
   scenePlace: $("#scene-place"),
+  sceneDesc: $("#scene-desc"),
   sceneProgress: $("#scene-progress"),
   img: $("#photo-img") as HTMLImageElement,
   overlay: $("#overlay"),
@@ -118,6 +119,7 @@ function renderScene(): void {
   els.end.hidden = true;
   els.sceneTitle.textContent = s.title;
   els.scenePlace.textContent = `${s.place}, ${s.year}`;
+  els.sceneDesc.textContent = s.description;
   els.sceneProgress.textContent = `${state.index + 1} / ${state.queue.length}`;
   els.img.removeAttribute("style");
   els.img.src = s.image;
@@ -156,25 +158,27 @@ function addMarker(
 }
 
 /**
- * Untransformed photo base box in view coordinates. The zoom transform is
- * applied to the photo wrapper (origin 0 0), so the image's layout offset
- * inside it stays constant; measuring the wrapper rect + the image's own
- * offset gives the base without the transform and without double-counting
- * (the image's offsetParent is the positioned .photo wrapper).
+ * Untransformed image box in viewport coordinates. The zoom transform
+ * (translate + scale, origin 0 0) is applied to the #photo wrapper; the image
+ * layout box itself never moves, but getBoundingClientRect() would include
+ * the transform. The layout box only changes when the image loads or the
+ * viewport resizes, and both paths funnel through fitPhotoToStage, so we
+ * re-measure there (at scale 1) and keep the cached box for click/zoom math.
  */
+let baseBox = { left: 0, top: 0, width: 0, height: 0 };
+
 function photoBase(): {
   left: number;
   top: number;
   width: number;
   height: number;
 } {
-  const photoRect = els.photo.getBoundingClientRect();
-  return {
-    left: photoRect.left + els.img.offsetLeft,
-    top: photoRect.top + els.img.offsetTop,
-    width: els.img.offsetWidth,
-    height: els.img.offsetHeight,
-  };
+  return baseBox;
+}
+
+function measureBase(): void {
+  const r = els.img.getBoundingClientRect();
+  baseBox = { left: r.left, top: r.top, width: r.width, height: r.height };
 }
 
 function applyTransform(): void {
@@ -427,10 +431,14 @@ function showEnd(): void {
  * the plain CSS max-width constraint applies instead.
  */
 function fitPhotoToStage(): void {
+  // re-fit changes the layout box, which invalidates a cached base and any
+  // active pan/zoom; reset to identity so the measurement is untransformed
+  if (view.scale !== 1 || view.x !== 0 || view.y !== 0) resetZoom();
   const desktop = window.matchMedia(DESKTOP_LAYOUT);
   if (!desktop.matches) {
     els.img.style.width = "";
     els.img.style.height = "";
+    if (els.img.naturalWidth) measureBase();
     return;
   }
   if (!els.img.naturalWidth) return;
@@ -447,6 +455,7 @@ function fitPhotoToStage(): void {
   if (!fit) return;
   els.img.style.width = `${fit.width}px`;
   els.img.style.height = `${fit.height}px`;
+  measureBase();
 }
 
 async function init(): Promise<void> {

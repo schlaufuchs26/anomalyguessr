@@ -11,17 +11,18 @@
       "difficulty": "klassisch",
       "image": "scenes/pike-place-seattle.jpg",
       "original": "scenes/pike-place-seattle-original.jpg",
-      "anomaly": "Plastikflasche",
+      "anomaly": "Pappkaffeebecher",
       "answer": {
-        "x": 0.2,
-        "y": 0.75,
-        "r": 0.05
+        "x": 0.185,
+        "y": 0.78,
+        "r": 0.045
       },
       "hints": [
-        "Es steht zwischen Waren auf einem Stand.",
+        "Es steht auf einem Verkaufsstand mit Obst.",
         "Untere linke Bildhälfte.",
-        "Im Obststand unten links, zwischen den Waren: eine Plastikflasche."
-      ]
+        "Links unten am Obststand, zwischen den Früchten: ein Pappkaffeebecher mit Deckel."
+      ],
+      "description": "Die Marktstraße am Pike Place in Seattle kurz nach der Eröffnung des berühmten öffentlichen Marktes 1907: Bauernwagen, Obst- und Gemüsestände und dichtes Gedränge an der Bucht."
     },
     {
       "id": "brisbane-fruit-market",
@@ -43,7 +44,8 @@
         "Es steht zwischen Waren.",
         "Linke Bildhälfte, mittlere Höhe.",
         "Links am Rand zwischen Kisten und Säcken: eine Plastikflasche."
-      ]
+      ],
+      "description": "Obstmarkt in der Turbot Street, Brisbane, 1907: Pferdewagen mit Planen, Kisten und Säcke voller Obst und Gemüse säumen die Straße, Käufer und Verkäufer drängen sich dazwischen."
     },
     {
       "id": "budapest-market-1900",
@@ -65,7 +67,8 @@
         "Es steht auf einem Tisch mit Waren.",
         "Mittlere Bildhälfte, etwas links.",
         "Auf dem vorderen Tisch zwischen Obst und Gemüse: eine Plastikflasche."
-      ]
+      ],
+      "description": "Ein ungarischer Wochenmarkt um 1900: An Holztischen wird Obst und Gemüse feilgeboten, Kundschaft umdrängt die Stände - ein alltägliches Bild, das sich in ähnlicher Form seit Jahrhunderten wiederholt."
     },
     {
       "id": "hungary-market-square",
@@ -77,17 +80,18 @@
       "difficulty": "klassisch",
       "image": "scenes/hungary-market-square.jpg",
       "original": "scenes/hungary-market-square-original.jpg",
-      "anomaly": "Plastikflasche",
+      "anomaly": "Getränkedose",
       "answer": {
-        "x": 0.6,
-        "y": 0.75,
-        "r": 0.05
+        "x": 0.08,
+        "y": 0.68,
+        "r": 0.04
       },
       "hints": [
-        "Es steht auf einem Verkaufsstand.",
-        "Rechte Bildhälfte, untere Mitte.",
-        "Auf dem Holzgestell rechts, zwischen den Warenkörben: eine Plastikflasche."
-      ]
+        "Es steht auf einem Holzgestell mit Waren.",
+        "Linke Bildhälfte, unterer Bereich.",
+        "Auf dem Holzgestell ganz links, zwischen den Körben: eine Getränkedose."
+      ],
+      "description": "Ein Marktplatz in Ungarn um 1915: Holzstände und Körbe mit Waren, Menschen in ländlicher Kleidung beim Einkaufen - Handel als Mittelpunkt des Dorflebens."
     },
     {
       "id": "townsville-parade",
@@ -109,7 +113,8 @@
         "Eine Person hält es in der Hand.",
         "Rechte Bildhälfte.",
         "Der Mann im rechten Teil der Menge hält ein Smartphone in der erhobenen Hand."
-      ]
+      ],
+      "description": "Föderationsparade in der Flinders Street, Townsville, 1910: Die junge australische Nation feiert mit Umzug, Fahnen, berittenen Einheiten und dichten Zuschauermassen."
     },
     {
       "id": "cheyenne-frontier-days",
@@ -131,7 +136,8 @@
         "Es liegt auf einem Notenständer.",
         "Linke Bildhälfte, mittlere Höhe.",
         "Auf dem Notenständer neben den Notenblättern: ein Smartphone."
-      ]
+      ],
+      "description": "Frontier Days in Cheyenne, Wyoming, 1908: die bis heute gefeierte Western-Parade mit Musikkapelle, Pferden und Zuschauern vor den Geschäftszeilen der Stadt."
     },
     {
       "id": "brisbane-queen-street",
@@ -153,7 +159,8 @@
         "Ein Zuschauer hält es in der Hand.",
         "Linke untere Ecke.",
         "Der Mann am linken unteren Bildrand hält ein Smartphone in der Hand."
-      ]
+      ],
+      "description": "Parade in der Queen Street, Brisbane, Januar 1900: berittene Soldaten ziehen durch die Stadt, Zuschauer säumen Straßen und Balkone - die Kolonie rüstet sich für den Burenkrieg."
     },
     {
       "id": "newyork-park-row",
@@ -175,7 +182,8 @@
         "Eine Person trägt es am Körper.",
         "Linke Bildhälfte, unterer Bereich.",
         "Am Handgelenk eines Mannes in der linken unteren Menge: eine Digitaluhr."
-      ]
+      ],
+      "description": "Park Row und Nassau Street in New York um 1900: das Zeitungsviertel der Stadt mit hoch aufragenden Bürohäusern, Pferdebahnen, Kutschen und dichtem Fußgängerverkehr."
     },
     {
       "id": "jammu-bazaar",
@@ -197,7 +205,8 @@
         "Eine Person trägt es am Körper.",
         "Linke Bildhälfte, mittlere Höhe.",
         "Am Handgelenk des Mannes in heller Kleidung links: eine Digitaluhr."
-      ]
+      ],
+      "description": "Der Butcher's Bazaar in Jammu, Indien, um 1900: eine enge Marktgasse mit Verkaufsständen, Körben und Passanten - ein lebendiges Zentrum des Alltagshandels."
     }
   ]
 }

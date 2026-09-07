@@ -35,8 +35,13 @@ bun run checks     # format + tsc + biome + knip + tests
 - `💡 Tipp zeigen` reveals the next of three progressive hints
   (what it's attached to → which half → exact spot + object name). Each hint
   used scales the score by 0.85 / 0.7 / 0.55.
+- A short context paragraph under the title describes what the photo shows
+  and its historical background (place, year, period).
 - Scenes carry an internal difficulty tier (dezent / klassisch / auffaellig)
   used for generation and tuning; it is not shown in the UI.
+- The planted anomalies are varied and context-fitting (e.g. a coffee cup on
+  a market stall, a drink can among baskets, a wristwatch on a passer-by, a
+  phone in a parade crowd), not a fixed object set.
 - All source photos are landscape (wider than tall).
 
 ## Daily selection
@@ -63,6 +68,7 @@ Each scene entry:
   "image": "scenes/jammu-bazaar.jpg",
   "original": "scenes/jammu-bazaar-original.jpg",
   "anomaly": "Digitaluhr",
+  "description": "Der Butcher's Bazaar in Jammu, Indien, um 1900: eine enge Marktgasse mit Verkaufsständen, Körben und Passanten.",
   "answer": { "x": 0.11, "y": 0.62, "r": 0.03 },
   "hints": [
     "Eine Person trägt es am Körper.",

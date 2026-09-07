@@ -16,6 +16,8 @@ export interface Scene {
   original: string;
   /** Short label of the planted object, e.g. "Plastikflasche". */
   anomaly: string;
+  /** 1-2 sentence context: what the photo shows + historical background. */
+  description: string;
   /** Normalized answer position (0..1, top-left origin) and hit radius. */
   answer: { x: number; y: number; r: number };
   /** Progressive hints, coarse to precise. The last one names the object. */
@@ -80,6 +82,7 @@ function parseScene(raw: unknown, index: number): Scene {
     image: reqString(raw.image, where, "image"),
     original: reqString(raw.original, where, "original"),
     anomaly: reqString(raw.anomaly, where, "anomaly"),
+    description: reqString(raw.description, where, "description"),
     answer: { x: nx, y: ny, r: nr },
     hints: [hints[0] as string, hints[1] as string, hints[2] as string],
   };
