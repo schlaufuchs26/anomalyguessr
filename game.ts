@@ -1,4 +1,4 @@
-import { DAILY_COUNT, dateLabel, pickDaily } from "./daily";
+import { DAILY_COUNT, dateFromKey, dateLabel, pickDaily } from "./daily";
 import { fitInto, panBy, type ViewState, zoomAt } from "./layout";
 import { type Manifest, parseManifest, type Scene } from "./manifest";
 import { clickDistance, scoreFor, type Verdict, verdictFor } from "./scoring";
@@ -77,9 +77,26 @@ let dragStart: { x: number; y: number; view: ViewState } | null = null;
 const activePointers = new Map<number, { x: number; y: number }>();
 let pinchLast: { dist: number; midX: number; midY: number } | null = null;
 
-/** Today's deterministic daily set (5 scenes, seeded order). */
+/**
+ * Today's set. Version-2 manifests are pipeline-shipped daily manifests:
+ * they already contain exactly the day's 5 scenes in play order, so the
+ * frontend plays them as-is. Version-1 manifests are the legacy pool (all
+ * known scenes); for those the frontend falls back to the deterministic
+ * date-seeded selection so the game keeps working while a pool manifest is
+ * live (transition period / manual deploys).
+ */
 function dailySet(): Scene[] {
-  return pickDaily(manifest?.scenes ?? [], quizDay, DAILY_COUNT);
+  if (!manifest) return [];
+  if (manifest.version === 1)
+    return pickDaily(manifest.scenes, quizDay, DAILY_COUNT);
+  return manifest.scenes;
+}
+
+/** German end-screen label for the quiz day (manifest date beats browser). */
+function quizLabel(): string {
+  if (manifest?.version === 2 && manifest.date)
+    return dateLabel(dateFromKey(manifest.date));
+  return dateLabel(quizDay);
 }
 
 function scene(): Scene {
@@ -407,7 +424,7 @@ function showEnd(): void {
   const scores = state.queue.map((_, i) => state.scores[i] ?? 0);
   const total = scores.reduce((sum, v) => sum + v, 0);
   const avg = Math.round(total / n);
-  els.endDate.textContent = `Tagesquiz vom ${dateLabel(quizDay)}`;
+  els.endDate.textContent = `Tagesquiz vom ${quizLabel()}`;
   els.endList.innerHTML = "";
   for (let i = 0; i < n; i++) {
     const s = state.queue[i];

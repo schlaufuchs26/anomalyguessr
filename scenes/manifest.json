@@ -22,13 +22,22 @@
         "Untere linke Bildhälfte.",
         "Links unten am Obststand, zwischen den Früchten: ein Pappkaffeebecher mit Deckel."
       ],
-      "description": "Die Marktstraße am Pike Place in Seattle kurz nach der Eröffnung des berühmten öffentlichen Marktes 1907: Bauernwagen, Obst- und Gemüsestände und dichtes Gedränge an der Bucht."
+      "description": "Markttreiben auf dem Pike Place in Seattle, ca. 1907: Bauernwagen und Stände mit Obst und Gemüse, dicht gedrängte Menschenmenge. Der Pike-Place-Markt eröffnete 1907 als Gruppe von Bauernwagen an der Ecke 1st Avenue und Pike Street (Begleittext der Quelle).",
+      "source": {
+        "repository": "Wikimedia Commons (DPLA; Seattle Public Library)",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:Market_vendors_gathering_on_Pike_Place,_ca._1907_-_DPLA_-_f62ac740d22b6ca81f281666c4c52882_(page_1).jpg",
+        "originalTitle": "Market vendors gathering on Pike Place, ca. 1907",
+        "date": "1907?",
+        "place": "Seattle",
+        "license": "Public Domain",
+        "description": "Seattle's Pike Place Market first opened in 1907 with humble beginnings as a group of farmers' carts at 1st and Pike. In the early 1900's, thousands of farmers supplied produce to the city from far and wide."
+      }
     },
     {
       "id": "brisbane-fruit-market",
       "title": "Obstmarkt in der Turbot Street",
       "place": "Brisbane, Australien",
-      "year": "1907",
+      "year": "September 1907",
       "credit": "State Library of Queensland (CC0), via Wikimedia Commons",
       "sourceUrl": "https://commons.wikimedia.org/wiki/File:Fruit_market_on_Turbot_Street_in_Brisbane_September_1907.jpg",
       "difficulty": "klassisch",
@@ -45,13 +54,22 @@
         "Linke Bildhälfte, mittlere Höhe.",
         "Links am Rand zwischen Kisten und Säcken: eine Plastikflasche."
       ],
-      "description": "Obstmarkt in der Turbot Street, Brisbane, 1907: Pferdewagen mit Planen, Kisten und Säcke voller Obst und Gemüse säumen die Straße, Käufer und Verkäufer drängen sich dazwischen."
+      "description": "Obstmarkt in der Turbot Street, Brisbane, September 1907. Laut Katalog der State Library of Queensland: mit Erzeugnissen beladene Pferdewagen reihen sich in der Seitenstraße auf.",
+      "source": {
+        "repository": "Wikimedia Commons (State Library of Queensland)",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:Fruit_market_on_Turbot_Street_in_Brisbane_September_1907.jpg",
+        "originalTitle": "Fruit market on Turbot Street in Brisbane September 1907",
+        "date": "1907",
+        "place": "Brisbane (Turbot Street)",
+        "license": "CC0",
+        "description": "Horsedrawn carts are lined up loaded with produce in the side street in Brisbane."
+      }
     },
     {
       "id": "budapest-market-1900",
       "title": "Markt mit Obstständen",
-      "place": "Ungarn",
-      "year": "ca. 1900",
+      "place": "Italien",
+      "year": "1900",
       "credit": "Fortepan (Public Domain), via Wikimedia Commons",
       "sourceUrl": "https://commons.wikimedia.org/wiki/File:Market_Fortepan_70496.jpg",
       "difficulty": "klassisch",
@@ -68,13 +86,22 @@
         "Mittlere Bildhälfte, etwas links.",
         "Auf dem vorderen Tisch zwischen Obst und Gemüse: eine Plastikflasche."
       ],
-      "description": "Ein ungarischer Wochenmarkt um 1900: An Holztischen wird Obst und Gemüse feilgeboten, Kundschaft umdrängt die Stände - ein alltägliches Bild, das sich in ähnlicher Form seit Jahrhunderten wiederholt."
+      "description": "Marktszene mit Holztischen, Obst und Gemüse aus dem Jahr 1900, Fotografie aus dem Fortepan-Archiv (ID 70496). Der Commons-Datensatz ordnet das Foto dem Jahr 1900 in Italien zu; einen genaueren Ort nennt der Katalog nicht.",
+      "source": {
+        "repository": "Wikimedia Commons (Fortepan)",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:Market_Fortepan_70496.jpg",
+        "originalTitle": "Market Fortepan 70496",
+        "date": "1900",
+        "place": "",
+        "license": "Public Domain",
+        "description": "Tags: market. Commons-Kategorie: 1900 in Italy."
+      }
     },
     {
       "id": "hungary-market-square",
       "title": "Marktplatz",
-      "place": "Ungarn",
-      "year": "ca. 1915",
+      "place": "unbekannt",
+      "year": "1915",
       "credit": "Fortepan (Public Domain), via Wikimedia Commons",
       "sourceUrl": "https://commons.wikimedia.org/wiki/File:Market_Fortepan_85983.jpg",
       "difficulty": "klassisch",
@@ -91,7 +118,16 @@
         "Linke Bildhälfte, unterer Bereich.",
         "Auf dem Holzgestell ganz links, zwischen den Körben: eine Getränkedose."
       ],
-      "description": "Ein Marktplatz in Ungarn um 1915: Holzstände und Körbe mit Waren, Menschen in ländlicher Kleidung beim Einkaufen - Handel als Mittelpunkt des Dorflebens."
+      "description": "Marktszene mit Holzständen, Körben und Waren aus dem Jahr 1915, Fotografie aus dem Fortepan-Archiv (ID 85983). Einen Ort nennt der Katalogdatensatz nicht (Kategorien: Erster Weltkrieg, 1915).",
+      "source": {
+        "repository": "Wikimedia Commons (Fortepan)",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:Market_Fortepan_85983.jpg",
+        "originalTitle": "Market Fortepan 85983",
+        "date": "1915",
+        "place": "",
+        "license": "Public Domain",
+        "description": "Tags: market. Commons-Kategorien: World War I images from Fortepan; World War I in 1915."
+      }
     },
     {
       "id": "townsville-parade",
@@ -114,7 +150,16 @@
         "Rechte Bildhälfte.",
         "Der Mann im rechten Teil der Menge hält ein Smartphone in der erhobenen Hand."
       ],
-      "description": "Föderationsparade in der Flinders Street, Townsville, 1910: Die junge australische Nation feiert mit Umzug, Fahnen, berittenen Einheiten und dichten Zuschauermassen."
+      "description": "Föderationsparade in der Flinders Street, Townsville, 1910: Straßenparade mit Reitern, uniformierten Männern und Offiziellen; Zuschauer säumen Gehwege und Balkone (Katalogbeschreibung der State Library of Queensland).",
+      "source": {
+        "repository": "Wikimedia Commons (State Library of Queensland)",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:StateLibQld_1_120568_Federation_parade_in_Flinders_Street,_Townsville,_Queensland,_1910.jpg",
+        "originalTitle": "StateLibQld 1 120568 Federation parade in Flinders Street, Townsville, Queensland, 1910",
+        "date": "1910",
+        "place": "Townsville, Queensland",
+        "license": "Public Domain",
+        "description": "Federation parade in Flinders Street, Townsville, Queensland, 1910. Street parade including horsemen, men in uniform and officials marching in Flinders Street, Townsville to celebrate hoisting the Federal Flag. Crowds of people are gathered on the footpath and balconies of buildings to view the procession."
+      }
     },
     {
       "id": "cheyenne-frontier-days",
@@ -137,13 +182,22 @@
         "Linke Bildhälfte, mittlere Höhe.",
         "Auf dem Notenständer neben den Notenblättern: ein Smartphone."
       ],
-      "description": "Frontier Days in Cheyenne, Wyoming, 1908: die bis heute gefeierte Western-Parade mit Musikkapelle, Pferden und Zuschauern vor den Geschäftszeilen der Stadt."
+      "description": "Frontier Days in Cheyenne, Wyoming, 1908: eine Menschenmenge schaut einer Musikkapelle auf der Capitol Avenue zu (Katalogbeschreibung der Quelle, Foto von Joseph E. Stimson).",
+      "source": {
+        "repository": "Wikimedia Commons (DPLA; University of Colorado Boulder Libraries)",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:Frontier_Days_street_scene_in_Cheyenne,_Wyoming_-_DPLA_-_0f0ebfa81a4f1ece008ddc42ba8161a2.jpg",
+        "originalTitle": "Frontier Days street scene in Cheyenne, Wyoming",
+        "date": "1908",
+        "place": "Cheyenne, Wyoming",
+        "license": "Public Domain",
+        "description": "Crowd watching a band play on Capitol Avenue during the Cheyenne, Wyoming Frontier Days celebration. Photographer: Joseph E. Stimson (Stimson photograph number 2114); original at the Wyoming State Archives."
+      }
     },
     {
       "id": "brisbane-queen-street",
       "title": "Parade in der Queen Street",
       "place": "Brisbane, Australien",
-      "year": "1900",
+      "year": "Januar 1900",
       "credit": "State Library of Queensland (Public Domain), via Wikimedia Commons",
       "sourceUrl": "https://commons.wikimedia.org/wiki/File:StateLibQld_2_201107_Street_parade_in_Queen_Street,_Brisbane,_January_1900.jpg",
       "difficulty": "auffaellig",
@@ -160,7 +214,16 @@
         "Linke untere Ecke.",
         "Der Mann am linken unteren Bildrand hält ein Smartphone in der Hand."
       ],
-      "description": "Parade in der Queen Street, Brisbane, Januar 1900: berittene Soldaten ziehen durch die Stadt, Zuschauer säumen Straßen und Balkone - die Kolonie rüstet sich für den Burenkrieg."
+      "description": "Straßenparade in der Queen Street, Brisbane, Januar 1900: Soldaten zu Pferd ziehen durch die Straße, Menschenmengen säumen beide Straßenseiten (Katalogbeschreibung der State Library of Queensland).",
+      "source": {
+        "repository": "Wikimedia Commons (State Library of Queensland)",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:StateLibQld_2_201107_Street_parade_in_Queen_Street,_Brisbane,_January_1900.jpg",
+        "originalTitle": "StateLibQld 2 201107 Street parade in Queen Street, Brisbane, January 1900",
+        "date": "1900-01-20",
+        "place": "Brisbane (Queen Street)",
+        "license": "Public Domain",
+        "description": "Street parade in Queen Street, Brisbane, January 1900. Crowds line both sides of the street to view the parade of soldiers on horseback."
+      }
     },
     {
       "id": "newyork-park-row",
@@ -183,13 +246,22 @@
         "Linke Bildhälfte, unterer Bereich.",
         "Am Handgelenk eines Mannes in der linken unteren Menge: eine Digitaluhr."
       ],
-      "description": "Park Row und Nassau Street in New York um 1900: das Zeitungsviertel der Stadt mit hoch aufragenden Bürohäusern, Pferdebahnen, Kutschen und dichtem Fußgängerverkehr."
+      "description": "Park Row und Nassau Street in New York, ca. 1900: belebte Straßenszene mit Fußgängern und Verkehr. Stereofoto aus der Robert Dennis Collection of Stereoscopic Views (NYPL).",
+      "source": {
+        "repository": "Wikimedia Commons (NYPL)",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:Park_Row_and_Nassau_Street,_N.Y_(NYPL_b11708032-G91F179_044F).tiff",
+        "originalTitle": "Park Row and Nassau Street, N.Y (NYPL b11708032-G91F179 044F)",
+        "date": "1900",
+        "place": "New York",
+        "license": "Public Domain",
+        "description": "Robert Dennis Collection of Stereoscopic Views; streets in Manhattan below 14th including Park Row and Nassau."
+      }
     },
     {
       "id": "jammu-bazaar",
       "title": "Butcher's Bazaar",
       "place": "Jammu, Indien",
-      "year": "ca. 1900",
+      "year": "ca. 1875–1940",
       "credit": "Public Domain, via Wikimedia Commons",
       "sourceUrl": "https://commons.wikimedia.org/wiki/File:Butcher%27s_Bazaar,_Jammu,_ca.1875-ca.1940_(imp-cswc-GB-237-CSWC47-LS10-028).jpg",
       "difficulty": "dezent",
@@ -206,7 +278,16 @@
         "Linke Bildhälfte, mittlere Höhe.",
         "Am Handgelenk des Mannes in heller Kleidung links: eine Digitaluhr."
       ],
-      "description": "Der Butcher's Bazaar in Jammu, Indien, um 1900: eine enge Marktgasse mit Verkaufsständen, Körben und Passanten - ein lebendiges Zentrum des Alltagshandels."
+      "description": "Der Butcher's Bazaar in Jammu, aufgenommen zwischen ca. 1875 und ca. 1940: eine Marktstraße mit kleinen Läden und Ständen auf beiden Seiten (Katalogbeschreibung der USC Digital Library).",
+      "source": {
+        "repository": "Wikimedia Commons (USC Digital Library; Church of Scotland Foreign Missions Committee)",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:Butcher%27s_Bazaar,_Jammu,_ca.1875-ca.1940_(imp-cswc-GB-237-CSWC47-LS10-028).jpg",
+        "originalTitle": "Butcher's Bazaar, Jammu, ca.1875-ca.1940 (imp-cswc-GB-237-CSWC47-LS10-028)",
+        "date": "1875/1940",
+        "place": "Jammu",
+        "license": "Public Domain",
+        "description": "Photograph of a butcher's bazaar in the city of Jammu. A bazaar is a street of shops where goods and services are exchanged. A number of small shops or market stalls can be seen on either side of a street."
+      }
     }
   ]
 }

@@ -2,13 +2,40 @@ type Difficulty = "dezent" | "klassisch" | "auffaellig";
 
 const DIFFICULTIES: Difficulty[] = ["dezent", "klassisch", "auffaellig"];
 
+/**
+ * Provenance of the source photograph, taken from the source's OWN catalog
+ * metadata (Wikimedia Commons / DPLA / State Library of Queensland /
+ * Fortepan / ... file record), never inferred from the image. Required for
+ * pipeline-shipped daily manifests (version 2) so every scene stays
+ * historically traceable.
+ */
+export interface SceneSource {
+  /** Human-readable repository name, e.g. "Wikimedia Commons (DPLA)". */
+  repository: string;
+  /** URL of the catalog record / file page the image came from. */
+  fileUrl: string;
+  /** The record's own title for the image. */
+  originalTitle: string;
+  /** The record's own date string (may be a range or "ca."). */
+  date: string;
+  /** The record's own place string; empty when the record has none. */
+  place: string;
+  /** License as stated by the record, e.g. "Public Domain". */
+  license: string;
+  /** The record's own description text; empty when the record has none. */
+  description: string;
+}
+
 export interface Scene {
   id: string;
+  /** German UI label for the scene (derived from, never contradicting, the source). */
   title: string;
   place: string;
   year: string;
   credit: string;
   sourceUrl: string;
+  /** Provenance block; required in version-2 (pipeline) manifests. */
+  source?: SceneSource;
   difficulty: Difficulty;
   /** Relative path to the tampered image (one planted anomaly). */
   image: string;
@@ -16,7 +43,10 @@ export interface Scene {
   original: string;
   /** Short label of the planted object, e.g. "Plastikflasche". */
   anomaly: string;
-  /** 1-2 sentence context: what the photo shows + historical background. */
+  /**
+   * 1-2 sentence context. Written strictly from the source metadata (and
+   * plain visible content): no invented dates, names, events or context.
+   */
   description: string;
   /** Normalized answer position (0..1, top-left origin) and hit radius. */
   answer: { x: number; y: number; r: number };
@@ -25,9 +55,14 @@ export interface Scene {
 }
 
 export interface Manifest {
-  version: number;
+  /** 1 = legacy pool (frontend date-seeds 5 of N); 2 = pipeline daily set. */
+  version: 1 | 2;
+  /** Quiz date (YYYY-MM-DD); required for version 2. */
+  date?: string;
   scenes: Scene[];
 }
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
@@ -43,11 +78,34 @@ function reqString(v: unknown, where: string, key: string): string {
   return v;
 }
 
+function optString(v: unknown, where: string, key: string): string {
+  if (v === undefined) return "";
+  if (typeof v !== "string") fail(where, `${key} must be a string`);
+  return v;
+}
+
 function isDifficulty(v: unknown): v is Difficulty {
   return typeof v === "string" && (DIFFICULTIES as string[]).includes(v);
 }
 
-function parseScene(raw: unknown, index: number): Scene {
+function parseSource(raw: unknown, where: string): SceneSource {
+  if (!isRecord(raw)) fail(where, "source must be an object");
+  return {
+    repository: reqString(raw.repository, where, "source.repository"),
+    fileUrl: reqString(raw.fileUrl, where, "source.fileUrl"),
+    originalTitle: reqString(raw.originalTitle, where, "source.originalTitle"),
+    date: reqString(raw.date, where, "source.date"),
+    place: optString(raw.place, where, "source.place"),
+    license: reqString(raw.license, where, "source.license"),
+    description: optString(raw.description, where, "source.description"),
+  };
+}
+
+function parseScene(
+  raw: unknown,
+  index: number,
+  requireSource: boolean,
+): Scene {
   const where = `scenes[${index}]`;
   if (!isRecord(raw)) fail(where, "not an object");
   const answer = raw.answer;
@@ -71,7 +129,7 @@ function parseScene(raw: unknown, index: number): Scene {
   }
   if (!isDifficulty(raw.difficulty))
     fail(where, "difficulty must be dezent|klassisch|auffaellig");
-  return {
+  const scene: Scene = {
     id: reqString(raw.id, where, "id"),
     title: reqString(raw.title, where, "title"),
     place: reqString(raw.place, where, "place"),
@@ -86,14 +144,35 @@ function parseScene(raw: unknown, index: number): Scene {
     answer: { x: nx, y: ny, r: nr },
     hints: [hints[0] as string, hints[1] as string, hints[2] as string],
   };
+  if (raw.source !== undefined || requireSource) {
+    scene.source = parseSource(raw.source, where);
+  }
+  return scene;
 }
 
 /** Validates a parsed JSON manifest; throws on malformed entries. */
 export function parseManifest(raw: unknown): Manifest {
   if (!isRecord(raw)) fail("root", "not an object");
-  if (raw.version !== 1)
+  if (raw.version !== 1 && raw.version !== 2)
     fail("root", `unsupported version ${String(raw.version)}`);
   if (!Array.isArray(raw.scenes) || raw.scenes.length === 0)
     fail("root", "scenes must be a non-empty array");
-  return { version: 1, scenes: raw.scenes.map(parseScene) };
+  const version = raw.version as 1 | 2;
+  const requireSource = version === 2;
+  let date: string | undefined;
+  if (version === 2) {
+    if (raw.date === undefined) fail("root", "date is required for version 2");
+    date = reqString(raw.date, "root", "date");
+    if (!ISO_DATE.test(date))
+      fail("root", `date must be YYYY-MM-DD, got ${date}`);
+  } else if (raw.date !== undefined) {
+    date = reqString(raw.date, "root", "date");
+    if (!ISO_DATE.test(date))
+      fail("root", `date must be YYYY-MM-DD, got ${date}`);
+  }
+  return {
+    version,
+    ...(date !== undefined ? { date } : {}),
+    scenes: raw.scenes.map((s, i) => parseScene(s, i, requireSource)),
+  };
 }

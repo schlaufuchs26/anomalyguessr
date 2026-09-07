@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   DAILY_COUNT,
+  dateFromKey,
   dateKey,
   dateLabel,
   hashString,
@@ -22,6 +23,17 @@ describe("dateKey / dateLabel", () => {
 
   test("formats a German display label", () => {
     expect(dateLabel(new Date(2026, 8, 7))).toBe("7. September 2026");
+  });
+
+  test("round-trips dateFromKey through dateKey (local calendar date)", () => {
+    expect(dateFromKey("2026-09-07")).toEqual(new Date(2026, 8, 7));
+    expect(dateKey(dateFromKey("2026-12-31"))).toBe("2026-12-31");
+    expect(dateLabel(dateFromKey("2026-09-07"))).toBe("7. September 2026");
+  });
+
+  test("dateFromKey rejects malformed keys", () => {
+    expect(() => dateFromKey("2026-9-7")).toThrow(/invalid date key/);
+    expect(() => dateFromKey("hello")).toThrow(/invalid date key/);
   });
 });
 

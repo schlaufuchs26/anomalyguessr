@@ -1,4 +1,9 @@
-/** Deterministic daily-quiz selection (TimeGuessr model). */
+/**
+ * Daily-quiz helpers. Version-2 pipeline manifests ship the day's 5 scenes
+ * ready-made (the frontend plays them in manifest order); pickDaily is the
+ * legacy fallback for version-1 pool manifests, where the frontend derives
+ * the day's set deterministically from the local date (TimeGuessr model).
+ */
 
 export const DAILY_COUNT = 5;
 
@@ -28,6 +33,13 @@ export function dateKey(date: Date): string {
 /** German display label, e.g. "7. September 2026". */
 export function dateLabel(date: Date): string {
   return `${date.getDate()}. ${MONTHS_DE[date.getMonth()] ?? ""} ${date.getFullYear()}`;
+}
+
+/** Parses a YYYY-MM-DD manifest date into a local Date (no TZ surprises). */
+export function dateFromKey(key: string): Date {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key);
+  if (!m) throw new Error(`invalid date key: ${key}`);
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
 }
 
 /** FNV-1a-ish string hash → 32-bit unsigned seed. */
