@@ -1,3 +1,4 @@
+import { fitInto } from "./layout";
 import {
   DIFFICULTIES,
   DIFFICULTY_LABELS,
@@ -29,6 +30,7 @@ const els = {
   filter: $("#filter"),
   game: $("#game"),
   end: $("#end"),
+  stage: $(".stage"),
   sceneTitle: $("#scene-title"),
   scenePlace: $("#scene-place"),
   sceneDifficulty: $("#scene-difficulty"),
@@ -44,6 +46,8 @@ const els = {
   restartBtn: $("#restart-btn") as HTMLButtonElement,
   loadError: $("#load-error"),
 };
+
+const DESKTOP_LAYOUT = "(min-width: 900px) and (min-height: 560px)";
 
 const VERDICT_COPY: Record<Verdict, { headline: string; note: string }> = {
   saved: {
@@ -120,6 +124,7 @@ function renderScene(): void {
   els.sceneDifficulty.textContent = DIFFICULTY_LABELS[s.difficulty];
   els.sceneDifficulty.className = `badge ${s.difficulty}`;
   els.sceneProgress.textContent = `${state.index + 1} / ${state.queue.length}`;
+  els.img.removeAttribute("style");
   els.img.src = s.image;
   els.img.alt = `Historisches Foto: ${s.title} (${s.place}, ${s.year})`;
   els.hintText.textContent = "";
@@ -131,6 +136,7 @@ function renderScene(): void {
   els.nextBtn.hidden = true;
   els.overlay.classList.remove("waiting");
   clearMarkers();
+  fitPhotoToStage();
 }
 
 function clearMarkers(): void {
@@ -266,12 +272,48 @@ function buildFilters(): void {
   all?.setAttribute("aria-pressed", "true");
 }
 
+/**
+ * Fit the current photo into the stage box on the laptop layout. The stage
+ * has a fixed viewport-derived size there (CSS media query), so the image
+ * needs explicit pixel dimensions to keep the click overlay aligned with the
+ * displayed photo (a letterboxed object-fit would break the coordinate math
+ * in onOverlayClick). On the stacked layout the stage is content-sized and
+ * the plain CSS max-width constraint applies instead.
+ */
+function fitPhotoToStage(): void {
+  const desktop = window.matchMedia(DESKTOP_LAYOUT);
+  if (!desktop.matches) {
+    els.img.style.width = "";
+    els.img.style.height = "";
+    return;
+  }
+  if (!els.img.naturalWidth) return;
+  const w = els.stage.clientWidth;
+  const h = els.stage.clientHeight;
+  if (w <= 0 || h <= 0) return;
+  // keep the 1px photo border inside the stage
+  const fit = fitInto(
+    w - 2,
+    h - 2,
+    els.img.naturalWidth,
+    els.img.naturalHeight,
+  );
+  if (!fit) return;
+  els.img.style.width = `${fit.width}px`;
+  els.img.style.height = `${fit.height}px`;
+}
+
 async function init(): Promise<void> {
   els.hintBtn.addEventListener("click", onHint);
   els.overlay.addEventListener("click", onOverlayClick);
   els.compareBtn.addEventListener("click", toggleCompare);
   els.nextBtn.addEventListener("click", nextScene);
   els.restartBtn.addEventListener("click", () => startRun(activeFilter));
+  els.img.addEventListener("load", fitPhotoToStage);
+  window.addEventListener("resize", () => fitPhotoToStage());
+  window
+    .matchMedia(DESKTOP_LAYOUT)
+    .addEventListener("change", () => fitPhotoToStage());
   try {
     const res = await fetch("scenes/manifest.json");
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
