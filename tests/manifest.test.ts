@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { DIFFICULTY_LABELS, type Manifest, parseManifest } from "../manifest";
+import { type Manifest, parseManifest } from "../manifest";
 
 function validScene(): Record<string, unknown> {
   return {
@@ -32,9 +32,7 @@ describe("parseManifest", () => {
     expect(m.version).toBe(1);
     expect(m.scenes).toHaveLength(1);
     expect(m.scenes[0]?.answer.x).toBe(0.3);
-    expect(DIFFICULTY_LABELS[m.scenes[0]?.difficulty ?? "klassisch"]).toBe(
-      "Klassisch",
-    );
+    expect(m.scenes[0]?.difficulty).toBe("klassisch");
   });
 
   test("rejects non-object roots", () => {

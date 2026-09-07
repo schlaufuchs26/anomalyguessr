@@ -1,17 +1,15 @@
+import { DAILY_COUNT, dateLabel, pickDaily } from "./daily";
 import { fitInto, panBy, type ViewState, zoomAt } from "./layout";
-import {
-  DIFFICULTY_LABELS,
-  type Manifest,
-  parseManifest,
-  type Scene,
-} from "./manifest";
+import { type Manifest, parseManifest, type Scene } from "./manifest";
 import { clickDistance, scoreFor, type Verdict, verdictFor } from "./scoring";
 
 interface RunState {
+  /** Today's deterministic daily set. */
   queue: Scene[];
   index: number;
   hintsUsed: number;
-  totalScore: number;
+  /** Per-scene scores, aligned with queue order (-1 until answered). */
+  scores: number[];
   answered: boolean;
   originalView: boolean;
 }
@@ -29,7 +27,6 @@ const els = {
   photo: $("#photo"),
   sceneTitle: $("#scene-title"),
   scenePlace: $("#scene-place"),
-  sceneDifficulty: $("#scene-difficulty"),
   sceneProgress: $("#scene-progress"),
   img: $("#photo-img") as HTMLImageElement,
   overlay: $("#overlay"),
@@ -38,6 +35,8 @@ const els = {
   result: $("#result"),
   compareBtn: $("#compare-btn") as HTMLButtonElement,
   nextBtn: $("#next-btn") as HTMLButtonElement,
+  endDate: $("#end-date"),
+  endList: $("#end-list"),
   endText: $("#end-text"),
   restartBtn: $("#restart-btn") as HTMLButtonElement,
   loadError: $("#load-error"),
@@ -61,11 +60,13 @@ const VERDICT_COPY: Record<Verdict, { headline: string; note: string }> = {
 };
 
 let manifest: Manifest | null = null;
+/** The quiz day, fixed per session load (local calendar day). */
+let quizDay = new Date();
 let state: RunState = {
   queue: [],
   index: 0,
   hintsUsed: 0,
-  totalScore: 0,
+  scores: [],
   answered: false,
   originalView: false,
 };
@@ -74,17 +75,10 @@ let dragMoved = false;
 let dragStart: { x: number; y: number; view: ViewState } | null = null;
 const activePointers = new Map<number, { x: number; y: number }>();
 let pinchLast: { dist: number; midX: number; midY: number } | null = null;
-let lastScoreDelta = 0;
 
-function shuffle<T>(items: T[]): T[] {
-  const copy = [...items];
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    const tmp = copy[i];
-    copy[i] = copy[j] as T;
-    copy[j] = tmp as T;
-  }
-  return copy;
+/** Today's deterministic daily set (5 scenes, seeded order). */
+function dailySet(): Scene[] {
+  return pickDaily(manifest?.scenes ?? [], quizDay, DAILY_COUNT);
 }
 
 function scene(): Scene {
@@ -95,11 +89,12 @@ function scene(): Scene {
 
 function startRun(): void {
   if (!manifest) return;
+  quizDay = new Date();
   state = {
-    queue: shuffle(manifest.scenes),
+    queue: dailySet(),
     index: 0,
     hintsUsed: 0,
-    totalScore: 0,
+    scores: [],
     answered: false,
     originalView: false,
   };
@@ -123,8 +118,6 @@ function renderScene(): void {
   els.end.hidden = true;
   els.sceneTitle.textContent = s.title;
   els.scenePlace.textContent = `${s.place}, ${s.year}`;
-  els.sceneDifficulty.textContent = DIFFICULTY_LABELS[s.difficulty];
-  els.sceneDifficulty.className = `badge ${s.difficulty}`;
   els.sceneProgress.textContent = `${state.index + 1} / ${state.queue.length}`;
   els.img.removeAttribute("style");
   els.img.src = s.image;
@@ -236,8 +229,7 @@ function onDblClick(e: MouseEvent): void {
   // click's guess resolution, then zoom
   if (state.answered) {
     state.answered = false;
-    state.totalScore = Math.max(0, state.totalScore - lastScoreDelta);
-    lastScoreDelta = 0;
+    state.scores[state.index] = -1;
     els.overlay.classList.remove("waiting");
     clearMarkers();
     els.result.className = "result";
@@ -340,8 +332,7 @@ function resolve(nx: number, ny: number): void {
   els.overlay.classList.add("waiting");
   const distance = clickDistance({ x: nx, y: ny }, s.answer);
   const score = scoreFor(distance, s.answer.r, state.hintsUsed);
-  lastScoreDelta = score;
-  state.totalScore += score;
+  state.scores[state.index] = score;
   const verdict = verdictFor(score);
   addMarker("click", nx, ny);
   addMarker("answer", s.answer.x, s.answer.y, s.answer.r);
@@ -403,10 +394,21 @@ function showEnd(): void {
   els.game.hidden = true;
   els.end.hidden = false;
   const n = state.queue.length;
-  const avg = Math.round(state.totalScore / n);
+  const scores = state.queue.map((_, i) => state.scores[i] ?? 0);
+  const total = scores.reduce((sum, v) => sum + v, 0);
+  const avg = Math.round(total / n);
+  els.endDate.textContent = `Tagesquiz vom ${dateLabel(quizDay)}`;
+  els.endList.innerHTML = "";
+  for (let i = 0; i < n; i++) {
+    const s = state.queue[i];
+    if (!s) continue;
+    const li = document.createElement("li");
+    li.textContent = `${i + 1}. ${s.title} · ${scores[i] ?? 0} Punkte`;
+    els.endList.append(li);
+  }
   els.endText.textContent =
-    `${state.totalScore} von ${n * 100} Punkten (Ø ${avg}) ` +
-    `bei ${n} Szenen. Der Zeitfluss bleibt erhalten – vorerst.`;
+    `${total} von ${n * 100} Punkten (Ø ${avg}) bei ${n} Szenen. ` +
+    `Der Zeitfluss bleibt erhalten – vorerst.`;
   els.restartBtn.focus();
 }
 

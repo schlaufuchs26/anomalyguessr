@@ -65,31 +65,6 @@ main {
   font-size: 0.95rem;
 }
 
-.badge {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  padding: 0.15rem 0.6rem;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  color: var(--ink-dim);
-}
-
-.badge.dezent {
-  color: var(--dezent);
-  border-color: var(--dezent);
-}
-
-.badge.klassisch {
-  color: var(--klassisch);
-  border-color: var(--klassisch);
-}
-
-.badge.auffaellig {
-  color: var(--auffaellig);
-  border-color: var(--auffaellig);
-}
-
 .progress {
   margin-left: auto;
   color: var(--ink-dim);
@@ -261,6 +236,24 @@ main {
 .end {
   text-align: center;
   padding: 2rem 0;
+}
+
+.end-date {
+  color: var(--ink-dim);
+  font-size: 0.95rem;
+  margin: 0.3rem 0 1rem;
+}
+
+.end-list {
+  display: inline-block;
+  text-align: left;
+  color: var(--ink-dim);
+  margin: 0 auto 1rem;
+  padding-left: 1.4rem;
+}
+
+.end-list li {
+  margin: 0.15rem 0;
 }
 
 .load-error {

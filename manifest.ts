@@ -1,12 +1,6 @@
-export type Difficulty = "dezent" | "klassisch" | "auffaellig";
+type Difficulty = "dezent" | "klassisch" | "auffaellig";
 
 const DIFFICULTIES: Difficulty[] = ["dezent", "klassisch", "auffaellig"];
-
-export const DIFFICULTY_LABELS: Record<Difficulty, string> = {
-  dezent: "Dezent",
-  klassisch: "Klassisch",
-  auffaellig: "Auffällig",
-};
 
 export interface Scene {
   id: string;

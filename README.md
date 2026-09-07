@@ -1,13 +1,14 @@
 # Temporal Detective 🦊
 
-Spot-the-anachronism browser game. Every round shows a public-domain historical
-photograph (pre-1928) into which exactly **one** modern object was planted with
-AI image editing. Click the spot where something doesn't belong; score by
-distance to the true position. Progressive hints are the safety net for the
-hard rounds.
+Daily spot-the-anachronism quiz. Each day presents a fixed set of **5**
+public-domain historical photographs (pre-1928), each with exactly **one**
+modern object planted by AI image editing. Click the spot where something
+doesn't belong; score by distance to the true position. Progressive hints are
+the safety net for the hard rounds. Everyone gets the same 5 scenes on a given
+day (deterministic date-seeded selection).
 
 Conceit: the "Zeitreisen-Schutzstaffel" (time-travel protection squad) has
-detected an anomaly and you, the Temporal Detective, have to locate it before
+detected anomalies and you, the Temporal Detective, have to locate each before
 the timeline frays.
 
 Play it: <https://schlaufuchs26.github.io/temporal-detective/>
@@ -23,7 +24,8 @@ bun run checks     # format + tsc + biome + knip + tests
 
 ## Gameplay
 
-- One scene = one edited photo + one planted anomaly.
+- One quiz = the daily set of 5 scenes, played in sequence; overall score at
+  the end (max 100 per scene, 500 total).
 - Click anywhere on the photo. Score: `100 * (1 - distance / 0.6)` in
   normalized image space; a click inside the anomaly's answer radius counts as
   a perfect hit (100). The score always uses original-image coordinates.
@@ -33,11 +35,16 @@ bun run checks     # format + tsc + biome + knip + tests
 - `💡 Tipp zeigen` reveals the next of three progressive hints
   (what it's attached to → which half → exact spot + object name). Each hint
   used scales the score by 0.85 / 0.7 / 0.55.
-- Difficulty tiers label expected subtlety: **Dezent** (small muted object,
-  e.g. a digital watch on a wrist), **Klassisch** (e.g. a plastic bottle among
-  stall goods), **Auffällig** (e.g. a smartphone in a hand). The badge on each
-  scene shows its tier.
+- Scenes carry an internal difficulty tier (dezent / klassisch / auffaellig)
+  used for generation and tuning; it is not shown in the UI.
 - All source photos are landscape (wider than tall).
+
+## Daily selection
+
+`daily.ts` derives the day's set from the browser's local calendar date
+(`YYYY-MM-DD`): the date string hashes to a seed for a deterministic shuffle
+(mulberry32), from which the first 5 scenes are taken. Same date → same set and
+order for everyone; consecutive days rotate the set.
 
 ## Scene manifest format
 
