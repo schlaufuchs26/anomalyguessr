@@ -3,174 +3,174 @@
   "date": "2026-09-08",
   "scenes": [
     {
-      "id": "fulton-market",
-      "title": "Fulton Market",
-      "place": "New York, USA",
-      "year": "1870",
-      "credit": "Public Domain (NYPL), via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Fulton_Market_(NYPL_b11708032-G91F179_023F).tiff",
+      "id": "oxford-fair",
+      "title": "Straßenjahrmarkt in Oxford",
+      "place": "Oxford, USA",
+      "year": "1913",
+      "credit": "Public Domain, via Wikimedia Commons (Boston Public Library)",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Crowd_at_Oxford_Street_Fair_1913_(3191478230).jpg",
       "source": {
-        "repository": "Wikimedia Commons (NYPL, Robert Dennis Collection of Stereoscopic Views)",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:Fulton_Market_(NYPL_b11708032-G91F179_023F).tiff",
-        "originalTitle": "Fulton Market (NYPL b11708032-G91F179 023F)",
-        "date": "1870",
-        "place": "New York",
-        "license": "Public Domain",
-        "description": "Robert Dennis Collection of Stereoscopic Views; streets in Manhattan below 14th, market scenes."
+        "repository": "Wikimedia Commons (Boston Public Library, Flickr Commons)",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:Crowd_at_Oxford_Street_Fair_1913_(3191478230).jpg",
+        "originalTitle": "Crowd at Oxford Street Fair 1913 (3191478230).jpg",
+        "date": "1913-09",
+        "place": "Oxford, USA",
+        "license": "Public domain",
+        "description": "Crowd at Oxford Street Fair 1913"
       },
       "difficulty": "klassisch",
-      "anomaly": "Plastikflasche",
-      "description": "Der Fulton Market in New York, 1870: Marktbetrieb mit Ständen, Pferdewagen und Kisten (Stereofoto aus der Robert Dennis Collection of Stereoscopic Views, NYPL).",
+      "anomaly": "Pappkaffeebecher",
+      "description": "Menschenmenge auf dem Oxford Street Fair 1913: Jahrmarkt mit Zelt und Verkaufsständen; im Vordergrund ein Stand unter weißem Sonnensegel.",
       "answer": {
-        "x": 0.3878,
-        "y": 0.6095,
-        "r": 0.15
+        "x": 0.6756,
+        "y": 0.456,
+        "r": 0.0833
       },
       "hints": [
-        "Es steht an Kisten neben einem Wagen.",
-        "Linke Bildhälfte, mittlere Höhe.",
-        "An den Kisten neben dem Pferdewagen links: eine Plastikflasche."
+        "Es steht an einem Verkaufsstand.",
+        "Rechte Bildhälfte, auf dem Tisch des Standes unter dem hellen Sonnensegel.",
+        "Auf dem Standtresen rechts, zwischen den Waren: ein moderner Pappkaffeebecher mit Deckel."
       ],
       "added": "2026-09-08",
       "shown": "2026-09-08",
-      "image": "scenes/fulton-market.jpg",
-      "original": "scenes/fulton-market-original.jpg"
+      "image": "scenes/oxford-fair.jpg",
+      "original": "scenes/oxford-fair-original.jpg"
     },
     {
-      "id": "newyork-pushcarts",
-      "title": "Pushcart-Markt in New York",
-      "place": "New York, USA",
-      "year": "1910",
-      "credit": "Public Domain (Library of Congress, Bain News Service), via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Push_cart_market_-_New_York_LCCN2014699047.jpg",
+      "id": "mulberry-street",
+      "title": "Marktstraße in New York",
+      "place": "New York City, USA",
+      "year": "ca. 1900",
+      "credit": "Public Domain, via Wikimedia Commons (Library of Congress, Detroit Publishing)",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:NYC_Mulberry_Street_3g04637u.jpg",
       "source": {
-        "repository": "Wikimedia Commons (Library of Congress, Bain News Service)",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:Push_cart_market_-_New_York_LCCN2014699047.jpg",
-        "originalTitle": "Push cart market - New York",
-        "date": "1910",
-        "place": "New York",
-        "license": "Public Domain",
-        "description": "Title: Push cart market -- New York. Abstract/medium: 1 negative : glass ; 5 x 7 in. or smaller. Publisher: Bain News Service."
+        "repository": "Wikimedia Commons (Library of Congress, Detroit Publishing)",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:NYC_Mulberry_Street_3g04637u.jpg",
+        "originalTitle": "NYC Mulberry Street 3g04637u.jpg",
+        "date": "ca. 1900",
+        "place": "New York City, USA",
+        "license": "Public domain",
+        "description": "Mulberry Street, New York City"
       },
       "difficulty": "klassisch",
-      "anomaly": "Getränkedose",
-      "description": "Pushcart-Markt in New York, 1910: ein dichter Straßenmarkt mit beladenen Karren und Menschenmenge (Katalogdatensatz der Library of Congress, Bain News Service).",
+      "anomaly": "Pappkaffeebecher",
+      "description": "Belebte Marktstraße in New York City um 1900: dichte Menschenmenge, Warenkarren, Obst- und Gemüsestände (Fotochromdruck, handkoloriert).",
       "answer": {
-        "x": 0.5083,
-        "y": 0.5302,
-        "r": 0.05
+        "x": 0.2655,
+        "y": 0.8181,
+        "r": 0.0917
       },
       "hints": [
         "Es liegt zwischen Waren auf einem Stand.",
-        "Mittlere Bildhälfte, etwas rechts der Mitte.",
-        "Auf dem Stand mit Fisch, zwischen den Waren rechts der Mitte: eine Getränkedose."
+        "Untere linke Hälfte, zwischen Obstkisten und Körben.",
+        "Auf dem Stand mit Obstkisten unten links, zwischen den Körben: ein Pappkaffeebecher mit Deckel."
       ],
       "added": "2026-09-08",
       "shown": "2026-09-08",
-      "image": "scenes/newyork-pushcarts.jpg",
-      "original": "scenes/newyork-pushcarts-original.jpg"
+      "image": "scenes/mulberry-street.jpg",
+      "original": "scenes/mulberry-street-original.jpg"
     },
     {
-      "id": "asakusa-bazaar",
-      "title": "Basarstraße im Asakusa-Viertel",
-      "place": "Tokio, Japan",
-      "year": "zwischen 1880 und 1900",
-      "credit": "Public Domain (DPLA; University of Colorado Boulder), via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Bazaar_street_in_the_Asakusa_district,_Tokyo_-_DPLA_-_110bfe02a6b4466718afe721fa463318.jpg",
+      "id": "ungarn-dorfmarkt-1911",
+      "title": "Ländlicher Markt in Ungarn",
+      "place": "Ungarn",
+      "year": "1911",
+      "credit": "CC BY-SA 3.0, via Wikimedia Commons (Fortepan)",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Market,_trading,_village,_basket_Fortepan_520.jpg",
       "source": {
-        "repository": "Wikimedia Commons (DPLA; University of Colorado Boulder Libraries)",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:Bazaar_street_in_the_Asakusa_district,_Tokyo_-_DPLA_-_110bfe02a6b4466718afe721fa463318.jpg",
-        "originalTitle": "Bazaar street in the Asakusa district, Tokyo",
-        "date": "1880/1900",
-        "place": "Asakusa, Tokio",
-        "license": "Public Domain",
-        "description": "Bazaar street in the Asakusa district, Tokyo. The two figures in white are policemen. Gelatin silver prints, Image No. 14."
+        "repository": "Wikimedia Commons (Fortepan)",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:Market,_trading,_village,_basket_Fortepan_520.jpg",
+        "originalTitle": "Market, trading, village, basket Fortepan 520.jpg",
+        "date": "1911",
+        "place": "Ungarn",
+        "license": "CC BY-SA 3.0",
+        "description": "Market, trading, village, basket"
       },
       "difficulty": "klassisch",
       "anomaly": "Plastikflasche",
-      "description": "Basarstraße im Asakusa-Viertel von Tokio, zwischen ca. 1880 und ca. 1900: Marktstand mit Waren und Körben, Passanten auf der Straße (Katalogdatensatz, University of Colorado Boulder Libraries).",
+      "description": "Ländlicher Markt in Ungarn 1911: Frauen mit Kopftüchern und langen Röcken, Körbe und Bündel mit Waren auf dem Boden eines Dorfplatzes.",
       "answer": {
-        "x": 0.2137,
-        "y": 0.8498,
+        "x": 0.1888,
+        "y": 0.7381,
+        "r": 0.1083
+      },
+      "hints": [
+        "Es steht am Boden neben einem Korb.",
+        "Linke untere Ecke, direkt am Bildrand.",
+        "Links unten, halb hinter dem großen Korb: eine moderne Plastikflasche."
+      ],
+      "added": "2026-09-08",
+      "shown": "2026-09-08",
+      "image": "scenes/ungarn-dorfmarkt-1911.jpg",
+      "original": "scenes/ungarn-dorfmarkt-1911-original.jpg"
+    },
+    {
+      "id": "paramaribo-market",
+      "title": "Überdachter Markt in Paramaribo",
+      "place": "Paramaribo, Suriname",
+      "year": "um 1899",
+      "credit": "Public Domain, via Wikimedia Commons (KITLV)",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:KITLV_-_12667_-_Covered_market_on_the_Waterkant_in_Paramaribo_-_circa_1899.tif",
+      "source": {
+        "repository": "Wikimedia Commons (KITLV)",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:KITLV_-_12667_-_Covered_market_on_the_Waterkant_in_Paramaribo_-_circa_1899.tif",
+        "originalTitle": "KITLV - 12667 - Covered market on the Waterkant in Paramaribo - circa 1899.tif",
+        "date": "um 1899",
+        "place": "Paramaribo, Suriname",
+        "license": "Public domain",
+        "description": "Covered market on the Waterkant in Paramaribo."
+      },
+      "difficulty": "klassisch",
+      "anomaly": "Tetrapak",
+      "description": "Überdachter Markt am Waterkant in Paramaribo um 1899: Verkaufsstände unter einem langen Schutzdach am Flussufer, Holz, Säcke und Waren am Ufer; ein Boot mit einer Person im Vordergrund.",
+      "answer": {
+        "x": 0.769,
+        "y": 0.8673,
         "r": 0.15
       },
       "hints": [
-        "Es steht zwischen Waren und Körben am Boden.",
-        "Linke untere Bildhälfte.",
-        "Links neben den Körben am unteren Bildrand: eine Plastikflasche."
+        "Es liegt bei den Waren am Flussufer.",
+        "Rechte untere Ecke, zwischen Holzplanken und Säcken.",
+        "Unten rechts, halb unter Holzplanken: ein moderner Tetrapak (Saft- oder Milchpackung)."
       ],
       "added": "2026-09-08",
       "shown": "2026-09-08",
-      "image": "scenes/asakusa-bazaar.jpg",
-      "original": "scenes/asakusa-bazaar-original.jpg"
+      "image": "scenes/paramaribo-market.jpg",
+      "original": "scenes/paramaribo-market-original.jpg"
     },
     {
-      "id": "korea-market",
-      "title": "Markt in Korea",
-      "place": "Korea",
-      "year": "1933",
-      "credit": "Public Domain, via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Ip1010_The_Market_of_Korea.tif",
-      "difficulty": "dezent",
-      "anomaly": "Digitaluhr",
-      "description": "Belebter Markt in Korea; Menschen in traditioneller Kleidung mit Tragestangen und Sonnenschirmen, Stände mit Strohdächern.",
-      "answer": {
-        "x": 0.1336,
-        "y": 0.6427,
-        "r": 0.075
-      },
-      "hints": [
-        "Eine Person trägt es am Handgelenk.",
-        "Linke Bildhälfte, mittlerer Bereich.",
-        "Am Handgelenk einer Person links in der Menge: eine moderne Digitaluhr."
-      ],
+      "id": "blidah-market",
+      "title": "Markt in Blida",
+      "place": "Blida, Algerien",
+      "year": "1899",
+      "credit": "Public Domain, via Wikimedia Commons (Library of Congress)",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Arab_market,_Blidah,_Algeria-LCCN2001697855.jpg",
       "source": {
-        "repository": "Wikimedia Commons (Lafayette College)",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:Ip1010_The_Market_of_Korea.tif",
-        "originalTitle": "Ip1010 The Market of Korea",
-        "date": "1933",
-        "place": "Korea",
+        "repository": "Wikimedia Commons (Library of Congress)",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:Arab_market,_Blidah,_Algeria-LCCN2001697855.jpg",
+        "originalTitle": "Arab market, Blidah, Algeria-LCCN2001697855.jpg",
+        "date": "1899",
+        "place": "Blida, Algerien",
         "license": "Public domain",
-        "description": "The Market of Korea (Korean customs) - market. March 1, 1918 to February 14, 1933."
+        "description": "Arab market, Blidah, Algeria"
       },
-      "added": "2026-09-08",
-      "shown": "2026-09-08",
-      "image": "scenes/korea-market.jpg",
-      "original": "scenes/korea-market-original.jpg"
-    },
-    {
-      "id": "valletta-fish-market",
-      "title": "Fischmarkt am Custom House",
-      "place": "Valletta, Malta",
-      "year": "1900",
-      "credit": "Public Domain, via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Customs_House,_Valletta_-_Fenech_photo_(Fish_market_in_the_circle).jpg",
       "difficulty": "klassisch",
-      "anomaly": "Plastiktüte",
-      "description": "Fischmarkt im Kreisverkehr vor dem Custom House in Valletta.",
+      "anomaly": "Pappkaffeebecher",
+      "description": "Arabischer Markt in Blida, Algerien, um 1899 (Fotochromdruck, handkoloriert): Menschen in traditioneller Kleidung, Esel und Warenkörbe auf dem Marktplatz.",
       "answer": {
-        "x": 0.7221,
-        "y": 0.805,
-        "r": 0.1333
+        "x": 0.5142,
+        "y": 0.9353,
+        "r": 0.15
       },
       "hints": [
-        "Es liegt bei den Waren auf dem Marktstand.",
-        "Rechte Bildhälfte, unterer Bereich.",
-        "Rechts unten auf dem Marktstand: eine moderne Plastiktüte."
+        "Es liegt am Boden bei den Marktwaren.",
+        "Untere Bildmitte, direkt am unteren Rand.",
+        "Am Boden in der unteren Mitte, halb hinter einem Korb: ein Pappkaffeebecher mit Deckel."
       ],
-      "source": {
-        "repository": "Wikimedia Commons",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:Customs_House,_Valletta_-_Fenech_photo_(Fish_market_in_the_circle).jpg",
-        "originalTitle": "Customs House, Valletta - Fenech photo (Fish market in the circle)",
-        "date": "1900",
-        "place": "Valletta",
-        "license": "Public domain",
-        "description": "Customs House, Valletta - Fenech photo (Fish market in the circle)"
-      },
       "added": "2026-09-08",
       "shown": "2026-09-08",
-      "image": "scenes/valletta-fish-market.jpg",
-      "original": "scenes/valletta-fish-market-original.jpg"
+      "image": "scenes/blidah-market.jpg",
+      "original": "scenes/blidah-market-original.jpg"
     }
   ]
 }
