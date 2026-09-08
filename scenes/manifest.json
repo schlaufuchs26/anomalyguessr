@@ -3,174 +3,174 @@
   "date": "2026-09-08",
   "scenes": [
     {
-      "id": "breslau-ring",
-      "title": "Marktplatz am Breslauer Ring",
-      "place": "Breslau, Deutschland (heute Wrocław)",
-      "year": "zwischen 1890 und 1900",
-      "credit": "Public Domain (Library of Congress), via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Breslau_Ring_Ostseite_(1890-1900).jpg",
+      "id": "fulton-market",
+      "title": "Fulton Market",
+      "place": "New York, USA",
+      "year": "1870",
+      "credit": "Public Domain (NYPL), via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Fulton_Market_(NYPL_b11708032-G91F179_023F).tiff",
+      "source": {
+        "repository": "Wikimedia Commons (NYPL, Robert Dennis Collection of Stereoscopic Views)",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:Fulton_Market_(NYPL_b11708032-G91F179_023F).tiff",
+        "originalTitle": "Fulton Market (NYPL b11708032-G91F179 023F)",
+        "date": "1870",
+        "place": "New York",
+        "license": "Public Domain",
+        "description": "Robert Dennis Collection of Stereoscopic Views; streets in Manhattan below 14th, market scenes."
+      },
       "difficulty": "klassisch",
       "anomaly": "Plastikflasche",
-      "description": "Marktplatz (Ring) in Breslau mit Marktständen, Fußgängern und Pferdefuhrwerken.",
+      "description": "Der Fulton Market in New York, 1870: Marktbetrieb mit Ständen, Pferdewagen und Kisten (Stereofoto aus der Robert Dennis Collection of Stereoscopic Views, NYPL).",
       "answer": {
-        "x": 0.3449,
-        "y": 0.8815,
-        "r": 0.1083
-      },
-      "hints": [
-        "Es steht auf einem Marktstand bei den Waren.",
-        "Linke Bildhälfte, unterer Bereich.",
-        "Links unten auf einem Marktstand: eine moderne Plastikflasche."
-      ],
-      "source": {
-        "repository": "Wikimedia Commons (Library of Congress)",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:Breslau_Ring_Ostseite_(1890-1900).jpg",
-        "originalTitle": "Breslau Ring Ostseite (1890-1900)",
-        "date": "between 1890 and 1900",
-        "place": "Breslau (now Wrocław)",
-        "license": "Public domain",
-        "description": "Market Square in Breslau, Germany (now Wrocław, Poland)."
-      },
-      "added": "2026-09-08",
-      "shown": "2026-09-08",
-      "image": "scenes/breslau-ring.jpg",
-      "original": "scenes/breslau-ring-original.jpg"
-    },
-    {
-      "id": "cambridge-station",
-      "title": "Bahnhof Cambridge",
-      "place": "Cambridge, Neuseeland",
-      "year": "um 1900",
-      "credit": "Public Domain, via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Cambridge_railway_station_around_1900.jpg",
-      "difficulty": "klassisch",
-      "anomaly": "Rollkoffer",
-      "description": "Bahnhof Cambridge in Neuseeland um 1900; Personen stehen auf dem Bahnsteig vor dem Stationsgebäude.",
-      "answer": {
-        "x": 0.2164,
-        "y": 0.6814,
-        "r": 0.125
-      },
-      "hints": [
-        "Es steht auf dem Bahnsteig.",
-        "Linke Bildhälfte, unterer Bereich.",
-        "Links unten auf dem Bahnsteig: ein moderner Rollkoffer."
-      ],
-      "source": {
-        "repository": "Wikimedia Commons (Muir & Moodie; Hamilton Libraries)",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:Cambridge_railway_station_around_1900.jpg",
-        "originalTitle": "Cambridge railway station around 1900",
-        "date": "about 1900",
-        "place": "Cambridge",
-        "license": "Public domain",
-        "description": "Cambridge railway station around 1900"
-      },
-      "added": "2026-09-08",
-      "shown": "2026-09-08",
-      "image": "scenes/cambridge-station.jpg",
-      "original": "scenes/cambridge-station-original.jpg"
-    },
-    {
-      "id": "garfield-street",
-      "title": "Straßenszene in Garfield",
-      "place": "Garfield, Washington, USA",
-      "year": "ca. 1900",
-      "credit": "Public Domain (DPLA), via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Street_scene_in_Garfield,_Washington,_circa_1900_-_DPLA_-_17896dc3c3e42d3daef44a305a3d964f.jpg",
-      "difficulty": "klassisch",
-      "anomaly": "Getränkedose",
-      "description": "Menschen hören einem Geiger auf der California Street in Garfield zu, nahe dem Garfield Opera House.",
-      "answer": {
-        "x": 0.4585,
-        "y": 0.9349,
-        "r": 0.075
-      },
-      "hints": [
-        "Es liegt auf dem Boden im Vordergrund.",
-        "Bildmitte, unterer Bereich.",
-        "Unten in der Bildmitte auf der Straße: eine moderne Getränkedose."
-      ],
-      "source": {
-        "repository": "Wikimedia Commons (DPLA)",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:Street_scene_in_Garfield,_Washington,_circa_1900_-_DPLA_-_17896dc3c3e42d3daef44a305a3d964f.jpg",
-        "originalTitle": "Street scene in Garfield, Washington, circa 1900",
-        "date": "circa 1900",
-        "place": "Garfield, Washington",
-        "license": "Public domain",
-        "description": "People listening to a fiddler in Garfield, Washington on California Street near the Garfield Opera House."
-      },
-      "added": "2026-09-08",
-      "shown": "2026-09-08",
-      "image": "scenes/garfield-street.jpg",
-      "original": "scenes/garfield-street-original.jpg"
-    },
-    {
-      "id": "gozo-fishermen",
-      "title": "Fischer fahren zur Arbeit aus",
-      "place": "Gozo, Malta",
-      "year": "1910er Jahre",
-      "credit": "Public Domain, via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Mikiel_Farrugia,_Fishermen_leaving_to_work,_Gozo_1910s.jpg",
-      "difficulty": "klassisch",
-      "anomaly": "Kühlbox",
-      "description": "Fischer in einem Boot fahren zur Arbeit aus; Netze liegen im Boot, weitere Boote im Hintergrund.",
-      "answer": {
-        "x": 0.5508,
-        "y": 0.6429,
-        "r": 0.1167
-      },
-      "hints": [
-        "Es steht im Boot bei den Netzen.",
-        "Bildmitte, mittlerer Bereich.",
-        "In der Bootsmitte bei den Netzen: eine moderne Kühlbox."
-      ],
-      "source": {
-        "repository": "Wikimedia Commons (Giovanni Bonello collection)",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:Mikiel_Farrugia,_Fishermen_leaving_to_work,_Gozo_1910s.jpg",
-        "originalTitle": "Mikiel Farrugia, Fishermen leaving to work, Gozo 1910s",
-        "date": "1910",
-        "place": "Gozo",
-        "license": "Public domain",
-        "description": "Mikiel Farrugia, Fishermen leaving to work, Gozo 1910s"
-      },
-      "added": "2026-09-08",
-      "shown": "2026-09-08",
-      "image": "scenes/gozo-fishermen.jpg",
-      "original": "scenes/gozo-fishermen-original.jpg"
-    },
-    {
-      "id": "hamburg-harbor",
-      "title": "Schiffe im Hafen von Hamburg",
-      "place": "Hamburg, Deutschland",
-      "year": "zwischen 1890 und 1900",
-      "credit": "Public Domain (Library of Congress), via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Ships_in_the_Harbor,_Hamburg,_Germany-LCCN2002713696.jpg",
-      "difficulty": "auffaellig",
-      "anomaly": "Schiffscontainer",
-      "description": "Schiffe im Hafen von Hamburg; ein Photochromdruck aus der Photochrom Print Collection der Library of Congress.",
-      "answer": {
-        "x": 0.5483,
-        "y": 0.856,
+        "x": 0.3878,
+        "y": 0.6095,
         "r": 0.15
       },
       "hints": [
-        "Es steht am Kai bei den Schiffen.",
-        "Rechte Bildhälfte, unterer Bereich.",
-        "Rechts unten am Kai: ein roter moderner Schiffscontainer."
+        "Es steht an Kisten neben einem Wagen.",
+        "Linke Bildhälfte, mittlere Höhe.",
+        "An den Kisten neben dem Pferdewagen links: eine Plastikflasche."
+      ],
+      "added": "2026-09-08",
+      "shown": "2026-09-08",
+      "image": "scenes/fulton-market.jpg",
+      "original": "scenes/fulton-market-original.jpg"
+    },
+    {
+      "id": "newyork-pushcarts",
+      "title": "Pushcart-Markt in New York",
+      "place": "New York, USA",
+      "year": "1910",
+      "credit": "Public Domain (Library of Congress, Bain News Service), via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Push_cart_market_-_New_York_LCCN2014699047.jpg",
+      "source": {
+        "repository": "Wikimedia Commons (Library of Congress, Bain News Service)",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:Push_cart_market_-_New_York_LCCN2014699047.jpg",
+        "originalTitle": "Push cart market - New York",
+        "date": "1910",
+        "place": "New York",
+        "license": "Public Domain",
+        "description": "Title: Push cart market -- New York. Abstract/medium: 1 negative : glass ; 5 x 7 in. or smaller. Publisher: Bain News Service."
+      },
+      "difficulty": "klassisch",
+      "anomaly": "Getränkedose",
+      "description": "Pushcart-Markt in New York, 1910: ein dichter Straßenmarkt mit beladenen Karren und Menschenmenge (Katalogdatensatz der Library of Congress, Bain News Service).",
+      "answer": {
+        "x": 0.5083,
+        "y": 0.5302,
+        "r": 0.05
+      },
+      "hints": [
+        "Es liegt zwischen Waren auf einem Stand.",
+        "Mittlere Bildhälfte, etwas rechts der Mitte.",
+        "Auf dem Stand mit Fisch, zwischen den Waren rechts der Mitte: eine Getränkedose."
+      ],
+      "added": "2026-09-08",
+      "shown": "2026-09-08",
+      "image": "scenes/newyork-pushcarts.jpg",
+      "original": "scenes/newyork-pushcarts-original.jpg"
+    },
+    {
+      "id": "asakusa-bazaar",
+      "title": "Basarstraße im Asakusa-Viertel",
+      "place": "Tokio, Japan",
+      "year": "zwischen 1880 und 1900",
+      "credit": "Public Domain (DPLA; University of Colorado Boulder), via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Bazaar_street_in_the_Asakusa_district,_Tokyo_-_DPLA_-_110bfe02a6b4466718afe721fa463318.jpg",
+      "source": {
+        "repository": "Wikimedia Commons (DPLA; University of Colorado Boulder Libraries)",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:Bazaar_street_in_the_Asakusa_district,_Tokyo_-_DPLA_-_110bfe02a6b4466718afe721fa463318.jpg",
+        "originalTitle": "Bazaar street in the Asakusa district, Tokyo",
+        "date": "1880/1900",
+        "place": "Asakusa, Tokio",
+        "license": "Public Domain",
+        "description": "Bazaar street in the Asakusa district, Tokyo. The two figures in white are policemen. Gelatin silver prints, Image No. 14."
+      },
+      "difficulty": "klassisch",
+      "anomaly": "Plastikflasche",
+      "description": "Basarstraße im Asakusa-Viertel von Tokio, zwischen ca. 1880 und ca. 1900: Marktstand mit Waren und Körben, Passanten auf der Straße (Katalogdatensatz, University of Colorado Boulder Libraries).",
+      "answer": {
+        "x": 0.2137,
+        "y": 0.8498,
+        "r": 0.15
+      },
+      "hints": [
+        "Es steht zwischen Waren und Körben am Boden.",
+        "Linke untere Bildhälfte.",
+        "Links neben den Körben am unteren Bildrand: eine Plastikflasche."
+      ],
+      "added": "2026-09-08",
+      "shown": "2026-09-08",
+      "image": "scenes/asakusa-bazaar.jpg",
+      "original": "scenes/asakusa-bazaar-original.jpg"
+    },
+    {
+      "id": "korea-market",
+      "title": "Markt in Korea",
+      "place": "Korea",
+      "year": "1933",
+      "credit": "Public Domain, via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Ip1010_The_Market_of_Korea.tif",
+      "difficulty": "dezent",
+      "anomaly": "Digitaluhr",
+      "description": "Belebter Markt in Korea; Menschen in traditioneller Kleidung mit Tragestangen und Sonnenschirmen, Stände mit Strohdächern.",
+      "answer": {
+        "x": 0.1336,
+        "y": 0.6427,
+        "r": 0.075
+      },
+      "hints": [
+        "Eine Person trägt es am Handgelenk.",
+        "Linke Bildhälfte, mittlerer Bereich.",
+        "Am Handgelenk einer Person links in der Menge: eine moderne Digitaluhr."
       ],
       "source": {
-        "repository": "Wikimedia Commons (Library of Congress, Photochrom Print Collection)",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:Ships_in_the_Harbor,_Hamburg,_Germany-LCCN2002713696.jpg",
-        "originalTitle": "Ships in the Harbor, Hamburg, Germany",
-        "date": "between 1890 and 1900",
-        "place": "Hamburg",
+        "repository": "Wikimedia Commons (Lafayette College)",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:Ip1010_The_Market_of_Korea.tif",
+        "originalTitle": "Ip1010 The Market of Korea",
+        "date": "1933",
+        "place": "Korea",
         "license": "Public domain",
-        "description": "Print no. 8796. Title from the Detroit Publishing Co. catalogue J-foreign section. Forms part of Views of Germany in the Photochrom print collection."
+        "description": "The Market of Korea (Korean customs) - market. March 1, 1918 to February 14, 1933."
       },
       "added": "2026-09-08",
       "shown": "2026-09-08",
-      "image": "scenes/hamburg-harbor.jpg",
-      "original": "scenes/hamburg-harbor-original.jpg"
+      "image": "scenes/korea-market.jpg",
+      "original": "scenes/korea-market-original.jpg"
+    },
+    {
+      "id": "valletta-fish-market",
+      "title": "Fischmarkt am Custom House",
+      "place": "Valletta, Malta",
+      "year": "1900",
+      "credit": "Public Domain, via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Customs_House,_Valletta_-_Fenech_photo_(Fish_market_in_the_circle).jpg",
+      "difficulty": "klassisch",
+      "anomaly": "Plastiktüte",
+      "description": "Fischmarkt im Kreisverkehr vor dem Custom House in Valletta.",
+      "answer": {
+        "x": 0.7221,
+        "y": 0.805,
+        "r": 0.1333
+      },
+      "hints": [
+        "Es liegt bei den Waren auf dem Marktstand.",
+        "Rechte Bildhälfte, unterer Bereich.",
+        "Rechts unten auf dem Marktstand: eine moderne Plastiktüte."
+      ],
+      "source": {
+        "repository": "Wikimedia Commons",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:Customs_House,_Valletta_-_Fenech_photo_(Fish_market_in_the_circle).jpg",
+        "originalTitle": "Customs House, Valletta - Fenech photo (Fish market in the circle)",
+        "date": "1900",
+        "place": "Valletta",
+        "license": "Public domain",
+        "description": "Customs House, Valletta - Fenech photo (Fish market in the circle)"
+      },
+      "added": "2026-09-08",
+      "shown": "2026-09-08",
+      "image": "scenes/valletta-fish-market.jpg",
+      "original": "scenes/valletta-fish-market-original.jpg"
     }
   ]
 }
