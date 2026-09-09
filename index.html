@@ -1,12 +1,12 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>AnomalyGuessr – Finde die Anomalie</title>
+    <title>AnomalyGuessr – Spot the anomaly</title>
     <meta
       name="description"
-      content="Finde die eine Anomalie, die nicht in dieses historische Foto gehört: ein modernes Objekt, ein Zeitreisender oder etwas völlig Unmögliches."
+      content="Find the one anomaly that does not belong in a historical photo: a modern object, a time traveler or something utterly impossible."
     />
     <link rel="stylesheet" href="./style.css" />
   </head>
@@ -15,9 +15,9 @@
       <header class="top">
         <h1>🦊 AnomalyGuessr</h1>
         <p class="tagline">
-          Zeitreisen-Schutzstaffel. In einem historischen Foto wurde eine Anomalie gemeldet –
-          etwas, das dort unmöglich ist: ein modernes Objekt, ein Zeitreisender oder ein Fabelwesen.
-          Klicke auf die Stelle, an der etwas nicht hingehört.
+          Time-travel protection squad. An anomaly has been reported in a historical photo:
+          something that could not possibly be there, a modern object, a time traveler or a
+          fictional creature. Click the spot where something doesn't belong.
         </p>
       </header>
 
@@ -36,36 +36,36 @@
         </div>
         <div class="hud">
           <div id="hint-box" class="hint-box" aria-live="polite">
-            <button id="hint-btn" class="btn" type="button">💡 Tipp zeigen</button>
+            <button id="hint-btn" class="btn" type="button">💡 Show hint</button>
             <p id="hint-text" class="hint-text"></p>
           </div>
           <div id="result" class="result" aria-live="polite"></div>
           <div id="why" class="why" hidden></div>
           <div class="nav">
             <button id="compare-btn" class="btn ghost" type="button" hidden>
-              📷 Original anzeigen
+              📷 Show original
             </button>
-            <button id="next-btn" class="btn primary" type="button" hidden>Weiter →</button>
+            <button id="next-btn" class="btn primary" type="button" hidden>Next →</button>
           </div>
         </div>
       </section>
 
       <section id="end" class="end" hidden>
-        <h2>Einsatz beendet</h2>
+        <h2>Mission complete</h2>
         <p id="end-date" class="end-date"></p>
         <ol id="end-list" class="end-list"></ol>
         <p id="end-text"></p>
-        <button id="restart-btn" class="btn primary" type="button">Nochmal spielen</button>
+        <button id="restart-btn" class="btn primary" type="button">Play again</button>
       </section>
 
       <p id="load-error" class="load-error" hidden>
-        Die Szenen konnten nicht geladen werden. Läuft die Seite über einen Server?
+        The scenes could not be loaded. Is the page being served from a server?
       </p>
 
       <footer class="foot">
         <p>
-          Historische Fotos: gemeinfreie Aufnahmen (Public Domain / CC0) via Wikimedia Commons.
-          Die Anomalien wurden mit KI-Bildbearbeitung eingefügt.
+          Historical photos: public-domain images (Public Domain / CC0) via Wikimedia Commons.
+          The anomalies were added with AI image editing.
         </p>
       </footer>
     </main>

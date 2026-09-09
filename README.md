@@ -11,8 +11,8 @@ reference link for every factual claim. Progressive hints are the safety
 net for the hard rounds. Everyone gets the same 5 scenes on a given day
 (deterministic date-seeded selection).
 
-Conceit: the "Zeitreisen-Schutzstaffel" (time-travel protection squad) has
-detected anomalies and you, the AnomalyGuessr agent, have to locate each before the timeline frays.
+Conceit: the time-travel protection squad has detected anomalies and you, the
+AnomalyGuessr agent, have to locate each before the timeline frays.
 
 Play it: <https://schlaufuchs26.github.io/anomalyguessr/>
 
@@ -35,13 +35,11 @@ bun run checks     # format + tsc + biome + knip + tests
 - Zoom & pan to inspect fine detail: mouse wheel zooms toward the cursor,
   double-click zooms in (double-click again resets), drag pans when zoomed,
   touch pinch works on mobile.
-- `💡 Tipp zeigen` reveals the next of three progressive hints
+- `💡 Show hint` reveals the next of three progressive hints
   (what it's attached to → which half → exact spot + object name). Each hint
   used scales the score by 0.85 / 0.7 / 0.55.
 - A short context paragraph under the title describes what the photo shows
   and its historical background (place, year, period).
-- Scenes carry an internal difficulty tier (dezent / klassisch / auffaellig)
-  used for generation and tuning; it is not shown in the UI.
 - The planted anomalies are varied and context-fitting (a coffee cup on a
   market stall, a drink can among baskets, a wristwatch on a passer-by, a
   phone in a parade crowd, a time-traveling jogger, a small dragon on a
@@ -73,8 +71,8 @@ Each scene entry:
 {
   "id": "jammu-bazaar",
   "title": "Butcher's Bazaar",
-  "place": "Jammu, Indien",
-  "year": "ca. 1875-1940",
+  "place": "Jammu, India",
+  "year": "c. 1875-1940",
   "credit": "Public Domain, via Wikimedia Commons",
   "sourceUrl": "https://commons.wikimedia.org/wiki/File:...",
   "source": {
@@ -86,18 +84,15 @@ Each scene entry:
     "license": "Public Domain",
     "description": "Photograph of a butcher's bazaar in the city of Jammu. ..."
   },
-  "difficulty": "dezent | klassisch | auffaellig",
   "image": "scenes/jammu-bazaar.jpg",
   "original": "scenes/jammu-bazaar-original.jpg",
-  "anomaly": "Digitaluhr",
-  "explanation": "Digitale Armbanduhren kamen erst in den 1970ern auf (siehe [Wikipedia](https://de.wikipedia.org/wiki/Digitaluhr)).",
-  "references": [{ "label": "Digitaluhr – Wikipedia", "url": "https://de.wikipedia.org/wiki/Digitaluhr" }],
-  "description": "Der Butcher's Bazaar in Jammu, aufgenommen zwischen ca. 1875 und ca. 1940: eine Marktstraße mit kleinen Läden und Ständen auf beiden Seiten (Katalogbeschreibung der USC Digital Library).",
+  "anomaly": "Digital watch",
+  "description": "The Butcher's Bazaar in Jammu, photographed between c. 1875 and c. 1940: a market street with small shops and stalls on both sides (catalogue description of the USC Digital Library).",
   "answer": { "x": 0.11, "y": 0.62, "r": 0.03 },
   "hints": [
-    "Eine Person trägt es am Körper.",
-    "Linke Bildhälfte, unterer Bereich.",
-    "Am Handgelenk des Mannes in heller Kleidung links: eine Digitaluhr."
+    "A person wears it on their body.",
+    "Left half, lower area.",
+    "On the wrist of the man in light clothing on the left: a digital watch."
   ]
 }
 ```

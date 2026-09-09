@@ -21,14 +21,14 @@ describe("dateKey / dateLabel", () => {
     expect(dateKey(new Date(2026, 11, 31))).toBe("2026-12-31");
   });
 
-  test("formats a German display label", () => {
-    expect(dateLabel(new Date(2026, 8, 7))).toBe("7. September 2026");
+  test("formats an English display label", () => {
+    expect(dateLabel(new Date(2026, 8, 7))).toBe("September 7, 2026");
   });
 
   test("round-trips dateFromKey through dateKey (local calendar date)", () => {
     expect(dateFromKey("2026-09-07")).toEqual(new Date(2026, 8, 7));
     expect(dateKey(dateFromKey("2026-12-31"))).toBe("2026-12-31");
-    expect(dateLabel(dateFromKey("2026-09-07"))).toBe("7. September 2026");
+    expect(dateLabel(dateFromKey("2026-09-07"))).toBe("September 7, 2026");
   });
 
   test("dateFromKey rejects malformed keys", () => {

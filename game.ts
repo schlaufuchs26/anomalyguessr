@@ -48,16 +48,16 @@ const DESKTOP_LAYOUT = "(min-width: 900px) and (min-height: 560px)";
 
 const VERDICT_COPY: Record<Verdict, { headline: string; note: string }> = {
   saved: {
-    headline: "Zeitlinie gesichert!",
-    note: "Punktgenau erkannt. Die Geschichte ist gerettet.",
+    headline: "Timeline secured!",
+    note: "Pinpoint hit. History is safe.",
   },
   warm: {
-    headline: "Fast!",
-    note: "Die Anomalie war ganz in der Nähe.",
+    headline: "Close!",
+    note: "The anomaly was right nearby.",
   },
   miss: {
-    headline: "Daneben.",
-    note: "Die Zeitlinie flackert bedenklich …",
+    headline: "Miss.",
+    note: "The timeline is flickering ominously …",
   },
 };
 
@@ -93,7 +93,7 @@ function dailySet(): Scene[] {
   return manifest.scenes;
 }
 
-/** German end-screen label for the quiz day (manifest date beats browser). */
+/** English end-screen label for the quiz day (manifest date beats browser). */
 function quizLabel(): string {
   if (manifest?.version === 2 && manifest.date)
     return dateLabel(dateFromKey(manifest.date));
@@ -141,10 +141,10 @@ function renderScene(): void {
   els.sceneProgress.textContent = `${state.index + 1} / ${state.queue.length}`;
   els.img.removeAttribute("style");
   els.img.src = s.image;
-  els.img.alt = `Historisches Foto: ${s.title} (${s.place}, ${s.year})`;
+  els.img.alt = `Historical photo: ${s.title} (${s.place}, ${s.year})`;
   els.hintText.textContent = "";
   els.hintBtn.disabled = false;
-  els.hintBtn.textContent = "💡 Tipp zeigen";
+  els.hintBtn.textContent = "💡 Show hint";
   els.result.className = "result";
   els.result.innerHTML = "";
   els.why.hidden = true;
@@ -370,24 +370,20 @@ function resolve(nx: number, ny: number): void {
   addMarker("answer", s.answer.x, s.answer.y, s.answer.r);
   const used = state.hintsUsed;
   const penaltyNote =
-    used === 0
-      ? "ohne Tipp"
-      : used === 1
-        ? "1 Tipp genutzt"
-        : `${used} Tipps genutzt`;
+    used === 0 ? "no hints" : used === 1 ? "1 hint used" : `${used} hints used`;
   const copy = VERDICT_COPY[verdict];
   els.result.className = `result ${verdict}`;
   els.result.innerHTML = `
     <p class="headline">${copy.headline}</p>
-    <p class="score"><strong>${score} Punkte</strong> · ${penaltyNote}</p>
+    <p class="score"><strong>${score} points</strong> · ${penaltyNote}</p>
     <p>${copy.note}</p>
-    <p>🔍 Die Anomalie war: <strong>${s.anomaly}</strong>. Genaue Stelle: ${s.hints[2]}</p>
+    <p>🔍 The anomaly was: <strong>${s.anomaly}</strong>. Exact spot: ${s.hints[2]}</p>
   `;
   if (s.explanation) renderWhy(s);
   els.compareBtn.hidden = false;
   els.nextBtn.hidden = false;
   const last = state.index >= state.queue.length - 1;
-  els.nextBtn.textContent = last ? "Ergebnis →" : "Weiter →";
+  els.nextBtn.textContent = last ? "Results →" : "Next →";
   els.nextBtn.focus();
 }
 
@@ -400,7 +396,7 @@ function renderWhy(s: Scene): void {
   els.why.innerHTML = "";
   const head = document.createElement("p");
   head.className = "why-head";
-  head.textContent = "Warum?";
+  head.textContent = "Why?";
   els.why.append(head);
   const body = document.createElement("p");
   body.className = "why-text";
@@ -429,12 +425,12 @@ function onHint(): void {
   if (state.hintsUsed >= 3 || state.answered) return;
   state.hintsUsed += 1;
   const hint = s.hints[state.hintsUsed - 1];
-  els.hintText.textContent = `Tipp ${state.hintsUsed}/3: ${hint}`;
+  els.hintText.textContent = `Hint ${state.hintsUsed}/3: ${hint}`;
   if (state.hintsUsed >= 3) {
     els.hintBtn.disabled = true;
-    els.hintBtn.textContent = "💡 Keine Tipps mehr";
+    els.hintBtn.textContent = "💡 No hints left";
   } else {
-    els.hintBtn.textContent = `💡 Tipp zeigen (${state.hintsUsed}/3)`;
+    els.hintBtn.textContent = `💡 Show hint (${state.hintsUsed}/3)`;
   }
 }
 
@@ -443,8 +439,8 @@ function toggleCompare(): void {
   state.originalView = !state.originalView;
   els.img.src = state.originalView ? s.original : s.image;
   els.compareBtn.textContent = state.originalView
-    ? "🖼️ Bearbeitetes Bild"
-    : "📷 Original anzeigen";
+    ? "🖼️ Edited image"
+    : "📷 Show original";
 }
 
 function nextScene(): void {
@@ -463,18 +459,18 @@ function showEnd(): void {
   const scores = state.queue.map((_, i) => state.scores[i] ?? 0);
   const total = scores.reduce((sum, v) => sum + v, 0);
   const avg = Math.round(total / n);
-  els.endDate.textContent = `Tagesquiz vom ${quizLabel()}`;
+  els.endDate.textContent = `Daily quiz · ${quizLabel()}`;
   els.endList.innerHTML = "";
   for (let i = 0; i < n; i++) {
     const s = state.queue[i];
     if (!s) continue;
     const li = document.createElement("li");
-    li.textContent = `${i + 1}. ${s.title} · ${scores[i] ?? 0} Punkte`;
+    li.textContent = `${i + 1}. ${s.title} · ${scores[i] ?? 0} pts`;
     els.endList.append(li);
   }
   els.endText.textContent =
-    `${total} von ${n * 100} Punkten (Ø ${avg}) bei ${n} Szenen. ` +
-    `Der Zeitfluss bleibt erhalten – vorerst.`;
+    `${total} of ${n * 100} points (avg ${avg}) across ${n} scenes. ` +
+    `The timeline holds, for now.`;
   els.restartBtn.focus();
 }
 

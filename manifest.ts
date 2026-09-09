@@ -1,7 +1,3 @@
-type Difficulty = "dezent" | "klassisch" | "auffaellig";
-
-const DIFFICULTIES: Difficulty[] = ["dezent", "klassisch", "auffaellig"];
-
 /**
  * Provenance of the source photograph, taken from the source's OWN catalog
  * metadata (Wikimedia Commons / DPLA / State Library of Queensland /
@@ -28,7 +24,7 @@ export interface SceneSource {
 
 export interface Scene {
   id: string;
-  /** German UI label for the scene (derived from, never contradicting, the source). */
+  /** Short UI label for the scene (derived from, never contradicting, the source). */
   title: string;
   place: string;
   year: string;
@@ -36,15 +32,14 @@ export interface Scene {
   sourceUrl: string;
   /** Provenance block; required in version-2 (pipeline) manifests. */
   source?: SceneSource;
-  difficulty: Difficulty;
   /** Relative path to the tampered image (one planted anomaly). */
   image: string;
   /** Relative path to the untouched original, shown after the guess. */
   original: string;
-  /** Short label of the planted anomaly, e.g. "Plastikflasche". */
+  /** Short label of the planted anomaly, e.g. "Plastic bottle". */
   anomaly: string;
   /**
-   * Why the anomaly could not have been in the original photo (German).
+   * Why the anomaly could not have been in the original photo.
    * Required for pipeline-shipped daily manifests (version 2); legacy
    * scenes without one stay playable but show no reveal block.
    */
@@ -95,10 +90,6 @@ function optString(v: unknown, where: string, key: string): string {
   return v;
 }
 
-function isDifficulty(v: unknown): v is Difficulty {
-  return typeof v === "string" && (DIFFICULTIES as string[]).includes(v);
-}
-
 function parseSource(raw: unknown, where: string): SceneSource {
   if (!isRecord(raw)) fail(where, "source must be an object");
   return {
@@ -138,8 +129,6 @@ function parseScene(
   ) {
     fail(where, "hints must be an array of exactly 3 non-empty strings");
   }
-  if (!isDifficulty(raw.difficulty))
-    fail(where, "difficulty must be dezent|klassisch|auffaellig");
   const explanation = raw.explanation;
   if (
     explanation !== undefined &&
@@ -167,7 +156,6 @@ function parseScene(
     year: reqString(raw.year, where, "year"),
     credit: reqString(raw.credit, where, "credit"),
     sourceUrl: reqString(raw.sourceUrl, where, "sourceUrl"),
-    difficulty: raw.difficulty,
     image: reqString(raw.image, where, "image"),
     original: reqString(raw.original, where, "original"),
     anomaly: reqString(raw.anomaly, where, "anomaly"),

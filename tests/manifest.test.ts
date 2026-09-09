@@ -4,21 +4,20 @@ import { type Manifest, parseManifest, type SceneSource } from "../manifest";
 function validScene(): Record<string, unknown> {
   return {
     id: "s1",
-    title: "Markt",
-    place: "Dresden",
+    title: "Market",
+    place: "London",
     year: "1900",
     credit: "PD",
     sourceUrl: "https://example.test/file",
-    difficulty: "klassisch",
     image: "scenes/s1.jpg",
     original: "scenes/s1-original.jpg",
-    anomaly: "Plastikflasche",
-    description: "Ein Markt um 1900 mit Ständen und Obst.",
+    anomaly: "Plastic bottle",
+    description: "A market from 1900 with stalls and fruit.",
     answer: { x: 0.3, y: 0.6, r: 0.04 },
     hints: [
-      "auf einem Wagen",
-      "links",
-      "zwischen den Kisten: eine Plastikflasche",
+      "on a wagon",
+      "on the left",
+      "between the crates: a plastic bottle",
     ],
   };
 }
@@ -33,7 +32,6 @@ describe("parseManifest", () => {
     expect(m.version).toBe(1);
     expect(m.scenes).toHaveLength(1);
     expect(m.scenes[0]?.answer.x).toBe(0.3);
-    expect(m.scenes[0]?.difficulty).toBe("klassisch");
   });
 
   test("rejects non-object roots", () => {
@@ -65,12 +63,6 @@ describe("parseManifest", () => {
     expect(() =>
       parseManifest(validManifest({ answer: { x: 0.5, y: 0.5, r: 0.9 } })),
     ).toThrow(/answer/);
-  });
-
-  test("rejects unknown difficulties", () => {
-    expect(() =>
-      parseManifest(validManifest({ difficulty: "unsichtbar" })),
-    ).toThrow(/difficulty/);
   });
 
   test("rejects wrong hint counts", () => {
@@ -182,19 +174,19 @@ describe("parseManifest version 2 (pipeline daily manifest)", () => {
     test("accepts a scene with explanation and references", () => {
       const m = parseManifest(
         validManifest({
-          explanation: "Digitale Uhren kamen erst in den 1970ern auf.",
+          explanation: "Digital watches only appeared in the 1970s.",
           references: [
             {
-              label: "Digitaluhr – Wikipedia",
-              url: "https://de.wikipedia.org/wiki/Digitaluhr",
+              label: "Digital watch – Wikipedia",
+              url: "https://en.wikipedia.org/wiki/Digital_watch",
             },
           ],
         }),
       );
-      expect(m.scenes[0]?.explanation).toContain("1970ern");
+      expect(m.scenes[0]?.explanation).toContain("1970s");
       expect(m.scenes[0]?.references).toHaveLength(1);
       expect(m.scenes[0]?.references?.[0]?.url).toBe(
-        "https://de.wikipedia.org/wiki/Digitaluhr",
+        "https://en.wikipedia.org/wiki/Digital_watch",
       );
     });
 

@@ -7,19 +7,19 @@
 
 export const DAILY_COUNT = 5;
 
-const MONTHS_DE = [
-  "Januar",
-  "Februar",
-  "März",
+const MONTHS_EN = [
+  "January",
+  "February",
+  "March",
   "April",
-  "Mai",
-  "Juni",
-  "Juli",
+  "May",
+  "June",
+  "July",
   "August",
   "September",
-  "Oktober",
+  "October",
   "November",
-  "Dezember",
+  "December",
 ];
 
 /** Local calendar date as YYYY-MM-DD (the quiz day key). */
@@ -30,9 +30,9 @@ export function dateKey(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-/** German display label, e.g. "7. September 2026". */
+/** English display label, e.g. "September 7, 2026". */
 export function dateLabel(date: Date): string {
-  return `${date.getDate()}. ${MONTHS_DE[date.getMonth()] ?? ""} ${date.getFullYear()}`;
+  return `${MONTHS_EN[date.getMonth()] ?? ""} ${date.getDate()}, ${date.getFullYear()}`;
 }
 
 /** Parses a YYYY-MM-DD manifest date into a local Date (no TZ surprises). */

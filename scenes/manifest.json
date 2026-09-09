@@ -4,30 +4,29 @@
   "scenes": [
     {
       "id": "brisbane-station-1940",
-      "title": "Menschenmenge am Bahnsteig",
-      "place": "Brisbane, Australien",
-      "year": "März 1940",
+      "title": "Crowd on the platform",
+      "place": "Brisbane, Australia",
+      "year": "March 1940",
       "credit": "State Library of Queensland (Public Domain), via Wikimedia Commons",
       "sourceUrl": "https://commons.wikimedia.org/wiki/File%3AStateLibQld%201%20106268%20Crowds%20on%20the%20platform%20of%20South%20Brisbane%20Interstate%20Station%20to%20farewell%20soldiers%2C%20March%201940.jpg",
-      "difficulty": "klassisch",
-      "anomaly": "Zeitreisender: junger Mann mit modernen Sneakers unter der Hose",
-      "explanation": "Moderne Sportschuhe aus synthetischen Materialien kamen erst ab den 1960ern auf – über 20 Jahre nach diesem Foto.",
+      "anomaly": "Time traveler: young man with modern sneakers under his trousers",
+      "explanation": "Modern sports shoes made of synthetic materials only appeared from the 1960s on, more than 20 years after this photo.",
       "references": [
         {
           "label": "Sneakers (Wikipedia)",
           "url": "https://en.wikipedia.org/wiki/Sneakers"
         }
       ],
-      "description": "Menschenmenge auf dem Bahnsteig der South Brisbane Interstate Station, März 1940, zur Verabschiedung von Soldaten (Bildunterschrift der State Library of Queensland).",
+      "description": "Crowd on the platform of South Brisbane Interstate Station, March 1940, farewell for soldiers (caption of the State Library of Queensland).",
       "answer": {
         "x": 0.7211,
         "y": 0.6661,
         "r": 0.08
       },
       "hints": [
-        "Er steht mitten in der Menge, nicht am Rand.",
-        "Rechte Bildhälfte, untere Mitte.",
-        "Der junge Mann in Anzug und Hut rechts unten: unter seiner Hose blitzen moderne Sneakers hervor."
+        "He stands in the middle of the crowd, not at the edge.",
+        "Right half, lower center.",
+        "The young man in suit and hat at the bottom right: modern sneakers flash out from under his trousers."
       ],
       "source": {
         "repository": "Wikimedia Commons",
@@ -38,37 +37,34 @@
         "license": "Public domain",
         "description": "Crowds on the platform of South Brisbane Interstate Station to farewell soldiers, March 1940"
       },
-      "added": "2026-09-09",
-      "shown": "2026-09-09",
       "image": "scenes/brisbane-station-1940.jpg",
       "original": "scenes/brisbane-station-1940-original.jpg"
     },
     {
       "id": "oxford-fair-1912",
-      "title": "Jahrmarkt in der Oxford Street",
+      "title": "Fair in Oxford Street",
       "place": "London, England",
-      "year": "Oktober 1912",
+      "year": "October 1912",
       "credit": "Public Domain, via Wikimedia Commons",
       "sourceUrl": "https://commons.wikimedia.org/wiki/File%3ACrowd%20at%20Oxford%20Street%20Fair%201912%20%283190759673%29.jpg",
-      "difficulty": "klassisch",
-      "anomaly": "Zeitreisende: junge Frau mit Sonnenbrille im Haar und Daypack",
-      "explanation": "Moderne Kunststoff-Sonnenbrillen und Rucksäcke aus Nylon kamen erst ab den 1960er-/1970er-Jahren auf – lange nach diesem Foto.",
+      "anomaly": "Time traveler: young woman with sunglasses in her hair and a daypack",
+      "explanation": "Modern plastic sunglasses and nylon backpacks only appeared from the 1960s/1970s on, long after this photo.",
       "references": [
         {
           "label": "Sunglasses (Wikipedia)",
           "url": "https://en.wikipedia.org/wiki/Sunglasses"
         }
       ],
-      "description": "Dicht gedrängte Menschenmenge auf dem Oxford-Street-Jahrmarkt, Oktober 1912; im Vordergrund Musiker mit Blechbläsern und Trommeln.",
+      "description": "A tightly packed crowd at the Oxford Street Fair, October 1912; in the foreground musicians with brass instruments and drums.",
       "answer": {
         "x": 0.3879,
         "y": 0.7071,
         "r": 0.08
       },
       "hints": [
-        "Sie steht zwischen anderen Personen.",
-        "Linke Bildhälfte, untere Mitte.",
-        "Die junge Frau links unten in der Menge: sie trägt eine moderne Sonnenbrille ins Haar geschoben und einen Rucksack."
+        "She stands among other people.",
+        "Left half, lower center.",
+        "The young woman at the bottom left in the crowd: she wears modern sunglasses pushed into her hair and a backpack."
       ],
       "source": {
         "repository": "Wikimedia Commons",
@@ -79,37 +75,34 @@
         "license": "Public domain",
         "description": "Persistent URL: <a rel=\"nofollow\" class=\"external text\" href=\"http://digital.lib.muohio.edu/u?/snyder,869\">digital.lib.muohio.edu/u?/snyder,869</a>\n<dl><dd>Subject (TGM): Fairs; Streets; City and town life; Bands; Musical instruments; Tents;</dd>\n<dd>Location: Oxford, Ohio</dd>\n<dd>Men with instruments in band uniforms in center.</dd></dl>"
       },
-      "added": "2026-09-09",
-      "shown": "2026-09-09",
       "image": "scenes/oxford-fair-1912.jpg",
       "original": "scenes/oxford-fair-1912-original.jpg"
     },
     {
       "id": "king-george-v-square",
-      "title": "Offizielle Zeremonie am King-George-V-Platz",
-      "place": "Brisbane, Australien",
-      "year": "ca. 1935",
+      "title": "Official ceremony at King George V Square",
+      "place": "Brisbane, Australia",
+      "year": "c. 1935",
       "credit": "State Library of Queensland (No restrictions), via Wikimedia Commons",
       "sourceUrl": "https://commons.wikimedia.org/wiki/File%3ALarge%20crowd%20gathered%20in%20King%20George%20V%20Square%20for%20an%20official%20ceremony%20on%20the%20steps%20of%20City%20Hall%2C%20Brisbane%20%284461005643%29.jpg",
-      "difficulty": "klassisch",
-      "anomaly": "Ufo (Fliegende Untertasse)",
-      "explanation": "Fliegende Untertassen sind ein Motiv der Science-Fiction des 20. Jahrhunderts und existieren nicht – ein Ufo kann in keinem Foto vorkommen.",
+      "anomaly": "UFO (flying saucer)",
+      "explanation": "Flying saucers are a 20th-century science-fiction motif and do not exist, so a UFO cannot appear in any photo.",
       "references": [
         {
           "label": "Unidentified flying object (Wikipedia)",
           "url": "https://en.wikipedia.org/wiki/Unidentified_flying_object"
         }
       ],
-      "description": "Große Menschenmenge am King-George-V-Platz vor dem Rathaus von Brisbane bei einer offiziellen Zeremonie; im Vordergrund das Reiterstandbild Georgs V.",
+      "description": "Large crowd at King George V Square in front of Brisbane City Hall at an official ceremony; in the foreground the equestrian statue of George V.",
       "answer": {
         "x": 0.5529,
         "y": 0.0418,
         "r": 0.06
       },
       "hints": [
-        "Schau in den Himmel.",
-        "Oberer Bildrand, Mitte.",
-        "Hoch oben im Himmel, klein und fern: eine fliegende Untertasse."
+        "Look at the sky.",
+        "Top edge of the frame, center.",
+        "High up in the sky, small and distant: a flying saucer."
       ],
       "source": {
         "repository": "Wikimedia Commons",
@@ -120,8 +113,6 @@
         "license": "No restrictions",
         "description": "<strong>Photographer: </strong>George Jackman for Queensland Newspapers Pty Ltd<br>\n<p><strong>Location: </strong>Brisbane, Queensland, Australia<br>\n<strong>Date: </strong>Undated, circa 1935<br>\n<strong>View this image at the State Library of Queensland:</strong> <a rel=\"nofollow\" class=\"external free\" href=\"http://hdl.handle.net/10462/deriv/121215\">http://hdl.handle.net/10462/deriv/121215</a><br>\n</p>\n<strong>Information about State Library of Queensland’s collection:</strong> <a rel=\"nofollo"
       },
-      "added": "2026-09-09",
-      "shown": "2026-09-09",
       "image": "scenes/king-george-v-square.jpg",
       "original": "scenes/king-george-v-square-original.jpg"
     },
@@ -132,25 +123,24 @@
       "year": "1907",
       "credit": "Public Domain, via Wikimedia Commons",
       "sourceUrl": "https://commons.wikimedia.org/wiki/File%3AAbingdon%20Square%2C%20New%20York%20City%20%281907%29.jpg",
-      "difficulty": "dezent",
-      "anomaly": "Plastikflasche (PET)",
-      "explanation": "PET-Plastikflaschen kamen erst in den 1970er-Jahren auf – fast 70 Jahre nach diesem Foto.",
+      "anomaly": "Plastic bottle (PET)",
+      "explanation": "PET plastic bottles only appeared in the 1970s, almost 70 years after this photo.",
       "references": [
         {
           "label": "Plastic bottle (Wikipedia)",
           "url": "https://en.wikipedia.org/wiki/Plastic_bottle"
         }
       ],
-      "description": "Straßenszene am Abingdon Square in New York City, 1907, mit Pferdewagen und Passanten; rechts das Gebäude mit der Aufschrift „Abingdon“.",
+      "description": "Street scene at Abingdon Square in New York City, 1907, with horse-drawn wagons and passers-by; on the right the building with the “Abingdon” sign.",
       "answer": {
         "x": 0.088,
         "y": 0.9543,
         "r": 0.05
       },
       "hints": [
-        "Sie liegt am Boden am Rand der Straße.",
-        "Untere linke Ecke.",
-        "Links unten am Bordstein, halb im Schatten: eine Plastikflasche."
+        "It lies on the ground at the edge of the street.",
+        "Lower left corner.",
+        "At the bottom left on the curb, half in shadow: a plastic bottle."
       ],
       "source": {
         "repository": "Wikimedia Commons",
@@ -161,37 +151,34 @@
         "license": "No restrictions",
         "description": "Identifier: oldbuildingsnewy00newy\n<p>Title: Old buildings of New York City, with some notes regarding their origin and occupants\nYear: 1907 (1900s)\nAuthors: \nSubjects:  Historic buildings -- New York (State) New York\nPublisher:  New York : Brentano's\nContributing Library:  University of California Libraries\nDigitizing Sponsor:  MSN\n</p><p>View Book Page: Book Viewer\nAbout This Book: Catalog Entry\nView All Images: All Images From Book\n</p><p>Click here to view book online to see this illustratio"
       },
-      "added": "2026-09-09",
-      "shown": "2026-09-09",
       "image": "scenes/abingdon-square.jpg",
       "original": "scenes/abingdon-square-original.jpg"
     },
     {
       "id": "asakusa-bazaar-1890",
-      "title": "Basarstraße in Asakusa, Tokio",
-      "place": "Tokio, Japan",
+      "title": "Bazaar street in Asakusa, Tokyo",
+      "place": "Tokyo, Japan",
       "year": "1880–1900",
       "credit": "Public Domain (DPLA), via Wikimedia Commons",
       "sourceUrl": "https://commons.wikimedia.org/wiki/File%3ABazaar%20street%20in%20the%20Asakusa%20district%2C%20Tokyo%20-%20DPLA%20-%20110bfe02a6b4466718afe721fa463318.jpg",
-      "difficulty": "klassisch",
-      "anomaly": "Pappkaffeebecher mit Deckel",
-      "explanation": "Ein Pappbecher mit Deckel zum Mitnehmen kam erst im frühen 20. Jahrhundert auf – Jahrzehnte nach diesem Foto.",
+      "anomaly": "Paper coffee cup with lid",
+      "explanation": "Disposable paper cups with lids only appeared in the early 20th century, decades after this photo.",
       "references": [
         {
           "label": "Paper cup (Wikipedia)",
           "url": "https://en.wikipedia.org/wiki/Paper_cup"
         }
       ],
-      "description": "Basarstraße im Stadtteil Asakusa, Tokio. Die zwei Figuren in Weiß sind laut Bildunterschrift Polizisten; links und rechts säumen Stände mit Waren die Straße.",
+      "description": "Bazaar street in the Asakusa district, Tokyo. The two figures in white are policemen according to the caption; stalls with goods line both sides of the street.",
       "answer": {
         "x": 0.1631,
         "y": 0.7661,
         "r": 0.05
       },
       "hints": [
-        "Er steht am Boden, nicht auf einem Tisch.",
-        "Rechte Bildhälfte, untere Mitte.",
-        "Rechts am Boden neben dem Gebäude: ein Pappkaffeebecher mit Deckel."
+        "It stands on the ground, not on a table.",
+        "Right half, lower center.",
+        "On the ground on the right next to the building: a paper coffee cup with lid."
       ],
       "source": {
         "repository": "Wikimedia Commons",
@@ -202,8 +189,6 @@
         "license": "Public domain",
         "description": "<div class=\"description\">\n\"This is the bazaar street in the Asakusa district, Tokio. The two figures in white are policemen.\" \"Asakusa.\" gelatin silver prints Image No. 14. \"This is the baaar street in the Asakusa district, Tokio. The two figures in white are policemen\" titled in ink and \"Asakusa\" titled in plate. 5 1/8 x 3 1/2 sepia photo, mounted. c. 1897. Market scene with passing shoppers (mostly in kimonos &amp; with parasols). Legacy file ID changed to match file names with extension on 20"
       },
-      "added": "2026-09-09",
-      "shown": "2026-09-09",
       "image": "scenes/asakusa-bazaar-1890.jpg",
       "original": "scenes/asakusa-bazaar-1890-original.jpg"
     }
