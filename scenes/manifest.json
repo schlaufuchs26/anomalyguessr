@@ -1,176 +1,176 @@
 {
   "version": 2,
-  "date": "2026-09-08",
+  "date": "2026-09-09",
   "scenes": [
     {
-      "id": "oxford-fair",
-      "title": "Straßenjahrmarkt in Oxford",
-      "place": "Oxford, USA",
-      "year": "1913",
-      "credit": "Public Domain, via Wikimedia Commons (Boston Public Library)",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Crowd_at_Oxford_Street_Fair_1913_(3191478230).jpg",
+      "id": "cuyahoga-parade",
+      "title": "Zuschauer beim Centennial-Umzug des Cuyahoga County",
+      "place": "Cleveland, USA",
+      "year": "Oktober 1910",
+      "credit": "Public Domain (Cleveland Public Library via DPLA), via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Cuyahoga_County_Centennial_Parade_Watchers_CP04200_-_DPLA_-_0ace80f9f96f986273f5c7260e5a1e0a.jpg",
       "source": {
-        "repository": "Wikimedia Commons (Boston Public Library, Flickr Commons)",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:Crowd_at_Oxford_Street_Fair_1913_(3191478230).jpg",
-        "originalTitle": "Crowd at Oxford Street Fair 1913 (3191478230).jpg",
-        "date": "1913-09",
-        "place": "Oxford, USA",
+        "repository": "Wikimedia Commons (Cleveland Public Library via DPLA)",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:Cuyahoga_County_Centennial_Parade_Watchers_CP04200_-_DPLA_-_0ace80f9f96f986273f5c7260e5a1e0a.jpg",
+        "originalTitle": "Cuyahoga County Centennial Parade Watchers CP04200 - DPLA - 0ace80f9f96f986273f5c7260e5a1e0a.jpg",
+        "date": "October 1910",
+        "place": "Cleveland, USA",
         "license": "Public domain",
-        "description": "Crowd at Oxford Street Fair 1913"
+        "description": "A crowd watches the Cuyahoga County centennial parade as it passes through Public Square. Parade watchers are in the northeast quadrant of Public Square and can be seen standing on top of streetcars and on park benches. The buildings around the square are festooned with bunting and banners. Prominent in the background are the Cuyahoga building (left) and adjacent Williamson building (right), both of which were demolished in 1982 to make way for the Sohio (later BP America) building at 200 Public Square. Buildings along Euclid Avenue can be seen to the right of the Williamson building."
       },
       "difficulty": "klassisch",
-      "anomaly": "Pappkaffeebecher",
-      "description": "Menschenmenge auf dem Oxford Street Fair 1913: Jahrmarkt mit Zelt und Verkaufsständen; im Vordergrund ein Stand unter weißem Sonnensegel.",
+      "anomaly": "Zeitreisender: junger Mann im dunklen Anzug mit modernen weißen Sneakers",
+      "description": "Eine dichte Menschenmenge verfolgt den Jahrhundert-Umzug des Cuyahoga County auf dem Public Square. Zuschauer stehen auf dem Gehsteig, auf Bänken und sogar auf den Dächern der Straßenbahnen.",
       "answer": {
-        "x": 0.6756,
-        "y": 0.456,
-        "r": 0.0833
-      },
-      "hints": [
-        "Es steht an einem Verkaufsstand.",
-        "Rechte Bildhälfte, auf dem Tisch des Standes unter dem hellen Sonnensegel.",
-        "Auf dem Standtresen rechts, zwischen den Waren: ein moderner Pappkaffeebecher mit Deckel."
-      ],
-      "added": "2026-09-08",
-      "shown": "2026-09-08",
-      "image": "scenes/oxford-fair.jpg",
-      "original": "scenes/oxford-fair-original.jpg"
-    },
-    {
-      "id": "mulberry-street",
-      "title": "Marktstraße in New York",
-      "place": "New York City, USA",
-      "year": "ca. 1900",
-      "credit": "Public Domain, via Wikimedia Commons (Library of Congress, Detroit Publishing)",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:NYC_Mulberry_Street_3g04637u.jpg",
-      "source": {
-        "repository": "Wikimedia Commons (Library of Congress, Detroit Publishing)",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:NYC_Mulberry_Street_3g04637u.jpg",
-        "originalTitle": "NYC Mulberry Street 3g04637u.jpg",
-        "date": "ca. 1900",
-        "place": "New York City, USA",
-        "license": "Public domain",
-        "description": "Mulberry Street, New York City"
-      },
-      "difficulty": "klassisch",
-      "anomaly": "Pappkaffeebecher",
-      "description": "Belebte Marktstraße in New York City um 1900: dichte Menschenmenge, Warenkarren, Obst- und Gemüsestände (Fotochromdruck, handkoloriert).",
-      "answer": {
-        "x": 0.2655,
-        "y": 0.8181,
+        "x": 0.7248,
+        "y": 0.5205,
         "r": 0.0917
       },
       "hints": [
-        "Es liegt zwischen Waren auf einem Stand.",
-        "Untere linke Hälfte, zwischen Obstkisten und Körben.",
-        "Auf dem Stand mit Obstkisten unten links, zwischen den Körben: ein Pappkaffeebecher mit Deckel."
+        "Der Anachronismus ist eine Person, kein Gegenstand.",
+        "Er steht im mittleren Bildbereich rechts der Mitte, hinter einem Kind.",
+        "Der junge Mann im dunklen Anzug links neben der Frau mit dunklem Kleid und Hut trägt moderne weiße Sneakers."
       ],
-      "added": "2026-09-08",
-      "shown": "2026-09-08",
-      "image": "scenes/mulberry-street.jpg",
-      "original": "scenes/mulberry-street-original.jpg"
+      "added": "2026-09-09",
+      "shown": "2026-09-09",
+      "image": "scenes/cuyahoga-parade.jpg",
+      "original": "scenes/cuyahoga-parade-original.jpg"
     },
     {
-      "id": "ungarn-dorfmarkt-1911",
-      "title": "Ländlicher Markt in Ungarn",
-      "place": "Ungarn",
-      "year": "1911",
-      "credit": "CC BY-SA 3.0, via Wikimedia Commons (Fortepan)",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Market,_trading,_village,_basket_Fortepan_520.jpg",
+      "id": "kinigoran-market",
+      "title": "Markt in Kinigoran",
+      "place": "Kinigoran, Occidental Negros, Philippinen",
+      "year": "1900",
+      "credit": "Public Domain, via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Market_scene_in_Kinigoran,_Occidental_Negros_LCCN2006686280.jpg",
       "source": {
-        "repository": "Wikimedia Commons (Fortepan)",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:Market,_trading,_village,_basket_Fortepan_520.jpg",
-        "originalTitle": "Market, trading, village, basket Fortepan 520.jpg",
-        "date": "1911",
-        "place": "Ungarn",
-        "license": "CC BY-SA 3.0",
-        "description": "Market, trading, village, basket"
+        "repository": "Wikimedia Commons",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:Market_scene_in_Kinigoran,_Occidental_Negros_LCCN2006686280.jpg",
+        "originalTitle": "Market scene in Kinigoran, Occidental Negros LCCN2006686280.jpg",
+        "date": "1900",
+        "place": "Kinigoran, Occidental Negros, Philippinen",
+        "license": "Public domain",
+        "description": "<i>Title:</i> Market scene in Kinigoran, Occidental Negros\n<i>Abstract/medium:</i> 1 photographic print."
       },
       "difficulty": "klassisch",
-      "anomaly": "Plastikflasche",
-      "description": "Ländlicher Markt in Ungarn 1911: Frauen mit Kopftüchern und langen Röcken, Körbe und Bündel mit Waren auf dem Boden eines Dorfplatzes.",
+      "anomaly": "Zeitreisende: junge Frau mit modernem Daypack-Rucksack und Kurzhaarschnitt",
+      "description": "Schwarz-weiße Fotografie eines vollen Marktes in Kinigoran auf den Philippinen: Dutzende Menschen drängen sich unter einem großen offenen Schutzdach zwischen Waren und Körben.",
       "answer": {
-        "x": 0.1888,
-        "y": 0.7381,
-        "r": 0.1083
+        "x": 0.4793,
+        "y": 0.6529,
+        "r": 0.1333
       },
       "hints": [
-        "Es steht am Boden neben einem Korb.",
-        "Linke untere Ecke, direkt am Bildrand.",
-        "Links unten, halb hinter dem großen Korb: eine moderne Plastikflasche."
+        "Der Anachronismus ist eine Person, kein Gegenstand.",
+        "Sie steht in der Mitte, direkt hinter dem niedrigen Holzzaun am Rand der Markthalle.",
+        "Die junge Frau in der Menge hinter dem Zaun trägt einen modernen Rucksack (Daypack) über der Schulter und hat einen Kurzhaarschnitt."
       ],
-      "added": "2026-09-08",
-      "shown": "2026-09-08",
-      "image": "scenes/ungarn-dorfmarkt-1911.jpg",
-      "original": "scenes/ungarn-dorfmarkt-1911-original.jpg"
+      "added": "2026-09-09",
+      "shown": "2026-09-09",
+      "image": "scenes/kinigoran-market.jpg",
+      "original": "scenes/kinigoran-market-original.jpg"
     },
     {
-      "id": "paramaribo-market",
-      "title": "Überdachter Markt in Paramaribo",
-      "place": "Paramaribo, Suriname",
-      "year": "um 1899",
-      "credit": "Public Domain, via Wikimedia Commons (KITLV)",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:KITLV_-_12667_-_Covered_market_on_the_Waterkant_in_Paramaribo_-_circa_1899.tif",
+      "id": "soulard-market",
+      "title": "Menschenmengen am Soulard Market",
+      "place": "St. Louis, USA",
+      "year": "1910",
+      "credit": "Public Domain, via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Eighth_Street._Soulard_Market_with_crowds.jpg",
       "source": {
-        "repository": "Wikimedia Commons (KITLV)",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:KITLV_-_12667_-_Covered_market_on_the_Waterkant_in_Paramaribo_-_circa_1899.tif",
-        "originalTitle": "KITLV - 12667 - Covered market on the Waterkant in Paramaribo - circa 1899.tif",
-        "date": "um 1899",
-        "place": "Paramaribo, Suriname",
+        "repository": "Wikimedia Commons",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:Eighth_Street._Soulard_Market_with_crowds.jpg",
+        "originalTitle": "Eighth Street. Soulard Market with crowds.jpg",
+        "date": "1910",
+        "place": "St. Louis, USA",
         "license": "Public domain",
-        "description": "Covered market on the Waterkant in Paramaribo."
+        "description": "Horizontal, black and white photograph of horse drawn carriages and groups of people.<br>Title: Eighth Street. Soulard Market with crowds."
       },
       "difficulty": "klassisch",
-      "anomaly": "Tetrapak",
-      "description": "Überdachter Markt am Waterkant in Paramaribo um 1899: Verkaufsstände unter einem langen Schutzdach am Flussufer, Holz, Säcke und Waren am Ufer; ein Boot mit einer Person im Vordergrund.",
+      "anomaly": "Pappkaffeebecher mit Deckel",
+      "description": "Schwarz-weiße Fotografie des belebten Soulard Market in St. Louis: Pferdewagen, Verkaufsstände und Menschengruppen auf der Achten Straße.",
       "answer": {
-        "x": 0.769,
-        "y": 0.8673,
+        "x": 0.1911,
+        "y": 0.9312,
         "r": 0.15
       },
       "hints": [
-        "Es liegt bei den Waren am Flussufer.",
-        "Rechte untere Ecke, zwischen Holzplanken und Säcken.",
-        "Unten rechts, halb unter Holzplanken: ein moderner Tetrapak (Saft- oder Milchpackung)."
+        "Der Anachronismus ist ein kleiner Gegenstand am Boden.",
+        "Er liegt unten links, neben dem großen Wagenrad.",
+        "Am Boden links unten, halb hinter dem Pfosten neben dem Wagenrad, steht ein Pappkaffeebecher mit Deckel."
       ],
-      "added": "2026-09-08",
-      "shown": "2026-09-08",
-      "image": "scenes/paramaribo-market.jpg",
-      "original": "scenes/paramaribo-market-original.jpg"
+      "added": "2026-09-09",
+      "shown": "2026-09-09",
+      "image": "scenes/soulard-market.jpg",
+      "original": "scenes/soulard-market-original.jpg"
     },
     {
-      "id": "blidah-market",
-      "title": "Markt in Blida",
-      "place": "Blida, Algerien",
-      "year": "1899",
-      "credit": "Public Domain, via Wikimedia Commons (Library of Congress)",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Arab_market,_Blidah,_Algeria-LCCN2001697855.jpg",
+      "id": "tepec-market",
+      "title": "Marktszene in Tepec",
+      "place": "Tepec, Mexiko",
+      "year": "ca. 1900",
+      "credit": "Public Domain, via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Market_scene_including_restaurant_and_street,_Tepec,_Mexico,_ca.1900_(CHS-618).jpg",
       "source": {
-        "repository": "Wikimedia Commons (Library of Congress)",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:Arab_market,_Blidah,_Algeria-LCCN2001697855.jpg",
-        "originalTitle": "Arab market, Blidah, Algeria-LCCN2001697855.jpg",
-        "date": "1899",
-        "place": "Blida, Algerien",
+        "repository": "Wikimedia Commons",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:Market_scene_including_restaurant_and_street,_Tepec,_Mexico,_ca.1900_(CHS-618).jpg",
+        "originalTitle": "Market scene including restaurant and street, Tepec, Mexico, ca.1900 (CHS-618).jpg",
+        "date": "circa 1900<div style=\"display: none;\">date QS:P,+1900-00-00T00:00:00Z/9,P1480,Q5727902</div> (date created)",
+        "place": "Tepec, Mexiko",
         "license": "Public domain",
-        "description": "Arab market, Blidah, Algeria"
+        "description": "<br>\n<dl><dd><i>Market scene including restaurant and street, Tepec, Mexico, ca.1900</i></dd>\n<dd>Photograph of market scene including restaurant and street, Tepec, Mexico, ca.1900. In the foreground at right, a large dirt road is visible. The goods on the street have been unloaded from the burro. To the right of the items on the street, a single large pole can be seen. A dozen or more people, most wearing sombreros and ponchos, are standing on the sidewalk, the dirt road, or sitting in the open air restaurant. The buildings have tile roofs.</dd></dl>\n<dl><dd><b>Call number</b>: CHS-618</dd>\n<dd><b>Filename</b>: CHS-618</dd>\n<dd><b>Coverage date</b>: circa 1900</dd>\n<dd><b>Part of collection</b>: California Historical Society Collection, 1860-1960</dd>\n<dd><b>Type</b>: images</dd>\n<dd><b>Part of subcollection</b>: Title Insurance and Trust, and C.C. Pierce Photography Collection, 1860-1960</dd>\n<dd><b>Repository name</b>: USC Libraries Special Collections</dd>\n<dd><b>Format</b>: glass plate negatives</dd>\n<dd><b>Microfiche number</b>: 1-224-</dd>\n<dd><b>Archival file</b>: chs_Volume89/CHS-618.tiff</dd>\n<dd><b>Geographic subject (city or populated place)</b>: Tepec</dd>\n<dd><b>Repository address</b>: Doheny Memorial Library, Los Angeles, CA 90089-0189</dd>\n<dd><b>Subject (adlf)</b>: commercial sites</dd>\n<dd><b>Geographic subject (country)</b>: Mexico</dd>\n<dd><b>Format (aacr2)</b>: 2 photographs : glass photonegative, photoprint, b&amp;w ; 13 x 20 cm., 21 x 26 cm.</dd>\n<dd><b"
       },
       "difficulty": "klassisch",
-      "anomaly": "Pappkaffeebecher",
-      "description": "Arabischer Markt in Blida, Algerien, um 1899 (Fotochromdruck, handkoloriert): Menschen in traditioneller Kleidung, Esel und Warenkörbe auf dem Marktplatz.",
+      "anomaly": "Plastikflasche (PET)",
+      "description": "Marktszene in Tepec, Mexiko: Waren liegen auf der staubigen Straße, Lastesel und Menschen drängen sich zwischen Körben vor den Marktständen.",
       "answer": {
-        "x": 0.5142,
-        "y": 0.9353,
+        "x": 0.1452,
+        "y": 0.7211,
         "r": 0.15
       },
       "hints": [
-        "Es liegt am Boden bei den Marktwaren.",
-        "Untere Bildmitte, direkt am unteren Rand.",
-        "Am Boden in der unteren Mitte, halb hinter einem Korb: ein Pappkaffeebecher mit Deckel."
+        "Der Anachronismus ist ein Gegenstand am Boden, unten links.",
+        "Er liegt neben dem dunklen Korb, vor den Beinen des Esels.",
+        "Am Boden links unten, zwischen Korb und Esel, liegt eine durchsichtige Plastikflasche."
       ],
-      "added": "2026-09-08",
-      "shown": "2026-09-08",
-      "image": "scenes/blidah-market.jpg",
-      "original": "scenes/blidah-market-original.jpg"
+      "added": "2026-09-09",
+      "shown": "2026-09-09",
+      "image": "scenes/tepec-market.jpg",
+      "original": "scenes/tepec-market-original.jpg"
+    },
+    {
+      "id": "wetaskiwin-street",
+      "title": "Menschenmenge auf der Pearce Street in Wetaskiwin",
+      "place": "Wetaskiwin, Alberta, Kanada",
+      "year": "ca. 1910",
+      "credit": "Public Domain, via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:A_busy_scene_on_Pearce_St.,_Wetaskiwin,_Alta.jpg",
+      "source": {
+        "repository": "Wikimedia Commons",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:A_busy_scene_on_Pearce_St.,_Wetaskiwin,_Alta.jpg",
+        "originalTitle": "A busy scene on Pearce St., Wetaskiwin, Alta.jpg",
+        "date": "circa 1910<div style=\"display: none;\">date QS:P,+1910-00-00T00:00:00Z/9,P1480,Q5727902</div>",
+        "place": "Wetaskiwin, Alberta, Kanada",
+        "license": "Public domain",
+        "description": "On Back: Made in Germany. [Printer's no.] 12 72225\nDescription: Scene of a crowd of people gathered along a street in Wetaskiwin, Alberta for an event (possibly a parade)"
+      },
+      "difficulty": "klassisch",
+      "anomaly": "Zeitreisende: junge Frau mit modernen Over-Ear-Kopfhörern um den Hals",
+      "description": "Schwarz-weiße Fotografie einer dichten Menschenmenge entlang der Pearce Street in Wetaskiwin, Alberta, die auf ein Ereignis in der Straße wartet; einige Zuschauer reiten auf Pferden, über der Straße hängt ein Willkommens-Banner.",
+      "answer": {
+        "x": 0.1782,
+        "y": 0.6659,
+        "r": 0.1167
+      },
+      "hints": [
+        "Der Anachronismus ist eine Person, kein Gegenstand.",
+        "Sie steht auf der linken Seite, in der Menschenmenge an den Gebäuden.",
+        "Die junge Frau im Hintergrund links, halb hinter anderen Personen, trägt moderne Over-Ear-Kopfhörer um den Hals."
+      ],
+      "added": "2026-09-09",
+      "shown": "2026-09-09",
+      "image": "scenes/wetaskiwin-street.jpg",
+      "original": "scenes/wetaskiwin-street-original.jpg"
     }
   ]
 }
