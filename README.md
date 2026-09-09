@@ -1,15 +1,18 @@
-# Temporal Detective 🦊
+# AnomalyGuessr 🦊
 
-Daily spot-the-anachronism quiz. Each day presents a fixed set of **5**
-public-domain historical photographs (pre-1928), each with exactly **one**
-modern object planted by AI image editing. Click the spot where something
-doesn't belong; score by distance to the true position. Progressive hints are
-the safety net for the hard rounds. Everyone gets the same 5 scenes on a given
-day (deterministic date-seeded selection).
+Daily spot-the-anomaly quiz. Each day presents a fixed set of **5**
+public-domain historical photographs, each with exactly **one** anomaly
+planted by AI image editing: a modern object, a time-traveling person or
+something that could not possibly have been there (a fictional creature,
+an impossible object). Click the spot where something doesn't belong; score
+by distance to the true position. After the guess the game reveals WHY the
+anomaly could not have been in the original photo, with a checkable
+reference link for every factual claim. Progressive hints are the safety
+net for the hard rounds. Everyone gets the same 5 scenes on a given day
+(deterministic date-seeded selection).
 
 Conceit: the "Zeitreisen-Schutzstaffel" (time-travel protection squad) has
-detected anomalies and you, the Temporal Detective, have to locate each before
-the timeline frays.
+detected anomalies and you, the AnomalyGuessr agent, have to locate each before the timeline frays.
 
 Play it: <https://schlaufuchs26.github.io/temporal-detective/>
 
@@ -39,9 +42,11 @@ bun run checks     # format + tsc + biome + knip + tests
   and its historical background (place, year, period).
 - Scenes carry an internal difficulty tier (dezent / klassisch / auffaellig)
   used for generation and tuning; it is not shown in the UI.
-- The planted anomalies are varied and context-fitting (e.g. a coffee cup on
-  a market stall, a drink can among baskets, a wristwatch on a passer-by, a
-  phone in a parade crowd), not a fixed object set.
+- The planted anomalies are varied and context-fitting (a coffee cup on a
+  market stall, a drink can among baskets, a wristwatch on a passer-by, a
+  phone in a parade crowd, a time-traveling jogger, a small dragon on a
+  rooftop), not a fixed object set. The anomaly type matches the scene's
+  density: a person among crowds, an object among clutter.
 - All source photos are landscape (wider than tall).
 
 ## Daily selection
@@ -85,6 +90,8 @@ Each scene entry:
   "image": "scenes/jammu-bazaar.jpg",
   "original": "scenes/jammu-bazaar-original.jpg",
   "anomaly": "Digitaluhr",
+  "explanation": "Digitale Armbanduhren kamen erst in den 1970ern auf (siehe [Wikipedia](https://de.wikipedia.org/wiki/Digitaluhr)).",
+  "references": [{ "label": "Digitaluhr – Wikipedia", "url": "https://de.wikipedia.org/wiki/Digitaluhr" }],
   "description": "Der Butcher's Bazaar in Jammu, aufgenommen zwischen ca. 1875 und ca. 1940: eine Marktstraße mit kleinen Läden und Ständen auf beiden Seiten (Katalogbeschreibung der USC Digital Library).",
   "answer": { "x": 0.11, "y": 0.62, "r": 0.03 },
   "hints": [
@@ -118,6 +125,7 @@ is verified per record rather than assumed from age) sourced via Wikimedia
 Commons (DPLA collections incl. Seattle Public Library and University of
 Colorado, State Library of Queensland, Fortepan, NYPL, USC Digital Library).
 Per-scene provenance + file page link live in the `source` block and are
-enforced by the validator. The planted anachronism is always from a LATER
-time than the photo. The anomalies are AI edits; the edited images are new
-derived works of the base photos.
+enforced by the validator. Anomalies are either from a LATER time than the photo (anachronisms) or
+impossible in any era (fictional creatures, impossible objects); the scene's
+`explanation` says which and links a reference. The anomalies are AI edits;
+the edited images are new derived works of the base photos.

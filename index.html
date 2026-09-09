@@ -3,20 +3,21 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Temporal Detective – Zeitdetektiv</title>
+    <title>AnomalyGuessr – Finde die Anomalie</title>
     <meta
       name="description"
-      content="Finde den einen modernen Gegenstand, den eine KI in ein historisches Foto geschmuggelt hat."
+      content="Finde die eine Anomalie, die nicht in dieses historische Foto gehört: ein modernes Objekt, ein Zeitreisender oder etwas völlig Unmögliches."
     />
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
     <main>
       <header class="top">
-        <h1>🦊 Temporal Detective</h1>
+        <h1>🦊 AnomalyGuessr</h1>
         <p class="tagline">
-          Zeitreisen-Schutzstaffel. Eine Anomalie wurde in einem historischen Foto gemeldet –
-          klicke auf die Stelle, an der etwas nicht in die Zeit gehört.
+          Zeitreisen-Schutzstaffel. In einem historischen Foto wurde eine Anomalie gemeldet –
+          etwas, das dort unmöglich ist: ein modernes Objekt, ein Zeitreisender oder ein Fabelwesen.
+          Klicke auf die Stelle, an der etwas nicht hingehört.
         </p>
       </header>
 
@@ -39,6 +40,7 @@
             <p id="hint-text" class="hint-text"></p>
           </div>
           <div id="result" class="result" aria-live="polite"></div>
+          <div id="why" class="why" hidden></div>
           <div class="nav">
             <button id="compare-btn" class="btn ghost" type="button" hidden>
               📷 Original anzeigen

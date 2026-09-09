@@ -177,4 +177,61 @@ describe("parseManifest version 2 (pipeline daily manifest)", () => {
       /source/,
     );
   });
+
+  describe("parseManifest explanation + references (#1136)", () => {
+    test("accepts a scene with explanation and references", () => {
+      const m = parseManifest(
+        validManifest({
+          explanation: "Digitale Uhren kamen erst in den 1970ern auf.",
+          references: [
+            {
+              label: "Digitaluhr – Wikipedia",
+              url: "https://de.wikipedia.org/wiki/Digitaluhr",
+            },
+          ],
+        }),
+      );
+      expect(m.scenes[0]?.explanation).toContain("1970ern");
+      expect(m.scenes[0]?.references).toHaveLength(1);
+      expect(m.scenes[0]?.references?.[0]?.url).toBe(
+        "https://de.wikipedia.org/wiki/Digitaluhr",
+      );
+    });
+
+    test("accepts a scene without explanation (legacy)", () => {
+      const m = parseManifest(validManifest({}));
+      expect(m.scenes[0]?.explanation).toBeUndefined();
+      expect(m.scenes[0]?.references).toBeUndefined();
+    });
+
+    test("rejects a non-empty-string explanation", () => {
+      expect(() =>
+        parseManifest(validManifest({ explanation: "   " })),
+      ).toThrow(/explanation/);
+      expect(() => parseManifest(validManifest({ explanation: 42 }))).toThrow(
+        /explanation/,
+      );
+    });
+
+    test("rejects a malformed references array", () => {
+      expect(() => parseManifest(validManifest({ references: [] }))).toThrow(
+        /references/,
+      );
+      expect(() => parseManifest(validManifest({ references: "x" }))).toThrow(
+        /references/,
+      );
+      expect(() =>
+        parseManifest(
+          validManifest({ references: [{ label: "", url: "https://x.test" }] }),
+        ),
+      ).toThrow(/label/);
+      expect(() =>
+        parseManifest(
+          validManifest({
+            references: [{ label: "L", url: "javascript:alert(1)" }],
+          }),
+        ),
+      ).toThrow(/url/);
+    });
+  });
 });

@@ -41,8 +41,19 @@ export interface Scene {
   image: string;
   /** Relative path to the untouched original, shown after the guess. */
   original: string;
-  /** Short label of the planted object, e.g. "Plastikflasche". */
+  /** Short label of the planted anomaly, e.g. "Plastikflasche". */
   anomaly: string;
+  /**
+   * Why the anomaly could not have been in the original photo (German).
+   * Required for pipeline-shipped daily manifests (version 2); legacy
+   * scenes without one stay playable but show no reveal block.
+   */
+  explanation?: string;
+  /**
+   * One reference per factual claim in the explanation (Wikipedia or a
+   * similar reliable source); rendered as links in the post-guess reveal.
+   */
+  references?: { label: string; url: string }[];
   /**
    * 1-2 sentence context. Written strictly from the source metadata (and
    * plain visible content): no invented dates, names, events or context.
@@ -129,6 +140,26 @@ function parseScene(
   }
   if (!isDifficulty(raw.difficulty))
     fail(where, "difficulty must be dezent|klassisch|auffaellig");
+  const explanation = raw.explanation;
+  if (
+    explanation !== undefined &&
+    (typeof explanation !== "string" || explanation.trim() === "")
+  )
+    fail(where, "explanation must be a non-empty string");
+  const references = raw.references;
+  if (references !== undefined) {
+    if (!Array.isArray(references) || references.length === 0)
+      fail(where, "references must be a non-empty array when present");
+    for (const r of references) {
+      if (!isRecord(r)) fail(where, "each reference must be an object");
+      const label = r.label;
+      const url = r.url;
+      if (typeof label !== "string" || label.trim() === "")
+        fail(where, "reference label must be a non-empty string");
+      if (typeof url !== "string" || !/^https?:\/\//.test(url))
+        fail(where, "reference url must be an http(s) URL");
+    }
+  }
   const scene: Scene = {
     id: reqString(raw.id, where, "id"),
     title: reqString(raw.title, where, "title"),
@@ -143,6 +174,14 @@ function parseScene(
     description: reqString(raw.description, where, "description"),
     answer: { x: nx, y: ny, r: nr },
     hints: [hints[0] as string, hints[1] as string, hints[2] as string],
+    ...(explanation !== undefined ? { explanation } : {}),
+    ...(references !== undefined
+      ? {
+          references: (references as { label: string; url: string }[]).map(
+            (r) => ({ label: String(r.label), url: String(r.url) }),
+          ),
+        }
+      : {}),
   };
   if (raw.source !== undefined || requireSource) {
     scene.source = parseSource(raw.source, where);

@@ -34,6 +34,7 @@ const els = {
   hintBtn: $("#hint-btn") as HTMLButtonElement,
   hintText: $("#hint-text"),
   result: $("#result"),
+  why: $("#why"),
   compareBtn: $("#compare-btn") as HTMLButtonElement,
   nextBtn: $("#next-btn") as HTMLButtonElement,
   endDate: $("#end-date"),
@@ -146,6 +147,8 @@ function renderScene(): void {
   els.hintBtn.textContent = "💡 Tipp zeigen";
   els.result.className = "result";
   els.result.innerHTML = "";
+  els.why.hidden = true;
+  els.why.innerHTML = "";
   els.compareBtn.hidden = true;
   els.nextBtn.hidden = true;
   els.overlay.classList.remove("waiting");
@@ -261,6 +264,8 @@ function onDblClick(e: MouseEvent): void {
     clearMarkers();
     els.result.className = "result";
     els.result.innerHTML = "";
+    els.why.hidden = true;
+    els.why.innerHTML = "";
     els.compareBtn.hidden = true;
     els.nextBtn.hidden = true;
   }
@@ -376,13 +381,47 @@ function resolve(nx: number, ny: number): void {
     <p class="headline">${copy.headline}</p>
     <p class="score"><strong>${score} Punkte</strong> · ${penaltyNote}</p>
     <p>${copy.note}</p>
-    <p>🔍 Die Anomalie war eine <strong>${s.anomaly}</strong>. Genaue Stelle: ${s.hints[2]}</p>
+    <p>🔍 Die Anomalie war: <strong>${s.anomaly}</strong>. Genaue Stelle: ${s.hints[2]}</p>
   `;
+  if (s.explanation) renderWhy(s);
   els.compareBtn.hidden = false;
   els.nextBtn.hidden = false;
   const last = state.index >= state.queue.length - 1;
   els.nextBtn.textContent = last ? "Ergebnis →" : "Weiter →";
   els.nextBtn.focus();
+}
+
+/**
+ * Post-guess reveal: explain WHY the anomaly could not have been in the
+ * original photo (per-scene "explanation" + checkable reference links).
+ * Legacy scenes without an explanation show nothing.
+ */
+function renderWhy(s: Scene): void {
+  els.why.innerHTML = "";
+  const head = document.createElement("p");
+  head.className = "why-head";
+  head.textContent = "Warum?";
+  els.why.append(head);
+  const body = document.createElement("p");
+  body.className = "why-text";
+  body.textContent = s.explanation ?? "";
+  els.why.append(body);
+  if (s.references && s.references.length > 0) {
+    const ul = document.createElement("ul");
+    ul.className = "why-refs";
+    for (const ref of s.references) {
+      const li = document.createElement("li");
+      const a = document.createElement("a");
+      a.href = ref.url;
+      a.textContent = ref.label;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      li.append(a);
+      ul.append(li);
+    }
+    els.why.append(ul);
+  }
+  els.why.hidden = false;
 }
 
 function onHint(): void {
