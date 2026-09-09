@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "bun index.html",
-    "build": "bun build index.html --outdir dist/ --target browser && cp -r scenes dist/scenes",
+    "build": "rm -rf dist && bun build index.html --outdir dist --target browser && cp -r scenes dist/scenes",
     "start": "bun index.html",
     "tsc": "tsc --pretty --noEmit",
     "format": "biome format --write .",
