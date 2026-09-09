@@ -31,9 +31,16 @@
         <div class="stage">
           <div id="photo" class="photo">
             <img id="photo-img" alt="" />
+            <img
+              id="photo-orig"
+              class="photo-orig"
+              alt=""
+              aria-hidden="true"
+            />
             <div id="overlay" class="overlay"></div>
           </div>
         </div>
+        <p id="img-announce" class="sr-only" aria-live="polite"></p>
         <div class="hud">
           <div id="hint-box" class="hint-box" aria-live="polite">
             <button id="hint-btn" class="btn" type="button">💡 Show hint</button>

@@ -1,7 +1,13 @@
 import { DAILY_COUNT, dateFromKey, dateLabel, pickDaily } from "./daily";
 import { fitInto, panBy, type ViewState, zoomAt } from "./layout";
 import { type Manifest, parseManifest, type Scene } from "./manifest";
-import { clickDistance, scoreFor, type Verdict, verdictFor } from "./scoring";
+import {
+  clickDistance,
+  isHit,
+  scoreFor,
+  type Verdict,
+  verdictFor,
+} from "./scoring";
 
 interface RunState {
   /** Today's deterministic daily set. */
@@ -30,6 +36,8 @@ const els = {
   sceneDesc: $("#scene-desc"),
   sceneProgress: $("#scene-progress"),
   img: $("#photo-img") as HTMLImageElement,
+  origImg: $("#photo-orig") as HTMLImageElement,
+  announce: $("#img-announce"),
   overlay: $("#overlay"),
   hintBtn: $("#hint-btn") as HTMLButtonElement,
   hintText: $("#hint-text"),
@@ -72,6 +80,8 @@ let state: RunState = {
   answered: false,
   originalView: false,
 };
+/** A correct guess asked for the original reveal while it still downloads. */
+let revealPending = false;
 let view: ViewState = { scale: 1, x: 0, y: 0 };
 let dragMoved = false;
 let dragStart: { x: number; y: number; view: ViewState } | null = null;
@@ -145,15 +155,78 @@ function renderScene(): void {
   els.hintText.textContent = "";
   els.hintBtn.disabled = false;
   els.hintBtn.textContent = "💡 Show hint";
+  clearAnswerReveal();
+  // Preload the untouched original under the edited photo: it stays hidden
+  // (opacity 0) until a correct guess crossfades it in or the compare
+  // button toggles it, so the reveal needs no network wait.
+  els.origImg.src = s.original;
+  els.announce.textContent = "";
+  fitPhotoToStage();
+}
+
+/**
+ * Show either the edited photo (base layer, default) or the untouched
+ * original (absolutely-positioned layer above it). Manual compare toggles
+ * instantly; a correct guess uses the animated revealOriginal() instead.
+ */
+function applyOriginalView(on: boolean): void {
+  revealPending = false;
+  state.originalView = on;
+  els.photo.classList.remove("correcting");
+  els.origImg.classList.remove("reveal");
+  els.origImg.classList.toggle("show", on);
+  els.compareBtn.textContent = on ? "🖼️ Edited image" : "📷 Show original";
+}
+
+/**
+ * Animated reveal of the original after a correct guess (ticket #1147): a
+ * one-shot dissolve with a brief "timeline correction" glitch, driven by
+ * CSS classes on the original layer (.reveal) and the photo (.correcting).
+ * Runs once and holds the original on screen.
+ */
+function startOriginalReveal(): void {
+  els.origImg.classList.add("reveal");
+  els.photo.classList.add("correcting");
+  els.announce.textContent =
+    "Correct. Now showing the original photo: the anomaly is gone.";
+}
+
+/** Crossfade to the original after a perfect hit; only hits call this. */
+function revealOriginal(): void {
+  state.originalView = true;
+  els.compareBtn.textContent = "🖼️ Edited image";
+  if (els.origImg.complete && els.origImg.naturalWidth > 0) {
+    startOriginalReveal();
+  } else {
+    // original still downloading: start the reveal when its load lands
+    revealPending = true;
+  }
+}
+
+/** Reset every piece of post-guess UI (markers, result, why, nav, layer). */
+function clearAnswerReveal(): void {
+  els.overlay.classList.remove("waiting");
+  clearMarkers();
   els.result.className = "result";
   els.result.innerHTML = "";
   els.why.hidden = true;
   els.why.innerHTML = "";
   els.compareBtn.hidden = true;
   els.nextBtn.hidden = true;
-  els.overlay.classList.remove("waiting");
-  clearMarkers();
-  fitPhotoToStage();
+  applyOriginalView(false);
+}
+
+function onOrigImgLoad(): void {
+  if (!revealPending) return;
+  revealPending = false;
+  startOriginalReveal();
+}
+
+function onOrigImgError(): void {
+  if (!revealPending) return;
+  revealPending = false;
+  els.announce.textContent = "The original photo could not be loaded.";
+  applyOriginalView(false);
 }
 
 function clearMarkers(): void {
@@ -260,14 +333,7 @@ function onDblClick(e: MouseEvent): void {
   if (state.answered) {
     state.answered = false;
     state.scores[state.index] = -1;
-    els.overlay.classList.remove("waiting");
-    clearMarkers();
-    els.result.className = "result";
-    els.result.innerHTML = "";
-    els.why.hidden = true;
-    els.why.innerHTML = "";
-    els.compareBtn.hidden = true;
-    els.nextBtn.hidden = true;
+    clearAnswerReveal();
   }
   zoomAtPoint(e.clientX, e.clientY, 3);
 }
@@ -358,7 +424,13 @@ function onPointerCancel(e: PointerEvent): void {
   if (activePointers.size === 0) dragStart = null;
 }
 
-function resolve(nx: number, ny: number): void {
+/**
+ * Resolve a guess at normalized image coordinates (0..1, top-left origin):
+ * score it, place the markers, reveal the result (and the original photo on
+ * a hit). Exported for the DOM-level tests (tests/game.test.ts); the app
+ * entry only ever calls it through the overlay click handler.
+ */
+export function resolve(nx: number, ny: number): void {
   const s = scene();
   state.answered = true;
   els.overlay.classList.add("waiting");
@@ -366,6 +438,7 @@ function resolve(nx: number, ny: number): void {
   const score = scoreFor(distance, s.answer.r, state.hintsUsed);
   state.scores[state.index] = score;
   const verdict = verdictFor(score);
+  const hit = isHit(distance, s.answer.r);
   addMarker("click", nx, ny);
   addMarker("answer", s.answer.x, s.answer.y, s.answer.r);
   const used = state.hintsUsed;
@@ -382,6 +455,10 @@ function resolve(nx: number, ny: number): void {
   if (s.explanation) renderWhy(s);
   els.compareBtn.hidden = false;
   els.nextBtn.hidden = false;
+  // Correct guess: dissolve into the untouched original so the player sees
+  // the "before" photo (misses/warm clicks keep the edited photo; the
+  // compare button stays available for those).
+  if (hit) revealOriginal();
   const last = state.index >= state.queue.length - 1;
   els.nextBtn.textContent = last ? "Results →" : "Next →";
   els.nextBtn.focus();
@@ -435,12 +512,7 @@ function onHint(): void {
 }
 
 function toggleCompare(): void {
-  const s = scene();
-  state.originalView = !state.originalView;
-  els.img.src = state.originalView ? s.original : s.image;
-  els.compareBtn.textContent = state.originalView
-    ? "🖼️ Edited image"
-    : "📷 Show original";
+  applyOriginalView(!state.originalView);
 }
 
 function nextScene(): void {
@@ -523,6 +595,8 @@ async function init(): Promise<void> {
   els.nextBtn.addEventListener("click", nextScene);
   els.restartBtn.addEventListener("click", () => startRun());
   els.img.addEventListener("load", fitPhotoToStage);
+  els.origImg.addEventListener("load", onOrigImgLoad);
+  els.origImg.addEventListener("error", onOrigImgError);
   window.addEventListener("resize", () => fitPhotoToStage());
   window
     .matchMedia(DESKTOP_LAYOUT)

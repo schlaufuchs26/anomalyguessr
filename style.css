@@ -130,6 +130,115 @@ main {
   cursor: default;
 }
 
+/* original-photo layer + correct-guess reveal (ticket #1147) */
+/* The untouched original mirrors the edited base photo exactly: it is an
+   absolutely-positioned layer over the .photo box (which the base img
+   defines), hidden until a correct guess dissolves it in or the compare
+   button toggles it. Edited and original share the aspect ratio (manifest
+   invariant), so stretching to the box never distorts. */
+.photo img.photo-orig {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Manual compare: instant swap (no effect; the player drives it). */
+.photo img.photo-orig.show {
+  opacity: 1;
+}
+
+/* Correct guess: one-shot dissolve with a brief "timeline correction"
+   glitch (two quick horizontal tears), then it holds the original. */
+.photo img.photo-orig.reveal {
+  animation: orig-reveal 0.7s ease-out forwards;
+}
+
+@keyframes orig-reveal {
+  0% {
+    opacity: 0;
+    transform: translateX(0);
+  }
+  12% {
+    opacity: 0.5;
+    transform: translateX(-7px);
+  }
+  22% {
+    opacity: 0.65;
+    transform: translateX(5px);
+  }
+  32% {
+    opacity: 0.5;
+    transform: translateX(-2px);
+  }
+  55% {
+    opacity: 0.85;
+    transform: translateX(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Scanline shimmer across the whole photo while the reveal runs (CRT /
+   time-machine flavour); one pass, ends invisible. */
+.photo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0 3px,
+    rgba(217, 164, 65, 0.12) 3px 4px
+  );
+}
+
+.photo.correcting::after {
+  animation: scan-fade 0.7s ease-out;
+}
+
+@keyframes scan-fade {
+  0% {
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Screen-reader-only live region announcing the photo swap. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .photo img.photo-orig.reveal {
+    animation: none;
+    opacity: 1;
+  }
+
+  .photo.correcting::after {
+    animation: none;
+    opacity: 0;
+  }
+}
+
 .stage {
   overflow: hidden;
 }

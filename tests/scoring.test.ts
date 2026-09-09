@@ -3,6 +3,7 @@ import {
   baseScore,
   clickDistance,
   HINT_MULTIPLIERS,
+  isHit,
   scoreFor,
   verdictFor,
 } from "../scoring";
@@ -14,6 +15,19 @@ describe("clickDistance", () => {
 
   test("euclidean in unit space", () => {
     expect(clickDistance({ x: 0, y: 0 }, { x: 0.3, y: 0.4 })).toBeCloseTo(0.5);
+  });
+});
+
+describe("isHit", () => {
+  test("inside or exactly on the answer circle is a hit", () => {
+    expect(isHit(0, 0.05)).toBe(true);
+    expect(isHit(0.03, 0.05)).toBe(true);
+    expect(isHit(0.05, 0.05)).toBe(true);
+  });
+
+  test("outside the answer circle is not a hit", () => {
+    expect(isHit(0.051, 0.05)).toBe(false);
+    expect(isHit(0.3, 0.05)).toBe(false);
   });
 });
 
