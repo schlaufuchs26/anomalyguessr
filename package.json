@@ -1,5 +1,5 @@
 {
-  "name": "temporal-detective",
+  "name": "anomalyguessr",
   "version": "0.1.0",
   "description": "Spot-the-anachronism game: find the one modern object an AI smuggled into a public-domain historical photo",
   "type": "module",
