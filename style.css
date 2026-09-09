@@ -6,9 +6,8 @@
   --ink-dim: #b3a58c;
   --line: #4a4232;
   --accent: #d9a441;
-  --dezent: #7fa7c9;
-  --klassisch: #d9a441;
-  --auffaellig: #cf5c4a;
+  --link: #7fa7c9;
+  --danger: #cf5c4a;
   --ok: #6fae6f;
 }
 
@@ -222,11 +221,11 @@ main {
 }
 
 .result.warm .headline {
-  color: var(--klassisch);
+  color: var(--accent);
 }
 
 .result.miss .headline {
-  color: var(--auffaellig);
+  color: var(--danger);
 }
 
 .nav {
@@ -265,7 +264,7 @@ main {
 }
 
 .load-error {
-  color: var(--auffaellig);
+  color: var(--danger);
 }
 
 .foot {
@@ -380,5 +379,5 @@ main {
   font-size: 0.9rem;
 }
 .why-refs a {
-  color: var(--dezent);
+  color: var(--link);
 }
