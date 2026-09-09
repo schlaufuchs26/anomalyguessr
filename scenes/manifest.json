@@ -3,174 +3,209 @@
   "date": "2026-09-09",
   "scenes": [
     {
-      "id": "cuyahoga-parade",
-      "title": "Zuschauer beim Centennial-Umzug des Cuyahoga County",
-      "place": "Cleveland, USA",
-      "year": "Oktober 1910",
-      "credit": "Public Domain (Cleveland Public Library via DPLA), via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Cuyahoga_County_Centennial_Parade_Watchers_CP04200_-_DPLA_-_0ace80f9f96f986273f5c7260e5a1e0a.jpg",
-      "source": {
-        "repository": "Wikimedia Commons (Cleveland Public Library via DPLA)",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:Cuyahoga_County_Centennial_Parade_Watchers_CP04200_-_DPLA_-_0ace80f9f96f986273f5c7260e5a1e0a.jpg",
-        "originalTitle": "Cuyahoga County Centennial Parade Watchers CP04200 - DPLA - 0ace80f9f96f986273f5c7260e5a1e0a.jpg",
-        "date": "October 1910",
-        "place": "Cleveland, USA",
-        "license": "Public domain",
-        "description": "A crowd watches the Cuyahoga County centennial parade as it passes through Public Square. Parade watchers are in the northeast quadrant of Public Square and can be seen standing on top of streetcars and on park benches. The buildings around the square are festooned with bunting and banners. Prominent in the background are the Cuyahoga building (left) and adjacent Williamson building (right), both of which were demolished in 1982 to make way for the Sohio (later BP America) building at 200 Public Square. Buildings along Euclid Avenue can be seen to the right of the Williamson building."
-      },
+      "id": "brisbane-station-1940",
+      "title": "Menschenmenge am Bahnsteig",
+      "place": "Brisbane, Australien",
+      "year": "März 1940",
+      "credit": "State Library of Queensland (Public Domain), via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File%3AStateLibQld%201%20106268%20Crowds%20on%20the%20platform%20of%20South%20Brisbane%20Interstate%20Station%20to%20farewell%20soldiers%2C%20March%201940.jpg",
       "difficulty": "klassisch",
-      "anomaly": "Zeitreisender: junger Mann im dunklen Anzug mit modernen weißen Sneakers",
-      "description": "Eine dichte Menschenmenge verfolgt den Jahrhundert-Umzug des Cuyahoga County auf dem Public Square. Zuschauer stehen auf dem Gehsteig, auf Bänken und sogar auf den Dächern der Straßenbahnen.",
+      "anomaly": "Zeitreisender: junger Mann mit modernen Sneakers unter der Hose",
+      "explanation": "Moderne Sportschuhe aus synthetischen Materialien kamen erst ab den 1960ern auf – über 20 Jahre nach diesem Foto.",
+      "references": [
+        {
+          "label": "Sneakers (Wikipedia)",
+          "url": "https://en.wikipedia.org/wiki/Sneakers"
+        }
+      ],
+      "description": "Menschenmenge auf dem Bahnsteig der South Brisbane Interstate Station, März 1940, zur Verabschiedung von Soldaten (Bildunterschrift der State Library of Queensland).",
       "answer": {
-        "x": 0.7248,
-        "y": 0.5205,
-        "r": 0.0917
+        "x": 0.7211,
+        "y": 0.6661,
+        "r": 0.08
       },
       "hints": [
-        "Der Anachronismus ist eine Person, kein Gegenstand.",
-        "Er steht im mittleren Bildbereich rechts der Mitte, hinter einem Kind.",
-        "Der junge Mann im dunklen Anzug links neben der Frau mit dunklem Kleid und Hut trägt moderne weiße Sneakers."
+        "Er steht mitten in der Menge, nicht am Rand.",
+        "Rechte Bildhälfte, untere Mitte.",
+        "Der junge Mann in Anzug und Hut rechts unten: unter seiner Hose blitzen moderne Sneakers hervor."
       ],
-      "added": "2026-09-09",
-      "shown": "2026-09-09",
-      "image": "scenes/cuyahoga-parade.jpg",
-      "original": "scenes/cuyahoga-parade-original.jpg"
-    },
-    {
-      "id": "kinigoran-market",
-      "title": "Markt in Kinigoran",
-      "place": "Kinigoran, Occidental Negros, Philippinen",
-      "year": "1900",
-      "credit": "Public Domain, via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Market_scene_in_Kinigoran,_Occidental_Negros_LCCN2006686280.jpg",
       "source": {
         "repository": "Wikimedia Commons",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:Market_scene_in_Kinigoran,_Occidental_Negros_LCCN2006686280.jpg",
-        "originalTitle": "Market scene in Kinigoran, Occidental Negros LCCN2006686280.jpg",
-        "date": "1900",
-        "place": "Kinigoran, Occidental Negros, Philippinen",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File%3AStateLibQld%201%20106268%20Crowds%20on%20the%20platform%20of%20South%20Brisbane%20Interstate%20Station%20to%20farewell%20soldiers%2C%20March%201940.jpg",
+        "originalTitle": "File:StateLibQld 1 106268 Crowds on the platform of South Brisbane Interstate Station to farewell soldiers, March 1940.jpg",
+        "date": "1940-03-01",
+        "place": "",
         "license": "Public domain",
-        "description": "<i>Title:</i> Market scene in Kinigoran, Occidental Negros\n<i>Abstract/medium:</i> 1 photographic print."
+        "description": "Crowds on the platform of South Brisbane Interstate Station to farewell soldiers, March 1940"
       },
+      "added": "2026-09-09",
+      "shown": "2026-09-09",
+      "image": "scenes/brisbane-station-1940.jpg",
+      "original": "scenes/brisbane-station-1940-original.jpg"
+    },
+    {
+      "id": "oxford-fair-1912",
+      "title": "Jahrmarkt in der Oxford Street",
+      "place": "London, England",
+      "year": "Oktober 1912",
+      "credit": "Public Domain, via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File%3ACrowd%20at%20Oxford%20Street%20Fair%201912%20%283190759673%29.jpg",
       "difficulty": "klassisch",
-      "anomaly": "Zeitreisende: junge Frau mit modernem Daypack-Rucksack und Kurzhaarschnitt",
-      "description": "Schwarz-weiße Fotografie eines vollen Marktes in Kinigoran auf den Philippinen: Dutzende Menschen drängen sich unter einem großen offenen Schutzdach zwischen Waren und Körben.",
+      "anomaly": "Zeitreisende: junge Frau mit Sonnenbrille im Haar und Daypack",
+      "explanation": "Moderne Kunststoff-Sonnenbrillen und Rucksäcke aus Nylon kamen erst ab den 1960er-/1970er-Jahren auf – lange nach diesem Foto.",
+      "references": [
+        {
+          "label": "Sunglasses (Wikipedia)",
+          "url": "https://en.wikipedia.org/wiki/Sunglasses"
+        }
+      ],
+      "description": "Dicht gedrängte Menschenmenge auf dem Oxford-Street-Jahrmarkt, Oktober 1912; im Vordergrund Musiker mit Blechbläsern und Trommeln.",
       "answer": {
-        "x": 0.4793,
-        "y": 0.6529,
-        "r": 0.1333
+        "x": 0.3879,
+        "y": 0.7071,
+        "r": 0.08
       },
       "hints": [
-        "Der Anachronismus ist eine Person, kein Gegenstand.",
-        "Sie steht in der Mitte, direkt hinter dem niedrigen Holzzaun am Rand der Markthalle.",
-        "Die junge Frau in der Menge hinter dem Zaun trägt einen modernen Rucksack (Daypack) über der Schulter und hat einen Kurzhaarschnitt."
+        "Sie steht zwischen anderen Personen.",
+        "Linke Bildhälfte, untere Mitte.",
+        "Die junge Frau links unten in der Menge: sie trägt eine moderne Sonnenbrille ins Haar geschoben und einen Rucksack."
       ],
-      "added": "2026-09-09",
-      "shown": "2026-09-09",
-      "image": "scenes/kinigoran-market.jpg",
-      "original": "scenes/kinigoran-market-original.jpg"
-    },
-    {
-      "id": "soulard-market",
-      "title": "Menschenmengen am Soulard Market",
-      "place": "St. Louis, USA",
-      "year": "1910",
-      "credit": "Public Domain, via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Eighth_Street._Soulard_Market_with_crowds.jpg",
       "source": {
         "repository": "Wikimedia Commons",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:Eighth_Street._Soulard_Market_with_crowds.jpg",
-        "originalTitle": "Eighth Street. Soulard Market with crowds.jpg",
-        "date": "1910",
-        "place": "St. Louis, USA",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File%3ACrowd%20at%20Oxford%20Street%20Fair%201912%20%283190759673%29.jpg",
+        "originalTitle": "File:Crowd at Oxford Street Fair 1912 (3190759673).jpg",
+        "date": "1912-10",
+        "place": "",
         "license": "Public domain",
-        "description": "Horizontal, black and white photograph of horse drawn carriages and groups of people.<br>Title: Eighth Street. Soulard Market with crowds."
+        "description": "Persistent URL: <a rel=\"nofollow\" class=\"external text\" href=\"http://digital.lib.muohio.edu/u?/snyder,869\">digital.lib.muohio.edu/u?/snyder,869</a>\n<dl><dd>Subject (TGM): Fairs; Streets; City and town life; Bands; Musical instruments; Tents;</dd>\n<dd>Location: Oxford, Ohio</dd>\n<dd>Men with instruments in band uniforms in center.</dd></dl>"
       },
+      "added": "2026-09-09",
+      "shown": "2026-09-09",
+      "image": "scenes/oxford-fair-1912.jpg",
+      "original": "scenes/oxford-fair-1912-original.jpg"
+    },
+    {
+      "id": "king-george-v-square",
+      "title": "Offizielle Zeremonie am King-George-V-Platz",
+      "place": "Brisbane, Australien",
+      "year": "ca. 1935",
+      "credit": "State Library of Queensland (No restrictions), via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File%3ALarge%20crowd%20gathered%20in%20King%20George%20V%20Square%20for%20an%20official%20ceremony%20on%20the%20steps%20of%20City%20Hall%2C%20Brisbane%20%284461005643%29.jpg",
+      "difficulty": "klassisch",
+      "anomaly": "Ufo (Fliegende Untertasse)",
+      "explanation": "Fliegende Untertassen sind ein Motiv der Science-Fiction des 20. Jahrhunderts und existieren nicht – ein Ufo kann in keinem Foto vorkommen.",
+      "references": [
+        {
+          "label": "Unidentified flying object (Wikipedia)",
+          "url": "https://en.wikipedia.org/wiki/Unidentified_flying_object"
+        }
+      ],
+      "description": "Große Menschenmenge am King-George-V-Platz vor dem Rathaus von Brisbane bei einer offiziellen Zeremonie; im Vordergrund das Reiterstandbild Georgs V.",
+      "answer": {
+        "x": 0.5529,
+        "y": 0.0418,
+        "r": 0.06
+      },
+      "hints": [
+        "Schau in den Himmel.",
+        "Oberer Bildrand, Mitte.",
+        "Hoch oben im Himmel, klein und fern: eine fliegende Untertasse."
+      ],
+      "source": {
+        "repository": "Wikimedia Commons",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File%3ALarge%20crowd%20gathered%20in%20King%20George%20V%20Square%20for%20an%20official%20ceremony%20on%20the%20steps%20of%20City%20Hall%2C%20Brisbane%20%284461005643%29.jpg",
+        "originalTitle": "File:Large crowd gathered in King George V Square for an official ceremony on the steps of City Hall, Brisbane (4461005643).jpg",
+        "date": "1935-01-01 00:00:00",
+        "place": "",
+        "license": "No restrictions",
+        "description": "<strong>Photographer: </strong>George Jackman for Queensland Newspapers Pty Ltd<br>\n<p><strong>Location: </strong>Brisbane, Queensland, Australia<br>\n<strong>Date: </strong>Undated, circa 1935<br>\n<strong>View this image at the State Library of Queensland:</strong> <a rel=\"nofollow\" class=\"external free\" href=\"http://hdl.handle.net/10462/deriv/121215\">http://hdl.handle.net/10462/deriv/121215</a><br>\n</p>\n<strong>Information about State Library of Queensland’s collection:</strong> <a rel=\"nofollo"
+      },
+      "added": "2026-09-09",
+      "shown": "2026-09-09",
+      "image": "scenes/king-george-v-square.jpg",
+      "original": "scenes/king-george-v-square-original.jpg"
+    },
+    {
+      "id": "abingdon-square",
+      "title": "Abingdon Square",
+      "place": "New York City, USA",
+      "year": "1907",
+      "credit": "Public Domain, via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File%3AAbingdon%20Square%2C%20New%20York%20City%20%281907%29.jpg",
+      "difficulty": "dezent",
+      "anomaly": "Plastikflasche (PET)",
+      "explanation": "PET-Plastikflaschen kamen erst in den 1970er-Jahren auf – fast 70 Jahre nach diesem Foto.",
+      "references": [
+        {
+          "label": "Plastic bottle (Wikipedia)",
+          "url": "https://en.wikipedia.org/wiki/Plastic_bottle"
+        }
+      ],
+      "description": "Straßenszene am Abingdon Square in New York City, 1907, mit Pferdewagen und Passanten; rechts das Gebäude mit der Aufschrift „Abingdon“.",
+      "answer": {
+        "x": 0.088,
+        "y": 0.9543,
+        "r": 0.05
+      },
+      "hints": [
+        "Sie liegt am Boden am Rand der Straße.",
+        "Untere linke Ecke.",
+        "Links unten am Bordstein, halb im Schatten: eine Plastikflasche."
+      ],
+      "source": {
+        "repository": "Wikimedia Commons",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File%3AAbingdon%20Square%2C%20New%20York%20City%20%281907%29.jpg",
+        "originalTitle": "File:Abingdon Square, New York City (1907).jpg",
+        "date": "1907",
+        "place": "",
+        "license": "No restrictions",
+        "description": "Identifier: oldbuildingsnewy00newy\n<p>Title: Old buildings of New York City, with some notes regarding their origin and occupants\nYear: 1907 (1900s)\nAuthors: \nSubjects:  Historic buildings -- New York (State) New York\nPublisher:  New York : Brentano's\nContributing Library:  University of California Libraries\nDigitizing Sponsor:  MSN\n</p><p>View Book Page: Book Viewer\nAbout This Book: Catalog Entry\nView All Images: All Images From Book\n</p><p>Click here to view book online to see this illustratio"
+      },
+      "added": "2026-09-09",
+      "shown": "2026-09-09",
+      "image": "scenes/abingdon-square.jpg",
+      "original": "scenes/abingdon-square-original.jpg"
+    },
+    {
+      "id": "asakusa-bazaar-1890",
+      "title": "Basarstraße in Asakusa, Tokio",
+      "place": "Tokio, Japan",
+      "year": "1880–1900",
+      "credit": "Public Domain (DPLA), via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File%3ABazaar%20street%20in%20the%20Asakusa%20district%2C%20Tokyo%20-%20DPLA%20-%20110bfe02a6b4466718afe721fa463318.jpg",
       "difficulty": "klassisch",
       "anomaly": "Pappkaffeebecher mit Deckel",
-      "description": "Schwarz-weiße Fotografie des belebten Soulard Market in St. Louis: Pferdewagen, Verkaufsstände und Menschengruppen auf der Achten Straße.",
+      "explanation": "Ein Pappbecher mit Deckel zum Mitnehmen kam erst im frühen 20. Jahrhundert auf – Jahrzehnte nach diesem Foto.",
+      "references": [
+        {
+          "label": "Paper cup (Wikipedia)",
+          "url": "https://en.wikipedia.org/wiki/Paper_cup"
+        }
+      ],
+      "description": "Basarstraße im Stadtteil Asakusa, Tokio. Die zwei Figuren in Weiß sind laut Bildunterschrift Polizisten; links und rechts säumen Stände mit Waren die Straße.",
       "answer": {
-        "x": 0.1911,
-        "y": 0.9312,
-        "r": 0.15
+        "x": 0.1631,
+        "y": 0.7661,
+        "r": 0.05
       },
       "hints": [
-        "Der Anachronismus ist ein kleiner Gegenstand am Boden.",
-        "Er liegt unten links, neben dem großen Wagenrad.",
-        "Am Boden links unten, halb hinter dem Pfosten neben dem Wagenrad, steht ein Pappkaffeebecher mit Deckel."
+        "Er steht am Boden, nicht auf einem Tisch.",
+        "Rechte Bildhälfte, untere Mitte.",
+        "Rechts am Boden neben dem Gebäude: ein Pappkaffeebecher mit Deckel."
       ],
-      "added": "2026-09-09",
-      "shown": "2026-09-09",
-      "image": "scenes/soulard-market.jpg",
-      "original": "scenes/soulard-market-original.jpg"
-    },
-    {
-      "id": "tepec-market",
-      "title": "Marktszene in Tepec",
-      "place": "Tepec, Mexiko",
-      "year": "ca. 1900",
-      "credit": "Public Domain, via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Market_scene_including_restaurant_and_street,_Tepec,_Mexico,_ca.1900_(CHS-618).jpg",
       "source": {
         "repository": "Wikimedia Commons",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:Market_scene_including_restaurant_and_street,_Tepec,_Mexico,_ca.1900_(CHS-618).jpg",
-        "originalTitle": "Market scene including restaurant and street, Tepec, Mexico, ca.1900 (CHS-618).jpg",
-        "date": "circa 1900<div style=\"display: none;\">date QS:P,+1900-00-00T00:00:00Z/9,P1480,Q5727902</div> (date created)",
-        "place": "Tepec, Mexiko",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File%3ABazaar%20street%20in%20the%20Asakusa%20district%2C%20Tokyo%20-%20DPLA%20-%20110bfe02a6b4466718afe721fa463318.jpg",
+        "originalTitle": "File:Bazaar street in the Asakusa district, Tokyo - DPLA - 110bfe02a6b4466718afe721fa463318.jpg",
+        "date": "1880/1900",
+        "place": "",
         "license": "Public domain",
-        "description": "<br>\n<dl><dd><i>Market scene including restaurant and street, Tepec, Mexico, ca.1900</i></dd>\n<dd>Photograph of market scene including restaurant and street, Tepec, Mexico, ca.1900. In the foreground at right, a large dirt road is visible. The goods on the street have been unloaded from the burro. To the right of the items on the street, a single large pole can be seen. A dozen or more people, most wearing sombreros and ponchos, are standing on the sidewalk, the dirt road, or sitting in the open air restaurant. The buildings have tile roofs.</dd></dl>\n<dl><dd><b>Call number</b>: CHS-618</dd>\n<dd><b>Filename</b>: CHS-618</dd>\n<dd><b>Coverage date</b>: circa 1900</dd>\n<dd><b>Part of collection</b>: California Historical Society Collection, 1860-1960</dd>\n<dd><b>Type</b>: images</dd>\n<dd><b>Part of subcollection</b>: Title Insurance and Trust, and C.C. Pierce Photography Collection, 1860-1960</dd>\n<dd><b>Repository name</b>: USC Libraries Special Collections</dd>\n<dd><b>Format</b>: glass plate negatives</dd>\n<dd><b>Microfiche number</b>: 1-224-</dd>\n<dd><b>Archival file</b>: chs_Volume89/CHS-618.tiff</dd>\n<dd><b>Geographic subject (city or populated place)</b>: Tepec</dd>\n<dd><b>Repository address</b>: Doheny Memorial Library, Los Angeles, CA 90089-0189</dd>\n<dd><b>Subject (adlf)</b>: commercial sites</dd>\n<dd><b>Geographic subject (country)</b>: Mexico</dd>\n<dd><b>Format (aacr2)</b>: 2 photographs : glass photonegative, photoprint, b&amp;w ; 13 x 20 cm., 21 x 26 cm.</dd>\n<dd><b"
+        "description": "<div class=\"description\">\n\"This is the bazaar street in the Asakusa district, Tokio. The two figures in white are policemen.\" \"Asakusa.\" gelatin silver prints Image No. 14. \"This is the baaar street in the Asakusa district, Tokio. The two figures in white are policemen\" titled in ink and \"Asakusa\" titled in plate. 5 1/8 x 3 1/2 sepia photo, mounted. c. 1897. Market scene with passing shoppers (mostly in kimonos &amp; with parasols). Legacy file ID changed to match file names with extension on 20"
       },
-      "difficulty": "klassisch",
-      "anomaly": "Plastikflasche (PET)",
-      "description": "Marktszene in Tepec, Mexiko: Waren liegen auf der staubigen Straße, Lastesel und Menschen drängen sich zwischen Körben vor den Marktständen.",
-      "answer": {
-        "x": 0.1452,
-        "y": 0.7211,
-        "r": 0.15
-      },
-      "hints": [
-        "Der Anachronismus ist ein Gegenstand am Boden, unten links.",
-        "Er liegt neben dem dunklen Korb, vor den Beinen des Esels.",
-        "Am Boden links unten, zwischen Korb und Esel, liegt eine durchsichtige Plastikflasche."
-      ],
       "added": "2026-09-09",
       "shown": "2026-09-09",
-      "image": "scenes/tepec-market.jpg",
-      "original": "scenes/tepec-market-original.jpg"
-    },
-    {
-      "id": "wetaskiwin-street",
-      "title": "Menschenmenge auf der Pearce Street in Wetaskiwin",
-      "place": "Wetaskiwin, Alberta, Kanada",
-      "year": "ca. 1910",
-      "credit": "Public Domain, via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:A_busy_scene_on_Pearce_St.,_Wetaskiwin,_Alta.jpg",
-      "source": {
-        "repository": "Wikimedia Commons",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:A_busy_scene_on_Pearce_St.,_Wetaskiwin,_Alta.jpg",
-        "originalTitle": "A busy scene on Pearce St., Wetaskiwin, Alta.jpg",
-        "date": "circa 1910<div style=\"display: none;\">date QS:P,+1910-00-00T00:00:00Z/9,P1480,Q5727902</div>",
-        "place": "Wetaskiwin, Alberta, Kanada",
-        "license": "Public domain",
-        "description": "On Back: Made in Germany. [Printer's no.] 12 72225\nDescription: Scene of a crowd of people gathered along a street in Wetaskiwin, Alberta for an event (possibly a parade)"
-      },
-      "difficulty": "klassisch",
-      "anomaly": "Zeitreisende: junge Frau mit modernen Over-Ear-Kopfhörern um den Hals",
-      "description": "Schwarz-weiße Fotografie einer dichten Menschenmenge entlang der Pearce Street in Wetaskiwin, Alberta, die auf ein Ereignis in der Straße wartet; einige Zuschauer reiten auf Pferden, über der Straße hängt ein Willkommens-Banner.",
-      "answer": {
-        "x": 0.1782,
-        "y": 0.6659,
-        "r": 0.1167
-      },
-      "hints": [
-        "Der Anachronismus ist eine Person, kein Gegenstand.",
-        "Sie steht auf der linken Seite, in der Menschenmenge an den Gebäuden.",
-        "Die junge Frau im Hintergrund links, halb hinter anderen Personen, trägt moderne Over-Ear-Kopfhörer um den Hals."
-      ],
-      "added": "2026-09-09",
-      "shown": "2026-09-09",
-      "image": "scenes/wetaskiwin-street.jpg",
-      "original": "scenes/wetaskiwin-street-original.jpg"
+      "image": "scenes/asakusa-bazaar-1890.jpg",
+      "original": "scenes/asakusa-bazaar-1890-original.jpg"
     }
   ]
 }
