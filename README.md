@@ -14,7 +14,7 @@ net for the hard rounds. Everyone gets the same 5 scenes on a given day
 Conceit: the "Zeitreisen-Schutzstaffel" (time-travel protection squad) has
 detected anomalies and you, the AnomalyGuessr agent, have to locate each before the timeline frays.
 
-Play it: <https://schlaufuchs26.github.io/temporal-detective/>
+Play it: <https://schlaufuchs26.github.io/anomalyguessr/>
 
 ## How to run
 
@@ -115,7 +115,7 @@ Each scene entry:
   validator (`manifest.ts`) enforces both.
 - Adding a scene = drop `<id>.jpg` + `<id>-original.jpg` into `scenes/`,
   append the manifest entry, done. For pipeline-managed manifests, scenes are
-  managed by the fuchs queue instead (see `data/temporal-detective/` on the
+  managed by the fuchs queue instead (see `data/anomalyguessr/` on the
   fuchs box); `scenes/` then only ever holds the current day's 5.
 
 ## Sources & licensing
