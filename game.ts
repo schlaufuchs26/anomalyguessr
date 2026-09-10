@@ -45,6 +45,11 @@ const els = {
   why: $("#why"),
   compareBtn: $("#compare-btn") as HTMLButtonElement,
   nextBtn: $("#next-btn") as HTMLButtonElement,
+  moderate: $("#moderate"),
+  moderateFeedback: $("#moderate-feedback") as HTMLInputElement,
+  acceptBtn: $("#accept-btn") as HTMLButtonElement,
+  rejectBtn: $("#reject-btn") as HTMLButtonElement,
+  moderateStatus: $("#moderate-status"),
   endDate: $("#end-date"),
   endList: $("#end-list"),
   endText: $("#end-text"),
@@ -69,6 +74,10 @@ const VERDICT_COPY: Record<Verdict, { headline: string; note: string }> = {
   },
 };
 
+/** Served by the queue API (moderation flag, ticket #1163): the dev
+ *  instance plays only unmoderated scenes and shows Accept/Reject after each
+ *  reveal; prod static manifests leave this false. */
+let moderation = false;
 let manifest: Manifest | null = null;
 /** The quiz day, fixed per session load (local calendar day). */
 let quizDay = new Date();
@@ -100,6 +109,7 @@ function dailySet(): Scene[] {
   if (!manifest) return [];
   if (manifest.version === 1)
     return pickDaily(manifest.scenes, quizDay, DAILY_COUNT);
+  if (moderation) return manifest.scenes; // queue API already filtered to unmoderated
   return manifest.scenes;
 }
 
@@ -155,6 +165,7 @@ function renderScene(): void {
   els.hintText.textContent = "";
   els.hintBtn.disabled = false;
   els.hintBtn.textContent = "💡 Show hint";
+  resetModeration();
   clearAnswerReveal();
   // Preload the untouched original under the edited photo: it stays hidden
   // (opacity 0) until a correct guess crossfades it in or the compare
@@ -213,6 +224,7 @@ function clearAnswerReveal(): void {
   els.why.innerHTML = "";
   els.compareBtn.hidden = true;
   els.nextBtn.hidden = true;
+  hideModeration();
   applyOriginalView(false);
 }
 
@@ -459,9 +471,66 @@ export function resolve(nx: number, ny: number): void {
   // the "before" photo (misses/warm clicks keep the edited photo; the
   // compare button stays available for those).
   if (hit) revealOriginal();
+  if (moderation) showModeration(s);
   const last = state.index >= state.queue.length - 1;
   els.nextBtn.textContent = last ? "Results →" : "Next →";
   els.nextBtn.focus();
+}
+
+// --- Moderation mode (ticket #1163) ---
+
+/** True while a moderation POST is in flight (disables both buttons). */
+let moderating = false;
+
+/** Whether the current scene already got a verdict this session (buttons
+ *  become inert "done" state rather than double-posting). */
+let sceneModerated = false;
+
+/** Show the Accept/Reject + feedback controls after the reveal. */
+function showModeration(_s: Scene): void {
+  sceneModerated = false;
+  moderating = false;
+  els.moderateFeedback.value = "";
+  els.moderateStatus.textContent = "";
+  els.moderate.hidden = false;
+}
+
+/** Hide the moderation controls (scene reset / end). */
+function hideModeration(): void {
+  els.moderate.hidden = true;
+}
+
+/** Reset the moderation UI for a fresh scene. */
+function resetModeration(): void {
+  if (!moderation) return;
+  hideModeration();
+}
+
+async function postModeration(action: "accept" | "reject"): Promise<void> {
+  if (!moderation || sceneModerated || moderating) return;
+  const s = scene();
+  moderating = true;
+  els.acceptBtn.disabled = true;
+  els.rejectBtn.disabled = true;
+  els.moderateStatus.textContent = "Saving…";
+  try {
+    const feedback = els.moderateFeedback.value.trim();
+    const res = await fetch(`/api/v1/anomalyguessr/scenes/${s.id}/moderate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, feedback }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    sceneModerated = true;
+    els.moderateStatus.textContent =
+      action === "accept" ? "✓ Accepted." : "✕ Rejected.";
+  } catch (err) {
+    els.moderateStatus.textContent = `Save failed: ${String(err)}`;
+  } finally {
+    moderating = false;
+    els.acceptBtn.disabled = false;
+    els.rejectBtn.disabled = false;
+  }
 }
 
 /**
@@ -593,6 +662,12 @@ async function init(): Promise<void> {
   els.overlay.addEventListener("pointercancel", onPointerCancel);
   els.compareBtn.addEventListener("click", toggleCompare);
   els.nextBtn.addEventListener("click", nextScene);
+  els.acceptBtn.addEventListener("click", () => {
+    void postModeration("accept");
+  });
+  els.rejectBtn.addEventListener("click", () => {
+    void postModeration("reject");
+  });
   els.restartBtn.addEventListener("click", () => startRun());
   els.img.addEventListener("load", fitPhotoToStage);
   els.origImg.addEventListener("load", onOrigImgLoad);
@@ -604,7 +679,9 @@ async function init(): Promise<void> {
   try {
     const res = await fetch("scenes/manifest.json");
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    manifest = parseManifest(await res.json());
+    const raw = (await res.json()) as Manifest & { moderation?: boolean };
+    moderation = raw.moderation === true;
+    manifest = parseManifest(raw);
   } catch (err) {
     console.error("manifest load failed", err);
     els.loadError.hidden = false;

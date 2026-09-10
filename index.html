@@ -54,6 +54,21 @@
             </button>
             <button id="next-btn" class="btn primary" type="button" hidden>Next →</button>
           </div>
+          <div id="moderate" class="moderate" hidden>
+            <label class="moderate-label" for="moderate-feedback">Moderation verdict</label>
+            <input
+              id="moderate-feedback"
+              class="moderate-feedback"
+              type="text"
+              placeholder="Feedback for the pipeline (optional)…"
+              maxlength="2000"
+            />
+            <div class="moderate-actions">
+              <button id="reject-btn" class="btn ghost" type="button">✕ Reject</button>
+              <button id="accept-btn" class="btn primary" type="button">✓ Accept</button>
+            </div>
+            <p id="moderate-status" class="moderate-status" aria-live="polite"></p>
+          </div>
         </div>
       </section>
 

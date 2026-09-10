@@ -42,6 +42,12 @@ const SKELETON = `
         </button>
         <button id="next-btn" class="btn primary" type="button" hidden>Next →</button>
       </div>
+      <div id="moderate" class="moderate" hidden>
+        <input id="moderate-feedback" type="text" />
+        <button id="accept-btn" type="button">Accept</button>
+        <button id="reject-btn" type="button">Reject</button>
+        <p id="moderate-status"></p>
+      </div>
     </div>
   </section>
   <section id="end" class="end" hidden>

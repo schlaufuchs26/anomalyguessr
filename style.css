@@ -490,3 +490,37 @@ main {
 .why-refs a {
   color: var(--link);
 }
+
+/* Moderation controls (dev-instance moderation mode, ticket #1163): shown
+   after the guess+reveal while the manifest's moderation flag is on. */
+.moderate {
+  margin-top: 0.6em;
+  border: 1px solid var(--line, #888);
+  border-radius: 8px;
+  padding: 0.5em 0.9em;
+  background: var(--card, #1b1b1b);
+}
+.moderate-label {
+  font-weight: 600;
+  display: block;
+  margin-bottom: 0.3em;
+}
+.moderate-feedback {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.3em 0.6em;
+  margin-top: 0.3em;
+}
+.moderate-actions {
+  display: flex;
+  gap: 0.5em;
+  margin-top: 0.4em;
+}
+.moderate-actions .btn.ghost {
+  border-color: #b33;
+  color: #e88;
+}
+.moderate-status {
+  font-size: 0.85em;
+  margin: 0.3em 0 0;
+}
