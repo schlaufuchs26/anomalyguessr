@@ -1,196 +1,218 @@
 {
   "version": 2,
-  "date": "2026-09-09",
+  "date": "2026-09-10",
   "scenes": [
     {
-      "id": "brisbane-station-1940",
-      "title": "Crowd on the platform",
-      "place": "Brisbane, Australia",
-      "year": "March 1940",
-      "credit": "State Library of Queensland (Public Domain), via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File%3AStateLibQld%201%20106268%20Crowds%20on%20the%20platform%20of%20South%20Brisbane%20Interstate%20Station%20to%20farewell%20soldiers%2C%20March%201940.jpg",
-      "anomaly": "Time traveler: young man with modern sneakers under his trousers",
-      "explanation": "Modern sports shoes made of synthetic materials only appeared from the 1960s on, more than 20 years after this photo.",
+      "id": "fortepan-market-1938",
+      "title": "Market stalls with vegetables and eggs",
+      "place": "Hungary",
+      "year": "1938",
+      "credit": "Fortepan (ID 75518), Public Domain, via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Market,_vegetables,_egg,_umbrella,_flower,_cabbage,_colorful_Fortepan_75518.jpg",
+      "anomaly": "Chip bag (modern snack bag)",
+      "explanation": "Sealed plastic snack bags with printed branding only became common in the mid-20th century, so one cannot lie on a market in 1938.",
       "references": [
         {
-          "label": "Sneakers (Wikipedia)",
-          "url": "https://en.wikipedia.org/wiki/Sneakers"
+          "label": "Potato chip",
+          "url": "https://en.wikipedia.org/wiki/Potato_chip"
         }
       ],
-      "description": "Crowd on the platform of South Brisbane Interstate Station, March 1940, farewell for soldiers (caption of the State Library of Queensland).",
+      "description": "A crowded open-air market in 1938: baskets and sacks of vegetables and eggs, umbrellas over the stalls, vendors and buyers packed between the goods.",
       "answer": {
-        "x": 0.7211,
-        "y": 0.6661,
-        "r": 0.08
+        "x": 0.127,
+        "y": 0.4,
+        "r": 0.05
       },
       "hints": [
-        "He stands in the middle of the crowd, not at the edge.",
-        "Right half, lower center.",
-        "The young man in suit and hat at the bottom right: modern sneakers flash out from under his trousers."
+        "It lies on the ground among the baskets of goods.",
+        "Left side of the photo, about halfway down.",
+        "Left side, on the ground beside the baskets: a modern chip bag."
       ],
       "source": {
-        "repository": "Wikimedia Commons",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File%3AStateLibQld%201%20106268%20Crowds%20on%20the%20platform%20of%20South%20Brisbane%20Interstate%20Station%20to%20farewell%20soldiers%2C%20March%201940.jpg",
-        "originalTitle": "File:StateLibQld 1 106268 Crowds on the platform of South Brisbane Interstate Station to farewell soldiers, March 1940.jpg",
-        "date": "1940-03-01",
-        "place": "",
+        "repository": "Wikimedia Commons (Fortepan archive)",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:Market,_vegetables,_egg,_umbrella,_flower,_cabbage,_colorful_Fortepan_75518.jpg",
+        "originalTitle": "Market, vegetables, egg, umbrella, flower, cabbage (Fortepan 75518)",
+        "date": "1938",
+        "place": "Hungary",
         "license": "Public domain",
-        "description": "Crowds on the platform of South Brisbane Interstate Station to farewell soldiers, March 1940"
+        "description": "Fortepan archive photograph, ID 75518; tags: market, vegetables, egg, umbrella, flower, cabbage."
       },
-      "image": "scenes/brisbane-station-1940.jpg",
-      "original": "scenes/brisbane-station-1940-original.jpg"
+      "added": "2026-09-10",
+      "shown": "2026-09-10",
+      "image": "scenes/fortepan-market-1938.jpg",
+      "original": "scenes/fortepan-market-1938-original.jpg"
     },
     {
-      "id": "oxford-fair-1912",
-      "title": "Fair in Oxford Street",
-      "place": "London, England",
-      "year": "October 1912",
-      "credit": "Public Domain, via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File%3ACrowd%20at%20Oxford%20Street%20Fair%201912%20%283190759673%29.jpg",
-      "anomaly": "Time traveler: young woman with sunglasses in her hair and a daypack",
-      "explanation": "Modern plastic sunglasses and nylon backpacks only appeared from the 1960s/1970s on, long after this photo.",
-      "references": [
-        {
-          "label": "Sunglasses (Wikipedia)",
-          "url": "https://en.wikipedia.org/wiki/Sunglasses"
-        }
-      ],
-      "description": "A tightly packed crowd at the Oxford Street Fair, October 1912; in the foreground musicians with brass instruments and drums.",
-      "answer": {
-        "x": 0.3879,
-        "y": 0.7071,
-        "r": 0.08
-      },
-      "hints": [
-        "She stands among other people.",
-        "Left half, lower center.",
-        "The young woman at the bottom left in the crowd: she wears modern sunglasses pushed into her hair and a backpack."
-      ],
-      "source": {
-        "repository": "Wikimedia Commons",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File%3ACrowd%20at%20Oxford%20Street%20Fair%201912%20%283190759673%29.jpg",
-        "originalTitle": "File:Crowd at Oxford Street Fair 1912 (3190759673).jpg",
-        "date": "1912-10",
-        "place": "",
-        "license": "Public domain",
-        "description": "Persistent URL: <a rel=\"nofollow\" class=\"external text\" href=\"http://digital.lib.muohio.edu/u?/snyder,869\">digital.lib.muohio.edu/u?/snyder,869</a>\n<dl><dd>Subject (TGM): Fairs; Streets; City and town life; Bands; Musical instruments; Tents;</dd>\n<dd>Location: Oxford, Ohio</dd>\n<dd>Men with instruments in band uniforms in center.</dd></dl>"
-      },
-      "image": "scenes/oxford-fair-1912.jpg",
-      "original": "scenes/oxford-fair-1912-original.jpg"
-    },
-    {
-      "id": "king-george-v-square",
-      "title": "Official ceremony at King George V Square",
-      "place": "Brisbane, Australia",
-      "year": "c. 1935",
-      "credit": "State Library of Queensland (No restrictions), via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File%3ALarge%20crowd%20gathered%20in%20King%20George%20V%20Square%20for%20an%20official%20ceremony%20on%20the%20steps%20of%20City%20Hall%2C%20Brisbane%20%284461005643%29.jpg",
-      "anomaly": "UFO (flying saucer)",
-      "explanation": "Flying saucers are a 20th-century science-fiction motif and do not exist, so a UFO cannot appear in any photo.",
-      "references": [
-        {
-          "label": "Unidentified flying object (Wikipedia)",
-          "url": "https://en.wikipedia.org/wiki/Unidentified_flying_object"
-        }
-      ],
-      "description": "Large crowd at King George V Square in front of Brisbane City Hall at an official ceremony; in the foreground the equestrian statue of George V.",
-      "answer": {
-        "x": 0.5529,
-        "y": 0.0418,
-        "r": 0.06
-      },
-      "hints": [
-        "Look at the sky.",
-        "Top edge of the frame, center.",
-        "High up in the sky, small and distant: a flying saucer."
-      ],
-      "source": {
-        "repository": "Wikimedia Commons",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File%3ALarge%20crowd%20gathered%20in%20King%20George%20V%20Square%20for%20an%20official%20ceremony%20on%20the%20steps%20of%20City%20Hall%2C%20Brisbane%20%284461005643%29.jpg",
-        "originalTitle": "File:Large crowd gathered in King George V Square for an official ceremony on the steps of City Hall, Brisbane (4461005643).jpg",
-        "date": "1935-01-01 00:00:00",
-        "place": "",
-        "license": "No restrictions",
-        "description": "<strong>Photographer: </strong>George Jackman for Queensland Newspapers Pty Ltd<br>\n<p><strong>Location: </strong>Brisbane, Queensland, Australia<br>\n<strong>Date: </strong>Undated, circa 1935<br>\n<strong>View this image at the State Library of Queensland:</strong> <a rel=\"nofollow\" class=\"external free\" href=\"http://hdl.handle.net/10462/deriv/121215\">http://hdl.handle.net/10462/deriv/121215</a><br>\n</p>\n<strong>Information about State Library of Queensland’s collection:</strong> <a rel=\"nofollo"
-      },
-      "image": "scenes/king-george-v-square.jpg",
-      "original": "scenes/king-george-v-square-original.jpg"
-    },
-    {
-      "id": "abingdon-square",
-      "title": "Abingdon Square",
-      "place": "New York City, USA",
-      "year": "1907",
-      "credit": "Public Domain, via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File%3AAbingdon%20Square%2C%20New%20York%20City%20%281907%29.jpg",
+      "id": "helsinki-market-1932",
+      "title": "Fish sale at Market Square",
+      "place": "Market Square (Kauppatori), Helsinki, Finland",
+      "year": "1932",
+      "credit": "Sakari Palsi / Helsinki City Museum (CC BY 4.0), via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Kalanmyynti%C3%A4_Kauppatorilla_-_N203878_-_hkm.HKMS000005-km003u2a.jpg",
       "anomaly": "Plastic bottle (PET)",
-      "explanation": "PET plastic bottles only appeared in the 1970s, almost 70 years after this photo.",
+      "explanation": "PET plastic bottles only appeared in the 1970s; a bottle in 1932 would have been glass.",
       "references": [
         {
-          "label": "Plastic bottle (Wikipedia)",
+          "label": "Polyethylene terephthalate",
+          "url": "https://en.wikipedia.org/wiki/Polyethylene_terephthalate"
+        },
+        {
+          "label": "Plastic bottle",
           "url": "https://en.wikipedia.org/wiki/Plastic_bottle"
         }
       ],
-      "description": "Street scene at Abingdon Square in New York City, 1907, with horse-drawn wagons and passers-by; on the right the building with the “Abingdon” sign.",
+      "description": "Fish vendors at Helsinki's Market Square in 1932: wooden crates of fish on the ground along the quay, vendors and customers in coats, market stalls behind them.",
       "answer": {
-        "x": 0.088,
-        "y": 0.9543,
+        "x": 0.914,
+        "y": 0.782,
         "r": 0.05
       },
       "hints": [
-        "It lies on the ground at the edge of the street.",
-        "Lower left corner.",
-        "At the bottom left on the curb, half in shadow: a plastic bottle."
+        "It stands on the ground beside the stalls, not on a crate.",
+        "Right edge of the photo, lower third.",
+        "Bottom right, on the ground beside the wooden fish crates: a plastic bottle."
       ],
       "source": {
-        "repository": "Wikimedia Commons",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File%3AAbingdon%20Square%2C%20New%20York%20City%20%281907%29.jpg",
-        "originalTitle": "File:Abingdon Square, New York City (1907).jpg",
-        "date": "1907",
-        "place": "",
-        "license": "No restrictions",
-        "description": "Identifier: oldbuildingsnewy00newy\n<p>Title: Old buildings of New York City, with some notes regarding their origin and occupants\nYear: 1907 (1900s)\nAuthors: \nSubjects:  Historic buildings -- New York (State) New York\nPublisher:  New York : Brentano's\nContributing Library:  University of California Libraries\nDigitizing Sponsor:  MSN\n</p><p>View Book Page: Book Viewer\nAbout This Book: Catalog Entry\nView All Images: All Images From Book\n</p><p>Click here to view book online to see this illustratio"
+        "repository": "Wikimedia Commons (Helsinki City Museum)",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:Kalanmyynti%C3%A4_Kauppatorilla_-_N203878_-_hkm.HKMS000005-km003u2a.jpg",
+        "originalTitle": "Kalanmyyntia Kauppatorilla",
+        "date": "1932",
+        "place": "Market Square (Kauppatori), Helsinki, Finland",
+        "license": "CC BY 4.0",
+        "description": "Fish sale at the Market Square in Helsinki; repro-negative print, black and white; Helsinki City Museum, record hkm.HKMS000005:km003u2a."
       },
-      "image": "scenes/abingdon-square.jpg",
-      "original": "scenes/abingdon-square-original.jpg"
+      "added": "2026-09-10",
+      "shown": "2026-09-10",
+      "image": "scenes/helsinki-market-1932.jpg",
+      "original": "scenes/helsinki-market-1932-original.jpg"
     },
     {
-      "id": "asakusa-bazaar-1890",
-      "title": "Bazaar street in Asakusa, Tokyo",
-      "place": "Tokyo, Japan",
-      "year": "1880–1900",
-      "credit": "Public Domain (DPLA), via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File%3ABazaar%20street%20in%20the%20Asakusa%20district%2C%20Tokyo%20-%20DPLA%20-%20110bfe02a6b4466718afe721fa463318.jpg",
-      "anomaly": "Paper coffee cup with lid",
-      "explanation": "Disposable paper cups with lids only appeared in the early 20th century, decades after this photo.",
+      "id": "mariensztat-square-1949",
+      "title": "Celebration on Mariensztat square",
+      "place": "Mariensztat, Warsaw, Poland",
+      "year": "1949",
+      "credit": "Public domain, via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Zabawa_na_rynku_na_Mariensztacie_1949.jpg",
+      "anomaly": "Time traveler: young man with a modern logo baseball cap and sunglasses",
+      "explanation": "A printed-logo baseball cap and modern sunglasses were not worn in 1949; both only became everyday items decades later.",
       "references": [
         {
-          "label": "Paper cup (Wikipedia)",
-          "url": "https://en.wikipedia.org/wiki/Paper_cup"
+          "label": "Baseball cap",
+          "url": "https://en.wikipedia.org/wiki/Baseball_cap"
+        },
+        {
+          "label": "Sunglasses",
+          "url": "https://en.wikipedia.org/wiki/Sunglasses"
         }
       ],
-      "description": "Bazaar street in the Asakusa district, Tokyo. The two figures in white are policemen according to the caption; stalls with goods line both sides of the street.",
+      "description": "An open-air celebration on the market square of Mariensztat in 1949: a dense crowd of adults and children fills the square in front of the city buildings (reproduced in a Warsaw volume of 1950).",
       "answer": {
-        "x": 0.1631,
-        "y": 0.7661,
-        "r": 0.05
+        "x": 0.668,
+        "y": 0.689,
+        "r": 0.06
       },
       "hints": [
-        "It stands on the ground, not on a table.",
-        "Right half, lower center.",
-        "On the ground on the right next to the building: a paper coffee cup with lid."
+        "He stands in the crowd, not at the edge of the picture.",
+        "Right half of the photo, in the lower part of the crowd.",
+        "Bottom right of the picture, the man in the crowd: he wears a modern baseball cap with a printed logo and modern sunglasses."
       ],
       "source": {
         "repository": "Wikimedia Commons",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File%3ABazaar%20street%20in%20the%20Asakusa%20district%2C%20Tokyo%20-%20DPLA%20-%20110bfe02a6b4466718afe721fa463318.jpg",
-        "originalTitle": "File:Bazaar street in the Asakusa district, Tokyo - DPLA - 110bfe02a6b4466718afe721fa463318.jpg",
-        "date": "1880/1900",
-        "place": "",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:Zabawa_na_rynku_na_Mariensztacie_1949.jpg",
+        "originalTitle": "Zabawa na rynku na Mariensztacie 1949",
+        "date": "1949",
+        "place": "Mariensztat, Warsaw, Poland",
         "license": "Public domain",
-        "description": "<div class=\"description\">\n\"This is the bazaar street in the Asakusa district, Tokio. The two figures in white are policemen.\" \"Asakusa.\" gelatin silver prints Image No. 14. \"This is the baaar street in the Asakusa district, Tokio. The two figures in white are policemen\" titled in ink and \"Asakusa\" titled in plate. 5 1/8 x 3 1/2 sepia photo, mounted. c. 1897. Market scene with passing shoppers (mostly in kimonos &amp; with parasols). Legacy file ID changed to match file names with extension on 20"
+        "description": "Celebration on the market square of Mariensztat, Warsaw, 1949; published in Warszawa, Spoldzielczy Instytut Wydawniczy \"Kraj\", Warsaw 1950, p. 86."
       },
-      "image": "scenes/asakusa-bazaar-1890.jpg",
-      "original": "scenes/asakusa-bazaar-1890-original.jpg"
+      "added": "2026-09-10",
+      "shown": "2026-09-10",
+      "image": "scenes/mariensztat-square-1949.jpg",
+      "original": "scenes/mariensztat-square-1949-original.jpg"
+    },
+    {
+      "id": "newcastle-basin-1910",
+      "title": "Inner Basin from Honeysuckle Station",
+      "place": "Newcastle, New South Wales, Australia",
+      "year": "1910",
+      "credit": "Ralph Snowball, University of Newcastle (Public Domain), via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Inner_Basin_(from_Honeysuckle_Station),_Newcastle,_NSW,_April_1910.jpg",
+      "anomaly": "Plastic cooler box",
+      "explanation": "Plastic cooler boxes are a product of the 1950s plastics boom; no such container existed on a dock in 1910.",
+      "references": [
+        {
+          "label": "Cooler",
+          "url": "https://en.wikipedia.org/wiki/Cooler"
+        },
+        {
+          "label": "Plastic",
+          "url": "https://en.wikipedia.org/wiki/Plastic"
+        }
+      ],
+      "description": "The Inner Basin of Newcastle harbour in April 1910, seen from Honeysuckle Station: ships moored along the quay and barrels on the dock in the foreground (glass negative by Ralph Snowball).",
+      "answer": {
+        "x": 0.826,
+        "y": 0.967,
+        "r": 0.07
+      },
+      "hints": [
+        "It stands on the dock, not on a ship.",
+        "Right edge of the photo, right at the bottom.",
+        "Bottom right, on the dock beside the barrels: a modern plastic cooler box."
+      ],
+      "source": {
+        "repository": "Wikimedia Commons (University of Newcastle)",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:Inner_Basin_(from_Honeysuckle_Station),_Newcastle,_NSW,_April_1910.jpg",
+        "originalTitle": "Inner Basin [from Honeysuckle Station], Newcastle, NSW, April 1910",
+        "date": "April 1910",
+        "place": "Newcastle, New South Wales, Australia",
+        "license": "Public domain",
+        "description": "Scanned from the original glass negative by Ralph Snowball, Norm Barney Photographic Collection, Cultural Collections, University of Newcastle, NSW."
+      },
+      "added": "2026-09-10",
+      "shown": "2026-09-10",
+      "image": "scenes/newcastle-basin-1910.jpg",
+      "original": "scenes/newcastle-basin-1910-original.jpg"
+    },
+    {
+      "id": "nyc-docks-1924",
+      "title": "Docks of New York Harbor from the air",
+      "place": "New York Harbor, USA",
+      "year": "1924",
+      "credit": "14th Photo Section, Air Service, U.S. Army (NARA, Public Domain), via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:New_York_-_Docks-New_York_Harbor_-_NARA_-_68146192.jpg",
+      "anomaly": "Flying saucer (UFO)",
+      "explanation": "A flying saucer is a fictional object: the first widely reported 'flying saucer' sightings date from 1947, and no such craft has ever existed.",
+      "references": [
+        {
+          "label": "Flying saucer",
+          "url": "https://en.wikipedia.org/wiki/Flying_saucer"
+        }
+      ],
+      "description": "An aerial view of New York Harbor in 1924: piers, warehouses and ships along the waterfront, with the city skyline in the background.",
+      "answer": {
+        "x": 0.58,
+        "y": 0.17,
+        "r": 0.06
+      },
+      "hints": [
+        "It is not on the water and not on a pier; look up.",
+        "Upper part of the photo, above the city.",
+        "In the sky at the top of the picture, slightly right of centre: a flying saucer."
+      ],
+      "source": {
+        "repository": "Wikimedia Commons (U.S. National Archives)",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:New_York_-_Docks-New_York_Harbor_-_NARA_-_68146192.jpg",
+        "originalTitle": "New York - Docks-New York Harbor",
+        "date": "1924",
+        "place": "New York Harbor, USA",
+        "license": "Public domain",
+        "description": "Aerial photograph of the docks of New York Harbor by the 14th Photo Section, Air Service, U.S. Army (NARA 68146192)."
+      },
+      "added": "2026-09-10",
+      "shown": "2026-09-10",
+      "image": "scenes/nyc-docks-1924.jpg",
+      "original": "scenes/nyc-docks-1924-original.jpg"
     }
   ]
 }
