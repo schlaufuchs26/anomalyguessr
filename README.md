@@ -3,8 +3,8 @@
 Daily spot-the-anomaly quiz. Each day presents a fixed set of **5**
 public-domain historical photographs, each with exactly **one** anomaly
 planted by AI image editing: a modern object, a time-traveling person or
-something that could not possibly have been there (a fictional creature,
-an impossible object). Click the spot where something doesn't belong; score
+futuristic technology brought from a fictional future (e.g. a robot time
+traveler). Click the spot where something doesn't belong; score
 by distance to the true position. After the guess the game reveals WHY the
 anomaly could not have been in the original photo, with a checkable
 reference link for every factual claim. Progressive hints are the safety
@@ -42,9 +42,9 @@ bun run checks     # format + tsc + biome + knip + tests
   and its historical background (place, year, period).
 - The planted anomalies are varied and context-fitting (a coffee cup on a
   market stall, a drink can among baskets, a wristwatch on a passer-by, a
-  phone in a parade crowd, a time-traveling jogger, a small dragon on a
-  rooftop), not a fixed object set. The anomaly type matches the scene's
-  density: a person among crowds, an object among clutter.
+  phone in a parade crowd, a time-traveling jogger, a robot traveler in a
+  station crowd), not a fixed object set. The anomaly type matches the
+  scene's density: a person among crowds, an object among clutter.
 - All source photos are landscape (wider than tall).
 
 ## Daily selection
@@ -120,7 +120,9 @@ is verified per record rather than assumed from age) sourced via Wikimedia
 Commons (DPLA collections incl. Seattle Public Library and University of
 Colorado, State Library of Queensland, Fortepan, NYPL, USC Digital Library).
 Per-scene provenance + file page link live in the `source` block and are
-enforced by the validator. Anomalies are either from a LATER time than the photo (anachronisms) or
-impossible in any era (fictional creatures, impossible objects); the scene's
-`explanation` says which and links a reference. The anomalies are AI edits;
+enforced by the validator. Anomalies are either from a LATER time than the
+photo (anachronisms) or futuristic technology from a fictional future
+(robot time travelers); flying saucers and pure fantasy creatures are not
+used (time-travel framing, ticket #1161). The scene's `explanation` says
+which and links a reference. The anomalies are AI edits;
 the edited images are new derived works of the base photos.
