@@ -5,6 +5,7 @@ import { type Manifest, parseManifest, type Scene } from "./manifest";
 import { loadManifest, postModeration } from "./src/api";
 import { buildEndData } from "./src/endView";
 import { resolveGuess } from "./src/guess";
+import { ModerationEmpty } from "./src/ModerationEmpty";
 import { PhotoStage } from "./src/PhotoStage";
 import type { PhotoHit, PhotoMarker } from "./src/photoInteractions";
 
@@ -396,24 +397,22 @@ export function App() {
     return (
       <main>
         <Header showMenu={moderation} />
-        <section id="empty" className="empty-state">
-          <h2>
-            {moderation ? "Moderation queue is empty" : "No scenes available"}
-          </h2>
-          <p>
-            {moderation
-              ? "Nothing to review right now. New scenes appear after the daily generation run."
-              : "New scenes appear after the next daily run."}
-          </p>
-          <button
-            id="reload-btn"
-            className="btn primary"
-            type="button"
-            onClick={() => void loadRef.current()}
-          >
-            Reload
-          </button>
-        </section>
+        {moderation ? (
+          <ModerationEmpty onReload={() => void loadRef.current()} />
+        ) : (
+          <section id="empty" className="empty-state">
+            <h2>No scenes available</h2>
+            <p>New scenes appear after the next daily run.</p>
+            <button
+              id="reload-btn"
+              className="btn primary"
+              type="button"
+              onClick={() => void loadRef.current()}
+            >
+              Reload
+            </button>
+          </section>
+        )}
         <Footer />
       </main>
     );

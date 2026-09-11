@@ -43,6 +43,22 @@ let payload: unknown = MANIFEST;
 let posts: { url: string; body: unknown }[] = [];
 /** Every URL the app fetched (documents the manifest/API base decision). */
 let gets: string[] = [];
+/** Generator status the stubbed /generate GET answers with (#1210). */
+let generateStatus: unknown = {
+  state: "idle",
+  running: false,
+  buffer: 0,
+  count: 0,
+  planned: 0,
+  added: 0,
+  failed: 0,
+  imageCalls: 0,
+};
+/** Non-null makes POST /generate fail (e.g. 409 already running, #1210). */
+let startFailure: { status: number; detail: string } | null = null;
+/** Payload a successful POST /generate answers with (default: generateStatus). */
+let startResponse: unknown = null;
+let startCalls = 0;
 /** Whether the stubbed media query reports the laptop layout. */
 let desktop = true;
 
@@ -64,8 +80,40 @@ beforeEach(() => {
   posts = [];
   gets = [];
   desktop = true;
+  generateStatus = {
+    state: "idle",
+    running: false,
+    buffer: 0,
+    count: 0,
+    planned: 0,
+    added: 0,
+    failed: 0,
+    imageCalls: 0,
+  };
+  startFailure = null;
+  startResponse = null;
+  startCalls = 0;
   globalThis.fetch = (async (input: unknown, init?: RequestInit) => {
     const url = String(input);
+    if (url.includes("/anomalyguessr/generate")) {
+      if (init?.method === "POST") {
+        startCalls++;
+        if (startFailure) {
+          return new Response(JSON.stringify({ title: startFailure.detail }), {
+            status: startFailure.status,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response(JSON.stringify(startResponse ?? generateStatus), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify(generateStatus), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
     if (init?.method === "POST") {
       posts.push({ url, body: JSON.parse(String(init.body)) });
       return new Response("{}", { status: 200 });
@@ -597,6 +645,121 @@ describe("empty moderation queue (#1202)", () => {
     expect(
       screen.queryByText("Moderation queue is empty"),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("on-demand generation from the empty queue (#1210)", () => {
+  const EMPTY = {
+    version: 2,
+    date: "2026-09-10",
+    scenes: [],
+    moderation: true,
+  };
+
+  test("shows the buffer depth and offers Generate more", async () => {
+    payload = EMPTY;
+    generateStatus = {
+      state: "idle",
+      running: false,
+      buffer: 7,
+      count: 0,
+      planned: 0,
+      added: 0,
+      failed: 0,
+      imageCalls: 0,
+    };
+    render(<App />);
+    await screen.findByText("Moderation queue is empty");
+    expect(
+      await screen.findByText("7 scenes ready for the daily"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Generate more" }),
+    ).not.toBeDisabled();
+  });
+
+  test("starting a run shows the progress, then reloads when scenes land", async () => {
+    payload = EMPTY;
+    render(<App />);
+    await screen.findByText("Moderation queue is empty");
+
+    const running = {
+      state: "running",
+      running: true,
+      buffer: 0,
+      count: 5,
+      planned: 5,
+      added: 1,
+      failed: 0,
+      imageCalls: 2,
+    };
+    generateStatus = running;
+    startResponse = running;
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Generate more" }),
+    );
+    await waitFor(() => expect(startCalls).toBe(1));
+
+    expect(
+      await screen.findByText("Generating… 1 / 5", {}, { timeout: 4000 }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Generating…" })).toBeDisabled();
+
+    // The run finishes with two new scenes: the poll reloads the manifest and
+    // the game starts playing them.
+    payload = { ...MANIFEST, moderation: true };
+    generateStatus = {
+      state: "done",
+      running: false,
+      buffer: 2,
+      count: 5,
+      planned: 5,
+      added: 2,
+      failed: 0,
+      imageCalls: 4,
+    };
+    expect(
+      await screen.findByText("Scene A", {}, { timeout: 4000 }),
+    ).toBeInTheDocument();
+  });
+
+  test("a refused start surfaces the server message", async () => {
+    payload = EMPTY;
+    startFailure = {
+      status: 409,
+      detail: "a generation run is already in progress",
+    };
+    render(<App />);
+    await screen.findByText("Moderation queue is empty");
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Generate more" }),
+    );
+    expect(
+      await screen.findByText(/a generation run is already in progress/),
+    ).toBeInTheDocument();
+    // the button stays usable so Evan can retry
+    expect(
+      screen.getByRole("button", { name: "Generate more" }),
+    ).not.toBeDisabled();
+  });
+
+  test("a failed run shows the error the generator reported", async () => {
+    payload = EMPTY;
+    generateStatus = {
+      state: "error",
+      running: false,
+      buffer: 0,
+      count: 5,
+      planned: 0,
+      added: 0,
+      failed: 0,
+      imageCalls: 0,
+      error: "OPENROUTER_API_KEY not set",
+    };
+    render(<App />);
+    expect(
+      await screen.findByText("OPENROUTER_API_KEY not set"),
+    ).toBeInTheDocument();
   });
 });
 
