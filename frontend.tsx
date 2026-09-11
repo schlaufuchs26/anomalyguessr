@@ -115,6 +115,18 @@ export function App() {
   const [loadError, setLoadError] = useState(false);
 
   const scene = queue[index];
+  const nextBtnRef = useRef<HTMLButtonElement>(null);
+  const restartBtnRef = useRef<HTMLButtonElement>(null);
+
+  // The vanilla game moved focus to "Next"/"Results" after every guess and to
+  // "Play again" on the end screen, so keyboard players can keep going with
+  // Enter; keep that behavior.
+  useEffect(() => {
+    if (answered) nextBtnRef.current?.focus();
+  }, [answered]);
+  useEffect(() => {
+    if (status === "end") restartBtnRef.current?.focus();
+  }, [status]);
 
   /** Start (or restart) a run over the given scene queue. */
   const startRun = (scenes: Scene[], on: boolean, day: Date) => {
@@ -323,6 +335,7 @@ export function App() {
           <p id="end-text">{end.text}</p>
           <button
             id="restart-btn"
+            ref={restartBtnRef}
             className="btn primary"
             type="button"
             onClick={restart}
@@ -443,6 +456,7 @@ export function App() {
             </button>
             <button
               id="next-btn"
+              ref={nextBtnRef}
               className="btn primary"
               type="button"
               hidden={!answered}

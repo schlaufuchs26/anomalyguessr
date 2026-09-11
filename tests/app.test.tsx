@@ -241,6 +241,16 @@ describe("guess, reveal and compare", () => {
     expect(orig.classList.contains("reveal")).toBe(false);
     expect(orig.classList.contains("show")).toBe(false);
   });
+
+  test("focus moves to next after a guess (keyboard play)", async () => {
+    const container = await renderGame();
+    clickPhoto(container, 0.5, 0.5);
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole("button", { name: "Next →" }),
+      ),
+    );
+  });
 });
 
 describe("run flow", () => {
