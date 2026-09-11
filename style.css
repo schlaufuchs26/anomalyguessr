@@ -447,6 +447,7 @@ main {
   background: var(--panel);
   color: var(--ink);
   font: inherit;
+  text-decoration: none;
   cursor: pointer;
 }
 

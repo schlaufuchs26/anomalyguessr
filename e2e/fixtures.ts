@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { type BrowserContext, expect, type Page } from "@playwright/test";
 
 /**
  * Shared harness for the Playwright suites (extracted when the #1225 unload
@@ -61,9 +61,14 @@ const MANIFEST = {
   ],
 };
 
-/** Route `scenes/manifest.json` to the fixture. */
-export async function stubManifest(page: Page): Promise<void> {
-  await page.route("**/scenes/manifest.json", (route) =>
+/**
+ * Route `scenes/manifest.json` to the fixture. Accepts a context too, so a
+ * test that opens a mode in a new tab (#1228) stubs the popup's fetch as well.
+ */
+export async function stubManifest(
+  target: Page | BrowserContext,
+): Promise<void> {
+  await target.route("**/scenes/manifest.json", (route) =>
     route.fulfill({ json: MANIFEST }),
   );
 }

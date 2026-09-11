@@ -152,10 +152,21 @@ beforeEach(() => {
   })) as unknown as typeof window.matchMedia;
 });
 
+/**
+ * Move the app to a path the way a mode link does (ticket #1228): the links
+ * are real navigations, and happy-dom would follow a click off the test page
+ * (its navigation has no server to answer), so the tests set the path and
+ * fire the `popstate` the browser would send.
+ */
+function goTo(path: string): void {
+  history.replaceState(null, "", path);
+  window.dispatchEvent(new Event("popstate"));
+}
+
 /** Render the app and wait for the frontpage (manifest loaded, #1214). */
 async function renderFrontpage(): Promise<HTMLElement> {
   const { container } = render(<App />);
-  await screen.findByRole("button", { name: /^Daily/ });
+  await screen.findByRole("link", { name: /^Daily/ });
   // The frontpage mounts during the async manifest fetch, so React can still
   // have pending passive effects when the query resolves. Flush them before
   // the test dispatches events; without this some tests flake under load.
@@ -163,25 +174,24 @@ async function renderFrontpage(): Promise<HTMLElement> {
   return container;
 }
 
-/** Pick a mode on the frontpage and wait for the first scene on screen. */
+/**
+ * Enter a mode the way its frontpage link lands (ticket #1228: a real
+ * navigation to the mode path), and wait for the first scene.
+ */
 async function renderGame(
   mode: "daily" | "moderation" = "daily",
 ): Promise<HTMLElement> {
-  const container = await renderFrontpage();
-  fireEvent.click(
-    screen.getByRole("button", {
-      name: mode === "daily" ? /^Daily/ : /^Moderation/,
-    }),
-  );
+  history.replaceState(null, "", `/${mode}`);
+  const { container } = render(<App />);
   await screen.findByText("Scene A");
   await act(async () => {});
   return container;
 }
 
-/** Pick Moderation on the frontpage and wait for the empty queue state. */
+/** Enter Moderation and wait for the empty queue state. */
 async function renderModerationEmpty(): Promise<HTMLElement> {
-  const container = await renderFrontpage();
-  fireEvent.click(screen.getByRole("button", { name: /^Moderation/ }));
+  history.replaceState(null, "", "/moderation");
+  const { container } = render(<App />);
   await screen.findByText("Moderation queue is empty");
   return container;
 }
@@ -251,12 +261,17 @@ describe("scene rendering", () => {
 });
 
 describe("frontpage mode select (#1214)", () => {
-  test("prod offers only Daily and starts the day's set", async () => {
-    const container = await renderFrontpage();
-    expect(screen.getByRole("button", { name: /^Daily/ })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Moderation/ })).toBeNull();
+  test("prod offers only Daily, as a link to its path", async () => {
+    await renderFrontpage();
+    const daily = screen.getByRole("link", { name: /^Daily/ });
+    // #1228: an anchor, so the browser can open the mode in a new tab
+    expect(daily).toHaveAttribute("href", "/daily");
+    expect(screen.queryByRole("link", { name: /Moderation/ })).toBeNull();
+  });
 
-    fireEvent.click(screen.getByRole("button", { name: /^Daily/ }));
+  test("picking Daily starts the day's set", async () => {
+    const container = await renderFrontpage();
+    goTo("/daily");
     expect(await screen.findByText("Scene A")).toBeInTheDocument();
     expect(screen.getByText("1 / 2")).toBeInTheDocument();
     // the plain daily run has no moderation box (that belongs to Moderation)
@@ -268,7 +283,7 @@ describe("frontpage mode select (#1214)", () => {
     payload = { ...MANIFEST, moderation: true };
     await renderFrontpage();
     expect(
-      screen.getByRole("button", { name: /^Moderation/ }),
+      screen.getByRole("link", { name: /^Moderation/ }),
     ).toBeInTheDocument();
     expect(
       screen.getByText("2 scenes waiting for a verdict"),
@@ -287,11 +302,11 @@ describe("frontpage mode select (#1214)", () => {
     expect(screen.queryByText("Moderation verdict")).not.toBeInTheDocument();
   });
 
-  test("focus lands on the first mode button", async () => {
+  test("focus lands on the first mode link", async () => {
     await renderFrontpage();
     await waitFor(() =>
       expect(document.activeElement).toBe(
-        screen.getByRole("button", { name: /^Daily/ }),
+        screen.getByRole("link", { name: /^Daily/ }),
       ),
     );
   });
@@ -475,13 +490,13 @@ function unloadWarns(): boolean {
 
 describe("reload guard (#1225)", () => {
   test("the frontpage and the empty state never warn", async () => {
-    // An empty dev queue: the frontpage still renders, and the mode leads to
-    // the empty state instead of a run.
+    // An empty dev queue: the frontpage still renders, and the mode link
+    // lands on the empty state instead of a run.
     payload = { version: 2, date: "2026-09-10", scenes: [], moderation: true };
     await renderFrontpage();
     expect(unloadWarns()).toBe(false);
 
-    fireEvent.click(screen.getByRole("button", { name: /^Moderation/ }));
+    goTo("/moderation");
     await screen.findByText("Moderation queue is empty");
     expect(unloadWarns()).toBe(false);
   });
@@ -956,14 +971,14 @@ describe("mode URLs (#1223)", () => {
   test("the frontpage is the default address", async () => {
     await renderFrontpage();
     expect(window.location.pathname).toBe("/");
-    expect(screen.getByRole("button", { name: /^Daily/ })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /^Daily/ })).toBeInTheDocument();
   });
 
   test("a /daily deep link starts the daily run", async () => {
     await renderDeepLink("/daily");
     expect(screen.getByText("1 / 2")).toBeInTheDocument();
     // no frontpage in between: the path named the mode
-    expect(screen.queryByRole("button", { name: /^Daily/ })).toBeNull();
+    expect(screen.queryByRole("link", { name: /^Daily/ })).toBeNull();
     expect(window.location.pathname).toBe("/daily");
   });
 
@@ -975,26 +990,22 @@ describe("mode URLs (#1223)", () => {
     expect(window.location.pathname).toBe("/moderation");
   });
 
-  test("picking Daily pushes /daily onto the history", async () => {
-    await renderFrontpage();
-    fireEvent.click(screen.getByRole("button", { name: /^Daily/ }));
-    await screen.findByText("Scene A");
-    expect(window.location.pathname).toBe("/daily");
-  });
-
-  test("picking Moderation pushes /moderation onto the history", async () => {
+  test("the mode links carry the mode paths (#1228)", async () => {
     payload = { ...MANIFEST, moderation: true };
     await renderFrontpage();
-    fireEvent.click(screen.getByRole("button", { name: /^Moderation/ }));
-    await screen.findByText("Scene A");
-    expect(window.location.pathname).toBe("/moderation");
+    // Ordinary anchors: the browser turns the click into the navigation and
+    // its history entry (and can open it in a new tab).
+    expect(screen.getByRole("link", { name: /^Moderation/ })).toHaveAttribute(
+      "href",
+      "/moderation",
+    );
   });
 
   test("popstate moves between the frontpage and a mode", async () => {
     payload = { ...MANIFEST, moderation: true };
     await renderFrontpage();
 
-    // Forward to a mode (a history entry the app pushed).
+    // Forward to a mode (a history entry the browser pushed).
     history.replaceState(null, "", "/moderation");
     fireEvent(window, new Event("popstate"));
     expect(await screen.findByText("Scene A")).toBeInTheDocument();
@@ -1003,7 +1014,7 @@ describe("mode URLs (#1223)", () => {
     history.replaceState(null, "", "/");
     fireEvent(window, new Event("popstate"));
     expect(
-      await screen.findByRole("button", { name: /^Moderation/ }),
+      await screen.findByRole("link", { name: /^Moderation/ }),
     ).toBeInTheDocument();
     expect(screen.queryByText("Scene A")).toBeNull();
   });
@@ -1013,9 +1024,9 @@ describe("mode URLs (#1223)", () => {
     history.replaceState(null, "", "/moderation");
     render(<App />);
     expect(
-      await screen.findByRole("button", { name: /^Daily/ }),
+      await screen.findByRole("link", { name: /^Daily/ }),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Moderation/ })).toBeNull();
+    expect(screen.queryByRole("link", { name: /Moderation/ })).toBeNull();
     // the dead path is dropped so the URL matches the screen
     expect(window.location.pathname).toBe("/");
   });
@@ -1024,7 +1035,7 @@ describe("mode URLs (#1223)", () => {
     history.replaceState(null, "", "/no-such-mode");
     render(<App />);
     expect(
-      await screen.findByRole("button", { name: /^Daily/ }),
+      await screen.findByRole("link", { name: /^Daily/ }),
     ).toBeInTheDocument();
     expect(window.location.pathname).toBe("/");
   });

@@ -173,8 +173,8 @@ export function App() {
   const leavingDeliberatelyRef = useRef(false);
   const nextBtnRef = useRef<HTMLButtonElement>(null);
   const restartBtnRef = useRef<HTMLButtonElement>(null);
-  /** First frontpage button: the keyboard focus target on the frontpage. */
-  const firstModeRef = useRef<HTMLButtonElement>(null);
+  /** First frontpage mode link: the keyboard focus target on the frontpage. */
+  const firstModeRef = useRef<HTMLAnchorElement>(null);
   /** The reveal layer, so the guess can check it without waiting on an event. */
   const originalImgRef = useRef<HTMLImageElement | null>(null);
 
@@ -265,21 +265,7 @@ export function App() {
   const startModeRef = useRef(startMode);
   startModeRef.current = startMode;
 
-  /**
-   * Frontpage selection: Deep-linkable (ticket #1223), so Daily plays the
-   * day's set and Moderation the queue under their own path. The URL is the
-   * source of truth; a `pushState` adds the history entry (Back returns to
-   * the frontpage) and setting `route` too keeps the click instant.
-   */
-  const chooseMode = (mode: Mode) => {
-    const path = modePath(APP_BASE, mode);
-    if (window.location.pathname !== path) {
-      window.history.pushState(null, "", path);
-    }
-    setRoute(mode);
-  };
-
-  /** Back/Forward move between the history entries the app pushed. */
+  /** Back/Forward move between the history entries the browser keeps. */
   useEffect(() => {
     const onPop = () =>
       setRoute(modeFromPath(window.location.pathname, APP_BASE));
@@ -514,7 +500,6 @@ export function App() {
         <ModeSelect
           devMode={devMode}
           moderationCount={manifest?.scenes.length ?? 0}
-          onSelect={chooseMode}
           firstRef={firstModeRef}
         />
         <Footer />
@@ -759,46 +744,48 @@ export function App() {
 const GALLERY_URL = "gallery/";
 
 /**
- * The frontpage (ticket #1214): the game modes as big buttons, shown before
+ * The frontpage (ticket #1214): the game modes as big links, shown before
  * any run. Daily is always there; Moderation only on the dev instance, whose
  * queue API flags its manifest with `moderation: true`. The moderation count
  * comes straight from that manifest (the unmoderated queue it plays), so the
- * frontend never re-derives an order or a set. Each button publishes its mode
- * to the URL (ticket #1223); the frontpage itself is the bare base URL.
+ * frontend never re-derives an order or a set.
+ *
+ * Since #1228 each mode is an ordinary anchor to its real path (ticket
+ * #1223), not a button that pokes the URL in JS: the browser then owns the
+ * link behavior, so middle-click / right-click / Ctrl-click open the mode in
+ * a new tab, and a plain click is a normal navigation the reload guard
+ * (#1225/#1230) recognizes as deliberate. The frontpage itself stays the
+ * bare base URL.
  */
 function ModeSelect({
   devMode,
   moderationCount,
-  onSelect,
   firstRef,
 }: {
   devMode: boolean;
   moderationCount: number;
-  onSelect: (mode: Mode) => void;
-  firstRef: RefObject<HTMLButtonElement | null>;
+  firstRef: RefObject<HTMLAnchorElement | null>;
 }) {
   return (
     <section id="home" className="home">
       <h2 className="home-title">Choose a mode</h2>
       <div className="modes">
-        <button
+        <a
           id="mode-daily"
           ref={firstRef}
           className="mode-btn"
-          type="button"
+          href={modePath(APP_BASE, "daily")}
           data-testid="mode-daily"
-          onClick={() => onSelect("daily")}
         >
           <span className="mode-name">Daily</span>
           <span className="mode-sub">Today's set</span>
-        </button>
+        </a>
         {devMode ? (
-          <button
+          <a
             id="mode-moderation"
             className="mode-btn"
-            type="button"
+            href={modePath(APP_BASE, "moderation")}
             data-testid="mode-moderation"
-            onClick={() => onSelect("moderation")}
           >
             <span className="mode-name">Moderation</span>
             <span className="mode-sub">
@@ -806,7 +793,7 @@ function ModeSelect({
                 ? `${moderationCount} ${moderationCount === 1 ? "scene" : "scenes"} waiting for a verdict`
                 : "Nothing to review right now"}
             </span>
-          </button>
+          </a>
         ) : null}
       </div>
     </section>

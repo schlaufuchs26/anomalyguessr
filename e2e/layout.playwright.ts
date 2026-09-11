@@ -22,7 +22,7 @@ import {
  * unload-guard suite (#1225).
  */
 
-test("the frontpage offers the mode buttons and fits the laptop (#1214)", async ({
+test("the frontpage offers the mode links and fits the laptop (#1214)", async ({
   page,
 }) => {
   await openFrontpage(page);
@@ -30,7 +30,7 @@ test("the frontpage offers the mode buttons and fits the laptop (#1214)", async 
   const moderation = page.getByTestId("mode-moderation");
   await expect(daily).toBeVisible();
   await expect(moderation).toBeVisible();
-  // keyboard play starts on the first mode button
+  // keyboard play starts on the first mode link
   await expect(daily).toBeFocused();
 
   // the frontpage must not push the page past the viewport (height chain)
@@ -148,4 +148,29 @@ test("a mode path deep-links, reloads and Back returns (#1223)", async ({
   await expect(page.getByTestId("mode-daily")).toBeVisible();
   await page.goForward();
   await expect(page.locator("#scene-title")).toHaveText("Smoke test market");
+});
+
+test("a mode is a real link, so it opens in a new tab (#1228)", async ({
+  page,
+  context,
+}) => {
+  await page.setViewportSize(LAPTOP);
+  // The popup is a fresh page: stub the manifest on the context, not the tab.
+  await stubManifest(context);
+  await page.goto("/");
+
+  const daily = page.getByTestId("mode-daily");
+  await expect(daily).toHaveAttribute("href", "/daily");
+
+  // A middle click is the browser's own new-tab gesture; the app adds no
+  // handler, so the tab follows the href.
+  const popup = context.waitForEvent("page");
+  await daily.click({ button: "middle" });
+  const tab = await popup;
+  await tab.waitForLoadState();
+  await expect(tab.locator("#scene-title")).toHaveText("Smoke test market");
+  await tab.close();
+
+  // The original frontpage keeps running.
+  await expect(page.getByTestId("mode-daily")).toBeVisible();
 });

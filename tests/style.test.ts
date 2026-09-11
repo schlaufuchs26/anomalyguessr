@@ -77,3 +77,11 @@ describe("laptop layout height chain (ticket #1187)", () => {
     expect(narrow).not.toMatch(/#root\s*\{[^}]*height/);
   });
 });
+
+describe("the mode links keep the button look (ticket #1228)", () => {
+  test("the mode link suppresses the default anchor underline", () => {
+    const rule = declarations(css, "\\.mode-btn");
+    expect(rule).not.toBeNull();
+    expect(rule).toMatch(/text-decoration:\s*none/);
+  });
+});
