@@ -73,3 +73,49 @@ test("the in-app moves (back to the frontpage, the gallery link) stay silent (#1
   await expect(page.getByTestId("mode-daily")).toBeVisible();
   expect(dialogs).toEqual([]);
 });
+
+test("a click on an in-app link mid-run stays silent (#1230)", async ({
+  page,
+}) => {
+  await openGame(page);
+  await answerScene(page);
+
+  // The modes have real paths since #1223, so the mode and frontpage links
+  // (#1228/#1220) replace the document the way the gallery link does. Render
+  // the same anchor the frontpage will carry and stub its target, so the
+  // navigation is deterministic.
+  await page.route("**/daily", (route) =>
+    route.fulfill({ contentType: "text/html", body: "<h1>Daily</h1>" }),
+  );
+  await page.evaluate(() => {
+    const link = document.createElement("a");
+    link.id = "mode-link";
+    link.href = "daily";
+    link.textContent = "Daily";
+    document.body.append(link);
+  });
+
+  const dialogs = watchDialogs(page);
+  await Promise.all([page.waitForURL("**/daily"), page.click("#mode-link")]);
+  expect(dialogs).toEqual([]);
+});
+
+test("a link that opens a tab mid-run does not disarm the guard (#1230)", async ({
+  page,
+}) => {
+  await openGame(page);
+  await answerScene(page);
+
+  // The references in the "Why?" box open in a new tab: this document keeps
+  // running, so the next reload must still warn.
+  await page.route("https://example.org/**", (route) =>
+    route.fulfill({ contentType: "text/html", body: "<h1>Reference</h1>" }),
+  );
+  const popup = page.waitForEvent("popup");
+  await page.getByRole("link", { name: "Potato chip" }).click();
+  await (await popup).close();
+
+  const dialogs = watchDialogs(page);
+  await page.reload();
+  expect(dialogs).toEqual(["beforeunload"]);
+});

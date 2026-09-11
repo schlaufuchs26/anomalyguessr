@@ -5,6 +5,7 @@ import { type Manifest, parseManifest, type Scene } from "./manifest";
 import { loadManifest, postModeration } from "./src/api";
 import { buildEndData } from "./src/endView";
 import { resolveGuess } from "./src/guess";
+import { isDeliberateNavigation } from "./src/leaveGuard";
 import { ModerationEmpty } from "./src/ModerationEmpty";
 import { PhotoStage } from "./src/PhotoStage";
 import type { PhotoHit, PhotoMarker } from "./src/photoInteractions";
@@ -164,9 +165,10 @@ export function App() {
   const runInProgress =
     status === "playing" && scores.some((score) => score >= 0);
   /**
-   * Set right before a deliberate unload, the gallery link (ticket #1225);
-   * the guard reads it and stays quiet for those. `pageshow` re-arms the
-   * warning when a Back from the gallery restores this page from the cache.
+   * Set right before a deliberate unload, a click on one of the app's own
+   * links (tickets #1225/#1230); the guard reads it and stays quiet for
+   * those. `pageshow` re-arms the warning when a Back from such a page
+   * restores this one from the cache.
    */
   const leavingDeliberatelyRef = useRef(false);
   const nextBtnRef = useRef<HTMLButtonElement>(null);
@@ -194,8 +196,10 @@ export function App() {
    * middle of a daily and it should warn you". `beforeunload` is the only
    * hook the browser offers, and plain in-app moves (mode switch, Play again,
    * the frontpage button, the empty state's Reload) never unload the page, so
-   * they cannot reach this listener; a Back that leaves the app does, and
-   * should warn (see the #1223 path routing).
+   * they cannot reach this listener; following one of the app's own links
+   * does, and is a deliberate move (see `isDeliberateNavigation`). A Back that
+   * leaves the app is not a click and should warn (see the #1223 path
+   * routing).
    */
   useEffect(() => {
     if (!runInProgress) return;
@@ -206,14 +210,24 @@ export function App() {
       event.preventDefault();
       event.returnValue = "";
     };
+    /**
+     * Watch clicks in the document (ticket #1230) instead of marking every
+     * link by hand: the mode and frontpage links unload the page like the
+     * gallery link does, and a new one is covered without extra wiring.
+     */
+    const onClick = (event: MouseEvent) => {
+      if (isDeliberateNavigation(event)) leavingDeliberatelyRef.current = true;
+    };
     const onPageShow = () => {
       leavingDeliberatelyRef.current = false;
     };
     window.addEventListener("beforeunload", onBeforeUnload);
     window.addEventListener("pageshow", onPageShow);
+    document.addEventListener("click", onClick, true);
     return () => {
       window.removeEventListener("beforeunload", onBeforeUnload);
       window.removeEventListener("pageshow", onPageShow);
+      document.removeEventListener("click", onClick, true);
     };
   }, [runInProgress]);
 
@@ -568,12 +582,7 @@ export function App() {
 
   return (
     <main>
-      <Header
-        showMenu={devMode}
-        onGalleryClick={() => {
-          leavingDeliberatelyRef.current = true;
-        }}
-      />
+      <Header showMenu={devMode} />
       <section id="game" className="game">
         <div className="meta">
           <span id="scene-title" className="scene-title">
@@ -804,18 +813,12 @@ function ModeSelect({
   );
 }
 
-function Header({
-  showMenu,
-  onGalleryClick,
-}: {
-  showMenu: boolean;
-  /**
-   * Marks a deliberate unload (the gallery link, ticket #1225): the play
-   * screen passes it so the reload guard skips the browser prompt for a
-   * move the user asked for.
-   */
-  onGalleryClick?: () => void;
-}) {
+/**
+ * The page header. The gallery link (dev only) is an ordinary anchor: the
+ * reload guard recognizes a click on it as a deliberate leave (ticket
+ * #1230), so no handler is needed here.
+ */
+function Header({ showMenu }: { showMenu: boolean }) {
   return (
     <header className="top">
       <div className="top-row">
@@ -826,7 +829,6 @@ function Header({
             href={GALLERY_URL}
             title="Overview of all images"
             data-testid="gallery-menu"
-            onClick={onGalleryClick}
           >
             ☰ Gallery
           </a>
