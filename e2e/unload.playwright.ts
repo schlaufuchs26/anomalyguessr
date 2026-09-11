@@ -63,13 +63,13 @@ test("the in-app moves (back to the frontpage, the gallery link) stay silent (#1
   ]);
   expect(dialogs).toEqual([]);
 
-  // Back to the game (a fresh document: the run itself is gone) and into the
-  // frontpage through the in-app route, which never unloads the page.
+  // Back to the game (restored from the cache; the run is still there).
   await page.goBack();
   await expect(page.locator("#scene-title")).toHaveText("Smoke test market");
-  await page.evaluate(() => {
-    window.location.hash = "";
-  });
+
+  // Back again, from the game to the frontpage entry the app pushed: an
+  // in-app popstate route that never unloads the page.
+  await page.goBack();
   await expect(page.getByTestId("mode-daily")).toBeVisible();
   expect(dialogs).toEqual([]);
 });

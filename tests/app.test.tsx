@@ -76,9 +76,10 @@ const RECT = {
 };
 
 beforeEach(() => {
-  // The fragment is the mode source of truth (#1223); clear whatever a
-  // previous test left so every render starts on the frontpage again.
-  window.location.hash = "";
+  // The path is the mode source of truth (#1223); reset it (and any 404-shim
+  // stash) so every render starts on the frontpage again.
+  history.replaceState(null, "", "/");
+  sessionStorage.clear();
   payload = MANIFEST;
   posts = [];
   gets = [];
@@ -539,10 +540,11 @@ describe("reload guard (#1225)", () => {
     clickPhoto(container, 0.5, 0.5);
     await act(async () => {});
 
-    // #1220/#1223: dropping the fragment is an in-app move; no unload happens.
+    // #1220/#1223: dropping the path (Back to the frontpage) is an in-app
+    // move; no unload happens, so the guard stays quiet.
     act(() => {
-      window.location.hash = "";
-      window.dispatchEvent(new HashChangeEvent("hashchange"));
+      history.replaceState(null, "", "/");
+      window.dispatchEvent(new Event("popstate"));
     });
     expect(await screen.findByTestId("mode-daily")).toBeInTheDocument();
     expect(unloadWarns()).toBe(false);
@@ -937,9 +939,9 @@ describe("on-demand generation from the empty queue (#1210)", () => {
 });
 
 describe("mode URLs (#1223)", () => {
-  /** Render at a deep-linked fragment and wait for the first scene. */
-  async function renderDeepLink(hash: string): Promise<HTMLElement> {
-    window.location.hash = hash;
+  /** Render at a deep-linked path and wait for the first scene. */
+  async function renderDeepLink(path: string): Promise<HTMLElement> {
+    history.replaceState(null, "", path);
     const { container } = render(<App />);
     await screen.findByText("Scene A");
     await act(async () => {});
@@ -948,70 +950,93 @@ describe("mode URLs (#1223)", () => {
 
   test("the frontpage is the default address", async () => {
     await renderFrontpage();
-    expect(window.location.hash).toBe("");
+    expect(window.location.pathname).toBe("/");
     expect(screen.getByRole("button", { name: /^Daily/ })).toBeInTheDocument();
   });
 
-  test("a #daily deep link starts the daily run", async () => {
-    await renderDeepLink("#daily");
+  test("a /daily deep link starts the daily run", async () => {
+    await renderDeepLink("/daily");
     expect(screen.getByText("1 / 2")).toBeInTheDocument();
-    // no frontpage in between: the URL named the mode
+    // no frontpage in between: the path named the mode
     expect(screen.queryByRole("button", { name: /^Daily/ })).toBeNull();
-    expect(window.location.hash).toBe("#daily");
+    expect(window.location.pathname).toBe("/daily");
   });
 
-  test("a #moderation deep link starts the queue on the dev instance", async () => {
+  test("a /moderation deep link starts the queue on the dev instance", async () => {
     payload = { ...MANIFEST, moderation: true };
-    const container = await renderDeepLink("#moderation");
+    const container = await renderDeepLink("/moderation");
     clickPhoto(container, 0.5, 0.5);
     expect(screen.getByText("Moderation verdict")).toBeInTheDocument();
-    expect(window.location.hash).toBe("#moderation");
+    expect(window.location.pathname).toBe("/moderation");
   });
 
-  test("picking Daily publishes #daily to the URL", async () => {
+  test("picking Daily pushes /daily onto the history", async () => {
     await renderFrontpage();
     fireEvent.click(screen.getByRole("button", { name: /^Daily/ }));
     await screen.findByText("Scene A");
-    expect(window.location.hash).toBe("#daily");
+    expect(window.location.pathname).toBe("/daily");
   });
 
-  test("picking Moderation publishes #moderation to the URL", async () => {
+  test("picking Moderation pushes /moderation onto the history", async () => {
     payload = { ...MANIFEST, moderation: true };
     await renderFrontpage();
     fireEvent.click(screen.getByRole("button", { name: /^Moderation/ }));
     await screen.findByText("Scene A");
-    expect(window.location.hash).toBe("#moderation");
+    expect(window.location.pathname).toBe("/moderation");
   });
 
-  test("Back and Forward move between the frontpage and a mode", async () => {
+  test("popstate moves between the frontpage and a mode", async () => {
     payload = { ...MANIFEST, moderation: true };
     await renderFrontpage();
 
-    // Forward to a mode: a history entry changes the fragment and the
-    // listener re-reads the route.
-    window.location.hash = "#moderation";
-    fireEvent(window, new Event("hashchange"));
+    // Forward to a mode (a history entry the app pushed).
+    history.replaceState(null, "", "/moderation");
+    fireEvent(window, new Event("popstate"));
     expect(await screen.findByText("Scene A")).toBeInTheDocument();
 
     // Back to the frontpage.
-    window.location.hash = "";
-    fireEvent(window, new Event("hashchange"));
+    history.replaceState(null, "", "/");
+    fireEvent(window, new Event("popstate"));
     expect(
       await screen.findByRole("button", { name: /^Moderation/ }),
     ).toBeInTheDocument();
     expect(screen.queryByText("Scene A")).toBeNull();
   });
 
-  test("a #moderation link on prod degrades to the frontpage", async () => {
+  test("a /moderation load on prod degrades to the frontpage", async () => {
     // The static prod manifest carries no dev flag, so there is no queue mode.
-    window.location.hash = "#moderation";
+    history.replaceState(null, "", "/moderation");
     render(<App />);
     expect(
       await screen.findByRole("button", { name: /^Daily/ }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Moderation/ })).toBeNull();
-    // the dead fragment is dropped so the URL matches the screen
-    expect(window.location.hash).toBe("");
+    // the dead path is dropped so the URL matches the screen
+    expect(window.location.pathname).toBe("/");
+  });
+
+  test("an unknown path falls back to the frontpage", async () => {
+    history.replaceState(null, "", "/no-such-mode");
+    render(<App />);
+    expect(
+      await screen.findByRole("button", { name: /^Daily/ }),
+    ).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/");
+  });
+
+  test("the 404 shim's stashed path is restored on a hard load", async () => {
+    // GitHub Pages serves 404.html for /daily: it stashes the path and sends
+    // the browser to the base; the app must replaceState the path back.
+    sessionStorage.setItem("anomalyguessr:redirect", "/daily");
+    const { container } = render(<App />);
+    await screen.findByText("Scene A");
+    await act(async () => {});
+    expect(window.location.pathname).toBe("/daily");
+    expect(container.querySelector("#scene-title")?.textContent).toBe(
+      "Scene A",
+    );
+    // the stash is consumed, not replayed on the next render
+    expect(sessionStorage.getItem("anomalyguessr:redirect")).toBeNull();
   });
 });
 

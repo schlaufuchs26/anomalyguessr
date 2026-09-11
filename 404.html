@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AnomalyGuessr</title>
+    <script>
+      // GitHub Pages has no rewrites, so a hard load of a mode path (e.g.
+      // /daily) lands here with a 404 status. Remember where the visitor
+      // wanted to go, then send the browser to the app base; the app reads
+      // this and history.replaceStates the path back once it is running.
+      // "./" resolves against this page's own path, so the shim works at the
+      // domain root and under a repo sub-path alike (no hardcoded root).
+      try {
+        sessionStorage.setItem(
+          "anomalyguessr:redirect",
+          location.pathname + location.search + location.hash,
+        );
+      } catch {
+        // sessionStorage blocked (private mode): the app falls back to the
+        // base and just shows the frontpage.
+      }
+      location.replace("./");
+    </script>
+  </head>
+  <body></body>
+</html>

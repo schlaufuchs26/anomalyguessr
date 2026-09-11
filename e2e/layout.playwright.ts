@@ -124,7 +124,7 @@ test("the moderation box is reachable inside the laptop viewport (#1187)", async
   expect(await page.evaluate(() => window.scrollY)).toBe(0);
 });
 
-test("a mode URL deep-links straight into the run, Back returns (#1223)", async ({
+test("a mode path deep-links, reloads and Back returns (#1223)", async ({
   page,
 }) => {
   await page.setViewportSize(LAPTOP);
@@ -134,10 +134,14 @@ test("a mode URL deep-links straight into the run, Back returns (#1223)", async 
   await page.goto("/");
   await expect(page.getByTestId("mode-daily")).toBeVisible();
 
-  // Daily has its own address: a direct load starts the run, no frontpage.
-  await page.goto("/#daily");
+  // Daily has its own path: a hard load starts the run, no frontpage.
+  await page.goto("/daily");
   await expect(page.locator("#scene-title")).toHaveText("Smoke test market");
   await expect(page.getByTestId("mode-daily")).toHaveCount(0);
+
+  // A reload keeps the mode.
+  await page.reload();
+  await expect(page.locator("#scene-title")).toHaveText("Smoke test market");
 
   // Back lands on the frontpage, Forward returns to the mode.
   await page.goBack();

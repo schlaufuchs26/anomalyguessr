@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "bun index.html",
-    "build": "rm -rf dist && bun build index.html --outdir dist --target browser --minify --define 'process.env.NODE_ENV=\"production\"' && cp -r scenes dist/scenes",
+    "build": "rm -rf dist && bun build index.html --outdir dist --target browser --minify --define 'process.env.NODE_ENV=\"production\"' && cp -r scenes dist/scenes && cp 404.html dist/404.html",
     "start": "bun index.html",
     "tsc": "tsc --pretty --noEmit",
     "format": "biome format --write .",

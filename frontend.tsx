@@ -8,7 +8,35 @@ import { resolveGuess } from "./src/guess";
 import { ModerationEmpty } from "./src/ModerationEmpty";
 import { PhotoStage } from "./src/PhotoStage";
 import type { PhotoHit, PhotoMarker } from "./src/photoInteractions";
-import { effectiveMode, type Mode, modeFromHash, modeHash } from "./src/routes";
+import {
+  appBase,
+  effectiveMode,
+  type Mode,
+  modeFromPath,
+  modePath,
+} from "./src/routes";
+
+/** The app base directory (`/` on prod, `/anomalyguessr/` on dev). */
+const APP_BASE = appBase();
+/** sessionStorage key the 404 shim fills before redirecting to the base. */
+const REDIRECT_KEY = "anomalyguessr:redirect";
+
+/**
+ * The path the app was asked for at boot: the 404 shim's stashed target on a
+ * Pages hard load of a mode path, otherwise the live location.
+ */
+function initialPath(): string {
+  try {
+    const stashed = sessionStorage.getItem(REDIRECT_KEY);
+    if (stashed) {
+      sessionStorage.removeItem(REDIRECT_KEY);
+      return stashed;
+    }
+  } catch {
+    // sessionStorage unavailable: use the live location
+  }
+  return window.location.pathname;
+}
 
 /**
  * AnomalyGuessr app (ticket #1172): the game UI migrated from the vanilla
@@ -119,11 +147,11 @@ export function App() {
   const [loadError, setLoadError] = useState(false);
   /**
    * The mode the URL names (ticket #1223): null = frontpage, "daily" or
-   * "moderation". The fragment is the source of truth; Back/Forward and
-   * reloads land here through the `hashchange` listener below.
+   * "moderation". The path is the source of truth; Back/Forward and reloads
+   * land here through the `popstate` listener below.
    */
   const [route, setRoute] = useState<Mode | null>(() =>
-    modeFromHash(window.location.hash),
+    modeFromPath(initialPath(), APP_BASE),
   );
 
   const scene = queue[index];
@@ -167,7 +195,7 @@ export function App() {
    * hook the browser offers, and plain in-app moves (mode switch, Play again,
    * the frontpage button, the empty state's Reload) never unload the page, so
    * they cannot reach this listener; a Back that leaves the app does, and
-   * should warn (see the #1223 fragment routing).
+   * should warn (see the #1223 path routing).
    */
   useEffect(() => {
     if (!runInProgress) return;
@@ -225,46 +253,45 @@ export function App() {
 
   /**
    * Frontpage selection: Deep-linkable (ticket #1223), so Daily plays the
-   * day's set and Moderation the queue under their own fragment. The URL is
-   * the source of truth; setting `route` too keeps the click instant where
-   * the runtime fires no `hashchange` (happy-dom in the tests).
+   * day's set and Moderation the queue under their own path. The URL is the
+   * source of truth; a `pushState` adds the history entry (Back returns to
+   * the frontpage) and setting `route` too keeps the click instant.
    */
   const chooseMode = (mode: Mode) => {
-    const hash = modeHash(mode);
-    if (window.location.hash !== hash) window.location.hash = hash;
+    const path = modePath(APP_BASE, mode);
+    if (window.location.pathname !== path) {
+      window.history.pushState(null, "", path);
+    }
     setRoute(mode);
   };
 
-  /** Back/Forward and manual fragment edits re-read the route. */
+  /** Back/Forward move between the history entries the app pushed. */
   useEffect(() => {
-    const onHash = () => setRoute(modeFromHash(window.location.hash));
-    window.addEventListener("hashchange", onHash);
-    return () => window.removeEventListener("hashchange", onHash);
+    const onPop = () =>
+      setRoute(modeFromPath(window.location.pathname, APP_BASE));
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
   }, []);
 
   /**
    * Apply the route once the manifest is in hand (ticket #1223): start the
-   * named mode, or show the frontpage. A `#moderation` link on a host whose
-   * manifest has no dev flag degrades to the frontpage, and the fragment is
-   * dropped so the URL matches the screen instead of re-requesting a mode
-   * that does not exist there.
+   * named mode, or show the frontpage. The URL is rewritten (replaceState, no
+   * new entry) to match what actually runs, so a `/moderation` load on a host
+   * whose manifest has no dev flag, or an unknown path, lands on the bare
+   * frontpage instead of leaving a dead URL.
    */
   useEffect(() => {
     if (!manifest) return;
     const mode = effectiveMode(route, devMode);
+    const path = modePath(APP_BASE, mode);
+    if (window.location.pathname !== path) {
+      window.history.replaceState(null, "", path);
+    }
     if (mode) {
       startModeRef.current(mode, manifest);
       return;
     }
-    if (route !== null) {
-      history.replaceState(
-        null,
-        "",
-        `${window.location.pathname}${window.location.search}`,
-      );
-      setRoute(null);
-      return;
-    }
+    if (route !== null) setRoute(null);
     setStatus("home");
   }, [route, manifest, devMode]);
 
