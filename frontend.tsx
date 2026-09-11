@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { type RefObject, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { DAILY_COUNT, dateFromKey, dateLabel, pickDaily } from "./daily";
 import { type Manifest, parseManifest, type Scene } from "./manifest";
@@ -90,12 +90,17 @@ function dailySet(manifest: Manifest, day: Date): Scene[] {
   return manifest.scenes;
 }
 
+/** The game modes the frontpage offers (ticket #1214). */
+type Mode = "daily" | "moderation";
+
 export function App() {
   const [status, setStatus] = useState<
-    "loading" | "error" | "playing" | "end" | "empty"
+    "loading" | "error" | "home" | "playing" | "end" | "empty"
   >("loading");
   const [manifest, setManifest] = useState<Manifest | null>(null);
   const [moderation, setModeration] = useState(false);
+  /** The manifest's dev-instance flag; gates the gallery menu (#1204). */
+  const [devMode, setDevMode] = useState(false);
   const [queue, setQueue] = useState<Scene[]>([]);
   const [index, setIndex] = useState(0);
   const [hintsUsed, setHintsUsed] = useState(0);
@@ -118,6 +123,10 @@ export function App() {
   const scene = queue[index];
   const nextBtnRef = useRef<HTMLButtonElement>(null);
   const restartBtnRef = useRef<HTMLButtonElement>(null);
+  /** First frontpage button: the keyboard focus target on the frontpage. */
+  const firstModeRef = useRef<HTMLButtonElement>(null);
+  /** The chosen mode, so an empty-state reload resumes it, not the menu. */
+  const modeRef = useRef<Mode | null>(null);
   /** The reveal layer, so the guess can check it without waiting on an event. */
   const originalImgRef = useRef<HTMLImageElement | null>(null);
 
@@ -129,6 +138,9 @@ export function App() {
   }, [answered]);
   useEffect(() => {
     if (status === "end") restartBtnRef.current?.focus();
+  }, [status]);
+  useEffect(() => {
+    if (status === "home") firstModeRef.current?.focus();
   }, [status]);
 
   /** Start (or restart) a run over the given scene queue. */
@@ -149,32 +161,49 @@ export function App() {
     setQuizDay(day);
     setMod(IDLE_MODERATION);
     setModFeedback("");
-    setStatus("playing");
+    // An empty queue still enters a run state: the moderation mode shows the
+    // pipeline buffer + Generate button there (#1202/#1210).
+    setStatus(scenes.length === 0 ? "empty" : "playing");
   };
-  // The load effect runs exactly once; the ref keeps it off the dependency
-  // list (startRun is recreated every render but only used for that one call).
-  const startRunRef = useRef(startRun);
-  startRunRef.current = startRun;
+  /** Start the run of a frontpage mode over the loaded manifest (#1214). */
+  const startMode = (mode: Mode, loaded: Manifest) => {
+    modeRef.current = mode;
+    const now = new Date();
+    startRun(
+      mode === "daily" ? dailySet(loaded, now) : loaded.scenes,
+      mode === "moderation",
+      now,
+    );
+  };
+  const startModeRef = useRef(startMode);
+  startModeRef.current = startMode;
+
+  /** Frontpage selection: Daily plays the day's set, Moderation the queue. */
+  const chooseMode = (mode: Mode) => {
+    if (manifest) startModeRef.current(mode, manifest);
+  };
 
   /**
-   * Fetch the manifest and either start the run or enter the empty state
-   * (ticket #1202: the dev queue serves no scenes once every one is
-   * moderated). Also the Reload action of the empty state; the ref keeps the
-   * mount effect off the dependency list.
+   * Fetch the manifest and show the frontpage (ticket #1214). A reload from
+   * the empty state (ticket #1202) resumes the chosen mode instead of the
+   * menu. Also the Reload action of the empty state; the ref keeps the mount
+   * effect off the dependency list.
    */
   const load = async () => {
     setStatus("loading");
     try {
-      const { manifest: loaded, moderation: devMode } =
+      const { manifest: loaded, moderation: dev } =
         await loadManifest(parseManifest);
       setManifest(loaded);
-      if (loaded.scenes.length === 0) {
-        setQueue([]);
-        setModeration(devMode);
-        setStatus("empty");
+      setDevMode(dev);
+      const mode = modeRef.current;
+      // Before a mode is picked the frontpage shows; a reload from the empty
+      // state resumes the mode that landed there instead of the menu.
+      if (mode) {
+        startModeRef.current(mode, loaded);
         return;
       }
-      startRunRef.current(dailySet(loaded, new Date()), devMode, new Date());
+      setStatus("home");
     } catch (err) {
       console.error("manifest load failed", err);
       setLoadError(true);
@@ -340,7 +369,7 @@ export function App() {
   if (status === "loading") {
     return (
       <main>
-        <Header showMenu={moderation} />
+        <Header showMenu={devMode} />
         <p className="load-error">Loading the day's scenes…</p>
         <Footer />
       </main>
@@ -350,7 +379,7 @@ export function App() {
   if (status === "error") {
     return (
       <main>
-        <Header showMenu={moderation} />
+        <Header showMenu={devMode} />
         <p id="load-error" className="load-error" hidden={!loadError}>
           The scenes could not be loaded. Is the page being served from a
           server?
@@ -360,11 +389,26 @@ export function App() {
     );
   }
 
+  if (status === "home") {
+    return (
+      <main>
+        <Header showMenu={devMode} />
+        <ModeSelect
+          devMode={devMode}
+          moderationCount={manifest?.scenes.length ?? 0}
+          onSelect={chooseMode}
+          firstRef={firstModeRef}
+        />
+        <Footer />
+      </main>
+    );
+  }
+
   if (status === "end") {
     const end = buildEndData(queue, scores, quizLabel());
     return (
       <main>
-        <Header showMenu={moderation} />
+        <Header showMenu={devMode} />
         <section id="end" className="end">
           <h2>Mission complete</h2>
           <p id="end-date" className="end-date">
@@ -396,7 +440,7 @@ export function App() {
   if (status === "empty") {
     return (
       <main>
-        <Header showMenu={moderation} />
+        <Header showMenu={devMode} />
         {moderation ? (
           <ModerationEmpty onReload={() => void loadRef.current()} />
         ) : (
@@ -420,7 +464,7 @@ export function App() {
 
   return (
     <main>
-      <Header showMenu={moderation} />
+      <Header showMenu={devMode} />
       <section id="game" className="game">
         <div className="meta">
           <span id="scene-title" className="scene-title">
@@ -595,6 +639,60 @@ export function App() {
  * build (GitHub Pages) has no gallery, and a dead link there would 404.
  */
 const GALLERY_URL = "gallery/";
+
+/**
+ * The frontpage (ticket #1214): the game modes as big buttons, shown before
+ * any run. Daily is always there; Moderation only on the dev instance, whose
+ * queue API flags its manifest with `moderation: true`. The moderation count
+ * comes straight from that manifest (the unmoderated queue it plays), so the
+ * frontend never re-derives an order or a set.
+ */
+function ModeSelect({
+  devMode,
+  moderationCount,
+  onSelect,
+  firstRef,
+}: {
+  devMode: boolean;
+  moderationCount: number;
+  onSelect: (mode: Mode) => void;
+  firstRef: RefObject<HTMLButtonElement | null>;
+}) {
+  return (
+    <section id="home" className="home">
+      <h2 className="home-title">Choose a mode</h2>
+      <div className="modes">
+        <button
+          id="mode-daily"
+          ref={firstRef}
+          className="mode-btn"
+          type="button"
+          data-testid="mode-daily"
+          onClick={() => onSelect("daily")}
+        >
+          <span className="mode-name">Daily</span>
+          <span className="mode-sub">Today's set</span>
+        </button>
+        {devMode ? (
+          <button
+            id="mode-moderation"
+            className="mode-btn"
+            type="button"
+            data-testid="mode-moderation"
+            onClick={() => onSelect("moderation")}
+          >
+            <span className="mode-name">Moderation</span>
+            <span className="mode-sub">
+              {moderationCount > 0
+                ? `${moderationCount} ${moderationCount === 1 ? "scene" : "scenes"} waiting for a verdict`
+                : "Nothing to review right now"}
+            </span>
+          </button>
+        ) : null}
+      </div>
+    </section>
+  );
+}
 
 function Header({ showMenu }: { showMenu: boolean }) {
   return (

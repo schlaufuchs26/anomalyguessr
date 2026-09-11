@@ -34,7 +34,8 @@ main {
 }
 
 /* Header row (ticket #1204): game title on the left, the gallery menu on the
-   right. The menu only renders on the dev instance (moderation mode). */
+   right. The menu only renders on the dev instance (the manifest's moderation
+   flag), on every screen including the #1214 frontpage. */
 .top-row {
   display: flex;
   align-items: center;
@@ -415,6 +416,55 @@ main {
   margin: 0.3rem 0 1.2rem;
 }
 
+/* frontpage mode select (ticket #1214): big clickable game modes */
+.home {
+  text-align: center;
+  padding: 2.5rem 0 1rem;
+}
+
+.home-title {
+  margin: 0 0 0.4rem;
+  color: var(--ink);
+}
+
+.modes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1.4rem;
+}
+
+.mode-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 15rem;
+  padding: 1.6rem 1.8rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.mode-btn:hover,
+.mode-btn:focus-visible {
+  border-color: var(--accent);
+}
+
+.mode-name {
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+.mode-sub {
+  color: var(--ink-dim);
+  font-size: 0.9rem;
+}
+
 .foot {
   margin-top: 2.5rem;
   color: var(--ink-dim);
@@ -499,6 +549,19 @@ main {
     align-items: center;
     justify-content: center;
     overflow: hidden;
+  }
+
+  /* The frontpage fills the column and stays scrollable if it ever grows
+     taller than the viewport, so the height chain cannot break (#1187). */
+  .home {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow-y: auto;
+    padding: 0;
   }
 
   .end:not([hidden]) {

@@ -76,6 +76,9 @@ async function openGame(page: Page): Promise<void> {
     route.fulfill({ json: MANIFEST }),
   );
   await page.goto("/");
+  // #1214: the app lands on the frontpage; the smoke flow plays the dev
+  // moderation queue (the stubbed manifest carries `moderation: true`).
+  await page.getByTestId("mode-moderation").click();
   await expect(page.locator("#scene-title")).toHaveText("Smoke test market");
   await expect(page.locator("#photo-img")).toBeVisible();
   // The reveal layer preloads per scene; wait for it before guessing.
@@ -91,6 +94,35 @@ async function answerScene(page: Page): Promise<void> {
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   await expect(page.locator("#result .headline")).toBeVisible();
 }
+
+/** Load the frontpage at laptop size with the stubbed manifest. */
+async function openFrontpage(page: Page): Promise<void> {
+  await page.setViewportSize(LAPTOP);
+  await page.route("**/scenes/manifest.json", (route) =>
+    route.fulfill({ json: MANIFEST }),
+  );
+  await page.goto("/");
+  await expect(page.getByTestId("mode-daily")).toBeVisible();
+}
+
+test("the frontpage offers the mode buttons and fits the laptop (#1214)", async ({
+  page,
+}) => {
+  await openFrontpage(page);
+  const daily = page.getByTestId("mode-daily");
+  const moderation = page.getByTestId("mode-moderation");
+  await expect(daily).toBeVisible();
+  await expect(moderation).toBeVisible();
+  // keyboard play starts on the first mode button
+  await expect(daily).toBeFocused();
+
+  // the frontpage must not push the page past the viewport (height chain)
+  const doc = await page.evaluate(() => ({
+    scrollHeight: document.scrollingElement?.scrollHeight ?? 0,
+    innerHeight: window.innerHeight,
+  }));
+  expect(doc.scrollHeight).toBeLessThanOrEqual(doc.innerHeight + 1);
+});
 
 test("the HUD is the bounded scroller on the laptop layout", async ({
   page,

@@ -148,15 +148,37 @@ beforeEach(() => {
   })) as unknown as typeof window.matchMedia;
 });
 
-/** Render the app and wait for the first scene to be on screen. */
-async function renderGame(): Promise<HTMLElement> {
+/** Render the app and wait for the frontpage (manifest loaded, #1214). */
+async function renderFrontpage(): Promise<HTMLElement> {
   const { container } = render(<App />);
-  await screen.findByText("Scene A");
-  // The scene mounts during the async manifest fetch, so React can still have
-  // pending passive effects (the wheel/resize listeners in PhotoStage) when
-  // findByText resolves. Flush them before the test dispatches events; without
-  // this the wheel test flakes under load (ticket #1193).
+  await screen.findByRole("button", { name: /^Daily/ });
+  // The frontpage mounts during the async manifest fetch, so React can still
+  // have pending passive effects when the query resolves. Flush them before
+  // the test dispatches events; without this some tests flake under load.
   await act(async () => {});
+  return container;
+}
+
+/** Pick a mode on the frontpage and wait for the first scene on screen. */
+async function renderGame(
+  mode: "daily" | "moderation" = "daily",
+): Promise<HTMLElement> {
+  const container = await renderFrontpage();
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: mode === "daily" ? /^Daily/ : /^Moderation/,
+    }),
+  );
+  await screen.findByText("Scene A");
+  await act(async () => {});
+  return container;
+}
+
+/** Pick Moderation on the frontpage and wait for the empty queue state. */
+async function renderModerationEmpty(): Promise<HTMLElement> {
+  const container = await renderFrontpage();
+  fireEvent.click(screen.getByRole("button", { name: /^Moderation/ }));
+  await screen.findByText("Moderation queue is empty");
   return container;
 }
 
@@ -221,6 +243,53 @@ describe("scene rendering", () => {
     expect(
       await screen.findByText(/The scenes could not be loaded/),
     ).toBeInTheDocument();
+  });
+});
+
+describe("frontpage mode select (#1214)", () => {
+  test("prod offers only Daily and starts the day's set", async () => {
+    const container = await renderFrontpage();
+    expect(screen.getByRole("button", { name: /^Daily/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Moderation/ })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Daily/ }));
+    expect(await screen.findByText("Scene A")).toBeInTheDocument();
+    expect(screen.getByText("1 / 2")).toBeInTheDocument();
+    // the plain daily run has no moderation box (that belongs to Moderation)
+    expect(screen.queryByText("Moderation verdict")).not.toBeInTheDocument();
+    expect(container.querySelector(".stage")).toBeInTheDocument();
+  });
+
+  test("the dev instance offers Moderation with the queue count", async () => {
+    payload = { ...MANIFEST, moderation: true };
+    await renderFrontpage();
+    expect(
+      screen.getByRole("button", { name: /^Moderation/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("2 scenes waiting for a verdict"),
+    ).toBeInTheDocument();
+  });
+
+  test("an empty dev queue says there is nothing to review", async () => {
+    payload = { version: 2, date: "2026-09-10", scenes: [], moderation: true };
+    await renderFrontpage();
+    expect(screen.getByText("Nothing to review right now")).toBeInTheDocument();
+  });
+
+  test("Daily on the dev instance plays without the moderation box", async () => {
+    payload = { ...MANIFEST, moderation: true };
+    await renderGame("daily");
+    expect(screen.queryByText("Moderation verdict")).not.toBeInTheDocument();
+  });
+
+  test("focus lands on the first mode button", async () => {
+    await renderFrontpage();
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole("button", { name: /^Daily/ }),
+      ),
+    );
   });
 });
 
@@ -534,7 +603,7 @@ describe("photo interactions", () => {
 describe("moderation mode (dev instance, #1163)", () => {
   test("accept posts the verdict and feedback, then goes inert", async () => {
     payload = { ...MANIFEST, moderation: true };
-    const container = await renderGame();
+    const container = await renderGame("moderation");
     clickPhoto(container, 0.5, 0.5);
 
     const feedback = screen.getByPlaceholderText(/Feedback for the pipeline/);
@@ -554,7 +623,7 @@ describe("moderation mode (dev instance, #1163)", () => {
 
   test("a failed post surfaces the error and keeps the buttons usable", async () => {
     payload = { ...MANIFEST, moderation: true };
-    const container = await renderGame();
+    const container = await renderGame("moderation");
     clickPhoto(container, 0.5, 0.5);
     globalThis.fetch = (async () =>
       new Response("nope", { status: 500 })) as unknown as typeof fetch;
@@ -574,23 +643,31 @@ describe("moderation mode (dev instance, #1163)", () => {
 describe("gallery menu (dev instance, #1204)", () => {
   test("the dev instance links to the image overview", async () => {
     payload = { ...MANIFEST, moderation: true };
-    await renderGame();
+    await renderFrontpage();
     const menu = screen.getByRole("link", { name: "☰ Gallery" });
     expect(menu).toHaveAttribute("href", "gallery/");
     expect(menu).toHaveAttribute("title", "Overview of all images");
   });
 
+  test("the dev instance keeps the gallery link while playing", async () => {
+    payload = { ...MANIFEST, moderation: true };
+    await renderGame("moderation");
+    expect(screen.getByRole("link", { name: "☰ Gallery" })).toHaveAttribute(
+      "href",
+      "gallery/",
+    );
+  });
+
   test("the static prod build has no gallery link", async () => {
     // GitHub Pages ships the same bundle without the queue API's moderation
     // flag; the gallery only exists on the dev instance, so no dead link.
-    await renderGame();
+    await renderFrontpage();
     expect(screen.queryByRole("link", { name: /Gallery/ })).toBeNull();
   });
 
   test("the empty moderation queue still offers the way to the gallery", async () => {
     payload = { version: 2, date: "2026-09-10", scenes: [], moderation: true };
-    render(<App />);
-    await screen.findByText("Moderation queue is empty");
+    await renderModerationEmpty();
     expect(screen.getByRole("link", { name: "☰ Gallery" })).toHaveAttribute(
       "href",
       "gallery/",
@@ -599,13 +676,17 @@ describe("gallery menu (dev instance, #1204)", () => {
 });
 
 describe("empty moderation queue (#1202)", () => {
-  test("shows a calm empty state instead of the game shell", async () => {
-    payload = { version: 2, date: "2026-09-10", scenes: [], moderation: true };
-    const { container } = render(<App />);
+  const EMPTY = {
+    version: 2,
+    date: "2026-09-10",
+    scenes: [],
+    moderation: true,
+  };
 
-    expect(
-      await screen.findByText("Moderation queue is empty"),
-    ).toBeInTheDocument();
+  test("shows a calm empty state instead of the game shell", async () => {
+    payload = EMPTY;
+    const container = await renderModerationEmpty();
+
     expect(
       screen.getByText(/New scenes appear after the daily generation run/),
     ).toBeInTheDocument();
@@ -616,22 +697,14 @@ describe("empty moderation queue (#1202)", () => {
   });
 
   test("a queue serialized as null counts as empty too", async () => {
-    payload = {
-      version: 2,
-      date: "2026-09-10",
-      scenes: null,
-      moderation: true,
-    };
-    render(<App />);
-    expect(
-      await screen.findByText("Moderation queue is empty"),
-    ).toBeInTheDocument();
+    payload = { ...EMPTY, scenes: null };
+    await renderModerationEmpty();
+    expect(screen.getByText("Moderation queue is empty")).toBeInTheDocument();
   });
 
   test("Reload re-fetches and plays the queue once it is filled", async () => {
-    payload = { version: 2, date: "2026-09-10", scenes: [], moderation: true };
-    render(<App />);
-    await screen.findByText("Moderation queue is empty");
+    payload = EMPTY;
+    await renderModerationEmpty();
 
     payload = { ...MANIFEST, moderation: true };
     fireEvent.click(screen.getByRole("button", { name: "Reload" }));
@@ -668,8 +741,7 @@ describe("on-demand generation from the empty queue (#1210)", () => {
       failed: 0,
       imageCalls: 0,
     };
-    render(<App />);
-    await screen.findByText("Moderation queue is empty");
+    await renderModerationEmpty();
     expect(
       await screen.findByText("7 scenes ready for the daily"),
     ).toBeInTheDocument();
@@ -680,8 +752,7 @@ describe("on-demand generation from the empty queue (#1210)", () => {
 
   test("starting a run shows the progress, then reloads when scenes land", async () => {
     payload = EMPTY;
-    render(<App />);
-    await screen.findByText("Moderation queue is empty");
+    await renderModerationEmpty();
 
     const running = {
       state: "running",
@@ -729,8 +800,7 @@ describe("on-demand generation from the empty queue (#1210)", () => {
       status: 409,
       detail: "a generation run is already in progress",
     };
-    render(<App />);
-    await screen.findByText("Moderation queue is empty");
+    await renderModerationEmpty();
     fireEvent.click(
       await screen.findByRole("button", { name: "Generate more" }),
     );
@@ -756,7 +826,7 @@ describe("on-demand generation from the empty queue (#1210)", () => {
       imageCalls: 0,
       error: "OPENROUTER_API_KEY not set",
     };
-    render(<App />);
+    await renderModerationEmpty();
     expect(
       await screen.findByText("OPENROUTER_API_KEY not set"),
     ).toBeInTheDocument();
