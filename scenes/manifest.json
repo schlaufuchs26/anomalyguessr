@@ -1,218 +1,214 @@
 {
   "version": 2,
-  "date": "2026-09-10",
+  "date": "2026-09-11",
   "scenes": [
     {
-      "id": "fortepan-market-1938",
-      "title": "Market stalls with vegetables and eggs",
-      "place": "Hungary",
-      "year": "1938",
-      "credit": "Fortepan (ID 75518), Public Domain, via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Market,_vegetables,_egg,_umbrella,_flower,_cabbage,_colorful_Fortepan_75518.jpg",
-      "anomaly": "Chip bag (modern snack bag)",
-      "explanation": "Sealed plastic snack bags with printed branding only became common in the mid-20th century, so one cannot lie on a market in 1938.",
-      "references": [
-        {
-          "label": "Potato chip",
-          "url": "https://en.wikipedia.org/wiki/Potato_chip"
-        }
-      ],
-      "description": "A crowded open-air market in 1938: baskets and sacks of vegetables and eggs, umbrellas over the stalls, vendors and buyers packed between the goods.",
-      "answer": {
-        "x": 0.127,
-        "y": 0.4,
-        "r": 0.05
-      },
-      "hints": [
-        "It lies on the ground among the baskets of goods.",
-        "Left side of the photo, about halfway down.",
-        "Left side, on the ground beside the baskets: a modern chip bag."
-      ],
+      "id": "cairo-citadel-time-traveler",
+      "title": "Open-air market, Cairo Citadel (1907)",
+      "place": "Cairo, Egypt",
+      "year": "1907",
+      "credit": "Wikimedia Commons, Public domain",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Open-air_market,_Cairo_Citadel_(1907).jpg",
       "source": {
-        "repository": "Wikimedia Commons (Fortepan archive)",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:Market,_vegetables,_egg,_umbrella,_flower,_cabbage,_colorful_Fortepan_75518.jpg",
-        "originalTitle": "Market, vegetables, egg, umbrella, flower, cabbage (Fortepan 75518)",
-        "date": "1938",
-        "place": "Hungary",
+        "repository": "Wikimedia Commons",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:Open-air_market,_Cairo_Citadel_(1907).jpg",
+        "originalTitle": "Open-air market, Cairo Citadel (1907)",
+        "date": "1907",
+        "place": "Cairo, Egypt",
         "license": "Public domain",
-        "description": "Fortepan archive photograph, ID 75518; tags: market, vegetables, egg, umbrella, flower, cabbage."
+        "description": "Open-air market beneath the Cairo Citadel, with a crowd gathered in the foreground and the Citadel's mosque and minarets in the background."
       },
-      "added": "2026-09-10",
-      "shown": "2026-09-10",
-      "image": "scenes/fortepan-market-1938.jpg",
-      "original": "scenes/fortepan-market-1938-original.jpg"
-    },
-    {
-      "id": "helsinki-market-1932",
-      "title": "Fish sale at Market Square",
-      "place": "Market Square (Kauppatori), Helsinki, Finland",
-      "year": "1932",
-      "credit": "Sakari Palsi / Helsinki City Museum (CC BY 4.0), via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Kalanmyynti%C3%A4_Kauppatorilla_-_N203878_-_hkm.HKMS000005-km003u2a.jpg",
-      "anomaly": "Plastic bottle (PET)",
-      "explanation": "PET plastic bottles only appeared in the 1970s; a bottle in 1932 would have been glass.",
+      "anomaly": "Time traveler: young man in robes with modern athletic sneakers",
+      "explanation": "Modern athletic sneakers (with visible swoosh-style branding and thick soles) only became common in the 1960s, so they cannot appear in a 1907 photograph.",
       "references": [
         {
-          "label": "Polyethylene terephthalate",
-          "url": "https://en.wikipedia.org/wiki/Polyethylene_terephthalate"
-        },
-        {
-          "label": "Plastic bottle",
-          "url": "https://en.wikipedia.org/wiki/Plastic_bottle"
+          "label": "Sneakers",
+          "url": "https://en.wikipedia.org/wiki/Sneakers"
         }
       ],
-      "description": "Fish vendors at Helsinki's Market Square in 1932: wooden crates of fish on the ground along the quay, vendors and customers in coats, market stalls behind them.",
+      "description": "Open-air market beneath the Cairo Citadel, with a crowd gathered in the foreground and the Citadel's mosque and minarets in the background.",
       "answer": {
-        "x": 0.914,
-        "y": 0.782,
-        "r": 0.05
+        "x": 0.647,
+        "y": 0.532,
+        "r": 0.1
       },
       "hints": [
-        "It stands on the ground beside the stalls, not on a crate.",
-        "Right edge of the photo, lower third.",
-        "Bottom right, on the ground beside the wooden fish crates: a plastic bottle."
+        "He stands mid-ground among the crowd, not at the edges of the photo.",
+        "Right of the center, around halfway down the picture.",
+        "The young man in robes right of the center: look at his feet, he wears modern athletic sneakers."
       ],
-      "source": {
-        "repository": "Wikimedia Commons (Helsinki City Museum)",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:Kalanmyynti%C3%A4_Kauppatorilla_-_N203878_-_hkm.HKMS000005-km003u2a.jpg",
-        "originalTitle": "Kalanmyyntia Kauppatorilla",
-        "date": "1932",
-        "place": "Market Square (Kauppatori), Helsinki, Finland",
-        "license": "CC BY 4.0",
-        "description": "Fish sale at the Market Square in Helsinki; repro-negative print, black and white; Helsinki City Museum, record hkm.HKMS000005:km003u2a."
-      },
       "added": "2026-09-10",
-      "shown": "2026-09-10",
-      "image": "scenes/helsinki-market-1932.jpg",
-      "original": "scenes/helsinki-market-1932-original.jpg"
+      "shown": "2026-09-11",
+      "image": "scenes/cairo-citadel-time-traveler.jpg",
+      "original": "scenes/cairo-citadel-time-traveler-original.jpg"
     },
     {
-      "id": "mariensztat-square-1949",
-      "title": "Celebration on Mariensztat square",
-      "place": "Mariensztat, Warsaw, Poland",
-      "year": "1949",
-      "credit": "Public domain, via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Zabawa_na_rynku_na_Mariensztacie_1949.jpg",
-      "anomaly": "Time traveler: young man with a modern logo baseball cap and sunglasses",
-      "explanation": "A printed-logo baseball cap and modern sunglasses were not worn in 1949; both only became everyday items decades later.",
-      "references": [
-        {
-          "label": "Baseball cap",
-          "url": "https://en.wikipedia.org/wiki/Baseball_cap"
-        },
-        {
-          "label": "Sunglasses",
-          "url": "https://en.wikipedia.org/wiki/Sunglasses"
-        }
-      ],
-      "description": "An open-air celebration on the market square of Mariensztat in 1949: a dense crowd of adults and children fills the square in front of the city buildings (reproduced in a Warsaw volume of 1950).",
+      "id": "commons-boer-war-a-busy-street-scene-with-gracious-ladie-26694c-modern-daypack",
+      "title": "Boer War: a busy street scene with gracious ladies offering",
+      "place": "Pietermaritzburg",
+      "year": "1900",
+      "description": "Boer War: a busy street scene with gracious ladies offering, Pietermaritzburg, circa 1900, from the Wikimedia Commons catalogue.",
+      "anomaly": "Modern daypack",
       "answer": {
-        "x": 0.668,
-        "y": 0.689,
-        "r": 0.06
+        "x": 0.679,
+        "y": 0.7895,
+        "r": 0.1272
       },
       "hints": [
-        "He stands in the crowd, not at the edge of the picture.",
-        "Right half of the photo, in the lower part of the crowd.",
-        "Bottom right of the picture, the man in the crowd: he wears a modern baseball cap with a printed logo and modern sunglasses."
+        "Scan the whole photograph; something small is out of place on the ground near a bench or seat, partly hidden.",
+        "It is a small modern object in the lower right of the frame.",
+        "A Modern daypack is on the ground near a bench or seat, partly hidden, in the lower right."
+      ],
+      "explanation": "Lightweight nylon daypacks with zips are a later-20th-century product, not yet in use here.",
+      "references": [
+        {
+          "label": "Backpack",
+          "url": "https://en.wikipedia.org/wiki/Backpack"
+        }
       ],
       "source": {
         "repository": "Wikimedia Commons",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:Zabawa_na_rynku_na_Mariensztacie_1949.jpg",
-        "originalTitle": "Zabawa na rynku na Mariensztacie 1949",
-        "date": "1949",
-        "place": "Mariensztat, Warsaw, Poland",
-        "license": "Public domain",
-        "description": "Celebration on the market square of Mariensztat, Warsaw, 1949; published in Warszawa, Spoldzielczy Instytut Wydawniczy \"Kraj\", Warsaw 1950, p. 86."
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:Boer_War;_a_busy_street_scene_with_gracious_ladies_offering_Wellcome_V0015570.jpg",
+        "originalTitle": "Boer War: a busy street scene with gracious ladies offering",
+        "date": "circa 1900",
+        "place": "Pietermaritzburg",
+        "license": "CC BY 4.0",
+        "description": "Boer War: a busy street scene with gracious ladies offering food, drink and assistance to wounded soldiers. Process print after C. Shepperson after A. Johnstone, c. 1900. Iconographic Collections Keywords: Agnes M. Johnstone; Claude Alin Shepperson"
       },
-      "added": "2026-09-10",
-      "shown": "2026-09-10",
-      "image": "scenes/mariensztat-square-1949.jpg",
-      "original": "scenes/mariensztat-square-1949-original.jpg"
+      "credit": "Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Boer_War;_a_busy_street_scene_with_gracious_ladies_offering_Wellcome_V0015570.jpg",
+      "added": "2026-09-11",
+      "shown": "2026-09-11",
+      "image": "scenes/commons-boer-war-a-busy-street-scene-with-gracious-ladie-26694c-modern-daypack.jpg",
+      "original": "scenes/commons-boer-war-a-busy-street-scene-with-gracious-ladie-26694c-modern-daypack-original.jpg"
     },
     {
-      "id": "newcastle-basin-1910",
-      "title": "Inner Basin from Honeysuckle Station",
-      "place": "Newcastle, New South Wales, Australia",
-      "year": "1910",
-      "credit": "Ralph Snowball, University of Newcastle (Public Domain), via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Inner_Basin_(from_Honeysuckle_Station),_Newcastle,_NSW,_April_1910.jpg",
-      "anomaly": "Plastic cooler box",
-      "explanation": "Plastic cooler boxes are a product of the 1950s plastics boom; no such container existed on a dock in 1910.",
+      "id": "commons-market-street-and-sussex-street-sydney-434949412-214a2b-robot-time-traveler",
+      "title": "Market Street and Sussex Street, Sydney (4349494121)",
+      "place": "Unidentified location",
+      "year": "1900",
+      "description": "Market Street and Sussex Street, Sydney (4349494121), circa 1900, from the Wikimedia Commons catalogue.",
+      "anomaly": "Robot time traveler",
+      "answer": {
+        "x": 0.4315,
+        "y": 0.6435,
+        "r": 0.15
+      },
+      "hints": [
+        "Look closely; something in this photograph is not from this world or this century.",
+        "Check the in the middle of the crowd, half behind other people: there is technology that did not exist yet.",
+        "The clearly futuristic humanoid robot in the middle of the crowd, half behind other people, in the middle center: sleek metallic limbs and an exposed mechanical head, with an otherwise era-appropriate silhouette."
+      ],
+      "explanation": "This is a robot from a fictional future, so it could not exist when this photograph was taken.",
       "references": [
         {
-          "label": "Cooler",
-          "url": "https://en.wikipedia.org/wiki/Cooler"
+          "label": "Robot",
+          "url": "https://en.wikipedia.org/wiki/Robot"
         },
         {
-          "label": "Plastic",
-          "url": "https://en.wikipedia.org/wiki/Plastic"
+          "label": "Humanoid robot",
+          "url": "https://en.wikipedia.org/wiki/Humanoid_robot"
         }
       ],
-      "description": "The Inner Basin of Newcastle harbour in April 1910, seen from Honeysuckle Station: ships moored along the quay and barrels on the dock in the foreground (glass negative by Ralph Snowball).",
-      "answer": {
-        "x": 0.826,
-        "y": 0.967,
-        "r": 0.07
-      },
-      "hints": [
-        "It stands on the dock, not on a ship.",
-        "Right edge of the photo, right at the bottom.",
-        "Bottom right, on the dock beside the barrels: a modern plastic cooler box."
-      ],
       "source": {
-        "repository": "Wikimedia Commons (University of Newcastle)",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:Inner_Basin_(from_Honeysuckle_Station),_Newcastle,_NSW,_April_1910.jpg",
-        "originalTitle": "Inner Basin [from Honeysuckle Station], Newcastle, NSW, April 1910",
-        "date": "April 1910",
-        "place": "Newcastle, New South Wales, Australia",
-        "license": "Public domain",
-        "description": "Scanned from the original glass negative by Ralph Snowball, Norm Barney Photographic Collection, Cultural Collections, University of Newcastle, NSW."
+        "repository": "Wikimedia Commons",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:Market_Street_and_Sussex_Street,_Sydney_(4349494121).jpg",
+        "originalTitle": "Market Street and Sussex Street, Sydney (4349494121)",
+        "date": "1900",
+        "place": "",
+        "license": "CC BY 2.0",
+        "description": "Corner of Market Street and Sussex Street, Sydney Dated: 1900 Digital ID: 4481_a026_000097 Rights: www.records.nsw.gov.au/about-us/rights-and-permissions This image is part of our \"Moments in Time\" blog series where we ask you to help us date the photos or identify the location where the photo was taken. If you can help with this image please head over to the post at our Archives Outside blog . We have included the larger version here on Flickr to help show more detail. We'd love to hear from you if you use our photos. Many other photos in our collection are available to view and browse on our website using Photo Investigator ."
       },
-      "added": "2026-09-10",
-      "shown": "2026-09-10",
-      "image": "scenes/newcastle-basin-1910.jpg",
-      "original": "scenes/newcastle-basin-1910-original.jpg"
+      "credit": "Photographic Collection from Australia via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Market_Street_and_Sussex_Street,_Sydney_(4349494121).jpg",
+      "added": "2026-09-11",
+      "shown": "2026-09-11",
+      "image": "scenes/commons-market-street-and-sussex-street-sydney-434949412-214a2b-robot-time-traveler.jpg",
+      "original": "scenes/commons-market-street-and-sussex-street-sydney-434949412-214a2b-robot-time-traveler-original.jpg"
     },
     {
-      "id": "nyc-docks-1924",
-      "title": "Docks of New York Harbor from the air",
-      "place": "New York Harbor, USA",
-      "year": "1924",
-      "credit": "14th Photo Section, Air Service, U.S. Army (NARA, Public Domain), via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:New_York_-_Docks-New_York_Harbor_-_NARA_-_68146192.jpg",
-      "anomaly": "Flying saucer (UFO)",
-      "explanation": "A flying saucer is a fictional object: the first widely reported 'flying saucer' sightings date from 1947, and no such craft has ever existed.",
-      "references": [
-        {
-          "label": "Flying saucer",
-          "url": "https://en.wikipedia.org/wiki/Flying_saucer"
-        }
-      ],
-      "description": "An aerial view of New York Harbor in 1924: piers, warehouses and ships along the waterfront, with the city skyline in the background.",
+      "id": "commons-oulu-market-place-1900s-19-20-c2dbd2-robot-time-traveler",
+      "title": "Oulu Market Place 1900s",
+      "place": "Unidentified location",
+      "year": "turn of the 19/20 th century",
+      "description": "Oulu Market Place 1900s, from the Wikimedia Commons catalogue.",
+      "anomaly": "Robot time traveler",
       "answer": {
-        "x": 0.58,
-        "y": 0.17,
-        "r": 0.06
+        "x": 0.727,
+        "y": 0.3675,
+        "r": 0.1208
       },
       "hints": [
-        "It is not on the water and not on a pier; look up.",
-        "Upper part of the photo, above the city.",
-        "In the sky at the top of the picture, slightly right of centre: a flying saucer."
+        "Look closely; something in this photograph is not from this world or this century.",
+        "Check the in the middle of the crowd, half behind other people: there is technology that did not exist yet.",
+        "The clearly futuristic humanoid robot in the middle of the crowd, half behind other people, in the middle right: sleek metallic limbs and an exposed mechanical head, with an otherwise era-appropriate silhouette."
+      ],
+      "explanation": "This is a robot from a fictional future, so it could not exist when this photograph was taken.",
+      "references": [
+        {
+          "label": "Robot",
+          "url": "https://en.wikipedia.org/wiki/Robot"
+        },
+        {
+          "label": "Humanoid robot",
+          "url": "https://en.wikipedia.org/wiki/Humanoid_robot"
+        }
       ],
       "source": {
-        "repository": "Wikimedia Commons (U.S. National Archives)",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:New_York_-_Docks-New_York_Harbor_-_NARA_-_68146192.jpg",
-        "originalTitle": "New York - Docks-New York Harbor",
-        "date": "1924",
-        "place": "New York Harbor, USA",
+        "repository": "Wikimedia Commons",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:Oulu_Market_Place_1900s.jpg",
+        "originalTitle": "Oulu Market Place 1900s",
+        "date": "turn of the 19/20 th century",
+        "place": "",
         "license": "Public domain",
-        "description": "Aerial photograph of the docks of New York Harbor by the 14th Photo Section, Air Service, U.S. Army (NARA 68146192)."
+        "description": "The Oulu Market place and the former Hahtiperä harbour in the turn of the 19/20th century."
       },
-      "added": "2026-09-10",
-      "shown": "2026-09-10",
-      "image": "scenes/nyc-docks-1924.jpg",
-      "original": "scenes/nyc-docks-1924-original.jpg"
+      "credit": "Unknown author Unknown author via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Oulu_Market_Place_1900s.jpg",
+      "added": "2026-09-11",
+      "shown": "2026-09-11",
+      "image": "scenes/commons-oulu-market-place-1900s-19-20-c2dbd2-robot-time-traveler.jpg",
+      "original": "scenes/commons-oulu-market-place-1900s-19-20-c2dbd2-robot-time-traveler-original.jpg"
+    },
+    {
+      "id": "commons-paris-exposition-street-scene-unidentified-paris-d457a4-modern-advertising-poste",
+      "title": "Paris Exposition street scene, unidentified, Paris, France, 1900",
+      "place": "Unidentified location",
+      "year": "1900",
+      "description": "Paris Exposition street scene, unidentified, Paris, France, 1900, from the Wikimedia Commons catalogue.",
+      "anomaly": "Modern advertising poster",
+      "answer": {
+        "x": 0.419,
+        "y": 0.7197,
+        "r": 0.05
+      },
+      "hints": [
+        "Scan the whole photograph; something small is out of place in the background, leaning against a wall or post.",
+        "It is a small modern object in the lower center of the frame.",
+        "A Modern advertising poster is in the background, leaning against a wall or post, in the lower center."
+      ],
+      "explanation": "Offset-printed advertising posters with modern typography belong to a later era than this photo.",
+      "references": [
+        {
+          "label": "Poster",
+          "url": "https://en.wikipedia.org/wiki/Poster"
+        }
+      ],
+      "source": {
+        "repository": "Wikimedia Commons",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:Paris_Exposition_street_scene,_unidentified,_Paris,_France,_1900.jpg",
+        "originalTitle": "Paris Exposition street scene, unidentified, Paris, France, 1900",
+        "date": "1900-01-01 00:00:00",
+        "place": "",
+        "license": "No restrictions",
+        "description": "Paris Exposition: street scene, unidentified, Paris, France, 1900. View looking down a street filled with horse-drawn carriages. Brooklyn Museum Archives. Identified as facade of Grand Hôtel Paris, n° 15, Boulevard des Capucines, Paris"
+      },
+      "credit": "Brooklyn Museum via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Paris_Exposition_street_scene,_unidentified,_Paris,_France,_1900.jpg",
+      "added": "2026-09-11",
+      "shown": "2026-09-11",
+      "image": "scenes/commons-paris-exposition-street-scene-unidentified-paris-d457a4-modern-advertising-poste.jpg",
+      "original": "scenes/commons-paris-exposition-street-scene-unidentified-paris-d457a4-modern-advertising-poste-original.jpg"
     }
   ]
 }
