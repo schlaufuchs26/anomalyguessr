@@ -39,6 +39,11 @@ const MANIFEST = { version: 2, date: "2026-09-10", scenes: [SCENE_A, SCENE_B] };
 
 /** Payload the stubbed manifest fetch answers with ("fail" -> HTTP 500). */
 let payload: unknown = MANIFEST;
+/**
+ * Payload for `scenes/daily.json`, the dev instance's day set (#1221). Null
+ * means "the same as the manifest", which is how prod behaves (one manifest).
+ */
+let dailyPayload: unknown = null;
 /** Requests the app made to the moderation endpoint. */
 let posts: { url: string; body: unknown }[] = [];
 /** Every URL the app fetched (documents the manifest/API base decision). */
@@ -81,6 +86,7 @@ beforeEach(() => {
   history.replaceState(null, "", "/");
   sessionStorage.clear();
   payload = MANIFEST;
+  dailyPayload = null;
   posts = [];
   gets = [];
   desktop = true;
@@ -123,8 +129,14 @@ beforeEach(() => {
       return new Response("{}", { status: 200 });
     }
     gets.push(url);
-    if (payload === "fail") return new Response("boom", { status: 500 });
-    return new Response(JSON.stringify(payload), {
+    // scenes/daily.json is the dev instance's day set (#1221); without an
+    // explicit dailyPayload it answers with the manifest (prod behavior).
+    const body =
+      url.includes("scenes/daily.json") && dailyPayload !== null
+        ? dailyPayload
+        : payload;
+    if (body === "fail") return new Response("boom", { status: 500 });
+    return new Response(JSON.stringify(body), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
@@ -180,10 +192,11 @@ async function renderFrontpage(): Promise<HTMLElement> {
  */
 async function renderGame(
   mode: "daily" | "moderation" = "daily",
+  firstScene = "Scene A",
 ): Promise<HTMLElement> {
   history.replaceState(null, "", `/${mode}`);
   const { container } = render(<App />);
-  await screen.findByText("Scene A");
+  await screen.findByText(firstScene);
   await act(async () => {});
   return container;
 }
@@ -300,6 +313,37 @@ describe("frontpage mode select (#1214)", () => {
     payload = { ...MANIFEST, moderation: true };
     await renderGame("daily");
     expect(screen.queryByText("Moderation verdict")).not.toBeInTheDocument();
+  });
+
+  test("the dev Daily plays the day's set, not the unmoderated queue", async () => {
+    // dev manifest = the unmoderated queue (Scene A), daily.json = the day's
+    // set (Scene B): Daily must play the day's set (#1221).
+    payload = { ...MANIFEST, moderation: true };
+    dailyPayload = { version: 2, date: "2026-09-11", scenes: [SCENE_B] };
+    await renderGame("daily", "Scene B");
+    expect(screen.queryByText("Scene A")).not.toBeInTheDocument();
+    expect(gets).toContain("scenes/daily.json");
+  });
+
+  test("the dev Moderation still plays the unmoderated queue", async () => {
+    payload = { ...MANIFEST, moderation: true };
+    dailyPayload = { version: 2, date: "2026-09-11", scenes: [SCENE_B] };
+    await renderGame("moderation");
+    expect(screen.getByText("Scene A")).toBeInTheDocument();
+  });
+
+  test("prod never fetches the separate day set", async () => {
+    await renderGame("daily");
+    expect(gets).toEqual(["scenes/manifest.json"]);
+  });
+
+  test("a failing day-set fetch falls back to the queue, not an error", async () => {
+    // e.g. a server whose API predates the daily scope: Daily must still
+    // start (over the queue) instead of showing the load error.
+    payload = { ...MANIFEST, moderation: true };
+    dailyPayload = "fail";
+    await renderGame("daily");
+    expect(screen.getByText("Scene A")).toBeInTheDocument();
   });
 
   test("focus lands on the first mode link", async () => {

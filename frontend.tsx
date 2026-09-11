@@ -2,7 +2,7 @@ import { type RefObject, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { DAILY_COUNT, dateFromKey, dateLabel, pickDaily } from "./daily";
 import { type Manifest, parseManifest, type Scene } from "./manifest";
-import { loadManifest, postModeration } from "./src/api";
+import { loadDailyManifest, loadManifest, postModeration } from "./src/api";
 import { buildEndData } from "./src/endView";
 import { resolveGuess } from "./src/guess";
 import { isDeliberateNavigation } from "./src/leaveGuard";
@@ -125,6 +125,13 @@ export function App() {
     "loading" | "error" | "home" | "playing" | "end" | "empty"
   >("loading");
   const [manifest, setManifest] = useState<Manifest | null>(null);
+  /**
+   * The set the Daily mode plays. On the dev instance the manifest is the
+   * unmoderated queue, so Daily fetches the day's set separately
+   * (`scenes/daily.json`, ticket #1221); on prod the manifest already is the
+   * day's set and both states hold it.
+   */
+  const [dailyManifest, setDailyManifest] = useState<Manifest | null>(null);
   const [moderation, setModeration] = useState(false);
   /** The manifest's dev-instance flag; gates the gallery menu (#1204). */
   const [devMode, setDevMode] = useState(false);
@@ -281,32 +288,49 @@ export function App() {
    * frontpage instead of leaving a dead URL.
    */
   useEffect(() => {
-    if (!manifest) return;
+    if (!manifest || !dailyManifest) return;
     const mode = effectiveMode(route, devMode);
     const path = modePath(APP_BASE, mode);
     if (window.location.pathname !== path) {
       window.history.replaceState(null, "", path);
     }
     if (mode) {
-      startModeRef.current(mode, manifest);
+      // Daily plays the day's set (#1221); Moderation the queue manifest.
+      startModeRef.current(mode, mode === "daily" ? dailyManifest : manifest);
       return;
     }
     if (route !== null) setRoute(null);
     setStatus("home");
-  }, [route, manifest, devMode]);
+  }, [route, manifest, dailyManifest, devMode]);
 
   /**
-   * Fetch the manifest and set the dev flag. The route effect above then
-   * starts the URL's mode or shows the frontpage (ticket #1223); this is also
-   * the Reload action of the empty state (#1202/#1210), which re-applies the
-   * current route. The ref keeps the mount effect off the dependency list.
+   * Fetch the manifest and set the dev flag; on the dev instance also fetch
+   * the day's set the Daily mode plays (ticket #1221). The route effect above
+   * then starts the URL's mode or shows the frontpage (ticket #1223); this is
+   * also the Reload action of the empty state (#1202/#1210), which re-applies
+   * the current route. The ref keeps the mount effect off the dependency list.
    */
   const load = async () => {
     setStatus("loading");
     try {
       const { manifest: loaded, moderation: dev } =
         await loadManifest(parseManifest);
+      // The dev instance's manifest is the unmoderated queue; fetch the day's
+      // set for the Daily mode too (ticket #1221). Prod's manifest already is
+      // the day's set, so it doubles as the daily manifest there. A daily
+      // fetch that fails (e.g. a server without the daily scope) must not
+      // take the instance down: Daily then falls back to the queue, which is
+      // what it played before #1221.
+      let daily = loaded;
+      if (dev) {
+        try {
+          daily = await loadDailyManifest(parseManifest);
+        } catch (err) {
+          console.warn("daily manifest load failed; playing the queue", err);
+        }
+      }
       setManifest(loaded);
+      setDailyManifest(daily);
       setDevMode(dev);
     } catch (err) {
       console.error("manifest load failed", err);

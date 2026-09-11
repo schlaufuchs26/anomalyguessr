@@ -14,6 +14,15 @@ import type { Manifest } from "../manifest";
  */
 const MANIFEST_URL = "scenes/manifest.json";
 
+/**
+ * The dev instance's day set (ticket #1221), fetched instead of the raw queue
+ * for the Daily mode. nginx proxies it to the queue API's scope=daily, i.e.
+ * the set ship() would pick (accepted, fresh before recycled, variety
+ * preferred). Prod never fetches it: its static scenes/manifest.json already
+ * is the day's set.
+ */
+const DAILY_MANIFEST_URL = "scenes/daily.json";
+
 /** Moderation endpoint for the dev workflow (ticket #1163). */
 function moderationUrl(sceneId: string): string {
   return `/api/v1/anomalyguessr/scenes/${sceneId}/moderate`;
@@ -29,11 +38,12 @@ export interface LoadedManifest {
   moderation: boolean;
 }
 
-/** Load the manifest; throws when the fetch fails. */
-export async function loadManifest(
+/** Load a manifest URL; throws when the fetch fails. */
+async function loadManifestFrom(
+  url: string,
   parse: (raw: unknown) => Manifest,
 ): Promise<LoadedManifest> {
-  const res = await fetch(MANIFEST_URL);
+  const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const raw = (await res.json()) as ManifestJson;
   // The queue API serializes an empty scene list as `null` (Go nil slice):
@@ -44,6 +54,24 @@ export async function loadManifest(
     manifest: parse({ ...raw, scenes }),
     moderation: raw.moderation === true,
   };
+}
+
+/** Load the game's manifest; throws when the fetch fails. */
+export async function loadManifest(
+  parse: (raw: unknown) => Manifest,
+): Promise<LoadedManifest> {
+  return loadManifestFrom(MANIFEST_URL, parse);
+}
+
+/**
+ * Load the dev instance's day set for the Daily mode (ticket #1221); throws
+ * when the fetch fails. Only called when the manifest carries the dev flag;
+ * on prod the plain manifest already is the day's set.
+ */
+export async function loadDailyManifest(
+  parse: (raw: unknown) => Manifest,
+): Promise<Manifest> {
+  return (await loadManifestFrom(DAILY_MANIFEST_URL, parse)).manifest;
 }
 
 /** POST a moderation verdict (dev instance only); throws on a non-2xx. */

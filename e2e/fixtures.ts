@@ -1,4 +1,9 @@
-import { type BrowserContext, expect, type Page } from "@playwright/test";
+import {
+  type BrowserContext,
+  expect,
+  type Page,
+  type Route,
+} from "@playwright/test";
 
 /**
  * Shared harness for the Playwright suites (extracted when the #1225 unload
@@ -62,15 +67,17 @@ const MANIFEST = {
 };
 
 /**
- * Route `scenes/manifest.json` to the fixture. Accepts a context too, so a
- * test that opens a mode in a new tab (#1228) stubs the popup's fetch as well.
+ * Route `scenes/manifest.json` (the queue on the dev instance) and
+ * `scenes/daily.json` (the day's set the Daily mode plays, #1221) to the
+ * fixture. Accepts a context too, so a test that opens a mode in a new tab
+ * (#1228) stubs the popup's fetch as well.
  */
 export async function stubManifest(
   target: Page | BrowserContext,
 ): Promise<void> {
-  await target.route("**/scenes/manifest.json", (route) =>
-    route.fulfill({ json: MANIFEST }),
-  );
+  const handler = (route: Route) => route.fulfill({ json: MANIFEST });
+  await target.route("**/scenes/manifest.json", handler);
+  await target.route("**/scenes/daily.json", handler);
 }
 
 /** Load the game at laptop size with the stubbed manifest. */
