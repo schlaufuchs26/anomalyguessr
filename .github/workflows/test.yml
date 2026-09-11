@@ -52,3 +52,26 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git commit -m "coverage: $(grep -oP '\d+%' coverage.svg | head -1)"
           git push origin badge --force
+
+  # Browser layout smoke tests (ticket #1193): real Chromium at a laptop
+  # viewport, guarding the layout/behavior regressions happy-dom cannot see.
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install
+      - run: bunx playwright install --with-deps chromium
+      - run: bun run test:e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

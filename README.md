@@ -23,7 +23,16 @@ bun install
 bun index.html     # dev server (HMR, serves index.html + frontend.tsx)
 bun run build      # static site into dist/ (minified React bundle + scenes/)
 bun run checks     # format + tsc + biome + knip + tests
+bun run test:e2e   # browser layout smoke tests (Playwright, needs a browser)
 ```
+
+`test:e2e` runs real Chromium at a short laptop viewport (1280x757) against
+the dev server: it guesses a scene and asserts the HUD stays a bounded
+scroller, the original reveals on a correct guess, and the dev moderation box
+stays reachable without the page scrolling (regressions #1185 and #1187, which
+happy-dom cannot see). CI installs Playwright's Chromium; on a box that ships
+Chromium via nix (the fuchs host), set `PLAYWRIGHT_CHROMIUM_PATH`, or rely on
+the default `/home/exedev/.nix-profile/bin/chromium` when it exists.
 
 ## Stack
 
@@ -33,7 +42,8 @@ moderation), `src/PhotoStage.tsx` the photo layer, `src/photoInteractions.ts`
 the zoom/pan/click math, and `manifest.ts` / `scoring.ts` / `layout.ts` /
 `daily.ts` stay plain TS logic. Tests run on happy-dom + Testing Library
 (`tests/app.test.tsx` drives the real click → reveal → compare → end-screen
-flows). GitHub Pages deploys `dist/` on every push to `main`.
+flows); `e2e/layout.playwright.ts` adds the real-browser layout smoke tests.
+GitHub Pages deploys `dist/` on every push to `main`.
 
 ## Gameplay
 

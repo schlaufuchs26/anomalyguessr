@@ -11,7 +11,13 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { App } from "../frontend";
 import { makeScene } from "./fixtures";
 
@@ -98,6 +104,11 @@ beforeEach(() => {
 async function renderGame(): Promise<HTMLElement> {
   const { container } = render(<App />);
   await screen.findByText("Scene A");
+  // The scene mounts during the async manifest fetch, so React can still have
+  // pending passive effects (the wheel/resize listeners in PhotoStage) when
+  // findByText resolves. Flush them before the test dispatches events; without
+  // this the wheel test flakes under load (ticket #1193).
+  await act(async () => {});
   return container;
 }
 
