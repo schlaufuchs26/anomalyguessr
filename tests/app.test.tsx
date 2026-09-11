@@ -557,58 +557,13 @@ describe("reload guard (#1225)", () => {
     await act(async () => {});
     expect(unloadWarns()).toBe(true); // sanity: the guard is armed
 
+    // The one in-app link the app renders on the game screen today. The mode
+    // links (#1228) and the way back to the frontpage (#1220) are ordinary
+    // anchors too, so the document-level click check (#1230) covers them the
+    // same way; `src/leaveGuard.ts` states the rules, its unit tests and
+    // `e2e/unload.playwright.ts` the click cases.
     fireEvent.click(screen.getByTestId("gallery-menu"));
     expect(unloadWarns()).toBe(false);
-  });
-
-  /**
-   * Click an in-app link rendered into the live document (#1230): the mode
-   * links (#1228) and the way back to the frontpage (#1220) are ordinary
-   * anchors that replace the page, like the gallery link, so one
-   * document-level click check covers them all. `init` carries the click
-   * details (modifiers, target of the click).
-   */
-  function clickInAppLink(init: MouseEventInit = {}): void {
-    const link = document.createElement("a");
-    link.href = "/moderation";
-    link.textContent = "Moderation";
-    document.body.append(link);
-    fireEvent.click(link, init);
-    link.remove();
-  }
-
-  test("a mode link mid-run is a deliberate unload and stays quiet (#1230)", async () => {
-    const container = await renderGame();
-    clickPhoto(container, 0.5, 0.5);
-    await act(async () => {});
-    expect(unloadWarns()).toBe(true); // sanity: the guard is armed
-
-    clickInAppLink();
-    expect(unloadWarns()).toBe(false);
-  });
-
-  test("clicks that keep the page running leave the guard armed (#1230)", async () => {
-    const container = await renderGame();
-    clickPhoto(container, 0.5, 0.5);
-    await act(async () => {});
-
-    // A new tab or window leaves this document running, and a modified click
-    // does the same; marking either would disarm the warning for the rest of
-    // the run.
-    const blank = document.createElement("a");
-    blank.href = "/gallery/";
-    blank.target = "_blank";
-    document.body.append(blank);
-    fireEvent.click(blank);
-    blank.remove();
-    expect(unloadWarns()).toBe(true);
-
-    clickInAppLink({ ctrlKey: true });
-    expect(unloadWarns()).toBe(true);
-
-    // A click that is not on a link never unloads the page either.
-    fireEvent.click(screen.getByRole("button", { name: /Show hint/ }));
-    expect(unloadWarns()).toBe(true);
   });
 });
 
