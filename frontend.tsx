@@ -825,15 +825,27 @@ function ModeSelect({
 }
 
 /**
- * The page header. The gallery link (dev only) is an ordinary anchor: the
- * reload guard recognizes a click on it as a deliberate leave (ticket
- * #1230), so no handler is needed here.
+ * The page header. The title links back to the frontpage (ticket #1220), so
+ * a player inside a run can switch modes without reaching for the browser
+ * controls; the frontpage itself is the mode menu. Both the title and the
+ * gallery link (dev only) are ordinary anchors: the reload guard recognizes
+ * a click on them as a deliberate leave (ticket #1230), so no handler is
+ * needed here.
  */
 function Header({ showMenu }: { showMenu: boolean }) {
   return (
     <header className="top">
       <div className="top-row">
-        <h1>🦊 AnomalyGuessr</h1>
+        <h1>
+          <a
+            className="home-link"
+            href={modePath(APP_BASE, null)}
+            title="Back to the mode menu"
+            data-testid="home-menu"
+          >
+            🦊 AnomalyGuessr
+          </a>
+        </h1>
         {showMenu ? (
           <a
             className="menu-btn"

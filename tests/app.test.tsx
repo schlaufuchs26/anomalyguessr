@@ -356,6 +356,36 @@ describe("frontpage mode select (#1214)", () => {
   });
 });
 
+describe("back to the frontpage (#1220)", () => {
+  test("the header title is a link to the mode menu from a run", async () => {
+    payload = { ...MANIFEST, moderation: true };
+    await renderGame();
+    const home = screen.getByTestId("home-menu");
+    expect(home).toHaveAttribute("href", "/");
+    expect(home).toHaveAttribute("title", "Back to the mode menu");
+    // The mode menu itself keeps working: reaching it is the route's job.
+    expect(screen.queryByTestId("mode-daily")).toBeNull();
+  });
+
+  test("the frontpage carries the same link", async () => {
+    await renderFrontpage();
+    expect(screen.getByTestId("home-menu")).toHaveAttribute("href", "/");
+  });
+
+  test("a mid-run click on it counts as deliberate, so the guard stays quiet", async () => {
+    const container = await renderGame();
+    clickPhoto(container, 0.5, 0.5);
+    await act(async () => {});
+    expect(unloadWarns()).toBe(true); // sanity: the guard is armed
+
+    // happy-dom follows a dispatched anchor click and fetches the target
+    // (see the #1230 pitfall), so the event is built with the link as its
+    // target instead of clicked; that is all the guard's click check reads.
+    clickLinkWithoutNavigating(screen.getByTestId("home-menu"));
+    expect(unloadWarns()).toBe(false);
+  });
+});
+
 describe("hints", () => {
   test("reveal the three progressive hints and then disable", async () => {
     await renderGame();
@@ -530,6 +560,21 @@ function unloadWarns(): boolean {
   const event = new Event("beforeunload", { cancelable: true });
   window.dispatchEvent(event);
   return event.defaultPrevented;
+}
+
+/**
+ * Deliver the click a browser would send for `link` without happy-dom
+ * following the href (it would fetch the target; see the #1230 pitfall). The
+ * app's guard listener on the document reads exactly this event shape.
+ */
+function clickLinkWithoutNavigating(link: Element): void {
+  const event = new MouseEvent("click", {
+    button: 0,
+    bubbles: true,
+    cancelable: true,
+  });
+  Object.defineProperty(event, "target", { value: link });
+  document.dispatchEvent(event);
 }
 
 describe("reload guard (#1225)", () => {

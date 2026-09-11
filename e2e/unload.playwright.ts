@@ -100,6 +100,25 @@ test("a click on an in-app link mid-run stays silent (#1230)", async ({
   expect(dialogs).toEqual([]);
 });
 
+test("the header title returns to the mode menu mid-run (#1220)", async ({
+  page,
+}) => {
+  await openGame(page); // lands on /moderation
+  await answerScene(page);
+  await expect(page).toHaveURL(/\/moderation$/);
+
+  // The run has a score, so the guard is armed; the title is a real anchor
+  // (#1230), so the click is a deliberate leave and must not ask first.
+  const dialogs = watchDialogs(page);
+  await Promise.all([
+    page.waitForURL((url) => url.pathname === "/"),
+    page.getByTestId("home-menu").click(),
+  ]);
+  await expect(page.getByTestId("mode-daily")).toBeVisible();
+  await expect(page.getByTestId("mode-moderation")).toBeVisible();
+  expect(dialogs).toEqual([]);
+});
+
 test("a link that opens a tab mid-run does not disarm the guard (#1230)", async ({
   page,
 }) => {

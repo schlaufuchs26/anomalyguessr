@@ -68,6 +68,18 @@ main {
   letter-spacing: 0.02em;
 }
 
+/* The title is the way back to the frontpage (ticket #1220): an ordinary
+   anchor, so it keeps the heading look and only tints on hover/focus. */
+.home-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.home-link:hover,
+.home-link:focus-visible {
+  color: var(--accent);
+}
+
 .tagline {
   color: var(--ink-dim);
   margin: 0.3rem 0 1rem;
