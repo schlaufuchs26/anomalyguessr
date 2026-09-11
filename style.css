@@ -376,6 +376,17 @@ main {
   color: var(--danger);
 }
 
+/* empty moderation queue (ticket #1202) */
+.empty-state {
+  text-align: center;
+  padding: 2rem 0;
+}
+
+.empty-state p {
+  color: var(--ink-dim);
+  margin: 0.3rem 0 1.2rem;
+}
+
 .foot {
   margin-top: 2.5rem;
   color: var(--ink-dim);

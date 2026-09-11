@@ -523,6 +523,56 @@ describe("moderation mode (dev instance, #1163)", () => {
   });
 });
 
+describe("empty moderation queue (#1202)", () => {
+  test("shows a calm empty state instead of the game shell", async () => {
+    payload = { version: 2, date: "2026-09-10", scenes: [], moderation: true };
+    const { container } = render(<App />);
+
+    expect(
+      await screen.findByText("Moderation queue is empty"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/New scenes appear after the daily generation run/),
+    ).toBeInTheDocument();
+    // no game shell: no progress counter, no photo stage, no dead controls
+    expect(screen.queryByText(/\d+ \/ \d+/)).not.toBeInTheDocument();
+    expect(container.querySelector(".stage")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Show hint/ })).toBeNull();
+  });
+
+  test("a queue serialized as null counts as empty too", async () => {
+    payload = {
+      version: 2,
+      date: "2026-09-10",
+      scenes: null,
+      moderation: true,
+    };
+    render(<App />);
+    expect(
+      await screen.findByText("Moderation queue is empty"),
+    ).toBeInTheDocument();
+  });
+
+  test("Reload re-fetches and plays the queue once it is filled", async () => {
+    payload = { version: 2, date: "2026-09-10", scenes: [], moderation: true };
+    render(<App />);
+    await screen.findByText("Moderation queue is empty");
+
+    payload = { ...MANIFEST, moderation: true };
+    fireEvent.click(screen.getByRole("button", { name: "Reload" }));
+
+    expect(await screen.findByText("Scene A")).toBeInTheDocument();
+    expect(screen.getByText("1 / 2")).toBeInTheDocument();
+  });
+
+  test("a non-empty queue never enters the empty state", async () => {
+    await renderGame();
+    expect(
+      screen.queryByText("Moderation queue is empty"),
+    ).not.toBeInTheDocument();
+  });
+});
+
 afterEach(() => {
   globalThis.fetch = fetch;
 });

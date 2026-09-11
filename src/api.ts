@@ -36,7 +36,14 @@ export async function loadManifest(
   const res = await fetch(MANIFEST_URL);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const raw = (await res.json()) as ManifestJson;
-  return { manifest: parse(raw), moderation: raw.moderation === true };
+  // The queue API serializes an empty scene list as `null` (Go nil slice):
+  // that is an empty queue, not a malformed manifest. Anything else is left
+  // to the parser to accept or reject.
+  const scenes = raw.scenes ?? [];
+  return {
+    manifest: parse({ ...raw, scenes }),
+    moderation: raw.moderation === true,
+  };
 }
 
 /** POST a moderation verdict (dev instance only); throws on a non-2xx. */

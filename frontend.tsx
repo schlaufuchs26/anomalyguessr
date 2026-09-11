@@ -90,9 +90,9 @@ function dailySet(manifest: Manifest, day: Date): Scene[] {
 }
 
 export function App() {
-  const [status, setStatus] = useState<"loading" | "error" | "playing" | "end">(
-    "loading",
-  );
+  const [status, setStatus] = useState<
+    "loading" | "error" | "playing" | "end" | "empty"
+  >("loading");
   const [manifest, setManifest] = useState<Manifest | null>(null);
   const [moderation, setModeration] = useState(false);
   const [queue, setQueue] = useState<Scene[]>([]);
@@ -155,19 +155,36 @@ export function App() {
   const startRunRef = useRef(startRun);
   startRunRef.current = startRun;
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        const { manifest: loaded, moderation: devMode } =
-          await loadManifest(parseManifest);
-        setManifest(loaded);
-        startRunRef.current(dailySet(loaded, new Date()), devMode, new Date());
-      } catch (err) {
-        console.error("manifest load failed", err);
-        setLoadError(true);
-        setStatus("error");
+  /**
+   * Fetch the manifest and either start the run or enter the empty state
+   * (ticket #1202: the dev queue serves no scenes once every one is
+   * moderated). Also the Reload action of the empty state; the ref keeps the
+   * mount effect off the dependency list.
+   */
+  const load = async () => {
+    setStatus("loading");
+    try {
+      const { manifest: loaded, moderation: devMode } =
+        await loadManifest(parseManifest);
+      setManifest(loaded);
+      if (loaded.scenes.length === 0) {
+        setQueue([]);
+        setModeration(devMode);
+        setStatus("empty");
+        return;
       }
-    })();
+      startRunRef.current(dailySet(loaded, new Date()), devMode, new Date());
+    } catch (err) {
+      console.error("manifest load failed", err);
+      setLoadError(true);
+      setStatus("error");
+    }
+  };
+  const loadRef = useRef(load);
+  loadRef.current = load;
+
+  useEffect(() => {
+    void loadRef.current();
   }, []);
 
   /** Reset every piece of per-scene state (guess, markers, reveal, mod box). */
@@ -368,6 +385,33 @@ export function App() {
             onClick={restart}
           >
             Play again
+          </button>
+        </section>
+        <Footer />
+      </main>
+    );
+  }
+
+  if (status === "empty") {
+    return (
+      <main>
+        <Header />
+        <section id="empty" className="empty-state">
+          <h2>
+            {moderation ? "Moderation queue is empty" : "No scenes available"}
+          </h2>
+          <p>
+            {moderation
+              ? "Nothing to review right now. New scenes appear after the daily generation run."
+              : "New scenes appear after the next daily run."}
+          </p>
+          <button
+            id="reload-btn"
+            className="btn primary"
+            type="button"
+            onClick={() => void loadRef.current()}
+          >
+            Reload
           </button>
         </section>
         <Footer />

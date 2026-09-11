@@ -39,12 +39,19 @@ describe("parseManifest", () => {
     expect(() => parseManifest([])).toThrow(/not an object/);
   });
 
-  test("rejects unsupported versions and empty scene lists", () => {
+  test("rejects unsupported versions and non-array scene lists", () => {
     expect(() => parseManifest({ version: 3, scenes: [] })).toThrow(
       /unsupported version/,
     );
-    expect(() => parseManifest({ version: 1, scenes: [] })).toThrow(/scenes/);
-    expect(() => parseManifest({ version: 2, scenes: [] })).toThrow(/scenes/);
+    expect(() => parseManifest({ version: 1, scenes: null })).toThrow(/scenes/);
+    expect(() => parseManifest({ version: 1, scenes: "x" })).toThrow(/scenes/);
+  });
+
+  test("accepts an empty scene list (empty queue, ticket #1202)", () => {
+    expect(parseManifest({ version: 1, scenes: [] }).scenes).toEqual([]);
+    expect(
+      parseManifest({ version: 2, date: "2026-09-11", scenes: [] }).scenes,
+    ).toEqual([]);
   });
 
   test("rejects answer coordinates outside [0,1]", () => {

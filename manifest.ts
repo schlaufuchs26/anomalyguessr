@@ -182,8 +182,9 @@ export function parseManifest(raw: unknown): Manifest {
   if (!isRecord(raw)) fail("root", "not an object");
   if (raw.version !== 1 && raw.version !== 2)
     fail("root", `unsupported version ${String(raw.version)}`);
-  if (!Array.isArray(raw.scenes) || raw.scenes.length === 0)
-    fail("root", "scenes must be a non-empty array");
+  // An empty list is valid: the dev queue serves it when every scene is
+  // moderated, and the app renders its empty state for it (ticket #1202).
+  if (!Array.isArray(raw.scenes)) fail("root", "scenes must be an array");
   const version = raw.version as 1 | 2;
   const requireSource = version === 2;
   let date: string | undefined;
