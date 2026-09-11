@@ -127,6 +127,20 @@ export function App() {
   );
 
   const scene = queue[index];
+  /**
+   * True while a run is under way and at least one scene already carries a
+   * score (ticket #1225). Reloading then throws away answers Evan cares
+   * about; before the first answer there is nothing to lose, and the end
+   * screen and the empty state have no run to protect.
+   */
+  const runInProgress =
+    status === "playing" && scores.some((score) => score >= 0);
+  /**
+   * Set right before a deliberate unload, the gallery link (ticket #1225);
+   * the guard reads it and stays quiet for those. `pageshow` re-arms the
+   * warning when a Back from the gallery restores this page from the cache.
+   */
+  const leavingDeliberatelyRef = useRef(false);
   const nextBtnRef = useRef<HTMLButtonElement>(null);
   const restartBtnRef = useRef<HTMLButtonElement>(null);
   /** First frontpage button: the keyboard focus target on the frontpage. */
@@ -146,6 +160,34 @@ export function App() {
   useEffect(() => {
     if (status === "home") firstModeRef.current?.focus();
   }, [status]);
+
+  /**
+   * Reload/close guard (ticket #1225): Evan's rule is "reload the page in the
+   * middle of a daily and it should warn you". `beforeunload` is the only
+   * hook the browser offers, and plain in-app moves (mode switch, Play again,
+   * the frontpage button, the empty state's Reload) never unload the page, so
+   * they cannot reach this listener; a Back that leaves the app does, and
+   * should warn (see the #1223 fragment routing).
+   */
+  useEffect(() => {
+    if (!runInProgress) return;
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (leavingDeliberatelyRef.current) return;
+      // Modern browsers trigger their own prompt when the event is canceled;
+      // `returnValue` keeps the legacy path working in older ones.
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    const onPageShow = () => {
+      leavingDeliberatelyRef.current = false;
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    window.addEventListener("pageshow", onPageShow);
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      window.removeEventListener("pageshow", onPageShow);
+    };
+  }, [runInProgress]);
 
   /** Start (or restart) a run over the given scene queue. */
   const startRun = (scenes: Scene[], on: boolean, day: Date) => {
@@ -499,7 +541,12 @@ export function App() {
 
   return (
     <main>
-      <Header showMenu={devMode} />
+      <Header
+        showMenu={devMode}
+        onGalleryClick={() => {
+          leavingDeliberatelyRef.current = true;
+        }}
+      />
       <section id="game" className="game">
         <div className="meta">
           <span id="scene-title" className="scene-title">
@@ -730,7 +777,18 @@ function ModeSelect({
   );
 }
 
-function Header({ showMenu }: { showMenu: boolean }) {
+function Header({
+  showMenu,
+  onGalleryClick,
+}: {
+  showMenu: boolean;
+  /**
+   * Marks a deliberate unload (the gallery link, ticket #1225): the play
+   * screen passes it so the reload guard skips the browser prompt for a
+   * move the user asked for.
+   */
+  onGalleryClick?: () => void;
+}) {
   return (
     <header className="top">
       <div className="top-row">
@@ -741,6 +799,7 @@ function Header({ showMenu }: { showMenu: boolean }) {
             href={GALLERY_URL}
             title="Overview of all images"
             data-testid="gallery-menu"
+            onClick={onGalleryClick}
           >
             ☰ Gallery
           </a>

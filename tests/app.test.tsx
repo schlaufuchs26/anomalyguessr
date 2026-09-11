@@ -460,6 +460,106 @@ describe("guess, reveal and compare", () => {
   });
 });
 
+/**
+ * Would a page unload prompt the user right now? Dispatches the real event
+ * the browser fires on reload/close; `defaultPrevented` is what makes a
+ * browser show its prompt, and the app never checks the run state in the
+ * handler itself, so a `false` here also proves the listener is gone.
+ */
+function unloadWarns(): boolean {
+  const event = new Event("beforeunload", { cancelable: true });
+  window.dispatchEvent(event);
+  return event.defaultPrevented;
+}
+
+describe("reload guard (#1225)", () => {
+  test("the frontpage and the empty state never warn", async () => {
+    // An empty dev queue: the frontpage still renders, and the mode leads to
+    // the empty state instead of a run.
+    payload = { version: 2, date: "2026-09-10", scenes: [], moderation: true };
+    await renderFrontpage();
+    expect(unloadWarns()).toBe(false);
+
+    fireEvent.click(screen.getByRole("button", { name: /^Moderation/ }));
+    await screen.findByText("Moderation queue is empty");
+    expect(unloadWarns()).toBe(false);
+  });
+
+  test("no warning before the first answer", async () => {
+    await renderGame();
+    expect(unloadWarns()).toBe(false);
+  });
+
+  test("the guard arms once a scene is answered", async () => {
+    const container = await renderGame();
+    clickPhoto(container, 0.5, 0.5);
+    await act(async () => {});
+    expect(unloadWarns()).toBe(true);
+  });
+
+  test("a moderation run warns too; a lost verdict is the same loss", async () => {
+    payload = { ...MANIFEST, moderation: true };
+    const container = await renderGame("moderation");
+    clickPhoto(container, 0.5, 0.5);
+    await act(async () => {});
+    expect(unloadWarns()).toBe(true);
+  });
+
+  test("undoing the only guess disarms the guard again", async () => {
+    const container = await renderGame();
+    // A double click answers and then takes the guess back (see undoGuess),
+    // so there is no score left to lose and no reason to warn anymore.
+    clickPhoto(container, 0.5, 0.5);
+    fireEvent.doubleClick(overlay(container), {
+      clientX: 0.5 * RECT.width,
+      clientY: 0.5 * RECT.height,
+    });
+    await act(async () => {});
+    expect(unloadWarns()).toBe(false);
+  });
+
+  test("the warning stays armed across scenes and drops on the end screen", async () => {
+    const container = await renderGame();
+    clickPhoto(container, 0.5, 0.5);
+    fireEvent.click(screen.getByRole("button", { name: "Next →" }));
+    await act(async () => {});
+    expect(unloadWarns()).toBe(true);
+
+    clickPhoto(container, 0.95, 0.95);
+    fireEvent.click(screen.getByRole("button", { name: "Results →" }));
+    await act(async () => {});
+    expect(screen.getByText("Mission complete")).toBeInTheDocument();
+    // Unregistering is the only thing that can silence the handler, so this
+    // asserts the effect cleanup ran when the run ended.
+    expect(unloadWarns()).toBe(false);
+  });
+
+  test("in-app navigation to the frontpage does not warn", async () => {
+    const container = await renderGame();
+    clickPhoto(container, 0.5, 0.5);
+    await act(async () => {});
+
+    // #1220/#1223: dropping the fragment is an in-app move; no unload happens.
+    act(() => {
+      window.location.hash = "";
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+    expect(await screen.findByTestId("mode-daily")).toBeInTheDocument();
+    expect(unloadWarns()).toBe(false);
+  });
+
+  test("the gallery link is a deliberate unload and stays quiet", async () => {
+    payload = { ...MANIFEST, moderation: true };
+    const container = await renderGame();
+    clickPhoto(container, 0.5, 0.5);
+    await act(async () => {});
+    expect(unloadWarns()).toBe(true); // sanity: the guard is armed
+
+    fireEvent.click(screen.getByTestId("gallery-menu"));
+    expect(unloadWarns()).toBe(false);
+  });
+});
+
 describe("run flow", () => {
   test("next moves to the following scene and the run ends with the score", async () => {
     const container = await renderGame();
