@@ -35,6 +35,14 @@ const SCENE_B = makeScene({
   y: 0.8,
   r: 0.04,
 });
+/** A scene that only ever appears in the stubbed live set (#1237). */
+const SCENE_LIVE = makeScene({
+  id: "live",
+  title: "Scene Live",
+  x: 0.8,
+  y: 0.2,
+  r: 0.03,
+});
 const MANIFEST = { version: 2, date: "2026-09-10", scenes: [SCENE_A, SCENE_B] };
 
 /** Payload the stubbed manifest fetch answers with ("fail" -> HTTP 500). */
@@ -44,6 +52,12 @@ let payload: unknown = MANIFEST;
  * means "the same as the manifest", which is how prod behaves (one manifest).
  */
 let dailyPayload: unknown = null;
+/**
+ * Payload for `scenes/live.json`, the set prod serves right now (#1237).
+ * Null means "the same as the manifest"; "fail" models a server without the
+ * live scope.
+ */
+let livePayload: unknown = null;
 /** Requests the app made to the moderation endpoint. */
 let posts: { url: string; body: unknown }[] = [];
 /** Every URL the app fetched (documents the manifest/API base decision). */
@@ -87,6 +101,7 @@ beforeEach(() => {
   sessionStorage.clear();
   payload = MANIFEST;
   dailyPayload = null;
+  livePayload = null;
   posts = [];
   gets = [];
   desktop = true;
@@ -129,12 +144,15 @@ beforeEach(() => {
       return new Response("{}", { status: 200 });
     }
     gets.push(url);
-    // scenes/daily.json is the dev instance's day set (#1221); without an
-    // explicit dailyPayload it answers with the manifest (prod behavior).
+    // scenes/daily.json is the dev instance's day set (#1221) and
+    // scenes/live.json the set prod serves now (#1237); without an explicit
+    // payload each answers with the manifest (prod behavior).
     const body =
       url.includes("scenes/daily.json") && dailyPayload !== null
         ? dailyPayload
-        : payload;
+        : url.includes("scenes/live.json") && livePayload !== null
+          ? livePayload
+          : payload;
     if (body === "fail") return new Response("boom", { status: 500 });
     return new Response(JSON.stringify(body), {
       status: 200,
@@ -191,7 +209,7 @@ async function renderFrontpage(): Promise<HTMLElement> {
  * navigation to the mode path), and wait for the first scene.
  */
 async function renderGame(
-  mode: "daily" | "moderation" = "daily",
+  mode: "daily" | "moderation" | "live" = "daily",
   firstScene = "Scene A",
 ): Promise<HTMLElement> {
   history.replaceState(null, "", `/${mode}`);
@@ -303,6 +321,25 @@ describe("frontpage mode select (#1214)", () => {
     ).toBeInTheDocument();
   });
 
+  test("the dev instance offers Live once its set loaded", async () => {
+    payload = { ...MANIFEST, moderation: true };
+    livePayload = { version: 2, date: "2026-09-11", scenes: [SCENE_LIVE] };
+    await renderFrontpage();
+    const live = screen.getByRole("link", { name: /^Live/ });
+    expect(live).toHaveAttribute("href", "/live");
+    // the dev Daily says what it actually does: preview the next set (#1237)
+    expect(screen.getByText("The next set to ship")).toBeInTheDocument();
+  });
+
+  test("no Live button when the live set cannot be loaded", async () => {
+    // An API without scope=live: Live would have to play the queue under a
+    // "Live" label, so it is not offered at all.
+    payload = { ...MANIFEST, moderation: true };
+    livePayload = "fail";
+    await renderFrontpage();
+    expect(screen.queryByRole("link", { name: /^Live/ })).toBeNull();
+  });
+
   test("an empty dev queue says there is nothing to review", async () => {
     payload = { version: 2, date: "2026-09-10", scenes: [], moderation: true };
     await renderFrontpage();
@@ -332,9 +369,33 @@ describe("frontpage mode select (#1214)", () => {
     expect(screen.getByText("Scene A")).toBeInTheDocument();
   });
 
-  test("prod never fetches the separate day set", async () => {
+  test("prod never fetches the dev-only sets", async () => {
     await renderGame("daily");
     expect(gets).toEqual(["scenes/manifest.json"]);
+  });
+
+  test("the dev Live replays the set prod serves, not the next set", async () => {
+    // dev manifest = the queue (A+B), daily.json = the next set to ship
+    // (Scene B), live.json = what prod serves now (Scene Live): Live must
+    // play the live set, neither the queue nor the next-to-ship set (#1237).
+    payload = { ...MANIFEST, moderation: true };
+    dailyPayload = { version: 2, date: "2026-09-11", scenes: [SCENE_B] };
+    livePayload = { version: 2, date: "2026-09-10", scenes: [SCENE_LIVE] };
+    await renderGame("live", "Scene Live");
+    expect(screen.queryByText("Scene A")).not.toBeInTheDocument();
+    expect(screen.queryByText("Scene B")).not.toBeInTheDocument();
+    expect(gets).toContain("scenes/live.json");
+  });
+
+  test("a /live deep link without a live set lands on the frontpage", async () => {
+    // e.g. a server whose API predates the live scope: the mode is dropped
+    // (like /moderation on prod) instead of playing the wrong set.
+    payload = { ...MANIFEST, moderation: true };
+    livePayload = "fail";
+    history.replaceState(null, "", "/live");
+    render(<App />);
+    expect(await screen.findByTestId("mode-daily")).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/");
   });
 
   test("a failing day-set fetch falls back to the queue, not an error", async () => {

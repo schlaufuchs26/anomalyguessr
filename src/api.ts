@@ -23,6 +23,15 @@ const MANIFEST_URL = "scenes/manifest.json";
  */
 const DAILY_MANIFEST_URL = "scenes/daily.json";
 
+/**
+ * The dev instance's Live set (ticket #1237), fetched for the Live mode: the
+ * scenes prod is serving right now (the queue API's scope=live, i.e. the set
+ * the last ship wrote). The Daily mode previews the next set to ship; Live
+ * replays the live one. Prod never fetches it: its static
+ * scenes/manifest.json already is the live set.
+ */
+const LIVE_MANIFEST_URL = "scenes/live.json";
+
 /** Moderation endpoint for the dev workflow (ticket #1163). */
 function moderationUrl(sceneId: string): string {
   return `/api/v1/anomalyguessr/scenes/${sceneId}/moderate`;
@@ -72,6 +81,18 @@ export async function loadDailyManifest(
   parse: (raw: unknown) => Manifest,
 ): Promise<Manifest> {
   return (await loadManifestFrom(DAILY_MANIFEST_URL, parse)).manifest;
+}
+
+/**
+ * Load the dev instance's Live set for the Live mode (ticket #1237); throws
+ * when the fetch fails, and the caller then offers no Live mode at all
+ * (playing the queue under a "Live" label would be a lie). Only called when
+ * the manifest carries the dev flag.
+ */
+export async function loadLiveManifest(
+  parse: (raw: unknown) => Manifest,
+): Promise<Manifest> {
+  return (await loadManifestFrom(LIVE_MANIFEST_URL, parse)).manifest;
 }
 
 /** POST a moderation verdict (dev instance only); throws on a non-2xx. */

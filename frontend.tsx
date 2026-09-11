@@ -2,7 +2,12 @@ import { type RefObject, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { DAILY_COUNT, dateFromKey, dateLabel, pickDaily } from "./daily";
 import { type Manifest, parseManifest, type Scene } from "./manifest";
-import { loadDailyManifest, loadManifest, postModeration } from "./src/api";
+import {
+  loadDailyManifest,
+  loadLiveManifest,
+  loadManifest,
+  postModeration,
+} from "./src/api";
 import { buildEndData } from "./src/endView";
 import { resolveGuess } from "./src/guess";
 import { isDeliberateNavigation } from "./src/leaveGuard";
@@ -132,6 +137,12 @@ export function App() {
    * day's set and both states hold it.
    */
   const [dailyManifest, setDailyManifest] = useState<Manifest | null>(null);
+  /**
+   * The set prod is serving right now (`scenes/live.json`, ticket #1237),
+   * fetched on the dev instance for the Live mode; null on prod and whenever
+   * the fetch failed, which is what hides the Live mode.
+   */
+  const [liveManifest, setLiveManifest] = useState<Manifest | null>(null);
   const [moderation, setModeration] = useState(false);
   /** The manifest's dev-instance flag; gates the gallery menu (#1204). */
   const [devMode, setDevMode] = useState(false);
@@ -264,7 +275,9 @@ export function App() {
   const startMode = (mode: Mode, loaded: Manifest) => {
     const now = new Date();
     startRun(
-      mode === "daily" ? dailySet(loaded, now) : loaded.scenes,
+      // Moderation reviews the raw queue; Daily and Live play a daily set
+      // (prepared v2 scenes in order, or 5 seeded from a v1 pool).
+      mode === "moderation" ? loaded.scenes : dailySet(loaded, now),
       mode === "moderation",
       now,
     );
@@ -289,19 +302,33 @@ export function App() {
    */
   useEffect(() => {
     if (!manifest || !dailyManifest) return;
-    const mode = effectiveMode(route, devMode);
-    const path = modePath(APP_BASE, mode);
-    if (window.location.pathname !== path) {
-      window.history.replaceState(null, "", path);
-    }
-    if (mode) {
-      // Daily plays the day's set (#1221); Moderation the queue manifest.
-      startModeRef.current(mode, mode === "daily" ? dailyManifest : manifest);
+    const mode = effectiveMode(route, devMode, liveManifest !== null);
+    // Daily previews the next set to ship (#1221); Live replays the set prod
+    // serves now (#1237); Moderation plays the raw queue. Live's manifest is
+    // null when its fetch failed, which already degraded the mode above.
+    const source =
+      mode === "live"
+        ? liveManifest
+        : mode === "moderation"
+          ? manifest
+          : dailyManifest;
+    if (mode && source) {
+      const path = modePath(APP_BASE, mode);
+      if (window.location.pathname !== path) {
+        window.history.replaceState(null, "", path);
+      }
+      startModeRef.current(mode, source);
       return;
+    }
+    // No runnable mode (frontpage, unknown path, or an unavailable mode whose
+    // URL must not stick): land on the bare frontpage.
+    const home = modePath(APP_BASE, null);
+    if (window.location.pathname !== home) {
+      window.history.replaceState(null, "", home);
     }
     if (route !== null) setRoute(null);
     setStatus("home");
-  }, [route, manifest, dailyManifest, devMode]);
+  }, [route, manifest, dailyManifest, liveManifest, devMode]);
 
   /**
    * Fetch the manifest and set the dev flag; on the dev instance also fetch
@@ -317,20 +344,35 @@ export function App() {
         await loadManifest(parseManifest);
       // The dev instance's manifest is the unmoderated queue; fetch the day's
       // set for the Daily mode too (ticket #1221). Prod's manifest already is
-      // the day's set, so it doubles as the daily manifest there. A daily
-      // fetch that fails (e.g. a server without the daily scope) must not
-      // take the instance down: Daily then falls back to the queue, which is
-      // what it played before #1221.
+      // the day's set, so it doubles as the daily manifest there. A fetch
+      // that fails (e.g. a server without the daily scope) must not take the
+      // instance down: Daily then falls back to the queue, which is what it
+      // played before #1221.
       let daily = loaded;
+      let live: Manifest | null = null;
       if (dev) {
+        // The dev instance's manifest is the unmoderated queue; fetch the
+        // day's set for the Daily mode (ticket #1221) and the set prod serves
+        // now for the Live mode (ticket #1237). Prod's manifest already is
+        // the day's set, so it doubles as the daily manifest there, and prod
+        // has no Live mode. A fetch that fails (e.g. a server without the
+        // scope) must not take the instance down: Daily then falls back to
+        // the queue, which is what it played before #1221, and Live is simply
+        // not offered.
         try {
           daily = await loadDailyManifest(parseManifest);
         } catch (err) {
           console.warn("daily manifest load failed; playing the queue", err);
         }
+        try {
+          live = await loadLiveManifest(parseManifest);
+        } catch (err) {
+          console.warn("live manifest load failed; no Live mode", err);
+        }
       }
       setManifest(loaded);
       setDailyManifest(daily);
+      setLiveManifest(live);
       setDevMode(dev);
     } catch (err) {
       console.error("manifest load failed", err);
@@ -523,6 +565,7 @@ export function App() {
         <Header showMenu={devMode} />
         <ModeSelect
           devMode={devMode}
+          liveAvailable={liveManifest !== null}
           moderationCount={manifest?.scenes.length ?? 0}
           firstRef={firstModeRef}
         />
@@ -769,10 +812,12 @@ const GALLERY_URL = "gallery/";
 
 /**
  * The frontpage (ticket #1214): the game modes as big links, shown before
- * any run. Daily is always there; Moderation only on the dev instance, whose
- * queue API flags its manifest with `moderation: true`. The moderation count
- * comes straight from that manifest (the unmoderated queue it plays), so the
- * frontend never re-derives an order or a set.
+ * any run. Daily is always there; Moderation and Live only on the dev
+ * instance, whose queue API flags its manifest with `moderation: true` and
+ * answers scope=live. Daily there previews the next set to ship (#1221),
+ * Live replays the set prod serves right now (#1237); the moderation count
+ * comes straight from the queue manifest (the unmoderated queue Moderation
+ * plays), so the frontend never re-derives an order or a set.
  *
  * Since #1228 each mode is an ordinary anchor to its real path (ticket
  * #1223), not a button that pokes the URL in JS: the browser then owns the
@@ -783,10 +828,12 @@ const GALLERY_URL = "gallery/";
  */
 function ModeSelect({
   devMode,
+  liveAvailable,
   moderationCount,
   firstRef,
 }: {
   devMode: boolean;
+  liveAvailable: boolean;
   moderationCount: number;
   firstRef: RefObject<HTMLAnchorElement | null>;
 }) {
@@ -802,8 +849,21 @@ function ModeSelect({
           data-testid="mode-daily"
         >
           <span className="mode-name">Daily</span>
-          <span className="mode-sub">Today's set</span>
+          <span className="mode-sub">
+            {devMode ? "The next set to ship" : "Today's set"}
+          </span>
         </a>
+        {liveAvailable ? (
+          <a
+            id="mode-live"
+            className="mode-btn"
+            href={modePath(APP_BASE, "live")}
+            data-testid="mode-live"
+          >
+            <span className="mode-name">Live</span>
+            <span className="mode-sub">The set on prod right now</span>
+          </a>
+        ) : null}
         {devMode ? (
           <a
             id="mode-moderation"

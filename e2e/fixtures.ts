@@ -67,10 +67,11 @@ const MANIFEST = {
 };
 
 /**
- * Route `scenes/manifest.json` (the queue on the dev instance) and
- * `scenes/daily.json` (the day's set the Daily mode plays, #1221) to the
- * fixture. Accepts a context too, so a test that opens a mode in a new tab
- * (#1228) stubs the popup's fetch as well.
+ * Route `scenes/manifest.json` (the queue on the dev instance),
+ * `scenes/daily.json` (the next set to ship, #1221) and `scenes/live.json`
+ * (the set prod serves now, #1237) to the fixture. Accepts a context too, so
+ * a test that opens a mode in a new tab (#1228) stubs the popup's fetch as
+ * well.
  */
 export async function stubManifest(
   target: Page | BrowserContext,
@@ -78,6 +79,7 @@ export async function stubManifest(
   const handler = (route: Route) => route.fulfill({ json: MANIFEST });
   await target.route("**/scenes/manifest.json", handler);
   await target.route("**/scenes/daily.json", handler);
+  await target.route("**/scenes/live.json", handler);
 }
 
 /** Load the game at laptop size with the stubbed manifest. */

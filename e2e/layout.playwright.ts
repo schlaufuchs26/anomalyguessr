@@ -30,6 +30,10 @@ test("the frontpage offers the mode links and fits the laptop (#1214)", async ({
   const moderation = page.getByTestId("mode-moderation");
   await expect(daily).toBeVisible();
   await expect(moderation).toBeVisible();
+  // Live sits between them since #1237 (the set prod serves now)
+  const live = page.getByTestId("mode-live");
+  await expect(live).toBeVisible();
+  await expect(live).toHaveAttribute("href", "/live");
   // keyboard play starts on the first mode link
   await expect(daily).toBeFocused();
 
@@ -148,6 +152,18 @@ test("a mode path deep-links, reloads and Back returns (#1223)", async ({
   await expect(page.getByTestId("mode-daily")).toBeVisible();
   await page.goForward();
   await expect(page.locator("#scene-title")).toHaveText("Smoke test market");
+});
+
+test("the Live mode deep-links and plays its own manifest (#1237)", async ({
+  page,
+}) => {
+  await page.setViewportSize(LAPTOP);
+  await stubManifest(page);
+
+  // Live has its own path like the other modes: a hard load starts the run.
+  await page.goto("/live");
+  await expect(page.locator("#scene-title")).toHaveText("Smoke test market");
+  await expect(page.getByTestId("mode-live")).toHaveCount(0);
 });
 
 test("a mode is a real link, so it opens in a new tab (#1228)", async ({
