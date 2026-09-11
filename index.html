@@ -8,89 +8,14 @@
       name="description"
       content="Find the one anomaly that does not belong in a historical photo: a modern object, a time traveler or futuristic tech from a fictional future."
     />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🦊</text></svg>"
+    />
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
-    <main>
-      <header class="top">
-        <h1>🦊 AnomalyGuessr</h1>
-        <p class="tagline">
-          Time-travel protection squad. An anomaly has been reported in a historical photo:
-          something that could not possibly be there, a modern object, a time traveler or a
-          robot from a fictional future. Click the spot where something doesn't belong.
-        </p>
-      </header>
-
-      <section id="game" class="game" hidden>
-        <div class="meta">
-          <span id="scene-title" class="scene-title"></span>
-          <span id="scene-place" class="scene-place"></span>
-          <span id="scene-progress" class="progress"></span>
-        </div>
-        <p id="scene-desc" class="scene-desc"></p>
-        <div class="stage">
-          <div id="photo" class="photo">
-            <img id="photo-img" alt="" />
-            <img
-              id="photo-orig"
-              class="photo-orig"
-              alt=""
-              aria-hidden="true"
-            />
-            <div id="overlay" class="overlay"></div>
-          </div>
-        </div>
-        <p id="img-announce" class="sr-only" aria-live="polite"></p>
-        <div class="hud">
-          <div id="hint-box" class="hint-box" aria-live="polite">
-            <button id="hint-btn" class="btn" type="button">💡 Show hint</button>
-            <p id="hint-text" class="hint-text"></p>
-          </div>
-          <div id="result" class="result" aria-live="polite"></div>
-          <div id="why" class="why" hidden></div>
-          <div class="nav">
-            <button id="compare-btn" class="btn ghost" type="button" hidden>
-              📷 Show original
-            </button>
-            <button id="next-btn" class="btn primary" type="button" hidden>Next →</button>
-          </div>
-          <div id="moderate" class="moderate" hidden>
-            <label class="moderate-label" for="moderate-feedback">Moderation verdict</label>
-            <input
-              id="moderate-feedback"
-              class="moderate-feedback"
-              type="text"
-              placeholder="Feedback for the pipeline (optional)…"
-              maxlength="2000"
-            />
-            <div class="moderate-actions">
-              <button id="reject-btn" class="btn ghost" type="button">✕ Reject</button>
-              <button id="accept-btn" class="btn primary" type="button">✓ Accept</button>
-            </div>
-            <p id="moderate-status" class="moderate-status" aria-live="polite"></p>
-          </div>
-        </div>
-      </section>
-
-      <section id="end" class="end" hidden>
-        <h2>Mission complete</h2>
-        <p id="end-date" class="end-date"></p>
-        <ol id="end-list" class="end-list"></ol>
-        <p id="end-text"></p>
-        <button id="restart-btn" class="btn primary" type="button">Play again</button>
-      </section>
-
-      <p id="load-error" class="load-error" hidden>
-        The scenes could not be loaded. Is the page being served from a server?
-      </p>
-
-      <footer class="foot">
-        <p>
-          Historical photos: public-domain images (Public Domain / CC0) via Wikimedia Commons.
-          The anomalies were added with AI image editing.
-        </p>
-      </footer>
-    </main>
-    <script type="module" src="./game.ts"></script>
+    <div id="root"></div>
+    <script type="module" src="./frontend.tsx"></script>
   </body>
 </html>

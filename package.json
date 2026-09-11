@@ -1,11 +1,11 @@
 {
   "name": "anomalyguessr",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Spot-the-anachronism game: find the one modern object an AI smuggled into a public-domain historical photo",
   "type": "module",
   "scripts": {
     "dev": "bun index.html",
-    "build": "rm -rf dist && bun build index.html --outdir dist --target browser && cp -r scenes dist/scenes",
+    "build": "rm -rf dist && bun build index.html --outdir dist --target browser --minify --define 'process.env.NODE_ENV=\"production\"' && cp -r scenes dist/scenes",
     "start": "bun index.html",
     "tsc": "tsc --pretty --noEmit",
     "format": "biome format --write .",
@@ -17,9 +17,17 @@
     "test:ci": "bun test --coverage --coverage-reporter=lcov",
     "prepare": "git config core.hooksPath .githooks"
   },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
   "devDependencies": {
     "@biomejs/biome": "^2.4.16",
     "@happy-dom/global-registrator": "^20.10.2",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
     "bun-types": "latest",
     "concurrently": "^10.0.3",
     "knip": "^6.16.1",

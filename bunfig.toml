@@ -1,10 +1,8 @@
 [test]
-preload = ["./tests/happydom.ts"]
+preload = ["./tests/happydom.ts", "./tests/testing-library.ts"]
 
 # Coverage enabled by default; thresholds fail the run if not met
 coverage = true
 # coverageSkipTestFiles has a bug in Bun 1.3.14; use path patterns instead
-# game.ts is DOM-interactive (pointer/zoom/layout, requires a real browser
-# for full coverage); its reveal flow IS exercised by tests/game.test.ts.
-coveragePathIgnorePatterns = ["tests/**", "game.ts"]
+coveragePathIgnorePatterns = ["tests/**"]
 coverageThreshold = { lines = 0.75, functions = 0.75, statements = 0.75 }

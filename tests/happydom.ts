@@ -1,4 +1,5 @@
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 
-// Register DOM globals before anything that depends on them gets imported.
+// Register DOM globals (window, document, etc.) before anything
+// that depends on them gets imported.
 GlobalRegistrator.register();

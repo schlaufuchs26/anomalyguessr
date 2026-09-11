@@ -20,10 +20,20 @@ Play it: <https://schlaufuchs26.github.io/anomalyguessr/>
 
 ```sh
 bun install
-bun index.html     # dev server
-bun run build      # static site into dist/
+bun index.html     # dev server (HMR, serves index.html + frontend.tsx)
+bun run build      # static site into dist/ (minified React bundle + scenes/)
 bun run checks     # format + tsc + biome + knip + tests
 ```
+
+## Stack
+
+React 19 + Bun + TypeScript on the house `frontend-template` setup (ticket
+#1172): `frontend.tsx` is the app shell (run state, HUD, navigation,
+moderation), `src/PhotoStage.tsx` the photo layer, `src/photoInteractions.ts`
+the zoom/pan/click math, and `manifest.ts` / `scoring.ts` / `layout.ts` /
+`daily.ts` stay plain TS logic. Tests run on happy-dom + Testing Library
+(`tests/app.test.tsx` drives the real click → reveal → compare → end-screen
+flows). GitHub Pages deploys `dist/` on every push to `main`.
 
 ## Gameplay
 
