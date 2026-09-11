@@ -117,6 +117,8 @@ export function App() {
   const scene = queue[index];
   const nextBtnRef = useRef<HTMLButtonElement>(null);
   const restartBtnRef = useRef<HTMLButtonElement>(null);
+  /** The reveal layer, so the guess can check it without waiting on an event. */
+  const originalImgRef = useRef<HTMLImageElement | null>(null);
 
   // The vanilla game moved focus to "Next"/"Results" after every guess and to
   // "Play again" on the end screen, so keyboard players can keep going with
@@ -183,6 +185,26 @@ export function App() {
     setModFeedback("");
   };
 
+  /**
+   * The #1147 dissolve: one CSS pass over the layer (`.reveal`) plus the
+   * glitch shimmer on the photo (`.correcting`). Both the already-loaded and
+   * the load-landed path share it.
+   */
+  const startOriginalReveal = () => {
+    setRevealPending(false);
+    setCorrecting(true);
+    setAnnounce(
+      "Correct. Now showing the original photo: the anomaly is gone.",
+    );
+  };
+
+  /** The original cannot be shown: say so instead of revealing nothing. */
+  const failOriginalReveal = () => {
+    setRevealPending(false);
+    setAnnounce("The original photo could not be loaded.");
+    setOriginalView(false);
+  };
+
   const onGuess = (hit: PhotoHit) => {
     if (!scene || answered) return;
     const result = resolveGuess(scene, hit.x, hit.y, hintsUsed);
@@ -200,28 +222,33 @@ export function App() {
         r: scene.answer.r,
       },
     ]);
-    // A correct guess dissolves into the untouched original (ticket #1147);
-    // the layer is preloaded, so this only waits when it is still downloading.
+    // A correct guess dissolves into the untouched original (ticket #1147).
+    // The layer is preloaded per scene, so its load event already fired while
+    // the scene was on screen and no second one arrives: run the animation
+    // now when the bytes are there. A completed image without dimensions is a
+    // failed (or empty) source that will never fire anything, so say so
+    // instead of waiting forever.
     if (result.hit) {
-      setRevealPending(true);
       setOriginalView(true);
+      const img = originalImgRef.current;
+      if (img?.complete && img.naturalWidth > 0) {
+        startOriginalReveal();
+      } else if (img?.complete) {
+        failOriginalReveal();
+      } else {
+        setRevealPending(true);
+      }
     }
   };
 
   const onOriginalLoaded = () => {
     if (!revealPending) return;
-    setRevealPending(false);
-    setCorrecting(true);
-    setAnnounce(
-      "Correct. Now showing the original photo: the anomaly is gone.",
-    );
+    startOriginalReveal();
   };
 
   const onOriginalError = () => {
     if (!revealPending) return;
-    setRevealPending(false);
-    setAnnounce("The original photo could not be loaded.");
-    setOriginalView(false);
+    failOriginalReveal();
   };
 
   /** Manual compare toggle: instant swap, no animation. */
@@ -375,6 +402,7 @@ export function App() {
           }
           image={scene?.image ?? ""}
           original={scene?.original ?? ""}
+          originalRef={originalImgRef}
           answered={answered}
           showOriginal={showOriginal}
           correcting={correcting}

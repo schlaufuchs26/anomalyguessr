@@ -1,3 +1,4 @@
+import type { RefObject } from "react";
 import { useEffect, useRef, useState } from "react";
 import type { ViewState } from "../layout";
 import {
@@ -13,6 +14,8 @@ export interface PhotoStageProps {
   image: string;
   /** Untouched original URL (reveal layer). */
   original: string;
+  /** The reveal layer, so the app can check whether it is already loaded. */
+  originalRef: RefObject<HTMLImageElement | null>;
   /** A guess is resolved: the overlay stops accepting clicks. */
   answered: boolean;
   /** Original layer visible via the manual compare toggle (`.show`). */
@@ -37,7 +40,6 @@ export interface PhotoStageProps {
 export function PhotoStage(props: PhotoStageProps) {
   const photoRef = useRef<HTMLDivElement>(null);
   const baseRef = useRef<HTMLImageElement>(null);
-  const origRef = useRef<HTMLImageElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<ViewState>({ scale: 1, x: 0, y: 0 });
 
@@ -103,7 +105,7 @@ export function PhotoStage(props: PhotoStageProps) {
           onLoad={() => ix.fitPhotoToStage()}
         />
         <img
-          ref={origRef}
+          ref={props.originalRef}
           id="photo-orig"
           className={`photo-orig${props.showOriginal ? " show" : ""}${
             props.correcting ? " reveal" : ""

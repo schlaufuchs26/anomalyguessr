@@ -115,6 +115,28 @@ function originalLayer(container: HTMLElement): HTMLImageElement {
   return el;
 }
 
+/**
+ * Model a browser that finished loading the layer (`complete` + real
+ * dimensions, as for a preloaded image) or one that is still downloading
+ * (`complete === false`). happy-dom does not fetch file URLs, so the tests
+ * state the two properties the reveal guard reads; a failed layer reports
+ * `complete` with `naturalWidth === 0`.
+ */
+function setOriginalLoadState(
+  orig: HTMLImageElement,
+  state: "loaded" | "downloading" | "failed",
+): HTMLImageElement {
+  Object.defineProperty(orig, "complete", {
+    value: state !== "downloading",
+    configurable: true,
+  });
+  Object.defineProperty(orig, "naturalWidth", {
+    value: state === "loaded" ? RECT.width : 0,
+    configurable: true,
+  });
+  return orig;
+}
+
 /** Click the photo at normalized (nx, ny) through the real click handler. */
 function clickPhoto(container: HTMLElement, nx: number, ny: number): void {
   fireEvent.click(overlay(container), {
@@ -176,8 +198,62 @@ describe("hints", () => {
 });
 
 describe("guess, reveal and compare", () => {
+  test("a hit whose original is already loaded reveals it immediately (#1185)", async () => {
+    const container = await renderGame();
+    setOriginalLoadState(originalLayer(container), "loaded");
+
+    clickPhoto(container, 0.5, 0.5);
+    expect(screen.getByText("Timeline secured!")).toBeInTheDocument();
+    // The layer is preloaded, so no load event follows the guess: the reveal
+    // has to run right away instead of waiting for one that never arrives.
+    expect(originalLayer(container).classList.contains("reveal")).toBe(true);
+    expect(
+      container.querySelector("#photo")?.classList.contains("correcting"),
+    ).toBe(true);
+    expect(
+      screen.getByText(/Now showing the original photo/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "🖼️ Edited image" }),
+    ).toBeInTheDocument();
+  });
+
+  test("a broken original is reported instead of waiting forever", async () => {
+    const container = await renderGame();
+    // The layer has no dimensions: the source is broken (or gone), so no
+    // load event will ever come and the reveal must not pretend to work.
+    setOriginalLoadState(originalLayer(container), "failed");
+    clickPhoto(container, 0.5, 0.5);
+
+    expect(originalLayer(container).classList.contains("reveal")).toBe(false);
+    expect(
+      screen.getByText(/The original photo could not be loaded/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "📷 Show original" }),
+    ).toBeInTheDocument();
+  });
+
+  test("an original that fails while the guess waits reports the failure", async () => {
+    const container = await renderGame();
+    setOriginalLoadState(originalLayer(container), "downloading");
+    clickPhoto(container, 0.5, 0.5);
+    expect(originalLayer(container).classList.contains("reveal")).toBe(false);
+
+    // the download failed after the guess, so the wait has to end with a note
+    fireEvent.error(originalLayer(container));
+    expect(originalLayer(container).classList.contains("reveal")).toBe(false);
+    expect(
+      screen.getByText(/The original photo could not be loaded/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "📷 Show original" }),
+    ).toBeInTheDocument();
+  });
+
   test("a perfect hit secures the timeline and crossfades to the original", async () => {
     const container = await renderGame();
+    setOriginalLoadState(originalLayer(container), "downloading");
 
     clickPhoto(container, 0.5, 0.5);
     expect(screen.getByText("Timeline secured!")).toBeInTheDocument();
