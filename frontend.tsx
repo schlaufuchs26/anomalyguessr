@@ -339,7 +339,7 @@ export function App() {
   if (status === "loading") {
     return (
       <main>
-        <Header />
+        <Header showMenu={moderation} />
         <p className="load-error">Loading the day's scenes…</p>
         <Footer />
       </main>
@@ -349,7 +349,7 @@ export function App() {
   if (status === "error") {
     return (
       <main>
-        <Header />
+        <Header showMenu={moderation} />
         <p id="load-error" className="load-error" hidden={!loadError}>
           The scenes could not be loaded. Is the page being served from a
           server?
@@ -363,7 +363,7 @@ export function App() {
     const end = buildEndData(queue, scores, quizLabel());
     return (
       <main>
-        <Header />
+        <Header showMenu={moderation} />
         <section id="end" className="end">
           <h2>Mission complete</h2>
           <p id="end-date" className="end-date">
@@ -395,7 +395,7 @@ export function App() {
   if (status === "empty") {
     return (
       <main>
-        <Header />
+        <Header showMenu={moderation} />
         <section id="empty" className="empty-state">
           <h2>
             {moderation ? "Moderation queue is empty" : "No scenes available"}
@@ -421,7 +421,7 @@ export function App() {
 
   return (
     <main>
-      <Header />
+      <Header showMenu={moderation} />
       <section id="game" className="game">
         <div className="meta">
           <span id="scene-title" className="scene-title">
@@ -590,10 +590,29 @@ export function App() {
   );
 }
 
-function Header() {
+/**
+ * The image-overview page (ticket #1204), a sibling of the game under the same
+ * /anomalyguessr/ mount. Rendered only on the dev instance: the static prod
+ * build (GitHub Pages) has no gallery, and a dead link there would 404.
+ */
+const GALLERY_URL = "gallery/";
+
+function Header({ showMenu }: { showMenu: boolean }) {
   return (
     <header className="top">
-      <h1>🦊 AnomalyGuessr</h1>
+      <div className="top-row">
+        <h1>🦊 AnomalyGuessr</h1>
+        {showMenu ? (
+          <a
+            className="menu-btn"
+            href={GALLERY_URL}
+            title="Overview of all images"
+            data-testid="gallery-menu"
+          >
+            ☰ Gallery
+          </a>
+        ) : null}
+      </div>
       <p className="tagline">
         Time-travel protection squad. An anomaly has been reported in a
         historical photo: something that could not possibly be there, a modern

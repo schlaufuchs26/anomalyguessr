@@ -129,6 +129,26 @@ test("a correct guess reveals the original photo (#1185)", async ({ page }) => {
   await expect(page.locator("#photo-orig")).toHaveClass(/reveal/);
 });
 
+test("the gallery menu sits top-right inside the laptop viewport (#1204)", async ({
+  page,
+}) => {
+  await openGame(page);
+
+  const menu = page.locator('[data-testid="gallery-menu"]');
+  await expect(menu).toBeVisible();
+  await expect(menu).toHaveAttribute("href", "gallery/");
+  await expect(menu).toHaveAttribute("title", "Overview of all images");
+
+  const box = await menu.boundingBox();
+  if (!box) throw new Error("the gallery menu has no layout box");
+  // top-right and inside the viewport: the header row must not push the
+  // layout (or the menu itself) off screen
+  expect(box.x).toBeGreaterThan(LAPTOP.width / 2);
+  expect(box.x + box.width).toBeLessThanOrEqual(LAPTOP.width + 1);
+  expect(box.y + box.height).toBeLessThanOrEqual(LAPTOP.height + 1);
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+});
+
 test("the moderation box is reachable inside the laptop viewport (#1187)", async ({
   page,
 }) => {

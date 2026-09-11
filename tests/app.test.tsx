@@ -523,6 +523,33 @@ describe("moderation mode (dev instance, #1163)", () => {
   });
 });
 
+describe("gallery menu (dev instance, #1204)", () => {
+  test("the dev instance links to the image overview", async () => {
+    payload = { ...MANIFEST, moderation: true };
+    await renderGame();
+    const menu = screen.getByRole("link", { name: "☰ Gallery" });
+    expect(menu).toHaveAttribute("href", "gallery/");
+    expect(menu).toHaveAttribute("title", "Overview of all images");
+  });
+
+  test("the static prod build has no gallery link", async () => {
+    // GitHub Pages ships the same bundle without the queue API's moderation
+    // flag; the gallery only exists on the dev instance, so no dead link.
+    await renderGame();
+    expect(screen.queryByRole("link", { name: /Gallery/ })).toBeNull();
+  });
+
+  test("the empty moderation queue still offers the way to the gallery", async () => {
+    payload = { version: 2, date: "2026-09-10", scenes: [], moderation: true };
+    render(<App />);
+    await screen.findByText("Moderation queue is empty");
+    expect(screen.getByRole("link", { name: "☰ Gallery" })).toHaveAttribute(
+      "href",
+      "gallery/",
+    );
+  });
+});
+
 describe("empty moderation queue (#1202)", () => {
   test("shows a calm empty state instead of the game shell", async () => {
     payload = { version: 2, date: "2026-09-10", scenes: [], moderation: true };

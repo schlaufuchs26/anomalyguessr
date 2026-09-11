@@ -33,6 +33,34 @@ main {
   padding: 1.2rem 1rem 3rem;
 }
 
+/* Header row (ticket #1204): game title on the left, the gallery menu on the
+   right. The menu only renders on the dev instance (moderation mode). */
+.top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.menu-btn {
+  display: inline-block;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 0.9rem;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.menu-btn:hover,
+.menu-btn:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .top h1 {
   margin: 0.2rem 0;
   font-size: 1.7rem;
