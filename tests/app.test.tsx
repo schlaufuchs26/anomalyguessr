@@ -76,6 +76,9 @@ const RECT = {
 };
 
 beforeEach(() => {
+  // The fragment is the mode source of truth (#1223); clear whatever a
+  // previous test left so every render starts on the frontpage again.
+  window.location.hash = "";
   payload = MANIFEST;
   posts = [];
   gets = [];
@@ -830,6 +833,85 @@ describe("on-demand generation from the empty queue (#1210)", () => {
     expect(
       await screen.findByText("OPENROUTER_API_KEY not set"),
     ).toBeInTheDocument();
+  });
+});
+
+describe("mode URLs (#1223)", () => {
+  /** Render at a deep-linked fragment and wait for the first scene. */
+  async function renderDeepLink(hash: string): Promise<HTMLElement> {
+    window.location.hash = hash;
+    const { container } = render(<App />);
+    await screen.findByText("Scene A");
+    await act(async () => {});
+    return container;
+  }
+
+  test("the frontpage is the default address", async () => {
+    await renderFrontpage();
+    expect(window.location.hash).toBe("");
+    expect(screen.getByRole("button", { name: /^Daily/ })).toBeInTheDocument();
+  });
+
+  test("a #daily deep link starts the daily run", async () => {
+    await renderDeepLink("#daily");
+    expect(screen.getByText("1 / 2")).toBeInTheDocument();
+    // no frontpage in between: the URL named the mode
+    expect(screen.queryByRole("button", { name: /^Daily/ })).toBeNull();
+    expect(window.location.hash).toBe("#daily");
+  });
+
+  test("a #moderation deep link starts the queue on the dev instance", async () => {
+    payload = { ...MANIFEST, moderation: true };
+    const container = await renderDeepLink("#moderation");
+    clickPhoto(container, 0.5, 0.5);
+    expect(screen.getByText("Moderation verdict")).toBeInTheDocument();
+    expect(window.location.hash).toBe("#moderation");
+  });
+
+  test("picking Daily publishes #daily to the URL", async () => {
+    await renderFrontpage();
+    fireEvent.click(screen.getByRole("button", { name: /^Daily/ }));
+    await screen.findByText("Scene A");
+    expect(window.location.hash).toBe("#daily");
+  });
+
+  test("picking Moderation publishes #moderation to the URL", async () => {
+    payload = { ...MANIFEST, moderation: true };
+    await renderFrontpage();
+    fireEvent.click(screen.getByRole("button", { name: /^Moderation/ }));
+    await screen.findByText("Scene A");
+    expect(window.location.hash).toBe("#moderation");
+  });
+
+  test("Back and Forward move between the frontpage and a mode", async () => {
+    payload = { ...MANIFEST, moderation: true };
+    await renderFrontpage();
+
+    // Forward to a mode: a history entry changes the fragment and the
+    // listener re-reads the route.
+    window.location.hash = "#moderation";
+    fireEvent(window, new Event("hashchange"));
+    expect(await screen.findByText("Scene A")).toBeInTheDocument();
+
+    // Back to the frontpage.
+    window.location.hash = "";
+    fireEvent(window, new Event("hashchange"));
+    expect(
+      await screen.findByRole("button", { name: /^Moderation/ }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Scene A")).toBeNull();
+  });
+
+  test("a #moderation link on prod degrades to the frontpage", async () => {
+    // The static prod manifest carries no dev flag, so there is no queue mode.
+    window.location.hash = "#moderation";
+    render(<App />);
+    expect(
+      await screen.findByRole("button", { name: /^Daily/ }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Moderation/ })).toBeNull();
+    // the dead fragment is dropped so the URL matches the screen
+    expect(window.location.hash).toBe("");
   });
 });
 

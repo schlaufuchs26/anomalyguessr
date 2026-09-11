@@ -206,3 +206,27 @@ test("the moderation box is reachable inside the laptop viewport (#1187)", async
   expect(box.y + box.height).toBeLessThanOrEqual(LAPTOP.height + 1);
   expect(await page.evaluate(() => window.scrollY)).toBe(0);
 });
+
+test("a mode URL deep-links straight into the run, Back returns (#1223)", async ({
+  page,
+}) => {
+  await page.setViewportSize(LAPTOP);
+  await page.route("**/scenes/manifest.json", (route) =>
+    route.fulfill({ json: MANIFEST }),
+  );
+
+  // The base URL is the frontpage.
+  await page.goto("/");
+  await expect(page.getByTestId("mode-daily")).toBeVisible();
+
+  // Daily has its own address: a direct load starts the run, no frontpage.
+  await page.goto("/#daily");
+  await expect(page.locator("#scene-title")).toHaveText("Smoke test market");
+  await expect(page.getByTestId("mode-daily")).toHaveCount(0);
+
+  // Back lands on the frontpage, Forward returns to the mode.
+  await page.goBack();
+  await expect(page.getByTestId("mode-daily")).toBeVisible();
+  await page.goForward();
+  await expect(page.locator("#scene-title")).toHaveText("Smoke test market");
+});

@@ -8,6 +8,7 @@ import { resolveGuess } from "./src/guess";
 import { ModerationEmpty } from "./src/ModerationEmpty";
 import { PhotoStage } from "./src/PhotoStage";
 import type { PhotoHit, PhotoMarker } from "./src/photoInteractions";
+import { effectiveMode, type Mode, modeFromHash, modeHash } from "./src/routes";
 
 /**
  * AnomalyGuessr app (ticket #1172): the game UI migrated from the vanilla
@@ -90,9 +91,6 @@ function dailySet(manifest: Manifest, day: Date): Scene[] {
   return manifest.scenes;
 }
 
-/** The game modes the frontpage offers (ticket #1214). */
-type Mode = "daily" | "moderation";
-
 export function App() {
   const [status, setStatus] = useState<
     "loading" | "error" | "home" | "playing" | "end" | "empty"
@@ -119,14 +117,20 @@ export function App() {
   const [mod, setMod] = useState<ModerationState>(IDLE_MODERATION);
   const [modFeedback, setModFeedback] = useState("");
   const [loadError, setLoadError] = useState(false);
+  /**
+   * The mode the URL names (ticket #1223): null = frontpage, "daily" or
+   * "moderation". The fragment is the source of truth; Back/Forward and
+   * reloads land here through the `hashchange` listener below.
+   */
+  const [route, setRoute] = useState<Mode | null>(() =>
+    modeFromHash(window.location.hash),
+  );
 
   const scene = queue[index];
   const nextBtnRef = useRef<HTMLButtonElement>(null);
   const restartBtnRef = useRef<HTMLButtonElement>(null);
   /** First frontpage button: the keyboard focus target on the frontpage. */
   const firstModeRef = useRef<HTMLButtonElement>(null);
-  /** The chosen mode, so an empty-state reload resumes it, not the menu. */
-  const modeRef = useRef<Mode | null>(null);
   /** The reveal layer, so the guess can check it without waiting on an event. */
   const originalImgRef = useRef<HTMLImageElement | null>(null);
 
@@ -167,7 +171,6 @@ export function App() {
   };
   /** Start the run of a frontpage mode over the loaded manifest (#1214). */
   const startMode = (mode: Mode, loaded: Manifest) => {
-    modeRef.current = mode;
     const now = new Date();
     startRun(
       mode === "daily" ? dailySet(loaded, now) : loaded.scenes,
@@ -178,16 +181,56 @@ export function App() {
   const startModeRef = useRef(startMode);
   startModeRef.current = startMode;
 
-  /** Frontpage selection: Daily plays the day's set, Moderation the queue. */
+  /**
+   * Frontpage selection: Deep-linkable (ticket #1223), so Daily plays the
+   * day's set and Moderation the queue under their own fragment. The URL is
+   * the source of truth; setting `route` too keeps the click instant where
+   * the runtime fires no `hashchange` (happy-dom in the tests).
+   */
   const chooseMode = (mode: Mode) => {
-    if (manifest) startModeRef.current(mode, manifest);
+    const hash = modeHash(mode);
+    if (window.location.hash !== hash) window.location.hash = hash;
+    setRoute(mode);
   };
 
+  /** Back/Forward and manual fragment edits re-read the route. */
+  useEffect(() => {
+    const onHash = () => setRoute(modeFromHash(window.location.hash));
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
   /**
-   * Fetch the manifest and show the frontpage (ticket #1214). A reload from
-   * the empty state (ticket #1202) resumes the chosen mode instead of the
-   * menu. Also the Reload action of the empty state; the ref keeps the mount
-   * effect off the dependency list.
+   * Apply the route once the manifest is in hand (ticket #1223): start the
+   * named mode, or show the frontpage. A `#moderation` link on a host whose
+   * manifest has no dev flag degrades to the frontpage, and the fragment is
+   * dropped so the URL matches the screen instead of re-requesting a mode
+   * that does not exist there.
+   */
+  useEffect(() => {
+    if (!manifest) return;
+    const mode = effectiveMode(route, devMode);
+    if (mode) {
+      startModeRef.current(mode, manifest);
+      return;
+    }
+    if (route !== null) {
+      history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${window.location.search}`,
+      );
+      setRoute(null);
+      return;
+    }
+    setStatus("home");
+  }, [route, manifest, devMode]);
+
+  /**
+   * Fetch the manifest and set the dev flag. The route effect above then
+   * starts the URL's mode or shows the frontpage (ticket #1223); this is also
+   * the Reload action of the empty state (#1202/#1210), which re-applies the
+   * current route. The ref keeps the mount effect off the dependency list.
    */
   const load = async () => {
     setStatus("loading");
@@ -196,14 +239,6 @@ export function App() {
         await loadManifest(parseManifest);
       setManifest(loaded);
       setDevMode(dev);
-      const mode = modeRef.current;
-      // Before a mode is picked the frontpage shows; a reload from the empty
-      // state resumes the mode that landed there instead of the menu.
-      if (mode) {
-        startModeRef.current(mode, loaded);
-        return;
-      }
-      setStatus("home");
     } catch (err) {
       console.error("manifest load failed", err);
       setLoadError(true);
@@ -645,7 +680,8 @@ const GALLERY_URL = "gallery/";
  * any run. Daily is always there; Moderation only on the dev instance, whose
  * queue API flags its manifest with `moderation: true`. The moderation count
  * comes straight from that manifest (the unmoderated queue it plays), so the
- * frontend never re-derives an order or a set.
+ * frontend never re-derives an order or a set. Each button publishes its mode
+ * to the URL (ticket #1223); the frontpage itself is the bare base URL.
  */
 function ModeSelect({
   devMode,
