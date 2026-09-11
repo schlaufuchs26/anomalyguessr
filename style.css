@@ -403,6 +403,16 @@ main {
     overflow: hidden;
   }
 
+  /* React mount point (#1172). The #root div sits between body and main, so
+     the height chain has to run through it: without height:100% here,
+     main{height:100%} resolves against an auto-height parent, main grows to
+     its content, and the HUD never becomes a bounded scroller (ticket
+     #1187). The narrow layout above keeps #root at auto height and scrolls
+     normally. */
+  #root {
+    height: 100%;
+  }
+
   main {
     height: 100%;
     max-width: 1560px;
