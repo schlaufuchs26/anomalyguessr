@@ -1,8 +1,8 @@
 /**
  * Pure path routing (ticket #1223, reworked): path -> mode, mode -> path and
  * the prod fallback that drops `/moderation` on a host without the dev flag.
- * The integration behavior (deep links, Back/Forward, pushState, the 404
- * shim) lives in tests/app.test.tsx.
+ * The integration behavior (deep links, Back/Forward, the 404 shim) lives in
+ * tests/app.test.tsx.
  */
 
 import { describe, expect, test } from "bun:test";
