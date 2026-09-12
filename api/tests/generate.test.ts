@@ -74,6 +74,36 @@ describe("GET /generate", () => {
     expect(out.added).toBe(3);
   });
 
+  test("the progress fields of the generator status ride through (#1381)", async () => {
+    const { env, dir } = await makeEnv();
+    await writeStatus(dir, {
+      state: "done",
+      count: 5,
+      planned: 5,
+      added: 2,
+      failed: 0,
+      imageCalls: 9,
+      phase: "done",
+      scene: "commons-market-street",
+      sceneIndex: 2,
+      scenesTotal: 5,
+      candidate: 2,
+      candidates: 3,
+      cost: 0.4213,
+    });
+    const out = await status(env);
+    expect(out).toMatchObject({
+      state: "done",
+      phase: "done",
+      scene: "commons-market-street",
+      sceneIndex: 2,
+      scenesTotal: 5,
+      candidate: 2,
+      candidates: 3,
+      cost: 0.4213,
+    });
+  });
+
   test("an error status file surfaces its message", async () => {
     const { env, dir } = await makeEnv();
     await writeStatus(dir, {

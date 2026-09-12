@@ -123,6 +123,17 @@ export interface GenerateStatus {
   added: number;
   failed: number;
   imageCalls: number;
+  /** Pipeline phase of the current scene (#1381). */
+  phase?: string;
+  /** Source id of the scene being worked on. */
+  scene?: string;
+  sceneIndex?: number;
+  scenesTotal?: number;
+  /** Candidate slot (1-based) and the k the run uses. */
+  candidate?: number;
+  candidates?: number;
+  /** Running cost in USD as the generator reports it. */
+  cost?: number;
   error?: string;
 }
 
@@ -146,6 +157,13 @@ function parseGenerateStatus(raw: unknown): GenerateStatus {
     added: num(r.added),
     failed: num(r.failed),
     imageCalls: num(r.imageCalls),
+    ...(typeof r.phase === "string" && r.phase ? { phase: r.phase } : {}),
+    ...(typeof r.scene === "string" && r.scene ? { scene: r.scene } : {}),
+    sceneIndex: num(r.sceneIndex),
+    scenesTotal: num(r.scenesTotal),
+    candidate: num(r.candidate),
+    candidates: num(r.candidates),
+    cost: num(r.cost),
     ...(typeof r.error === "string" && r.error ? { error: r.error } : {}),
   };
 }

@@ -1069,6 +1069,43 @@ describe("on-demand generation from the empty queue (#1210)", () => {
     ).toBeInTheDocument();
   });
 
+  test("the progress line names the phase, the candidate slot and the cost", async () => {
+    // Ticket #1381: the button used to sit at "added 0 / imageCalls 0" while
+    // the pipeline was visibly working; the status file now carries the
+    // phase, the candidate slot and the running cost.
+    payload = EMPTY;
+    await renderModerationEmpty();
+    const running = {
+      state: "running",
+      running: true,
+      buffer: 0,
+      count: 5,
+      planned: 5,
+      added: 1,
+      failed: 0,
+      imageCalls: 4,
+      phase: "checking",
+      scene: "commons-market-street",
+      sceneIndex: 2,
+      scenesTotal: 5,
+      candidate: 2,
+      candidates: 3,
+      cost: 0.4213,
+    };
+    generateStatus = running;
+    startResponse = running;
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Generate more" }),
+    );
+    expect(
+      await screen.findByText(
+        "Generating… 1 / 5 · checking candidate 2/3 · $0.42",
+        {},
+        { timeout: 4000 },
+      ),
+    ).toBeInTheDocument();
+  });
+
   test("a finished run that left the queue empty does not reload in a loop", async () => {
     // Ticket #1287: the generator status file keeps the last run's result, so
     // a done run with added scenes is still visible on the next page load. A

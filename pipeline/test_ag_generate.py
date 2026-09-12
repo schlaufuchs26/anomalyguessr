@@ -102,10 +102,12 @@ def stub_locate(coords="default"):
                              "call": call(prompt="coord-prompt")}
 
 
-def stub_check(ok=True, problems=None, fix_prompt=""):
-    return lambda *a, **kw: {"ok": ok, "problems": problems or [],
-                             "fix_prompt": fix_prompt,
-                             "call": call(prompt="check-prompt")}
+def stub_check(failed=None, reason="fine", fix_prompt=""):
+    failed = list(failed or [])
+    return lambda *a, **kw: {
+        "ok": not failed, "score": g.REQUIREMENTS_TOTAL - len(failed),
+        "failed": failed, "reason": reason, "fix_prompt": fix_prompt,
+        "call": call(prompt="check-prompt")}
 
 
 class TempDataMixin:
@@ -122,8 +124,10 @@ class TempDataMixin:
         g.deterministic_gate = lambda edited, original, dedup: (
             None, {"cx": 0.5, "cy": 0.6, "x1": 0.45, "y1": 0.55,
                    "x2": 0.55, "y2": 0.65})
+        self._old_candidate_gate = g.candidate_gate
 
     def tearDown(self):
+        g.candidate_gate = self._old_candidate_gate
         g.deterministic_gate = self._old_gate
         ag_verify.preflight_vision = self._old_preflight
         if self._old_key is None:
@@ -189,9 +193,12 @@ class PromptTests(unittest.TestCase):
     def test_check_prompt_lists_the_moved_rules(self):
         text = g.check_prompt(proposal())
         for needle in ("Time travel", "Subtle", "Scale", "Tone", "Grain",
-                       "unchanged", "identifiable"):
+                       "unchanged", "Identifiable"):
             self.assertIn(needle, text)
         self.assertIn("fix_prompt", text)
+        # The checker scores, it does not vote (#1381).
+        self.assertIn('"failed"', text)
+        self.assertNotIn('"ok"', text)
 
 
 # ── Proposal validation ────────────────────────────────────────────────────
@@ -427,6 +434,50 @@ class TraceTest(TempDataMixin, unittest.TestCase):
 
 # ── Run loop ───────────────────────────────────────────────────────────────
 
+class CheckScoringTest(unittest.TestCase):
+    """The comparable scale behind best-of-k (ticket #1381)."""
+
+    def test_score_counts_the_requirements_met(self):
+        self.assertEqual(g.score_from_failed([]), g.REQUIREMENTS_TOTAL)
+        self.assertEqual(g.score_from_failed([1, 2]), g.REQUIREMENTS_TOTAL - 2)
+
+    def test_failed_numbers_are_cleaned(self):
+        self.assertEqual(g.failed_requirements([3, 1, 3]), [1, 3])
+        self.assertEqual(g.failed_requirements(["2"]), [2])
+        # out-of-range numbers and non-numbers cannot inflate the count
+        self.assertEqual(g.failed_requirements([0, 9, "x", None]), [])
+        self.assertEqual(g.failed_requirements("nope"), [])
+
+    def test_check_scene_scores_from_the_failed_list(self):
+        old = g._run_call
+        g._run_call = lambda *a, **kw: {
+            "parsed": {"failed": [2, 4], "reason": "tone off",
+                       "fix_prompt": "match the tone"},
+            "answer": "A", "model": "m", "prompt": "p", "usage": {}}
+        try:
+            check = g.check_scene(Path("x.png"), proposal(), "k", "m", "u", 1,
+                                  1, 0.0)
+        finally:
+            g._run_call = old
+        self.assertEqual(check["failed"], [2, 4])
+        self.assertEqual(check["score"], g.REQUIREMENTS_TOTAL - 2)
+        self.assertFalse(check["ok"])
+        self.assertEqual(check["fix_prompt"], "match the tone")
+
+    def test_check_scene_is_unscored_without_a_failed_list(self):
+        old = g._run_call
+        g._run_call = lambda *a, **kw: {"parsed": {"ok": True}, "answer": "A",
+                                        "model": "m", "prompt": "p",
+                                        "usage": {}}
+        try:
+            check = g.check_scene(Path("x.png"), proposal(), "k", "m", "u", 1,
+                                  1, 0.0)
+        finally:
+            g._run_call = old
+        self.assertIsNone(check["score"])
+        self.assertIsNone(check["ok"])
+
+
 class GenerateOneTest(TempDataMixin, unittest.TestCase):
     def run_one(self, *, propose=None, locate=None, check=None, edit=None,
                 count=1, **argkw):
@@ -444,8 +495,16 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
                                         lambda *a, **kw: None)
         return scene, failed, totals
 
+    def shipped_bytes(self, scene) -> bytes:
+        eid = scene["report"]["scene"]
+        return (self.data_dir / "library" / eid / f"{eid}.jpg").read_bytes()
+
+    def trace_of(self, scene) -> dict:
+        return json.loads(g.trace_path(self.data_dir,
+                                       scene["report"]["scene"]).read_text())
+
     def test_happy_path_lands_a_scene(self):
-        scene, failed, totals = self.run_one()
+        scene, failed, totals = self.run_one(candidates=1)
         self.assertIsNone(failed)
         self.assertIn("scene", scene["report"])
         self.assertEqual(totals["image_calls"], 1)
@@ -457,11 +516,12 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
         self.assertTrue(ag_sources.list_sources(self.data_dir)[0]["used"])
 
     def test_happy_path_writes_a_trace(self):
-        scene, _, _ = self.run_one()
-        data = json.loads(g.trace_path(self.data_dir,
-                                       scene["report"]["scene"]).read_text())
-        stages = [c["stage"] for c in data["calls"]]
-        self.assertEqual(stages, ["proposal", "edit", "coordinates", "check"])
+        scene, _, _ = self.run_one(candidates=1)
+        data = self.trace_of(scene)
+        # #1381 moved the coordinate call after the correction decision, so
+        # the click target is computed on the image that actually ships.
+        self.assertEqual([c["stage"] for c in data["calls"]],
+                         ["proposal", "edit", "check", "coordinates"])
         proposal_call = data["calls"][0]
         self.assertEqual(proposal_call["prompt"], "proposal-prompt")
         self.assertEqual(proposal_call["answer"], "A")
@@ -478,6 +538,163 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
         self.assertFalse(
             g.pending_trace_path(self.data_dir,
                                  data["source"]).exists())
+
+    def test_best_of_k_ships_the_highest_scoring_candidate(self):
+        def edit(*a, **kw):
+            color = ["red", "blue", "green"][len(drawn)]
+            drawn.append(color)
+            return img_bytes(color=color)
+
+        drawn = []
+
+        def check(image, *a, **kw):
+            if Path(image).name.endswith("-c2.png"):
+                return {"ok": True, "score": g.REQUIREMENTS_TOTAL,
+                        "failed": [], "reason": "clean", "fix_prompt": "",
+                        "call": call()}
+            return {"ok": False, "score": 3, "failed": [1, 2, 3, 4],
+                    "reason": "tone and scale", "fix_prompt": "fix it",
+                    "call": call()}
+
+        scene, failed, totals = self.run_one(edit=edit, check=check,
+                                             candidates=3)
+        self.assertIsNone(failed)
+        self.assertEqual(totals["image_calls"], 3)
+        report = scene["report"]
+        self.assertEqual(report["winner"], 2)
+        self.assertEqual(report["candidate_count"], 3)
+        self.assertEqual(report["checker"]["score"], g.REQUIREMENTS_TOTAL)
+        self.assertFalse(report["checker"]["corrected"])
+        self.assertEqual(self.shipped_bytes(scene), img_bytes(color="blue"))
+        # every candidate is in the trace, with prompt, seed and score, so
+        # an audit can see why candidate 2 beat 1 and 3
+        trace = self.trace_of(scene)
+        self.assertEqual([c["candidate"] for c in trace["candidates"]],
+                         [1, 2, 3])
+        self.assertEqual([c["score"] for c in trace["candidates"]], [3, 7, 3])
+        self.assertEqual(trace["candidates"][0]["reason"], "tone and scale")
+        self.assertIn("Plastic bottle", trace["candidates"][0]["prompt"])
+        self.assertTrue(trace["candidates"][1]["seed"] is not None)
+        self.assertEqual(trace["candidate_policy"]["candidates"], 3)
+
+    def test_one_correction_runs_and_cannot_veto(self):
+        edits = {"n": 0}
+
+        def edit(*a, **kw):
+            edits["n"] += 1
+            return img_bytes(color="blue" if edits["n"] > 1 else "red")
+
+        checks = {"n": 0}
+
+        def check(*a, **kw):
+            checks["n"] += 1
+            return {"ok": False, "score": 4, "failed": [4, 5],
+                    "reason": "tone off", "fix_prompt": "match the tone",
+                    "call": call()}
+
+        scene, failed, totals = self.run_one(edit=edit, check=check,
+                                             candidates=1)
+        self.assertIsNone(failed)
+        self.assertEqual(edits["n"], 2)   # one candidate + one correction
+        self.assertEqual(checks["n"], 2)  # candidate check + post-fix check
+        self.assertEqual(totals["image_calls"], 2)
+        report = scene["report"]
+        self.assertTrue(report["checker"]["corrected"])
+        # the post-correction verdict is recorded but did not veto
+        self.assertEqual(report["checker"]["scoreAfterCorrection"], 4)
+        trace = self.trace_of(scene)
+        self.assertTrue(trace["correction"]["applied"])
+        self.assertEqual([c["stage"] for c in trace["calls"]].count("fix-edit"),
+                         1)
+        self.assertEqual([c["stage"] for c in trace["calls"]].count("recheck"),
+                         1)
+
+    def test_no_fix_prompt_ships_the_winner_unchanged(self):
+        scene, failed, totals = self.run_one(
+            check=stub_check(failed=[1], fix_prompt=""), candidates=1)
+        self.assertIsNone(failed)
+        self.assertEqual(totals["image_calls"], 1)
+        self.assertFalse(scene["report"]["checker"]["corrected"])
+        self.assertEqual(scene["report"]["checker"]["failed"], [1])
+
+    def test_correction_that_fails_the_gates_keeps_the_winner(self):
+        calls = {"n": 0}
+
+        def gate(edited, original, dedup):
+            calls["n"] += 1
+            if calls["n"] == 2:  # the correction draw re-renders the frame
+                return "whole-frame repaint", None
+            return None, {"cx": 0.5, "cy": 0.6}
+
+        g.candidate_gate = gate
+        scene, failed, totals = self.run_one(
+            check=stub_check(failed=[4], fix_prompt="fix the tone"),
+            candidates=1)
+        self.assertIsNone(failed)
+        # the pre-correction winner ships; the broken correction is recorded
+        self.assertFalse(scene["report"]["checker"]["corrected"])
+        self.assertEqual(totals["image_calls"], 2)
+        self.assertEqual(self.trace_of(scene)["correction"]["rejected"],
+                         "whole-frame repaint")
+
+    def test_a_broken_draw_is_replaced_by_another_one(self):
+        calls = {"n": 0}
+
+        def gate(edited, original, dedup):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return "identical output", None
+            return None, {"cx": 0.5, "cy": 0.6}
+
+        g.candidate_gate = gate
+        scene, failed, totals = self.run_one(candidates=2)
+        self.assertIsNotNone(scene)
+        self.assertEqual(calls["n"], 3)          # 1 broken + 2 shipped draws
+        self.assertEqual(totals["image_calls"], 3)
+        self.assertEqual(scene["report"]["mechanical_failures"],
+                         ["identical output"])
+        self.assertEqual(scene["report"]["candidate_count"], 2)
+
+    def test_non_landscape_output_is_replaced(self):
+        g.deterministic_gate = lambda *a, **kw: (None, {"cx": 0.5,
+                                                        "cy": 0.6})
+        shapes = [(1024, 1024), (1200, 800)]
+
+        def edit(*a, **kw):
+            w, h = shapes.pop(0) if shapes else (1200, 800)
+            return img_bytes(w=w, h=h)
+
+        scene, failed, totals = self.run_one(edit=edit, candidates=1)
+        self.assertIsNotNone(scene)
+        self.assertEqual(totals["image_calls"], 2)
+        self.assertEqual(scene["report"]["mechanical_failures"],
+                         ["non-landscape output (1024x1024)"])
+        self.assertEqual(scene["report"]["candidate_count"], 1)
+
+    def test_no_candidate_passing_the_gates_is_reported(self):
+        g.candidate_gate = lambda *a, **kw: ("identical output", None)
+        scene, failed, totals = self.run_one(candidates=1)
+        self.assertIsNone(scene)
+        self.assertEqual(failed["stage"], "image")
+        # 3 draws in the first attempt, the last budgeted draw in the second
+        self.assertEqual(totals["image_calls"], 1 + g.MECHANICAL_RETRIES + 1)
+
+    def test_budget_degrades_to_fewer_candidates_but_still_ships(self):
+        scene, failed, totals = self.run_one(candidates=3, max_generations=2)
+        self.assertIsNone(failed)
+        self.assertEqual(totals["image_calls"], 2)
+        self.assertEqual(scene["report"]["candidate_count"], 2)
+
+    def test_no_check_ships_the_first_gate_passing_candidate(self):
+        def boom(*a, **kw):
+            raise AssertionError("--no-check must not call the checker")
+
+        scene, failed, totals = self.run_one(check=boom, candidates=2,
+                                             no_check=True)
+        self.assertIsNone(failed)
+        self.assertEqual(totals["image_calls"], 2)
+        self.assertTrue(scene["report"]["checker"]["skipped"])
+        self.assertIsNone(scene["report"]["checker"]["score"])
 
     def test_invalid_proposal_fails_without_an_image_call(self):
         scene, failed, totals = self.run_one(propose=stub_propose(
@@ -500,79 +717,39 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
         # No final trace exists for a scene that was never saved.
         self.assertEqual(list((self.data_dir / "traces").glob("*.json")), [])
 
-    def test_second_attempt_runs_after_a_gate_failure(self):
+    def test_second_proposal_after_a_gate_only_failure(self):
+        # Even with every candidate broken, a second proposal (fresh anomaly)
+        # gets a chance before the scene is reported failed.
         calls = {"n": 0}
 
         def gate(edited, original, dedup):
             calls["n"] += 1
-            if calls["n"] == 1:
+            if calls["n"] <= 1 + g.MECHANICAL_RETRIES:
                 return "no localized edit", None
             return None, {"cx": 0.5, "cy": 0.6}
 
-        g.deterministic_gate = gate
-        scene, failed, totals = self.run_one()
+        g.candidate_gate = gate
+        scene, failed, totals = self.run_one(candidates=1)
         self.assertIsNotNone(scene)
-        self.assertEqual(calls["n"], 2)
-        self.assertEqual(totals["image_calls"], 2)
-
-    def test_checker_reports_problems_but_no_fix_drops_the_scene(self):
-        scene, failed, _ = self.run_one(check=stub_check(
-            ok=False, problems=["object too large"]))
-        self.assertIsNone(scene)
-        self.assertEqual(failed["stage"], "check")
-        self.assertIn("object too large", failed["reason"])
-
-    def test_checker_fix_triggers_one_more_edit(self):
-        edits = {"n": 0}
-
-        def edit(*a, **kw):
-            edits["n"] += 1
-            return img_bytes(color="blue" if edits["n"] > 1 else "red")
-
-        checks = {"n": 0}
-
-        def check(*a, **kw):
-            checks["n"] += 1
-            if checks["n"] == 1:
-                return {"ok": False, "problems": ["sepia cast"],
-                        "fix_prompt": "remove the cast", "call": call()}
-            return {"ok": True, "problems": [], "fix_prompt": "",
-                    "call": call()}
-
-        scene, failed, totals = self.run_one(edit=edit, check=check)
-        self.assertIsNotNone(scene)
-        self.assertEqual(edits["n"], 2)
-        self.assertEqual(checks["n"], 2)   # the re-check closes the loop
-        self.assertEqual(totals["image_calls"], 2)
-        self.assertTrue(scene["report"]["checker"]["corrected"])
-        self.assertTrue(scene["report"]["checker"]["ok"])
-
-    def test_a_failed_correction_drops_the_scene(self):
-        def check(*a, **kw):
-            return {"ok": False, "problems": ["tone mismatch"],
-                    "fix_prompt": "fix the tone", "call": call()}
-
-        scene, failed, _ = self.run_one(check=check)
-        self.assertIsNone(scene)
-        self.assertEqual(failed["stage"], "check")
-        self.assertIn("after fix", failed["reason"])
+        self.assertEqual(scene["report"]["attempt"], 2)
 
     def test_missing_coordinates_falls_back_to_the_hotspot(self):
-        scene, failed, _ = self.run_one(locate=stub_locate(coords=None))
+        scene, failed, _ = self.run_one(locate=stub_locate(coords=None),
+                                        candidates=1)
         self.assertIsNotNone(scene)
         self.assertEqual(scene["report"]["answer"]["fallback"], "hotspot")
         self.assertEqual(scene["report"]["answer"]["x"], 0.5)
 
     def test_coordinate_conflict_is_reported(self):
         scene, _, _ = self.run_one(locate=stub_locate(
-            {"x": 0.1, "y": 0.1, "r": 0.02, "figure": False}))
+            {"x": 0.1, "y": 0.1, "r": 0.02, "figure": False}), candidates=1)
         self.assertIsNotNone(scene["report"]["coord_conflict"])
 
     def test_budget_exhausted_before_the_first_edit(self):
         self.write_source()
         g.propose_anomaly = stub_propose()
         g.image_edit = lambda *a, **kw: img_bytes()
-        args = self.make_args(count=1, max_generations=0)
+        args = self.make_args(count=1)
         args.max_generations = 0
         totals = ag_llm.zero_usage()
         src = ag_sources.list_sources(self.data_dir)[0]
@@ -581,6 +758,32 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
                                         totals, lambda *a, **kw: None)
         self.assertIsNone(scene)
         self.assertEqual(failed["stage"], "budget")
+        self.assertIn("generation budget", failed["reason"])
+
+    def test_image_usage_is_folded_into_the_totals_and_the_trace(self):
+        def edit(*a, **kw):
+            kw["usage_out"]["cost"] = 0.05
+            kw["usage_out"]["prompt_tokens"] = 900
+            return img_bytes()
+
+        scene, _, totals = self.run_one(edit=edit, candidates=2)
+        self.assertEqual(totals["image_cost"], 0.1)
+        self.assertEqual(totals["image_calls"], 2)
+        trace = self.trace_of(scene)
+        # per-call image cost lands in the trace (#1381)
+        edit_calls = [c for c in trace["calls"] if c["stage"] == "edit"]
+        self.assertEqual(edit_calls[0]["usage"]["cost"], 0.05)
+
+    def test_aspect_ratio_never_asks_for_a_square(self):
+        self.assertNotIn(1.0, [ratio for _, ratio in g.ASPECTS])
+        self.assertEqual(g.aspect_ratio_for(1000, 997), "5:4")
+        self.assertEqual(g.aspect_ratio_for(1200, 800), "3:2")
+        self.assertEqual(g.aspect_ratio_for(1920, 800), "21:9")
+
+    def test_budget_default_covers_every_scene_at_full_k(self):
+        args = self.make_args(count=2, candidates=3)
+        self.assertEqual(args.max_generations,
+                         2 * (3 + g.MECHANICAL_RETRIES + 1))
 
 
 class RunTest(TempDataMixin, unittest.TestCase):
@@ -590,13 +793,22 @@ class RunTest(TempDataMixin, unittest.TestCase):
         g.locate_anomaly = stub_locate()
         g.check_scene = stub_check()
         g.image_edit = lambda *a, **kw: img_bytes()
-        report = g.run(self.make_args(count=1))
+        report = g.run(self.make_args(count=1, candidates=1))
         self.assertEqual(len(report["added"]), 1)
         self.assertEqual(report["image_calls"], 1)
+        self.assertEqual(report["candidates"], 1)
         self.assertIn("cost_per_scene", report)
         self.assertIn("moderation", report)
+        self.assertIn("winner_scores", report)
         status = json.loads(g.status_path(self.data_dir).read_text())
         self.assertEqual(status["state"], "done")
+        # ticket #1381: the status the dev button polls is honest now
+        self.assertEqual(status["phase"], "done")
+        self.assertEqual(status["candidates"], 1)
+        self.assertEqual(status["imageCalls"], 1)
+        self.assertEqual(status["planned"], 1)
+        self.assertEqual(status["scenesTotal"], 1)
+        self.assertGreater(status["cost"], 0)
 
     def test_dry_run_calls_nothing(self):
         self.write_source()

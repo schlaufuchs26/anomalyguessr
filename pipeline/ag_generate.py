@@ -21,28 +21,43 @@ Per scene:
    dominant placement instruction, ONE numeric scale cap with a
    same-distance anchor, keep everything else, tone match, grain, no glow);
    the long proscriptive rule list moved into the checker.
-3. **Locate** (`locate_anomaly`): one vision call over the edited image for
+3. **Check** (`check_scene`): one vision call per candidate against the
+   seven requirements (time-travel framing, subtlety, scale, tone, grain,
+   keep-the-rest, identifiability). The checker does not vote the scene out:
+   it returns the numbers of the requirements each candidate fails, so the
+   candidate that fails the fewest wins (best-of-k, ticket #1381).
+4. **Correct** (at most once): when the winner still fails a requirement and
+   the checker supplied a fix prompt, ONE edit applies that fix. The
+   post-correction check scores and records the result; it cannot veto.
+5. **Locate** (`locate_anomaly`): one vision call over the shipped image for
    the click target (x/y/r, figure flag), with the proposal and the edit
    prompt as context. The answer is widened when the deterministic diff
    hotspot falls outside it, so a wildly wrong circle cannot ship alone.
-4. **Check** (`check_scene`): one vision call against the requirements list
-   (time-travel framing, subtlety, scale, tone, grain, keep-the-rest,
-   identifiability). A not-OK verdict with a fix prompt triggers ONE
-   correction edit, then the deterministic gates run again and the checker
-   gets the last word: a scene the re-check still rejects is dropped.
+
+One source yields exactly one scene: `--count 5` lands 5 scenes as long as
+the mechanical steps (image call, download, landscape shape) work. A
+mechanically broken candidate is replaced by another draw (up to
+`MECHANICAL_RETRIES` extra image calls per scene); only a source whose image
+call fails or whose every candidate breaks the pixel gates is reported as
+failed, never silently skipped.
 
 Deterministic gates stay deterministic: a byte-identical re-serve is refused
 (`ag_verify.identical_output_check`), a scene that is not a localized edit is
-refused (`ag_verify.locate_hotspot`), and the queue validator still checks
-the entry schema.
+refused (`ag_verify.locate_hotspot`), an output that is not landscape is
+refused before it can reach the queue gate, and the queue validator still
+checks the entry schema.
 
 Each scene gets a trace sidecar (`data/anomalyguessr/traces/<id>.json`, ticket
 #1373) with every pipeline step in order: model, full prompt, answer,
 reasoning content, usage (tokens + cost), duration and timestamp, with the
-image named but never embedded. Steps are flushed to
-`traces/pending/<source>.json` as the pipeline runs, so a crash keeps a
-partial record; a finished scene shows the whole flow, a scene from before
-the trace existed shows none.
+image named but never embedded. Every candidate carries its own edit prompt,
+seed, gate result and check score in `candidates` (ticket #1381), so an audit
+can see why B beat A. Steps are flushed to `traces/pending/<source>.json` as
+the pipeline runs, so a crash keeps a partial record; a finished scene shows
+the whole flow, a scene from before the trace existed shows none. Losing
+candidate images are not kept (they live in the run's temp dir): measured,
+one candidate PNG is 1-2 MB, so keeping three per scene would cost ~50 MB a
+day for pictures nobody looks at once the scores are in the trace.
 
 The run lock, the progress status file, the DM-on-failure path and the queue
 add are unchanged from #1210/#1169: the daily cron and the dashboard's
@@ -50,13 +65,15 @@ add are unchanged from #1210/#1169: the daily cron and the dashboard's
 
 CLI::
 
-    ag_generate.py [--data DIR] [--count 10] [--seed N] [--dry-run] [--top-up]
-        [--env .env] [--dm-channel ID] [--model M] [--image-model M]
-        [--max-attempts 2] [--max-generations N] [--date YYYY-MM-DD]
-        [--out-dir DIR] [--report FILE] [--no-check] [--no-preflight]
+    ag_generate.py [--data DIR] [--count 10] [--candidates 3] [--seed N]
+        [--dry-run] [--top-up] [--env .env] [--dm-channel ID] [--model M]
+        [--image-model M] [--max-attempts 2] [--max-generations N]
+        [--date YYYY-MM-DD] [--out-dir DIR] [--report FILE] [--no-check]
+        [--no-preflight]
 
-Exit code 0 = ran (fewer than `--count` scenes is possible; the JSON report
-lists what failed); 1 = no scene was added or a hard error occurred.
+Exit code 0 = ran (a scene that only breaks mechanically can still be
+missing; the JSON report lists what failed); 1 = no scene was added or a
+hard error occurred.
 """
 
 import argparse
@@ -69,6 +86,7 @@ import math
 import os
 import random
 import re
+import subprocess
 import sys
 import tempfile
 import time
@@ -98,10 +116,23 @@ DEFAULT_MODEL_TIMEOUT = 120
 # repeat of the same photo+prompt reproduce the proposal (#1313).
 DEFAULT_TEMPERATURE = 0.0
 # Landscape aspect ratios accepted by the image model, nearest-match against
-# the source dimensions (the queue rejects non-landscape scene images).
+# the source dimensions (the queue rejects non-landscape scene images). The
+# square 1:1 entry was removed in #1381: a near-square source (1000x997) then
+# asked for a square output, and the queue gate killed the scene late
+# ("edited image must be landscape (w>h), got 1024x1024"). Every entry is
+# landscape now, so 5:4 is the widest the model is ever asked for.
 ASPECTS = (("16:9", 16 / 9), ("3:2", 1.5), ("4:3", 4 / 3), ("5:4", 1.25),
-           ("21:9", 21 / 9), ("2:1", 2.0), ("1:1", 1.0))
+           ("21:9", 21 / 9), ("2:1", 2.0))
 SCENE_ID_RE = re.compile(r"[^a-z0-9]+")
+
+# Best-of-k (ticket #1381, Evan's design): the checker never rejects, it
+# scores every candidate and the best one ships. k edited candidates per
+# source, plus up to MECHANICAL_RETRIES extra image calls to replace a
+# candidate that broke mechanically (image error, non-landscape output,
+# byte-identical re-serve, whole-frame repaint), so a broken draw cannot
+# shrink the planned scene count.
+DEFAULT_CANDIDATES = 3
+MECHANICAL_RETRIES = 2
 
 # How recently used anomaly labels feed the proposal prompt (the free-form
 # replacement for the old catalog label/family novelty tier, #1328).
@@ -153,28 +184,44 @@ SIZE_ANCHOR = ("judge it against something at the same distance in the "
                "photo (a crate, a wheel or a person's shoe) so its "
                "perspective matches the scene")
 
-# The checker's requirements list: the hard-won rules of the agent era, moved
-# here from the generation prompt. A violation should be caught and corrected
-# instead of being pre-empted by an ever-longer recipe.
+# The checker's requirement list: the hard-won rules of the agent era, moved
+# here from the generation prompt. A violation is caught and corrected
+# instead of being pre-empted by an ever-longer recipe. One tuple entry per
+# requirement, because the checker's score IS the number of requirements a
+# candidate satisfies (ticket #1381): a fixed list keeps every candidate and
+# every run on the same scale.
 REQUIREMENTS = (
-    "1. Time travel only: a real element from a LATER era than the "
-    "photograph, or a clearly futuristic one. Pure fantasy (flying saucers, "
-    "dragons, unicorns, ghosts, magic) is a failure.\n"
-    "2. Subtle: one small element, not centered, not the largest thing in "
-    "the frame, not a focal point; partly hidden or at the edge is best.\n"
-    "3. Scale: realistic for its position, judged against something at the "
-    "same distance. A small object must stay under about 3 percent of the "
-    "image height; a person roughly 8-15 percent, never a giant.\n"
-    "4. Tone: exactly the photograph's tone and coloration (a grayscale "
-    "photo stays grayscale); no sepia, no color cast, no filter.\n"
-    "5. Grain lies over the added element; soft edges; consistent lighting "
-    "and shadow direction; realistic perspective; no glow; it must look "
-    "photographed, not pasted.\n"
-    "6. Everything else unchanged: same composition, people, goods and "
-    "background; nothing else redrawn, moved or recolored.\n"
-    "7. The added element must be identifiable as the anachronism (not so "
-    "tiny or so blended that a player cannot find it)."
+    ("Time travel only",
+     "a real element from a LATER era than the photograph, or a clearly "
+     "futuristic one. Pure fantasy (flying saucers, dragons, unicorns, "
+     "ghosts, magic) is a failure."),
+    ("Subtle",
+     "one small element, not centered, not the largest thing in the frame, "
+     "not a focal point; partly hidden or at the edge is best."),
+    ("Scale",
+     "realistic for its position, judged against something at the same "
+     "distance. A small object must stay under about 3 percent of the image "
+     "height; a person roughly 8-15 percent, never a giant."),
+    ("Tone",
+     "exactly the photograph's tone and coloration (a grayscale photo stays "
+     "grayscale); no sepia, no color cast, no filter."),
+    ("Grain and light",
+     "grain lies over the added element; soft edges; consistent lighting and "
+     "shadow direction; realistic perspective; no glow; it must look "
+     "photographed, not pasted."),
+    ("Everything else unchanged",
+     "same composition, people, goods and background; nothing else redrawn, "
+     "moved or recolored."),
+    ("Identifiable",
+     "the added element must be findable as the anachronism, not so tiny or "
+     "so blended that a player cannot find it."),
 )
+REQUIREMENTS_TOTAL = len(REQUIREMENTS)
+
+
+def requirements_text() -> str:
+    return "\n".join(f"{i}. {name}: {detail}"
+                     for i, (name, detail) in enumerate(REQUIREMENTS, 1))
 
 
 def proposal_prompt(source: dict, recent=()) -> str:
@@ -257,11 +304,16 @@ def check_prompt(proposal: dict) -> str:
             "The image you see should be the original photograph with ONE "
             f"element added: {proposal['anomaly']} "
             f"({proposal['placement']}).\n"
-            "Check it against these requirements:\n"
-            f"{REQUIREMENTS}\n"
-            'Answer as strict JSON only: {"ok": true|false, "problems": '
-            '["<short problem>", ...], "fix_prompt": "<one self-contained '
-            'instruction to fix the problems, or empty when ok>"}')
+            "Judge it against these requirements, each one on its own:\n"
+            f"{requirements_text()}\n"
+            "You are scoring, not voting: never reject the whole image, "
+            "just say which numbered requirements it fails.\n"
+            'Answer as strict JSON only: {"failed": [<numbers of the '
+            'requirements it violates, in rising order, [] when it meets '
+            'all of them>], "reason": "<one line: the decisive reason for '
+            'the score>", "fix_prompt": "<one self-contained instruction '
+            'that would fix the failed requirements, or empty when none '
+            'failed>"}')
 
 
 # ── Proposal validation / references ───────────────────────────────────────
@@ -402,21 +454,50 @@ def locate_anomaly(image: Path, proposal: dict, prompt: str, api_key: str,
     return {"coords": coords, "call": result}
 
 
+def failed_requirements(raw) -> list:
+    """Requirement numbers the checker flagged, sorted and de-duplicated.
+
+    Tolerates ints and numeric strings (models return both); drops anything
+    that is not one of the seven requirement numbers, so a hallucinated
+    number cannot inflate the failure count.
+    """
+    if not isinstance(raw, list):
+        return []
+    out = set()
+    for item in raw:
+        try:
+            n = int(str(item).strip())
+        except (TypeError, ValueError):
+            continue
+        if 1 <= n <= REQUIREMENTS_TOTAL:
+            out.add(n)
+    return sorted(out)
+
+
+def score_from_failed(failed: list) -> int:
+    """The comparable score: requirements met, 0..7 (ticket #1381)."""
+    return max(0, REQUIREMENTS_TOTAL - len(failed))
+
+
 def check_scene(image: Path, proposal: dict, api_key: str, model: str,
                 base_url: str, max_tokens: int, timeout: int,
                 temperature: float | None) -> dict:
-    """Call 4: does the scene meet the requirements, and how to fix it."""
+    """Call 4: which requirements the candidate fails, and how to fix them.
+
+    The score is ``REQUIREMENTS_TOTAL - len(failed)``, computed in code from
+    the requirement numbers, not from a model-arithmetic field: that is the
+    comparable scale for best-of-k selection (ticket #1381).
+    """
     prompt = check_prompt(proposal)
     result = _run_call(prompt, image, api_key, model, base_url, max_tokens,
                        timeout, temperature)
     parsed = result["parsed"] or {}
-    ok = parsed.get("ok")
-    problems = parsed.get("problems")
-    if not isinstance(problems, list):
-        problems = []
-    problems = [ag_llm.clean_text(p, 200) for p in problems if p]
-    return {"ok": ok if isinstance(ok, bool) else None,
-            "problems": problems,
+    failed = failed_requirements(parsed.get("failed"))
+    usable = isinstance(parsed.get("failed"), list)
+    return {"ok": (not failed) if usable else None,
+            "score": score_from_failed(failed) if usable else None,
+            "failed": failed,
+            "reason": ag_llm.clean_text(parsed.get("reason"), 300),
             "fix_prompt": ag_llm.clean_text(parsed.get("fix_prompt"), 600),
             "call": result}
 
@@ -474,6 +555,22 @@ def deterministic_gate(edited: Path, original: Path, dedup):
     if not loc["ok"]:
         return loc.get("reason") or "no localized edit", None
     return None, loc["hotspot"]
+
+
+def candidate_gate(edited: Path, original: Path, dedup) -> tuple:
+    """(reason, hotspot) for one candidate: shape first, then pixels.
+
+    Ticket #1381: a non-landscape output is caught HERE instead of late in
+    `ag_queue.copy_images`, so a broken draw costs one candidate slot and
+    never a whole scene. Returns (None, hotspot) for a shippable candidate.
+    """
+    try:
+        w, h = ag_queue.identify_size(edited)
+    except (OSError, subprocess.SubprocessError) as e:  # pragma: no cover
+        return f"unreadable output ({type(e).__name__})", None
+    if w <= h:
+        return f"non-landscape output ({w}x{h})", None
+    return deterministic_gate(edited, original, dedup)
 
 
 # ── Image edit ─────────────────────────────────────────────────────────────
@@ -972,23 +1069,35 @@ def _run(args, data_dir: Path, lock) -> dict:
     started_iso = _now_iso()
     report = {"date": date, "data": str(data_dir), "planned": 0, "added": [],
               "failed": [], "skipped": [], "image_calls": 0, "dry_run": False,
-              "model": args.model, "image_model": args.image_model}
+              "model": args.model, "image_model": args.image_model,
+              "candidates": args.candidates,
+              "max_generations": args.max_generations}
+    totals = ag_llm.zero_usage()
 
     def emit(state: str = "running", **extra) -> None:
-        """Best-effort progress for the dashboard (see module docstring)."""
+        """Best-effort progress for the dashboard (see module docstring).
+
+        Ticket #1381: the status carries the current phase, the scene being
+        worked on, the candidate slot and the running cost, so the dev
+        button shows real progress instead of a frozen "added 0".
+        """
         if lock is None:
             return
+        extra.setdefault("scenesTotal", report["planned"])
         try:
             write_status(data_dir, state=state, pid=os.getpid(),
                          count=args.count, planned=report["planned"],
                          added=len(report["added"]),
                          failed=len(report["failed"]),
                          imageCalls=report["image_calls"],
+                         candidates=args.candidates,
+                         cost=round(totals.get("cost", 0.0), 6),
+                         elapsedS=round(time.time() - started, 1),
                          startedAt=started_iso, **extra)
         except OSError:
             pass  # status is observability, never a reason to fail the run
 
-    emit()
+    emit(phase="starting")
 
     if args.top_up and not args.dry_run:
         try:
@@ -1003,7 +1112,8 @@ def _run(args, data_dir: Path, lock) -> dict:
     if not picked:
         report["error"] = ("source dataset has no unused sources; fill it "
                            "with pipeline/ag_sources.py top-up")
-        emit(state="error", error=report["error"], finishedAt=_now_iso())
+        emit(state="error", phase="error", error=report["error"],
+             finishedAt=_now_iso())
         return report
     if len(picked) < args.count:
         report["warning"] = (f"source pool low: {len(picked)} unused sources, "
@@ -1029,7 +1139,8 @@ def _run(args, data_dir: Path, lock) -> dict:
     api_key = os.environ.get("OPENROUTER_API_KEY", "")
     if not api_key:
         report["error"] = "OPENROUTER_API_KEY not set (pass --env)"
-        emit(state="error", error=report["error"], finishedAt=_now_iso())
+        emit(state="error", phase="error", error=report["error"],
+             finishedAt=_now_iso())
         return report
     if not args.no_preflight:
         # Preflight (#1307): one real call before the first image call, so a
@@ -1040,62 +1151,257 @@ def _run(args, data_dir: Path, lock) -> dict:
                 api_key, args.model)
         except (RuntimeError, OSError) as e:
             report["error"] = f"vision preflight failed: {e}"
-            emit(state="error", error=report["error"], finishedAt=_now_iso())
+            emit(state="error", phase="error", error=report["error"],
+                 finishedAt=_now_iso())
             return report
 
     out_dir = Path(args.out_dir) if args.out_dir else Path(
         tempfile.mkdtemp(prefix="ag-gen-"))
-    totals = ag_llm.zero_usage()
     used_prompts = set()
-    for source in picked:
-        if int(totals.get("image_calls", 0)) >= args.max_generations:
-            report["failed"].append({"id": source["id"],
+    for index, source in enumerate(picked, 1):
+        if image_budget_left(args, totals) <= 0:
+            report["failed"].append({"id": source["id"], "stage": "budget",
                                      "reason": "generation budget"})
-            emit()
+            emit(phase="budget", scene=source["id"])
             continue
         scene, failed = _generate_one(source, args, data_dir, date, out_dir,
                                       recent + sorted(used_prompts), totals,
-                                      emit)
+                                      emit, index, len(picked))
         if scene is not None:
             report["added"].append(scene["report"])
             used_prompts.add(scene["label"])
         elif failed is not None:
             report["failed"].append(failed)
-        emit()
+        emit(phase="scene-done", scene=source["id"])
 
     report["duration_s"] = round(time.time() - started, 1)
     report["image_calls"] = int(totals.get("image_calls", 0))
     report["model_usage"] = {k: v for k, v in totals.items()
-                             if k != "image_calls"}
+                             if k not in ("image_calls", "image_cost")}
     report["cost_total"] = round(totals["cost"], 6)
+    report["image_cost_total"] = round(totals.get("image_cost", 0.0), 6)
+    report["candidate_scores"] = [cand.get("score")
+                                  for scene in report["added"]
+                                  for cand in scene.get("candidates", [])]
+    report["winner_scores"] = [scene["checker"].get("score")
+                               for scene in report["added"]
+                               if (scene.get("checker") or {}).get("score")
+                               is not None]
     if report["added"]:
         report["cost_per_scene"] = round(totals["cost"] / len(report["added"]), 6)
+        report["image_calls_per_scene"] = round(
+            report["image_calls"] / len(report["added"]), 2)
         report["seconds_per_scene"] = round(
             report["duration_s"] / len(report["added"]), 1)
     report["moderation"] = moderation_rate(data_dir)
     if report.get("error") or not report["added"]:
         message = report.get("error") or (
             f"no scenes added ({len(report['failed'])} failed)")
-        emit(state="error", error=message, finishedAt=_now_iso())
+        emit(state="error", phase="error", error=message,
+             finishedAt=_now_iso())
     else:
-        emit(state="done", finishedAt=_now_iso(),
+        emit(state="done", phase="done", finishedAt=_now_iso(),
              durationS=report["duration_s"])
     return report
 
 
+def image_budget_left(args, totals: dict) -> int:
+    """Image calls the run may still spend (ticket #1381).
+
+    ``--max-generations`` stays a run-level runaway guard, not a per-scene
+    quota: the default covers every planned source at full k plus its one
+    correction, and a scene that runs into the cap degrades to fewer
+    candidates instead of starving the sources queued behind it.
+    """
+    return max(0, int(args.max_generations) - int(totals.get("image_calls", 0)))
+
+
+def _collect_candidates(source_image: Path, prompt: str, attempt: int, args,
+                        api_key: str, source: dict, data_dir: Path,
+                        out_dir: Path, trace: dict, totals: dict, progress,
+                        previous_outputs: list) -> tuple:
+    """Up to k shippable candidates for one proposal (ticket #1381).
+
+    Draws image edits until ``args.candidates`` of them passed the mechanical
+    gate (landscape shape, byte-identical re-serve, whole-frame repaint),
+    allowing ``MECHANICAL_RETRIES`` extra image calls to replace broken
+    draws. Every draw lands in the trace, kept or rejected, with its reason.
+    Returns (candidates, failure_reasons, budget_hit).
+    """
+    wanted = max(1, int(args.candidates))
+    draws_allowed = wanted + MECHANICAL_RETRIES
+    candidates, failures, draw, budget_hit = [], [], 0, False
+    while len(candidates) < wanted and draw < draws_allowed:
+        if image_budget_left(args, totals) <= 0:
+            # Not a draw failure: the gate reasons above stay the report's
+            # "why", so a budget stop cannot mask a mechanical rejection.
+            budget_hit = True
+            break
+        draw += 1
+        progress("editing", candidate=draw)
+        try:
+            data, image_call = _edit(source_image, prompt, args, api_key,
+                                     source, totals)
+        except GenerationError as e:
+            failures.append(str(e))
+            trace.setdefault("call_errors", []).append(
+                {"stage": "edit", "attempt": attempt, "candidate": draw,
+                 "error": str(e)})
+            continue
+        totals["image_calls"] = totals.get("image_calls", 0) + 1
+        record_call(data_dir, trace,
+                    {"stage": "edit", "attempt": attempt, "candidate": draw,
+                     **image_call})
+        out_path = _write_bytes(
+            data, out_dir / f"{source['id']}-a{attempt}-c{draw}.png")
+        reason, hotspot = candidate_gate(out_path, source_image,
+                                         list(previous_outputs) or None)
+        previous_outputs.append(out_path)
+        record = {"candidate": draw, "image": out_path.name,
+                  "seed": image_call.get("seed"), "prompt": prompt,
+                  "duration_s": image_call.get("duration_s")}
+        if reason:
+            record["rejected"] = reason
+            failures.append(reason)
+            trace.setdefault("gate_failures", []).append(
+                {"candidate": draw, "reason": reason})
+            trace["candidates"].append(record)
+            continue
+        candidates.append({"index": draw, "path": out_path,
+                           "seed": image_call.get("seed"), "record": record,
+                           "hotspot": hotspot})
+        trace["candidates"].append(record)
+    return candidates, failures, budget_hit
+
+
+def _score_candidates(candidates: list, proposal: dict, args, api_key: str,
+                      data_dir: Path, trace: dict, totals: dict,
+                      progress) -> dict:
+    """Check every candidate on the same rubric; return the winner.
+
+    The score is the number of the seven requirements the candidate meets
+    (ticket #1381), so candidates and runs are directly comparable. Ties go
+    to the candidate drawn first. Without the checker (``--no-check``) the
+    first candidate that passed the pixel gates wins.
+    """
+    for cand in candidates:
+        if args.no_check:
+            cand.update({"check": None, "score": None, "failed": [],
+                         "reason": ""})
+            continue
+        progress("checking", candidate=cand["index"])
+        try:
+            check = check_scene(cand["path"], proposal, api_key, args.model,
+                                args.base_url, args.model_max_tokens,
+                                args.model_timeout, args.temperature)
+        except ag_llm.LLMError as e:
+            trace.setdefault("call_errors", []).append(
+                {"stage": "check", "candidate": cand["index"],
+                 "error": str(e)})
+            check = None
+        if check is not None:
+            ag_llm.add_usage(totals, check["call"].get("usage"))
+            record_call(data_dir, trace,
+                        {"stage": "check", "candidate": cand["index"],
+                         **_call_trace(check["call"])})
+        cand.update({"check": check,
+                     "score": check["score"] if check else None,
+                     "failed": check["failed"] if check else [],
+                     "reason": check["reason"] if check else ""})
+        cand["record"].update({
+            "score": cand["score"], "failed": cand["failed"],
+            "ok": check["ok"] if check else None,
+            "reason": cand["reason"]})
+    ranked = [c for c in candidates if c.get("score") is not None]
+    return max(ranked, key=lambda c: c["score"]) if ranked else candidates[0]
+
+
+def _correction(source_image: Path, proposal: dict, check: dict, attempt: int,
+                args, api_key: str, source: dict, data_dir: Path,
+                out_dir: Path, trace: dict, totals: dict, progress,
+                previous_outputs: list) -> dict | None:
+    """The one allowed correction pass (ticket #1381).
+
+    Applies the checker's fix prompt to the winning candidate. The result is
+    re-checked and recorded but cannot veto: a correction that fails the
+    pixel gates is dropped and the pre-correction winner ships. Returns
+    ``{"path", "hotspot", "check"}`` or None when the winner stays as it is.
+    """
+    if image_budget_left(args, totals) <= 0:
+        trace["correction"] = {"skipped": "generation budget"}
+        return None
+    prompt = _fix_prompt(proposal, check["fix_prompt"])
+    progress("correcting")
+    try:
+        data, fix_call = _edit(source_image, prompt, args, api_key, source,
+                               totals)
+    except GenerationError as e:
+        trace["correction"] = {"failed": str(e)}
+        trace.setdefault("call_errors", []).append(
+            {"stage": "fix-edit", "attempt": attempt, "error": str(e)})
+        return None
+    totals["image_calls"] = totals.get("image_calls", 0) + 1
+    record_call(data_dir, trace,
+                {"stage": "fix-edit", "attempt": attempt, **fix_call})
+    fixed_path = _write_bytes(data,
+                              out_dir / f"{source['id']}-a{attempt}-fix.png")
+    reason, hotspot = candidate_gate(fixed_path, source_image,
+                                     list(previous_outputs) or None)
+    previous_outputs.append(fixed_path)
+    if reason:
+        trace["correction"] = {"rejected": reason}
+        trace.setdefault("gate_failures", []).append(
+            {"stage": "fix-edit", "reason": reason})
+        return None
+    recheck = None
+    try:
+        recheck = check_scene(fixed_path, proposal, api_key, args.model,
+                              args.base_url, args.model_max_tokens,
+                              args.model_timeout, args.temperature)
+    except ag_llm.LLMError as e:
+        trace.setdefault("call_errors", []).append(
+            {"stage": "recheck", "error": str(e)})
+    if recheck is not None:
+        ag_llm.add_usage(totals, recheck["call"].get("usage"))
+        record_call(data_dir, trace,
+                    {"stage": "recheck", "attempt": attempt,
+                     **_call_trace(recheck["call"])})
+    trace["correction"] = {"applied": True,
+                           "score": recheck["score"] if recheck else None,
+                           "failed": recheck["failed"] if recheck else []}
+    return {"path": fixed_path, "hotspot": hotspot, "check": recheck}
+
+
 def _generate_one(source: dict, args, data_dir: Path, date: str,
-                  out_dir: Path, recent: list, totals: dict, emit) -> tuple:
-    """One source through the whole flow; returns (scene|None, failure|None)."""
+                  out_dir: Path, recent: list, totals: dict, emit,
+                  scene_index: int = 1, scene_total: int = 1) -> tuple:
+    """One source through the whole flow; returns (scene|None, failure|None).
+
+    Ticket #1381: a source yields exactly one scene, whatever the checker
+    thinks of it. The checker ranks the k candidates and can ask for one
+    correction; it never drops the scene. Only a mechanical failure (the
+    source image missing, the API refusing to produce any candidate, a
+    coordinate-less scene with no diff hotspot) is reported as failed.
+    """
     api_key = os.environ.get("OPENROUTER_API_KEY", "")
     source_image = ag_sources.sources_dir(data_dir) / source["image"]
     if not source_image.exists():
         return None, {"id": source["id"], "reason": f"missing image "
                       f"{source_image}", "stage": "source"}
+
+    def progress(phase: str, **extra) -> None:
+        emit(phase=phase, scene=source["id"], sceneIndex=scene_index,
+             scenesTotal=scene_total, **extra)
+
     previous_outputs = []
     trace = {"source": source["id"], "date": date, "model": args.model,
-             "image_model": args.image_model, "calls": []}
+             "image_model": args.image_model, "candidates": [],
+             "candidate_policy": {"candidates": args.candidates,
+                                  "mechanical_retries": MECHANICAL_RETRIES,
+                                  "correction_passes": 1}}
     last_error = None
     for attempt in range(1, args.max_attempts + 1):
+        progress("proposing")
         proposal, proposal_call, errors = _attempt_proposal(
             source_image, source, recent, args, api_key)
         record_call(data_dir, trace, {"stage": "proposal", "attempt": attempt,
@@ -1108,37 +1414,39 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
             set_trace_error(data_dir, trace, last_error["reason"])
             continue
         prompt = edit_prompt(proposal)
-        if int(totals.get("image_calls", 0)) >= args.max_generations:
-            last_error = last_error or {"id": source["id"],
-                                        "stage": "budget",
-                                        "reason": "generation budget"}
-            break
-        try:
-            edited, image_call = _edit(source_image, prompt, args, api_key,
-                                       source, totals)
-        except GenerationError as e:
-            last_error = {"id": source["id"], "stage": "image",
-                          "reason": str(e), "attempt": attempt}
-            break
-        totals["image_calls"] = totals.get("image_calls", 0) + 1
-        record_call(data_dir, trace, {"stage": "edit", "attempt": attempt,
-                                      "prompt": prompt, **image_call})
-        out_path = _write_bytes(edited,
-                                out_dir / f"{source['id']}-a{attempt}.png")
-        reason, hotspot = deterministic_gate(out_path, source_image,
-                                             list(previous_outputs) or None)
-        if reason:
-            last_error = {"id": source["id"], "stage": "gate",
+        candidates, failures, budget_hit = _collect_candidates(
+            source_image, prompt, attempt, args, api_key, source, data_dir,
+            out_dir, trace, totals, progress, previous_outputs)
+        if not candidates:
+            if failures:
+                stage, reason = "image", failures[-1]
+            elif budget_hit:
+                stage, reason = "budget", "generation budget"
+            else:
+                stage, reason = "image", "no candidate passed the gates"
+            last_error = {"id": source["id"], "stage": stage,
                           "reason": reason, "attempt": attempt}
-            previous_outputs.append(out_path)
-            trace.setdefault("gate_failures", []).append(
-                {"attempt": attempt, "reason": reason})
+            set_trace_error(data_dir, trace, last_error["reason"])
             continue
-        previous_outputs.append(out_path)
 
+        winner = _score_candidates(candidates, proposal, args, api_key,
+                                   data_dir, trace, totals, progress)
+        check, hotspot = winner["check"], winner["hotspot"]
+        final_path, corrected = winner["path"], False
+        if not args.no_check and check is not None and check["failed"] \
+                and check["fix_prompt"]:
+            fixed = _correction(source_image, proposal, check, attempt, args,
+                                api_key, source, data_dir, out_dir, trace,
+                                totals, progress, previous_outputs)
+            if fixed is not None:
+                final_path, hotspot, corrected = (fixed["path"],
+                                                  fixed["hotspot"], True)
+                check = fixed["check"] if fixed["check"] is not None else check
+
+        progress("locating")
         loc = None
         try:
-            loc = locate_anomaly(out_path, proposal, prompt, api_key,
+            loc = locate_anomaly(final_path, proposal, prompt, api_key,
                                  args.model, args.base_url,
                                  args.model_max_tokens, args.model_timeout,
                                  args.temperature)
@@ -1153,109 +1461,6 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
                         {"stage": "coordinates", "attempt": attempt,
                          **_call_trace(loc["call"])})
         coords = loc["coords"] if loc is not None else None
-
-        check = None
-        corrected = False
-        if not args.no_check:
-            try:
-                check = check_scene(out_path, proposal, api_key, args.model,
-                                    args.base_url, args.model_max_tokens,
-                                    args.model_timeout, args.temperature)
-            except ag_llm.LLMError as e:
-                trace.setdefault("call_errors", []).append(
-                    {"stage": "check", "error": str(e)})
-                check = None
-            if check is not None:
-                ag_llm.add_usage(totals, check["call"].get("usage"))
-                record_call(data_dir, trace,
-                            {"stage": "check", "attempt": attempt,
-                             **_call_trace(check["call"])})
-            if check is not None and check["ok"] is False \
-                    and check["fix_prompt"]:
-                if int(totals.get("image_calls", 0)) >= args.max_generations:
-                    last_error = {"id": source["id"], "stage": "budget",
-                                  "reason": "generation budget"}
-                    break
-                try:
-                    fixed, fix_call = _edit(source_image,
-                                            _fix_prompt(proposal,
-                                                        check["fix_prompt"]),
-                                            args, api_key, source, totals)
-                except GenerationError as e:
-                    last_error = {"id": source["id"], "stage": "fix",
-                                  "reason": str(e), "attempt": attempt}
-                    break
-                totals["image_calls"] = totals.get("image_calls", 0) + 1
-                record_call(data_dir, trace,
-                            {"stage": "fix-edit", "attempt": attempt,
-                             **fix_call})
-                fixed_path = _write_bytes(
-                    fixed, out_dir / f"{source['id']}-a{attempt}-fix.png")
-                reason, hotspot = deterministic_gate(
-                    fixed_path, source_image, list(previous_outputs) or None)
-                if reason:
-                    last_error = {"id": source["id"], "stage": "gate",
-                                  "reason": f"after fix: {reason}",
-                                  "attempt": attempt}
-                    previous_outputs.append(fixed_path)
-                    trace.setdefault("gate_failures", []).append(
-                        {"attempt": attempt, "reason": f"after fix: {reason}"})
-                    continue
-                previous_outputs.append(fixed_path)
-                out_path = fixed_path
-                corrected = True
-                try:
-                    loc = locate_anomaly(out_path, proposal, prompt, api_key,
-                                         args.model, args.base_url,
-                                         args.model_max_tokens,
-                                         args.model_timeout, args.temperature)
-                except ag_llm.LLMError as e:
-                    loc = None
-                    trace.setdefault("call_errors", []).append(
-                        {"stage": "coordinates", "after_fix": True,
-                         "error": str(e)})
-                if loc is not None:
-                    ag_llm.add_usage(totals, loc["call"].get("usage"))
-                    record_call(data_dir, trace,
-                                {"stage": "coordinates", "attempt": attempt,
-                                 "after_fix": True,
-                                 **_call_trace(loc["call"])})
-                coords = loc["coords"] if loc is not None else None
-                # Close the correction loop: the fix is judged by the same
-                # checker, so a not-OK verdict really can reject a scene
-                # (ticket #1372). One extra cheap call per corrected scene.
-                try:
-                    recheck = check_scene(out_path, proposal, api_key,
-                                          args.model, args.base_url,
-                                          args.model_max_tokens,
-                                          args.model_timeout, args.temperature)
-                except ag_llm.LLMError as e:
-                    recheck = None
-                    trace.setdefault("call_errors", []).append(
-                        {"stage": "recheck", "error": str(e)})
-                if recheck is not None:
-                    ag_llm.add_usage(totals, recheck["call"].get("usage"))
-                    record_call(data_dir, trace,
-                                {"stage": "recheck", "attempt": attempt,
-                                 **_call_trace(recheck["call"])})
-                    check = recheck
-                    if check["ok"] is False:
-                        last_error = {"id": source["id"], "stage": "check",
-                                      "reason": "checker rejected after fix: "
-                                                + ("; ".join(check["problems"])
-                                                   or "no reason given"),
-                                      "attempt": attempt}
-                        set_trace_error(data_dir, trace,
-                                        last_error["reason"])
-                        continue
-            elif check is not None and check["ok"] is False:
-                last_error = {"id": source["id"], "stage": "check",
-                              "reason": "checker rejected: "
-                                        + ("; ".join(check["problems"])
-                                           or "no fix prompt"),
-                              "attempt": attempt}
-                set_trace_error(data_dir, trace, last_error["reason"])
-                continue
 
         if coords is None and hotspot is not None:
             # The coordinate call is the answer source; when it is unusable,
@@ -1272,13 +1477,24 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
             continue
         else:
             answer, conflict = finalize_answer(coords, hotspot)
-        if check is None:
-            check_summary = {"ok": None, "problems": [], "skipped": True,
-                             "corrected": corrected}
-        else:
-            check_summary = {"ok": check["ok"],
-                             "problems": check["problems"],
-                             "corrected": corrected}
+
+        check_summary = {
+            "skipped": bool(args.no_check) or winner["check"] is None,
+            "score": winner["score"], "failed": winner["failed"],
+            "reason": winner["reason"], "corrected": corrected,
+            "scoreAfterCorrection": check["score"] if corrected and check
+            else None,
+            "failedAfterCorrection": check["failed"] if corrected and check
+            else None,
+        }
+        candidate_summary = [
+            {"candidate": c["index"], "score": c.get("score"),
+             "failed": c.get("failed") or [],
+             "rejected": c["record"].get("rejected")}
+            for c in candidates]
+        candidate_summary += [
+            {"candidate": r["candidate"], "rejected": r["rejected"]}
+            for r in trace["candidates"] if r.get("rejected")]
 
         entry = build_entry(source, proposal, answer, date)
         errs = ag_queue.validate_entry(entry)
@@ -1289,7 +1505,8 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
             set_trace_error(data_dir, trace, last_error["reason"])
             continue
         try:
-            ag_queue.state_add(data_dir, entry, out_path, source_image, date)
+            ag_queue.state_add(data_dir, entry, final_path, source_image,
+                               date)
         except Exception as e:  # noqa: BLE001 - queue reject = drop scene
             last_error = {"id": source["id"], "stage": "queue",
                           "reason": f"queue add: {e}", "attempt": attempt}
@@ -1302,6 +1519,10 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
             "era": entry["year"], "place": entry["place"],
             "attempt": attempt, "answer": answer,
             "coord_conflict": conflict,
+            "winner": winner["index"] if not corrected else "corrected",
+            "candidate_count": len(candidates),
+            "candidates": candidate_summary,
+            "mechanical_failures": failures,
             "checker": check_summary,
         }
         return {"report": scene_report, "label": entry["anomaly"]}, None
@@ -1332,19 +1553,30 @@ def _fix_prompt(proposal: dict, fix: str) -> str:
 
 def _edit(source_image: Path, prompt: str, args, api_key: str, source: dict,
           totals: dict | None = None):
-    """One image edit; returns (bytes, trace record)."""
+    """One image edit; returns (bytes, trace record).
+
+    The response's usage is folded into ``totals`` and kept in the record, so
+    the image call's own cost is measurable per candidate (ticket #1381);
+    before, only the run total carried it.
+    """
     started = time.time()
     at = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
     seed = random.randint(0, 2**31 - 1)
+    usage = ag_llm.zero_usage()
     data = image_edit(source_image, prompt, api_key, args.base_url,
                       args.image_model,
                       aspect_ratio_for(source.get("width"),
                                        source.get("height")),
                       args.image_size, seed=seed, timeout=args.image_timeout,
-                      usage_out=totals)
+                      usage_out=usage)
+    if totals is not None:
+        ag_llm.add_usage(totals, usage)
+        totals["image_cost"] = (totals.get("image_cost", 0.0)
+                                + float(usage.get("cost") or 0.0))
     return data, {"prompt": prompt, "seed": seed,
                   "model": args.image_model,
                   "image": image_ref(source_image), "at": at,
+                  "usage": usage,
                   "duration_s": round(time.time() - started, 2)}
 
 
@@ -1432,14 +1664,20 @@ def parse_args(argv=None):
     p.add_argument("--image-size", default=DEFAULT_IMAGE_SIZE)
     p.add_argument("--image-timeout", type=int, default=180)
     p.add_argument("--no-check", action="store_true",
-                   help="skip the checker call (and its correction edit)")
+                   help="skip the checker call (and its correction edit, "
+                        "ticket #1381)")
     p.add_argument("--no-preflight", action="store_true",
                    help="skip the one-call vision preflight")
+    p.add_argument("--candidates", type=int, default=DEFAULT_CANDIDATES,
+                   help=f"edited candidates per source; the checker scores "
+                        f"them and the best ships (default "
+                        f"{DEFAULT_CANDIDATES})")
     p.add_argument("--max-attempts", type=int, default=2,
                    help="proposals per source, each a fresh generation "
                         "(run-guard #1122; default 2)")
     p.add_argument("--max-generations", type=int, default=0,
-                   help="hard cap on image calls per run (0 = count*attempts)")
+                   help="hard cap on image calls per run "
+                        "(0 = count*(candidates+retries+1); ticket #1381)")
     p.add_argument("--out-dir", default=None,
                    help="working dir for attempts (default: temp dir)")
     p.add_argument("--report", default=None, help="write the JSON report here")
@@ -1457,7 +1695,8 @@ def parse_args(argv=None):
                    help="category pages per top-up")
     args = p.parse_args(argv)
     if not args.max_generations:
-        args.max_generations = max(1, args.count * max(1, args.max_attempts))
+        per_scene = (max(1, args.candidates) + MECHANICAL_RETRIES + 1)
+        args.max_generations = max(1, args.count * per_scene)
     return args
 
 

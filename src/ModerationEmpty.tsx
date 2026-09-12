@@ -19,6 +19,49 @@ import { type GenerateStatus, loadGenerateStatus, startGenerate } from "./api";
 /** Poll interval while a generation run is in flight. */
 const POLL_MS = 2000;
 
+/**
+ * Human-readable phase of the generator status (ticket #1381). The pipeline
+ * writes `phase` per step, so the button area shows what the run is doing
+ * instead of a frozen counter.
+ */
+function phaseLabel(status: GenerateStatus): string {
+  const phase = status.phase;
+  if (!phase) return "";
+  const candidate = status.candidate ?? 0;
+  const candidates = status.candidates ?? 0;
+  const slot =
+    candidate > 0 && candidates > 0
+      ? ` candidate ${candidate}/${candidates}`
+      : "";
+  switch (phase) {
+    case "starting":
+      return "starting up";
+    case "proposing":
+      return "proposing an anomaly";
+    case "editing":
+      return `drawing${slot}`;
+    case "checking":
+      return `checking${slot}`;
+    case "correcting":
+      return "applying one correction";
+    case "locating":
+      return "placing the click target";
+    case "scene-done":
+      return "scene done";
+    case "budget":
+      return "generation budget reached";
+    default:
+      return phase;
+  }
+}
+
+/** The extra run detail under the counter: phase and running cost (#1381). */
+function generationDetail(status: GenerateStatus): string {
+  const bits = [phaseLabel(status)];
+  if (status.cost && status.cost > 0) bits.push(`$${status.cost.toFixed(2)}`);
+  return bits.filter(Boolean).join(" · ");
+}
+
 export function ModerationEmpty({ onReload }: { onReload: () => void }) {
   const [status, setStatus] = useState<GenerateStatus | null>(null);
   const [error, setError] = useState("");
@@ -79,6 +122,7 @@ export function ModerationEmpty({ onReload }: { onReload: () => void }) {
   const total = status?.planned || status?.count || 0;
   const processed = (status?.added ?? 0) + (status?.failed ?? 0);
   const buffer = status?.buffer ?? 0;
+  const detail = status ? generationDetail(status) : "";
   return (
     <section id="empty" className="empty-state">
       <h2>Moderation queue is empty</h2>
@@ -94,6 +138,7 @@ export function ModerationEmpty({ onReload }: { onReload: () => void }) {
       {running ? (
         <p className="gen-progress" role="status">
           Generating… {processed} / {total}
+          {detail ? ` · ${detail}` : ""}
         </p>
       ) : null}
       {error ? (

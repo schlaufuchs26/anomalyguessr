@@ -41,6 +41,19 @@ export interface GenerateStatusFile {
   added?: number;
   failed?: number;
   imageCalls?: number;
+  /** Current pipeline phase (proposing/editing/checking/correcting/...; #1381). */
+  phase?: string;
+  /** Source id of the scene being worked on. */
+  scene?: string;
+  sceneIndex?: number;
+  scenesTotal?: number;
+  /** Candidate slot the phase is working on, 1-based. */
+  candidate?: number;
+  /** Candidates per source this run was started with (k of best-of-k). */
+  candidates?: number;
+  /** Running cost in USD (all calls so far). */
+  cost?: number;
+  elapsedS?: number;
   startedAt?: string;
   finishedAt?: string;
   updatedAt?: string;
@@ -65,6 +78,17 @@ export interface GenerateStatus {
   added: number;
   failed: number;
   imageCalls: number;
+  /** Pipeline phase of the current scene (#1381); absent when idle. */
+  phase: string | undefined;
+  /** Source id of the scene being worked on. */
+  scene: string | undefined;
+  sceneIndex: number;
+  scenesTotal: number;
+  /** Candidate slot (1-based) and the k this run uses. */
+  candidate: number;
+  candidates: number;
+  /** Running cost in USD as the generator reports it. */
+  cost: number;
   startedAt: string | undefined;
   finishedAt: string | undefined;
   error: string | undefined;
@@ -158,6 +182,13 @@ export class Generator {
       added: file.added ?? 0,
       failed: file.failed ?? 0,
       imageCalls: file.imageCalls ?? 0,
+      phase: file.phase,
+      scene: file.scene,
+      sceneIndex: file.sceneIndex ?? 0,
+      scenesTotal: file.scenesTotal ?? 0,
+      candidate: file.candidate ?? 0,
+      candidates: file.candidates ?? 0,
+      cost: file.cost ?? 0,
       startedAt: file.startedAt,
       finishedAt: file.finishedAt,
       error,
