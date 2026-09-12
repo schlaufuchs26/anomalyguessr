@@ -55,6 +55,10 @@ CLI::
         [--vision-model google/gemini-2.5-flash] [--out verdict.json] \
         [--dedup PREV1.jpg [--dedup PREV2.jpg ...]] [--no-diff]
 
+    ag_verify.py --preflight [--env /path/.env] [--vision-model MODEL]
+        # one real call to the configured VISION_MODEL, no images needed
+        # (the check ag_generate runs before every batch, ticket #1307)
+
 Exit code 0 with ok=true = verified; exit code 0 with ok=false = rejected
 (the JSON explains why); non-zero = tooling/network error (caller may retry).
 """
@@ -72,13 +76,19 @@ import urllib.request
 from pathlib import Path
 
 GRID = 96
-# Output budget for the vision localization call. Reasoning is disabled in
-# the request (see vision_check): a reasoning model such as
-# deepseek-v4.1-flash spends the whole budget on reasoning_content and
-# returns an empty `content` (measured 2026-09-12, ticket #1285), which
-# would fail every verification in the cron after the VISION_MODEL switch.
-# 800 tokens is comfortably above the short JSON answer.
-VISION_MAX_TOKENS = 800
+# No output budget for the vision localization call. Reasoning stays ON: it
+# is the model's default and the localization is a hard visual task (Evan,
+# 2026-09-12; #1307). Reasoning tokens count against any `max_tokens` cap, so
+# a cap truncates the answer whenever the CoT runs long: measured on a real
+# 1200px scene the same localization prompt drew 1085, 1415 and 4474
+# reasoning tokens across three runs, and a 4096 cap returned an empty
+# `content` on the long one (the #1285 model-swap trap, one run in three).
+# Without `max_tokens` the model stops on its own; the answer is a few dozen
+# tokens. `ag_verify --preflight` still catches a model that cannot answer at
+# all.
+# Fallback when neither --vision-model nor VISION_MODEL is configured. The
+# live .env sets deepseek/deepseek-v4.1-flash; keep the two in sync.
+DEFAULT_VISION_MODEL = "google/gemini-2.5-flash"
 # A diff grid cell whose gray-difference value (0-100, JPEG-rescaled) sits at
 # or above this level counts as "changed" for the whole-frame-overlap checks.
 # Chosen so that JPEG encoding noise (~5) and mild tone shifts (~15-25) stay
@@ -221,9 +231,13 @@ def diff_grid(edited: Path, original: Path) -> dict:
             os.unlink(tmp)
             raise
     try:
+        # -alpha off: a PNG with an alpha channel (the image model can return
+        # RGBA) makes IM print "graya(...)" values, which the parser below
+        # does not read, and the grid comes back empty ("diff produced no
+        # cells"). Alpha carries no edit information here.
         txt = subprocess.run(
             ["convert", str(edited), resized, "-compose", "difference",
-             "-composite", "-colorspace", "Gray", "-resize",
+             "-composite", "-alpha", "off", "-colorspace", "Gray", "-resize",
              f"{GRID}x{GRID}!", "txt:-"],
             capture_output=True, text=True, check=True,
         ).stdout
@@ -510,6 +524,62 @@ def vision_user_text(anomaly: str, full_image: bool) -> str:
     )
 
 
+def resolve_vision_model(explicit: str = None) -> str:
+    """The vision model to call: explicit flag, then VISION_MODEL, then default."""
+    return explicit or os.environ.get("VISION_MODEL") or DEFAULT_VISION_MODEL
+
+
+def _vision_post(payload: dict, api_key: str, timeout: int = 90) -> dict:
+    """POST one chat-completions payload; return the parsed body.
+
+    HTTP errors become RuntimeError carrying the status and a slice of the
+    provider's body, so a wrong model slug or a declined request is
+    diagnosable instead of a bare traceback.
+    """
+    req = urllib.request.Request(
+        "https://openrouter.ai/api/v1/chat/completions",
+        data=json.dumps(payload).encode(),
+        headers={"Authorization": f"Bearer {api_key}",
+                 "Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return json.load(r)
+    except urllib.error.HTTPError as e:
+        raise RuntimeError(f"vision request failed: HTTP {e.code} "
+                           f"{e.read()[:300]!r}") from e
+
+
+def _message_content(body: dict, model: str) -> str:
+    """The assistant's content from a chat-completions body, or a clear error.
+
+    A thinking model can spend the whole completion on hidden CoT and return
+    an empty `content`; an empty string alone reads like a parse failure and
+    hides the cause. Name the model, the reasoning-token count and the budget
+    instead (same diagnostic shape as core/src/vision.go, ticket #1286).
+    """
+    choices = body.get("choices") or []
+    if not choices:
+        raise RuntimeError(f"vision model {model} returned no choices")
+    msg = choices[0].get("message") or {}
+    content = msg.get("content") or ""
+    if content.strip():
+        return content
+    usage = body.get("usage") or {}
+    details = usage.get("completion_tokens_details") or {}
+    rtokens = details.get("reasoning_tokens") or 0
+    reasoning = msg.get("reasoning_content") or msg.get("reasoning") or ""
+    detail = (f"prompt {usage.get('prompt_tokens')}, completion "
+              f"{usage.get('completion_tokens')}")
+    if reasoning or rtokens:
+        raise RuntimeError(
+            f"vision model {model} returned an empty answer after {rtokens} "
+            f"reasoning tokens ({detail}): the answer was cut off or spent "
+            "on hidden CoT")
+    raise RuntimeError(f"vision model {model} returned an empty answer "
+                       f"({detail})")
+
+
 def vision_check(image: Path, anomaly: str, api_key: str, model: str,
                  full_image: bool = True) -> dict:
     """Ask the fuchs vision model to localize the anomaly in an image.
@@ -534,30 +604,63 @@ def vision_check(image: Path, anomaly: str, api_key: str, model: str,
                  "image_url": {"url": f"data:image/png;base64,{b64}"}},
             ],
         }],
-        # Reasoning OFF (ticket #1285): a thinking model ignores a tight
-        # budget and returns reasoning_content with an empty `content`, so
-        # the localization call would fail every run. The verify pass only
-        # localizes/describes; a short answer is all it needs.
-        "reasoning": {"enabled": False},
-        "max_tokens": VISION_MAX_TOKENS,
+        # No `reasoning` field: the model's default reasoning is the design
+        # (#1286/#1307). No `max_tokens` either: reasoning tokens count
+        # against a cap, so a long CoT returns an empty content (measured:
+        # one run in three with 4096). The model stops on its own; an empty
+        # content is reported by _message_content with the token counts.
     }
-    req = urllib.request.Request(
-        "https://openrouter.ai/api/v1/chat/completions",
-        data=json.dumps(payload).encode(),
-        headers={"Authorization": f"Bearer {api_key}",
-                 "Content-Type": "application/json"},
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=90) as r:
-            body = json.load(r)
-    except urllib.error.HTTPError as e:
-        raise RuntimeError(f"vision request failed: HTTP {e.code} "
-                           f"{e.read()[:300]!r}") from e
-    content = (body.get("choices") or [{}])[0].get("message", {}).get(
-        "content", "")
-    if not content:
-        raise RuntimeError("vision request returned no content")
-    return parse_vision(content)
+    body = _vision_post(payload, api_key)
+    return parse_vision(_message_content(body, model))
+
+
+def preflight_vision(api_key: str, model: str = None,
+                     timeout: int = 60) -> dict:
+    """One real vision call to prove the configured model works (ticket #1307).
+
+    Runs at the START of a generation batch, before any image call: the
+    VISION_MODEL switch in #1285 broke every verification silently on the
+    first batch after the swap, so a single cheap call turns that class of
+    config error into a loud run failure instead of 10 rejected scenes.
+
+    Sends a tiny embedded image (a real image request, which is the shape
+    that broke) with a trivial JSON prompt and requires a non-empty answer.
+    A thinking model that returns only reasoning_content raises the
+    diagnosable error from _message_content. Returns
+    {"ok": True, "model": ..., "answer": ...} or raises RuntimeError.
+    """
+    model = resolve_vision_model(model)
+    payload = {
+        "model": model,
+        "messages": [{
+            "role": "user",
+            "content": [
+                {"type": "text", "text": PREFLIGHT_PROMPT},
+                {"type": "image_url",
+                 "image_url": {"url": "data:image/png;base64,"
+                                      + PREFLIGHT_IMAGE_B64}},
+            ],
+        }],
+    }
+    body = _vision_post(payload, api_key, timeout=timeout)
+    content = _message_content(body, model)
+    return {"ok": True, "model": model, "answer": content.strip()[:200]}
+
+
+# Tiny solid-gray 64x64 PNG for the preflight. Embedded so the check needs
+# no temp file and no ImageMagick; a real image is the point, since the
+# failure it guards against (empty content from a thinking model) only shows
+# up on image requests.
+PREFLIGHT_IMAGE_B64 = (
+    "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAAS0lEQVR42u3PMQ0AAAwDoEqv9ErY"
+    "vQQckD4XAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAYHLAB8+"
+    "AWnmfUycAAAAAElFTkSuQmCC"
+)
+PREFLIGHT_PROMPT = (
+    "Preflight check: the model must return a short JSON answer for an "
+    "image. Look at the image and answer as strict JSON only, no prose: "
+    '{"ok": true}'
+)
 
 
 def parse_vision(content: str) -> dict:
@@ -706,8 +809,7 @@ def verify(edited: Path, original: Path, anomaly: str, crop_out: Path = None,
             return {**verdict, "ok": False,
                     "reason": "no OPENROUTER_API_KEY for vision check",
                     "vision": None}
-        model = (vision_model or os.environ.get("VISION_MODEL")
-                 or "google/gemini-2.5-flash")
+        model = resolve_vision_model(vision_model)
         try:
             v = vision_check(edited, anomaly, key, model, full_image=True)
         except RuntimeError:
@@ -845,9 +947,13 @@ def verify(edited: Path, original: Path, anomaly: str, crop_out: Path = None,
 
 def main(argv) -> int:
     ap = argparse.ArgumentParser(prog="ag_verify.py")
-    ap.add_argument("--edited", required=True)
-    ap.add_argument("--original", required=True)
-    ap.add_argument("--anomaly", required=True)
+    ap.add_argument("--edited", default=None)
+    ap.add_argument("--original", default=None)
+    ap.add_argument("--anomaly", default=None)
+    ap.add_argument("--preflight", action="store_true",
+                    help="One real call to the configured VISION_MODEL "
+                         "(ticket #1307): print the model's answer and exit. "
+                         "Needs no --edited/--original/--anomaly.")
     ap.add_argument("--crop-out", default=None)
     ap.add_argument("--no-vision", action="store_true")
     ap.add_argument("--no-diff", action="store_true",
@@ -869,6 +975,23 @@ def main(argv) -> int:
                          "--original, verification aborts early with "
                          "ok=false reason 'identical output' (ticket #1124).")
     args = ap.parse_args(argv)
+    if args.preflight:
+        if args.env:
+            load_env(Path(args.env))
+        try:
+            key = os.environ.get("OPENROUTER_API_KEY")
+            if not key:
+                raise RuntimeError("no OPENROUTER_API_KEY for the vision "
+                                   "preflight")
+            result = preflight_vision(key, args.vision_model)
+        except (RuntimeError, OSError) as e:
+            print(json.dumps({"ok": False, "reason": f"{e}"}))
+            return 1
+        print(json.dumps(result, indent=2))
+        return 0
+    if not args.edited or not args.original or not args.anomaly:
+        ap.error("--edited, --original and --anomaly are required unless "
+                 "--preflight is used")
     try:
         verdict = verify(args.edited, args.original, args.anomaly,
                          crop_out=args.crop_out, vision=not args.no_vision,

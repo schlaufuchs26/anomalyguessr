@@ -63,8 +63,15 @@ class TempDataMixin:
         (self.data_dir / "sources" / "images").mkdir(parents=True)
         self._old_key = os.environ.get("OPENROUTER_API_KEY")
         os.environ["OPENROUTER_API_KEY"] = "test-key"
+        # The run loop preflights the VISION_MODEL with one real call before
+        # the first image call (ticket #1307). No test here may hit the
+        # network, so stub it; tests that check the wiring reassign it.
+        self._old_preflight = ag_verify.preflight_vision
+        ag_verify.preflight_vision = lambda *a, **kw: {
+            "ok": True, "model": "stub/model", "answer": "stub"}
 
     def tearDown(self):
+        ag_verify.preflight_vision = self._old_preflight
         if self._old_key is None:
             os.environ.pop("OPENROUTER_API_KEY", None)
         else:
@@ -812,6 +819,105 @@ class RunTests(TempDataMixin, unittest.TestCase):
         report = g.run(g.parse_args(["--data", str(self.data_dir), "--dry-run",
                                      "--count", "1"]))
         self.assertNotIn("warning", report)
+
+    def test_vision_preflight_records_the_configured_model(self):
+        # #1307: the run makes one real vision call before the image calls,
+        # against the --vision-model the verify pass will use.
+        self.write_source(source())
+        seen = {}
+
+        def fake_preflight(api_key, model=None, **kw):
+            seen["key"], seen["model"] = api_key, model
+            return {"ok": True, "model": "stub/model", "answer": "stub"}
+
+        def fake_edit(source_image, prompt, *a, **kw):
+            out = self._tmp / "out-preflight.png"
+            make_img(out)
+            return out.read_bytes()
+
+        orig_pre, orig_edit, orig_verify = (ag_verify.preflight_vision,
+                                            g.image_edit, ag_verify.verify)
+        ag_verify.preflight_vision = fake_preflight
+        g.image_edit = fake_edit
+        ag_verify.verify = lambda *a, **kw: self._verified()
+        try:
+            report = g.run(g.parse_args(
+                ["--data", str(self.data_dir), "--count", "1", "--seed", "1",
+                 "--picker", "rules", "--env", "",
+                 "--vision-model", "vendor/vision"]))
+        finally:
+            ag_verify.preflight_vision = orig_pre
+            g.image_edit, ag_verify.verify = orig_edit, orig_verify
+
+        self.assertEqual(len(report["added"]), 1)
+        self.assertEqual(seen["model"], "vendor/vision")
+        self.assertEqual(seen["key"], "test-key")
+        self.assertEqual(report["vision_preflight"]["model"], "stub/model")
+
+    def test_failing_vision_preflight_aborts_before_any_image_call(self):
+        # The #1285 trap: a model that returns no content must fail the run
+        # loudly instead of burning 10 image generations on scenes that all
+        # fail verification.
+        src = self.write_source(source())
+        image_calls = []
+
+        def boom(api_key, model=None, **kw):
+            raise RuntimeError("vision model bogus/model returned an empty "
+                               "answer")
+
+        def fake_edit(*a, **kw):
+            image_calls.append(1)
+            return b""
+
+        orig_pre, orig_edit = ag_verify.preflight_vision, g.image_edit
+        ag_verify.preflight_vision = boom
+        g.image_edit = fake_edit
+        try:
+            report = g.run(g.parse_args(
+                ["--data", str(self.data_dir), "--count", "1", "--seed", "1",
+                 "--picker", "rules", "--env", ""]))
+        finally:
+            ag_verify.preflight_vision = orig_pre
+            g.image_edit = orig_edit
+
+        self.assertIn("vision preflight failed", report["error"])
+        self.assertIn("bogus/model", report["error"])
+        self.assertEqual(image_calls, [])
+        self.assertEqual(report["added"], [])
+        self.assertNotIn("vision_preflight", report)
+        # the source stays unused, so tomorrow's run retries it
+        self.assertFalse(ag_sources.load_index(self.data_dir)
+                         ["sources"][src["id"]]["used"])
+
+    def test_no_vision_and_dry_run_skip_the_preflight(self):
+        self.write_source(source())
+
+        def boom(*a, **kw):
+            raise AssertionError("preflight must not run")
+
+        def fake_edit(source_image, prompt, *a, **kw):
+            out = self._tmp / "out-skip.png"
+            make_img(out)
+            return out.read_bytes()
+
+        orig_pre = ag_verify.preflight_vision
+        orig_edit, orig_verify = g.image_edit, ag_verify.verify
+        ag_verify.preflight_vision = boom
+        g.image_edit = fake_edit
+        ag_verify.verify = lambda *a, **kw: self._verified()
+        try:
+            dry = g.run(g.parse_args(["--data", str(self.data_dir),
+                                      "--dry-run", "--count", "1"]))
+            no_vision = g.run(g.parse_args(
+                ["--data", str(self.data_dir), "--count", "1", "--seed", "1",
+                 "--picker", "rules", "--env", "", "--no-vision"]))
+        finally:
+            ag_verify.preflight_vision = orig_pre
+            g.image_edit, ag_verify.verify = orig_edit, orig_verify
+
+        self.assertTrue(dry["dry_run"])
+        self.assertNotIn("vision_preflight", dry)
+        self.assertNotIn("vision_preflight", no_vision)
 
 
 class RunLockAndStatusTests(TempDataMixin, unittest.TestCase):

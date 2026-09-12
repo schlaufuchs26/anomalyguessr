@@ -586,15 +586,17 @@ class IdenticalOutputTest(unittest.TestCase):
 
 
 class VisionCallTest(unittest.TestCase):
-    """The vision request must disable reasoning (ticket #1285).
+    """The vision request keeps reasoning on and sets no token cap (#1307).
 
-    With a reasoning-model VISION_MODEL (deepseek-v4.1-flash) and thinking
-    on, the whole output budget goes to reasoning_content and `content`
-    comes back empty, so every localization fails. Pinning
-    reasoning: {enabled: false} keeps the call working after a model swap.
+    Reasoning is the model's default and the localization is a hard visual
+    task (Evan, 2026-09-12), so the request must not switch it off. It must
+    not cap the completion either: reasoning tokens are billed against
+    `max_tokens`, and on a real scene the CoT alone drew 1085-4474 tokens,
+    so a 4096 cap returned content:null about one run in three (the #1285
+    model-swap trap).
     """
 
-    def test_vision_check_disables_reasoning(self):
+    def test_vision_check_keeps_reasoning_and_drops_the_token_cap(self):
         tmp = Path(tempfile.mkdtemp(prefix="agv_"))
         try:
             img = tmp / "scene.png"
@@ -618,12 +620,120 @@ class VisionCallTest(unittest.TestCase):
             shutil.rmtree(tmp, ignore_errors=True)
 
         p = captured["payload"]
-        # Reasoning off: otherwise a thinking model returns content: null.
-        self.assertEqual(p["reasoning"], {"enabled": False})
-        self.assertEqual(p["max_tokens"], tv.VISION_MAX_TOKENS)
+        # Reasoning stays at the provider default (no field), and the request
+        # must NOT cap the completion: reasoning tokens count against a cap,
+        # so a long CoT returns empty content (measured, ticket #1307).
+        self.assertNotIn("reasoning", p)
+        self.assertNotIn("max_tokens", p)
         self.assertTrue(any(c["type"] == "image_url"
                             for c in p["messages"][0]["content"]))
         self.assertEqual(got["box"], [0.1, 0.2, 0.3, 0.4])
+
+    def test_empty_content_after_reasoning_is_a_diagnosable_error(self):
+        # The #1285 failure mode: reasoning ate the completion, content is
+        # null/empty. The error must name the model and the token counts
+        # instead of reading like a parse failure.
+        body = {
+            "choices": [{"message": {"content": "",
+                                     "reasoning_content": "thinking..."}}],
+            "usage": {"prompt_tokens": 900, "completion_tokens": 4096,
+                      "completion_tokens_details": {"reasoning_tokens": 4096}},
+        }
+        with self.assertRaises(RuntimeError) as cm:
+            tv._message_content(body, "bogus/model")
+        msg = str(cm.exception)
+        self.assertIn("bogus/model", msg)
+        self.assertIn("4096 reasoning tokens", msg)
+
+
+class PreflightTests(unittest.TestCase):
+    """One real vision call before a generation batch (ticket #1307)."""
+
+    def _body(self, content='{"ok": true}'):
+        return {"choices": [{"message": {"content": content}}],
+                "usage": {"prompt_tokens": 10, "completion_tokens": 3}}
+
+    def test_preflight_posts_an_image_and_returns_the_answer(self):
+        captured = {}
+
+        def fake_urlopen(req, timeout=None):
+            captured["payload"] = json.loads(req.data)
+            captured["timeout"] = timeout
+            return io.BytesIO(json.dumps(self._body()).encode())
+
+        orig = tv.urllib.request.urlopen
+        tv.urllib.request.urlopen = fake_urlopen
+        try:
+            got = tv.preflight_vision("key", "vendor/model")
+        finally:
+            tv.urllib.request.urlopen = orig
+
+        self.assertTrue(got["ok"], got)
+        self.assertEqual(got["model"], "vendor/model")
+        self.assertEqual(got["answer"], '{"ok": true}')
+        payload = captured["payload"]
+        self.assertEqual(payload["model"], "vendor/model")
+        self.assertNotIn("reasoning", payload)
+        self.assertNotIn("max_tokens", payload)
+        parts = payload["messages"][0]["content"]
+        self.assertTrue(any(c["type"] == "image_url" for c in parts))
+
+    def test_preflight_resolves_the_configured_model(self):
+        seen = {}
+
+        def fake_urlopen(req, timeout=None):
+            seen["model"] = json.loads(req.data)["model"]
+            return io.BytesIO(json.dumps(self._body()).encode())
+
+        orig_url, orig_env = tv.urllib.request.urlopen, os.environ.get(
+            "VISION_MODEL")
+        tv.urllib.request.urlopen = fake_urlopen
+        os.environ["VISION_MODEL"] = "env/model"
+        try:
+            tv.preflight_vision("key")
+        finally:
+            tv.urllib.request.urlopen = orig_url
+            if orig_env is None:
+                os.environ.pop("VISION_MODEL", None)
+            else:
+                os.environ["VISION_MODEL"] = orig_env
+        self.assertEqual(seen["model"], "env/model")
+
+    def test_preflight_fails_loudly_on_empty_content(self):
+        # A model that only returns reasoning must fail the preflight with a
+        # message that names the model, not a bare empty answer.
+        body = {"choices": [{"message": {"content": None,
+                                         "reasoning_content": "hmm"}}],
+                "usage": {"prompt_tokens": 5, "completion_tokens": 4096,
+                          "completion_tokens_details": {
+                              "reasoning_tokens": 4096}}}
+
+        def fake_urlopen(req, timeout=None):
+            return io.BytesIO(json.dumps(body).encode())
+
+        orig = tv.urllib.request.urlopen
+        tv.urllib.request.urlopen = fake_urlopen
+        try:
+            with self.assertRaises(RuntimeError) as cm:
+                tv.preflight_vision("key", "vendor/model")
+        finally:
+            tv.urllib.request.urlopen = orig
+        self.assertIn("vendor/model", str(cm.exception))
+
+    def test_preflight_cli_without_a_key_reports_the_error(self):
+        r = subprocess.run(
+            ["python3", str(SCRIPTS_DIR / "ag_verify.py"), "--preflight"],
+            capture_output=True, text=True,
+            env={**os.environ, "OPENROUTER_API_KEY": ""})
+        self.assertNotEqual(r.returncode, 0)
+        self.assertFalse(json.loads(r.stdout)["ok"])
+
+    def test_cli_without_preflight_still_requires_the_images(self):
+        r = subprocess.run(
+            ["python3", str(SCRIPTS_DIR / "ag_verify.py"), "--no-vision"],
+            capture_output=True, text=True)
+        self.assertEqual(r.returncode, 2)
+        self.assertIn("--preflight", r.stderr)
 
 
 class MainCliTest(unittest.TestCase):

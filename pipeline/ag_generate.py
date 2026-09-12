@@ -56,7 +56,12 @@ cron prompt left to LLM judgment is now code:
    `hints` from the placement recipe + the verified answer position.
 
 Model-call sequence per scene: the anomaly picker vision call, the image
-edit, then the verification vision pass (inside `ag_verify`).
+edit, then the verification vision pass (inside `ag_verify`). Before the
+FIRST image call of a run, `ag_verify.preflight_vision()` makes one real call
+to the configured VISION_MODEL (ticket #1307): a broken model (wrong slug, or
+one whose reasoning eats the answer) fails the run loudly instead of
+rejecting all 10 scenes after 10 image generations. Skipped for `--dry-run`
+and `--no-vision`.
 
 Retries (run-guards #1122/#1124): at most `--max-attempts` generations per
 source, each with a MATERIALLY different anomaly (never the same prompt), and
@@ -1309,6 +1314,20 @@ def _run(args, data_dir: Path, lock) -> dict:
         ]
         return report
 
+    if api_key and not args.no_vision:
+        # Vision preflight (#1307): one real call before the first image
+        # call, so a broken VISION_MODEL (wrong slug, or a thinking model
+        # whose reasoning eats the answer) fails the run loudly instead of
+        # rejecting all 10 scenes after 10 image generations (the #1285
+        # model-swap trap). The call takes a few seconds and costs a
+        # fraction of one scene.
+        try:
+            report["vision_preflight"] = ag_verify.preflight_vision(
+                api_key, args.vision_model)
+        except (RuntimeError, OSError) as e:
+            report["error"] = f"vision preflight failed: {e}"
+            emit(state="error", error=report["error"], finishedAt=_now_iso())
+            return report
     out_dir = Path(args.out_dir) if args.out_dir else Path(
         tempfile.mkdtemp(prefix="ag-gen-"))
     # Planned prompts are "used" from the start, so a retry never repeats a
