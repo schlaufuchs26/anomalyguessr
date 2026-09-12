@@ -866,6 +866,16 @@ def verify_label(entry: dict) -> str:
     return entry["label"]
 
 
+def is_figure(entry: dict) -> bool:
+    """True when the anomaly is a human figure (person or humanoid robot).
+
+    Both are whole-body anomalies: the answer must cover head to feet, not
+    just the modern tell or the mechanical head (ticket #1308). Passed to
+    `ag_verify.verify(person=...)`.
+    """
+    return entry["type"] == "person" or entry["recipe"].startswith("person")
+
+
 # ── Scale reporting (ticket #1328) ─────────────────────────────────────────
 SIZE_HINT_RE = re.compile(r"(\d+(?:\.\d+)?)\s*(?:%|percent)", re.I)
 # Report a scene as over its size budget when the measured rendered size is
@@ -1340,7 +1350,8 @@ def _run(args, data_dir: Path, lock) -> dict:
                                                            current["label"]),
                     vision=not args.no_vision, env_path=args.env,
                     vision_model=args.vision_model,
-                    dedup=list(previous_outputs) or None)
+                    dedup=list(previous_outputs) or None,
+                    person=is_figure(current))
             except (RuntimeError, OSError, ValueError) as e:
                 result = {"ok": False, "reason": f"verify error: {e}",
                           "stage": "verify", "attempt": attempt}

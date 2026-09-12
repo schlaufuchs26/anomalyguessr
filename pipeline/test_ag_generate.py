@@ -512,6 +512,14 @@ class EntryTests(unittest.TestCase):
     def entry(self, label):
         return next(e for e in ag_catalog.CATALOG if e["label"] == label)
 
+    def test_is_figure_covers_persons_and_humanoid_robots(self):
+        # #1308: the verify call marks whole-body anomalies so the answer
+        # covers the full figure; objects must stay unflagged.
+        self.assertTrue(g.is_figure(self.entry("Time traveler: tourist")))
+        self.assertTrue(g.is_figure(self.entry("Robot time traveler")))
+        self.assertFalse(g.is_figure(self.entry("Plastic bottle (clear PET)")))
+        self.assertFalse(g.is_figure(self.entry("Futuristic gadget")))
+
     def test_built_entry_passes_queue_validation(self):
         s = source()
         answer = {"x": 0.4, "y": 0.8, "r": 0.05}
@@ -676,6 +684,50 @@ class RunTests(TempDataMixin, unittest.TestCase):
         self.assertEqual(report["added"][0]["anomaly"], chosen["label"])
         self.assertEqual(report["picker_stats"]["mode"], "llm")
         self.assertEqual(report["picker_stats"]["llm"], 1)
+
+    def test_run_tells_verify_that_a_person_scene_is_a_figure(self):
+        # #1308: the run loop must mark a time-traveler pick as a person so
+        # the answer covers the whole figure; objects (and the rule pick)
+        # stay unflagged.
+        self.write_source(source())
+        got = {}
+
+        def fake_make(data_dir, api_key, base_url, model, max_tokens, timeout,
+                      *a, **kw):
+            def choose(src, cands):
+                labels = [c["label"] for c in cands]
+                assert "Time traveler: tourist" in labels, labels
+                return {"label": "Time traveler: tourist", "reason": "test",
+                        "usage": {"cost": 0.0, "prompt_tokens": 5,
+                                  "completion_tokens": 3}}
+            return choose
+
+        def fake_edit(source_image, prompt, *a, **kw):
+            out = self._tmp / "out-person.png"
+            make_img(out)
+            return out.read_bytes()
+
+        def fake_verify(*a, **kw):
+            got["person"] = kw.get("person")
+            return self._verified()
+
+        orig_make = g.make_vision_picker
+        orig_edit, orig_verify = g.image_edit, ag_verify.verify
+        g.make_vision_picker = fake_make
+        g.image_edit = fake_edit
+        ag_verify.verify = fake_verify
+        try:
+            report = g.run(g.parse_args(
+                ["--data", str(self.data_dir), "--count", "1", "--seed", "1",
+                 "--picker", "llm", "--env", ""]))
+        finally:
+            g.make_vision_picker = orig_make
+            g.image_edit, ag_verify.verify = orig_edit, orig_verify
+
+        self.assertEqual(len(report["added"]), 1, report)
+        self.assertEqual(report["added"][0]["anomaly"],
+                         "Time traveler: tourist")
+        self.assertTrue(got["person"])
 
     def test_empty_dataset_reports_the_error_without_calling_anything(self):
         report = g.run(g.parse_args(["--data", str(self.data_dir)]))

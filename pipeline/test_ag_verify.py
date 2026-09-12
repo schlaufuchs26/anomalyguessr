@@ -278,6 +278,42 @@ class BoxToAnswerTest(unittest.TestCase):
         corner = math.hypot(0.443 - ans["x"], 0.852 - ans["y"])
         self.assertLessEqual(corner, ans["r"])
 
+    def test_person_min_radius_floors_a_small_box(self):
+        # #1308: a person is the whole figure, so the target must be big
+        # enough to click head AND shoes even when the vision model boxes
+        # them tightly. The geometry of a small box alone is not enough.
+        box = [0.4, 0.3, 0.45, 0.36]
+        ans = tv.box_to_answer(box, person=True)
+        self.assertGreaterEqual(ans["r"], tv.PERSON_MIN_RADIUS)
+        self.assertLess(tv.box_to_answer(box)["r"], tv.PERSON_MIN_RADIUS)
+
+    def test_person_short_box_is_extended_to_a_full_figure(self):
+        # An upper-body box (head to chest) must not leave the legs and
+        # shoes unclickable: the head is the box's top edge, so the box is
+        # extended downward before the answer is derived (ticket #1308).
+        box = [0.4, 0.30, 0.45, 0.42]  # 0.05 wide, 0.12 tall: cut at the waist
+        ans = tv.box_to_answer(box, person=True)
+        self.assertAlmostEqual(ans["y"],
+                               box[1] + tv.PERSON_MIN_BOX_HEIGHT / 2,
+                               delta=0.001)
+        self.assertGreater(ans["y"], (box[1] + box[3]) / 2)
+        self.assertGreaterEqual(ans["r"], tv.PERSON_MIN_RADIUS)
+
+    def test_person_full_figure_box_is_not_touched(self):
+        # A box that already spans a whole figure (the #1328 prompt produces
+        # these) must be used as-is; the person rule only rescues a
+        # truncated box.
+        box = [0.4, 0.3, 0.45, 0.55]
+        self.assertEqual(tv.box_to_answer(box, person=True),
+                         tv.box_to_answer(box))
+
+    def test_person_extension_clamps_to_the_frame_bottom(self):
+        # A figure at the bottom edge: the extension cannot leave the frame,
+        # so the radius floor is what still makes the whole figure clickable.
+        ans = tv.box_to_answer([0.4, 0.93, 0.45, 0.99], person=True)
+        self.assertLessEqual(ans["y"], 1.0)
+        self.assertGreaterEqual(ans["r"], tv.PERSON_MIN_RADIUS)
+
 
 class VerifyTest(unittest.TestCase):
     def setUp(self):
@@ -330,6 +366,46 @@ class VerifyTest(unittest.TestCase):
         self.assertAlmostEqual(verdict["answer"]["x"], 0.575, delta=0.01)
         self.assertAlmostEqual(verdict["answer"]["y"], 0.575, delta=0.01)
         self.assertIn("position_conflict", verdict)
+
+    def test_verify_person_answer_covers_the_whole_figure(self):
+        # #1308: the caller marks a time-traveler scene as a person; an
+        # upper-body box then still yields an answer a player can hit on the
+        # shoes, while the same box for an object stays tight.
+        def fake_vision_check(image, anomaly, key, model, full_image=True):
+            return {"present": True, "note": "visible",
+                    "box": [0.4, 0.30, 0.45, 0.42], "size_hint": None}
+        orig = tv.vision_check
+        tv.vision_check = fake_vision_check
+        try:
+            person = tv.verify(self.edited, self.orig,
+                               "Time traveler: tourist", vision=True,
+                               person=True)
+            obj = tv.verify(self.edited, self.orig, "Digital watch",
+                            vision=True)
+        finally:
+            tv.vision_check = orig
+        self.assertTrue(person["ok"], person)
+        self.assertGreaterEqual(person["answer"]["r"], tv.PERSON_MIN_RADIUS)
+        self.assertGreater(person["answer"]["y"], obj["answer"]["y"])
+        self.assertNotIn("person_box_extended", obj)
+        self.assertIn("person_box_extended", person)
+        self.assertLess(obj["answer"]["r"], tv.PERSON_MIN_RADIUS)
+
+    def test_verify_person_full_figure_box_uses_the_box_geometry(self):
+        # A full-figure person box keeps its geometric radius even when that
+        # is above the floor: the floor is a minimum, never a replacement.
+        def fake_vision_check(image, anomaly, key, model, full_image=True):
+            return {"present": True, "note": "visible",
+                    "box": [0.4, 0.3, 0.45, 0.55], "size_hint": None}
+        orig = tv.vision_check
+        tv.vision_check = fake_vision_check
+        try:
+            person = tv.verify(self.edited, self.orig, "Time traveler: tourist",
+                               vision=True, person=True)
+        finally:
+            tv.vision_check = orig
+        self.assertAlmostEqual(person["answer"]["r"], 0.1657, delta=0.002)
+        self.assertNotIn("person_box_extended", person)
 
     def test_verify_vision_absent_rejects(self):
         def fake_vision_check(image, anomaly, key, model, full_image=True):

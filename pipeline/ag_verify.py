@@ -14,7 +14,10 @@ sanity gate:
    true/false, a short note, and an object-size sanity hint. The answer
    center + radius come from this box; the radius follows the box's
    half-diagonal (times a margin), so the stored circle covers the WHOLE
-   anomaly (ticket #1328). The full image is used (not a zoom
+   anomaly (ticket #1328). For a human figure (person/robot anomalies,
+   ``person=True``) the box is first extended to a full-figure height when
+   the model boxed only the upper body, and the radius is floored at
+   ``PERSON_MIN_RADIUS`` (ticket #1308). The full image is used (not a zoom
    crop), because the crop removes the depth/scale context and the whole
    point of #1165 is that the vision model localizes against the real
    scene.
@@ -119,6 +122,29 @@ MAX_BOX_EXTENT = 0.95
 # miss; the validator allows r up to 0.5, so the cap moves to 0.22.
 BOX_COVER_MARGIN = 1.3
 MAX_ANSWER_RADIUS = 0.22
+# Person answer coverage (ticket #1308). A time-traveler PERSON is the
+# anomaly in its entirety, so the stored answer must be clickable on the
+# head, the torso and the shoes - not only on the modern tell (sneakers,
+# headphones) the vision model likes to box. Evan's feedback: "click
+# position should be expanded to cover the whole time traveler"
+# (oxford-fair-1912), "expanded down slightly to cover his shoes"
+# (cuyahoga-parade), "doesn't fully cover the headphones" (cabbage-market).
+#
+# The generator prompts a full figure at 8-15 percent of the image height
+# (ag_catalog.DEFAULT_PERSON_SCALE_MAX), so a person box shorter than that
+# is a figure cut at the waist: the model boxed the upper body. The head is
+# the box's top edge, so the missing part lies below it; the box is extended
+# downward to PERSON_MIN_BOX_HEIGHT before the answer is derived. In
+# practice this only fires on a truncated box: the six live person scenes
+# measured 2026-09-12 (after the #1328 prompt) came back 0.21-0.36 of the
+# image height, all above the floor.
+#
+# PERSON_MIN_RADIUS floors the circle. A standing person is narrow: the
+# half-diagonal of a minimal in-budget box (0.05 x 0.15) is 0.103, a small
+# target for a figure whose head and shoes are both supposed to count; the
+# floor sits slightly above it.
+PERSON_MIN_BOX_HEIGHT = 0.15
+PERSON_MIN_RADIUS = 0.12
 
 
 def md5_file(path: Path) -> str:
@@ -342,7 +368,23 @@ def locate_hotspot(edited: Path, original: Path) -> dict:
     }
 
 
-def box_to_answer(box, radius_from_extent: bool = True) -> dict:
+def full_figure_box(box) -> list:
+    """A person box extended to a plausible full-figure height (ticket #1308).
+
+    The vision model sometimes boxes only the modern tell (the headphones,
+    the sneakers) or the upper body. A person's box top is the head, so a
+    box shorter than PERSON_MIN_BOX_HEIGHT is a figure cut off at the waist:
+    extend it downward to the generator's own full-figure floor, clamped to
+    the frame. A box that already spans a whole figure is returned unchanged.
+    """
+    x1, y1, x2, y2 = box
+    if y2 - y1 >= PERSON_MIN_BOX_HEIGHT:
+        return list(box)
+    return [x1, y1, x2, min(1.0, y1 + PERSON_MIN_BOX_HEIGHT)]
+
+
+def box_to_answer(box, radius_from_extent: bool = True,
+                  person: bool = False) -> dict:
     """Normalized answer (x,y,r) from a normalized [x1,y1,x2,y2] box.
 
     The radius follows the box's half-diagonal times BOX_COVER_MARGIN, so
@@ -350,7 +392,14 @@ def box_to_answer(box, radius_from_extent: bool = True) -> dict:
     the head, the shoes or the hidden half of an object is a hit (ticket
     #1328). Clamped to [0.02, MAX_ANSWER_RADIUS]; the queue validator allows
     r up to 0.5.
+
+    With person=True (ticket #1308) the box is treated as a human figure:
+    a truncated box is extended to a full-figure height first, and the
+    radius is floored at PERSON_MIN_RADIUS so the whole figure is clickable
+    even when the model returned only the upper body.
     """
+    if person:
+        box = full_figure_box(box)
     x = (box[0] + box[2]) / 2
     y = (box[1] + box[3]) / 2
     if radius_from_extent:
@@ -359,12 +408,14 @@ def box_to_answer(box, radius_from_extent: bool = True) -> dict:
         r = 0.5 * math.hypot(w, hgt) * BOX_COVER_MARGIN
     else:
         r = 0.05
+    if person:
+        r = max(r, PERSON_MIN_RADIUS)
     r = max(0.02, min(r, MAX_ANSWER_RADIUS))
     return {"x": round(x, 4), "y": round(y, 4), "r": round(r, 4)}
 
 
-def answer_from_hotspot(top: dict, vision_box=None,
-                        box_radius: bool = False) -> dict:
+def answer_from_hotspot(top: dict, vision_box=None, box_radius: bool = False,
+                        person: bool = False) -> dict:
     """Normalized answer position + radius from a diff hotspot.
 
     Legacy helper (kept for ag_scale.py + the pixel-diff fallback path):
@@ -373,9 +424,11 @@ def answer_from_hotspot(top: dict, vision_box=None,
     (full-image normalized) overrides the center when present. With
     box_radius=True (position-conflict path, ticket #1153) the radius
     follows the box's own extent instead of the (untrusted) hotspot's.
+    person=True (ticket #1308) applies the full-figure rule to that box.
     """
     if vision_box:
-        return box_to_answer(vision_box, radius_from_extent=box_radius)
+        return box_to_answer(vision_box, radius_from_extent=box_radius,
+                             person=person)
     x = top["cx"]
     y = top["cy"]
     w = top["x2"] - top["x1"]
@@ -593,12 +646,18 @@ def vision_present_else_none(v: dict) -> dict:
 
 def verify(edited: Path, original: Path, anomaly: str, crop_out: Path = None,
            vision: bool = True, env_path: Path = None,
-           vision_model: str = None, dedup=None, diff: bool = True) -> dict:
+           vision_model: str = None, dedup=None, diff: bool = True,
+           person: bool = False) -> dict:
     """Full verification pipeline. Returns the verdict dict.
 
     #1165: primary answer = full-image vision bounding box. The pixel-diff
     hotspot runs as a sanity gate + fallback answer source (when vision is
     disabled, returns no parseable box, or no API key is set).
+
+    person=True (ticket #1308) marks the anomaly as a human figure: the
+    answer is derived from a full-figure box and floored at
+    PERSON_MIN_RADIUS, so clicks on the head, the torso and the shoes count.
+    Callers set it for time-traveler person and robot entries.
     """
     edited = Path(edited)
     original = Path(original)
@@ -662,7 +721,12 @@ def verify(edited: Path, original: Path, anomaly: str, crop_out: Path = None,
 
         if vbox is not None:
             # Primary path: answer from the full-image vision box.
-            verdict["answer"] = box_to_answer(vbox)
+            if person:
+                figure = full_figure_box(vbox)
+                if figure != list(vbox):
+                    verdict["person_box_extended"] = figure
+                vbox = figure
+            verdict["answer"] = box_to_answer(vbox, person=person)
             verdict["localization"] = "vision"
             if top is not None:
                 vcx = (vbox[0] + vbox[2]) / 2
@@ -739,7 +803,8 @@ def verify(edited: Path, original: Path, anomaly: str, crop_out: Path = None,
             delta = math.hypot(vcx - cx, vcy - cy)
             if delta > POSITION_CONFLICT_DELTA:
                 verdict["answer"] = answer_from_hotspot(top, vbox2,
-                                                        box_radius=True)
+                                                        box_radius=True,
+                                                        person=person)
                 verdict["localization"] = "vision-crop"
                 verdict["position_conflict"] = {
                     "delta": round(delta, 4),
@@ -753,7 +818,8 @@ def verify(edited: Path, original: Path, anomaly: str, crop_out: Path = None,
                     "the vision box"
                     % (vcx, vcy, cx, cy, delta, POSITION_CONFLICT_DELTA))
             else:
-                verdict["answer"] = answer_from_hotspot(top, vbox2)
+                verdict["answer"] = answer_from_hotspot(top, vbox2,
+                                                        person=person)
                 verdict["localization"] = "vision-crop"
         if not v2["present"]:
             if v["present"]:
@@ -788,6 +854,11 @@ def main(argv) -> int:
                     help="Skip the pixel-diff hotspot entirely (vision-only "
                          "verdict; the diff is the sanity gate + fallback, "
                          "ticket #1165).")
+    ap.add_argument("--person", action="store_true",
+                    help="The anomaly is a human figure (time-traveler "
+                         "person or robot): derive the answer from a "
+                         "full-figure box and apply the person minimum "
+                         "radius (ticket #1308).")
     ap.add_argument("--env", default=None)
     ap.add_argument("--vision-model", default=None)
     ap.add_argument("--out", default=None)
@@ -802,7 +873,8 @@ def main(argv) -> int:
         verdict = verify(args.edited, args.original, args.anomaly,
                          crop_out=args.crop_out, vision=not args.no_vision,
                          env_path=args.env, vision_model=args.vision_model,
-                         dedup=args.dedup, diff=not args.no_diff)
+                         dedup=args.dedup, diff=not args.no_diff,
+                         person=args.person)
     except (subprocess.CalledProcessError, ValueError, RuntimeError,
             OSError) as e:
         print(json.dumps({"ok": False, "reason": f"{e}"}))
