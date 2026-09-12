@@ -1,4 +1,7 @@
-node_modules/
+# No trailing slash: a worktree that symlinks node_modules (instead of a
+# fresh install) puts a symlink here, which a "node_modules/" pattern would
+# not ignore (dashboard #981 regression).
+node_modules
 dist/
 coverage/
 .env
