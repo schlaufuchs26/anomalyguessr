@@ -8,6 +8,7 @@ on ag_verify.vision_check, or with --no-vision for the image logic.
 """
 
 import json
+import io
 import os
 import shutil
 import subprocess
@@ -469,6 +470,47 @@ class IdenticalOutputTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             tv.verify(self.edited, self.orig, "Plastic bottle", vision=False,
                       dedup=[str(self.tmp / "nope.png")])
+
+
+class VisionCallTest(unittest.TestCase):
+    """The vision request must disable reasoning (ticket #1285).
+
+    With a reasoning-model VISION_MODEL (deepseek-v4.1-flash) and thinking
+    on, the whole output budget goes to reasoning_content and `content`
+    comes back empty, so every localization fails. Pinning
+    reasoning: {enabled: false} keeps the call working after a model swap.
+    """
+
+    def test_vision_check_disables_reasoning(self):
+        tmp = Path(tempfile.mkdtemp(prefix="agv_"))
+        try:
+            img = tmp / "scene.png"
+            make_img(img, 200, 100)
+            captured = {}
+            body = {"choices": [{"message": {"content": json.dumps(
+                {"present": True, "note": "n",
+                 "box": [0.1, 0.2, 0.3, 0.4]})}}]}
+
+            def fake_urlopen(req, timeout=None):
+                captured["payload"] = json.loads(req.data)
+                return io.BytesIO(json.dumps(body).encode())
+
+            orig = tv.urllib.request.urlopen
+            tv.urllib.request.urlopen = fake_urlopen
+            try:
+                got = tv.vision_check(img, "Plastic bottle", "key", "model")
+            finally:
+                tv.urllib.request.urlopen = orig
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+        p = captured["payload"]
+        # Reasoning off: otherwise a thinking model returns content: null.
+        self.assertEqual(p["reasoning"], {"enabled": False})
+        self.assertEqual(p["max_tokens"], tv.VISION_MAX_TOKENS)
+        self.assertTrue(any(c["type"] == "image_url"
+                            for c in p["messages"][0]["content"]))
+        self.assertEqual(got["box"], [0.1, 0.2, 0.3, 0.4])
 
 
 class MainCliTest(unittest.TestCase):

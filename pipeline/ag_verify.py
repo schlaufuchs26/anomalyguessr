@@ -67,6 +67,13 @@ import urllib.request
 from pathlib import Path
 
 GRID = 96
+# Output budget for the vision localization call. Reasoning is disabled in
+# the request (see vision_check): a reasoning model such as
+# deepseek-v4.1-flash spends the whole budget on reasoning_content and
+# returns an empty `content` (measured 2026-09-12, ticket #1285), which
+# would fail every verification in the cron after the VISION_MODEL switch.
+# 800 tokens is comfortably above the short JSON answer.
+VISION_MAX_TOKENS = 800
 # A diff grid cell whose gray-difference value (0-100, JPEG-rescaled) sits at
 # or above this level counts as "changed" for the whole-frame-overlap checks.
 # Chosen so that JPEG encoding noise (~5) and mild tone shifts (~15-25) stay
@@ -450,7 +457,12 @@ def vision_check(image: Path, anomaly: str, api_key: str, model: str,
                  "image_url": {"url": f"data:image/png;base64,{b64}"}},
             ],
         }],
-        "max_tokens": 400,
+        # Reasoning OFF (ticket #1285): a thinking model ignores a tight
+        # budget and returns reasoning_content with an empty `content`, so
+        # the localization call would fail every run. The verify pass only
+        # localizes/describes; a short answer is all it needs.
+        "reasoning": {"enabled": False},
+        "max_tokens": VISION_MAX_TOKENS,
     }
     req = urllib.request.Request(
         "https://openrouter.ai/api/v1/chat/completions",
