@@ -15,6 +15,8 @@ import shutil
 import struct
 import subprocess
 import tempfile
+import threading
+import time
 import unittest
 import zlib
 from pathlib import Path
@@ -341,6 +343,94 @@ class RunTests(TempDataMixin, unittest.TestCase):
         with contextlib.redirect_stderr(buf):
             ab.run(args, self.fake_call)
         self.assertIn("[1/1] commons-progress", buf.getvalue())
+
+
+class JobsArgTests(unittest.TestCase):
+    def test_default_is_a_pool(self):
+        self.assertEqual(ab.parse_args([]).jobs, ab.DEFAULT_JOBS)
+        self.assertGreater(ab.DEFAULT_JOBS, 1)
+
+    def test_zero_or_negative_jobs_is_rejected(self):
+        for value in ("0", "-2"):
+            with self.subTest(value=value):
+                with contextlib.redirect_stderr(io.StringIO()):
+                    with self.assertRaises(SystemExit):
+                        ab.parse_args(["--jobs", value])
+
+
+class ParallelRunTests(TempDataMixin, unittest.TestCase):
+    def setUp(self):
+        super().setUp()
+        for i in range(4):
+            self.write_source(source(sid=f"commons-par-{i}",
+                                     title="Busy market street, 1900"))
+
+    def fake_call(self, prompt, image_url):
+        return body_for(first_label(prompt))
+
+    def tracking_call(self, inflight, lock, delay=0.05):
+        """A fake call that records how many calls run at the same time."""
+        def call(prompt, image_url):
+            with lock:
+                inflight["now"] += 1
+                inflight["max"] = max(inflight["max"], inflight["now"])
+            time.sleep(delay)
+            with lock:
+                inflight["now"] -= 1
+            return body_for(first_label(prompt))
+        return call
+
+    def run_with_jobs(self, jobs, call, count=4):
+        args = ab.parse_args(["--data", str(self.data_dir), "--count",
+                              str(count), "--repeats", "1", "--jobs",
+                              str(jobs)])
+        return ab.run(args, call)
+
+    def test_jobs_overlap_the_sources(self):
+        inflight = {"now": 0, "max": 0}
+        report = self.run_with_jobs(
+            4, self.tracking_call(inflight, threading.Lock()))
+        self.assertEqual(report["summary"]["sources"], 4)
+        self.assertEqual(report["jobs"], 4)
+        self.assertGreater(inflight["max"], 1,
+                           "the pool serialized despite --jobs 4")
+
+    def test_jobs_one_runs_serially(self):
+        inflight = {"now": 0, "max": 0}
+        report = self.run_with_jobs(
+            1, self.tracking_call(inflight, threading.Lock()))
+        self.assertEqual(report["summary"]["sources"], 4)
+        self.assertEqual(inflight["max"], 1)
+
+    def test_report_matches_the_serial_run(self):
+        def without_latency(report):
+            """Latency is wall time and differs by construction; ``jobs`` only
+            labels how the run was scheduled, not what it measured."""
+            report = json.loads(json.dumps(report))
+            report.pop("jobs", None)
+            for row in report["rows"]:
+                row.pop("latency_s", None)
+            for key in ("latency_s_median", "latency_s_total"):
+                report["summary"].pop(key, None)
+            return report
+
+        serial = self.run_with_jobs(1, self.fake_call)
+        parallel = self.run_with_jobs(4, self.fake_call)
+        self.assertEqual(without_latency(serial), without_latency(parallel))
+        self.assertEqual([r["source"] for r in parallel["rows"]],
+                         [r["source"] for r in serial["rows"]],
+                         "the pool must keep the sampled order")
+        self.assertEqual(len(parallel["rows"]), 4)
+
+    def test_progress_still_prints_one_line_per_source(self):
+        args = ab.parse_args(["--data", str(self.data_dir), "--count", "4",
+                              "--repeats", "1", "--jobs", "3", "--progress"])
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            ab.run(args, self.fake_call)
+        lines = [l for l in buf.getvalue().splitlines() if l.strip()]
+        self.assertEqual(len(lines), 4)
+        self.assertTrue(all(l.startswith("[") for l in lines), lines)
 
 
 class MainTests(TempDataMixin, unittest.TestCase):

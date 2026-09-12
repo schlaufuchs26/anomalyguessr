@@ -57,7 +57,9 @@ picker: over N sources it asks the same prompt with the same candidate list
 three ways (real photo / blank gray photo / no photo), repeats each, and
 reports how far the variants drift apart versus the model's own run-to-run
 spread, plus tokens, cost and latency per variant. It calls OpenRouter live
-(pass `--env` with `OPENROUTER_API_KEY`; a 40-source run costs a few cents).
+(pass `--env` with `OPENROUTER_API_KEY`; a 40-source run costs a few cents)
+and asks `--jobs` sources at once (8 by default), which turns that run from
+~20 minutes into ~2.
 
 ## Stack
 

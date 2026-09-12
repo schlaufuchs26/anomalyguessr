@@ -29,6 +29,11 @@ one list, no cross-source bookkeeping), so all variants see the identical
 list. Production accumulates the caps across a run, which would make the
 lists diverge right after the first differing pick and invalidate the A/B.
 
+Sources are independent, so ``run()`` fans them out over a thread pool
+(``--jobs``, 8 by default): the 40x5 run of ticket #1217 (600 calls, ~20
+minutes serial) finishes in ~2 minutes, which makes wider samples (100+
+sources) practical. The row order stays the sampled order.
+
 Live network + API spend by design (variants x repeats calls per source,
 ~$0.00025 each): this is a measurement tool, never a cron job. Its tests
 inject the picker and spend nothing.
@@ -45,6 +50,7 @@ import struct
 import sys
 import time
 import zlib
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -59,6 +65,7 @@ import ag_verify  # noqa: E402
 VARIANTS = ("image", "blank", "text")
 DEFAULT_SEED = 1217
 DEFAULT_REPEATS = 3
+DEFAULT_JOBS = 8
 BLANK_GRAY = 128
 
 
@@ -142,6 +149,10 @@ def ask_source(source: dict, candidates: list, data_dir: Path, call,
     ``call(prompt, image_url) -> response body`` is the real OpenRouter
     call in production and an injected fake in tests; a raising call is
     recorded as an error for that repeat, never propagated.
+
+    One source's calls stay serial here; ``run()`` overlaps whole sources.
+    The function is safe to call from several threads: it only reads the
+    catalog and writes locals.
     """
     prompt = g.picker_prompt(source, candidates)
     row = {
@@ -256,30 +267,54 @@ def make_call(api_key: str, base_url: str, model: str, max_tokens: int,
     return call
 
 
+def source_row(source: dict, data_dir: Path, call, repeats: int,
+               seed=DEFAULT_SEED) -> dict:
+    """The row for one sampled source, or a ``skipped`` stub.
+
+    One pool task per source: its variants and repeats go out serially, so
+    ``--jobs`` sources overlap at a time.
+    """
+    candidates = candidates_for(source, seed)
+    if not candidates:
+        return {"source": source["id"], "skipped": True,
+                "reason": "no fitting anomaly"}
+    return ask_source(source, candidates, data_dir, call, repeats, seed)
+
+
 def run(args, call) -> dict:
-    """Sample sources, ask every variant, return the JSON-ready report."""
+    """Sample sources, ask every variant, return the JSON-ready report.
+
+    With ``--jobs`` > 1 the sources run concurrently; ``Executor.map``
+    returns the rows in sampled order either way.
+    """
     data_dir = Path(args.data)
     pool = [s for s in ag_sources.list_sources(data_dir, unused=args.unused)
             if (ag_sources.sources_dir(data_dir) / s["image"]).exists()]
     random.Random(args.seed).shuffle(pool)
     picked = pool[:args.count]
-    rows = []
-    for index, source in enumerate(picked, 1):
+    jobs = args.jobs
+
+    def execute(item):
+        index, source = item
+        started = time.monotonic()
+        row = source_row(source, data_dir, call, args.repeats, args.seed)
         if args.progress:
-            print(f"[{index}/{len(picked)}] {source['id']}", file=sys.stderr,
+            print(f"[{index}/{len(picked)}] {source['id']} "
+                  f"({time.monotonic() - started:.1f}s)", file=sys.stderr,
                   flush=True)
-        candidates = candidates_for(source, args.seed)
-        if not candidates:
-            rows.append({"source": source["id"], "skipped": True,
-                         "reason": "no fitting anomaly"})
-            continue
-        rows.append(ask_source(source, candidates, data_dir, call,
-                               args.repeats, args.seed))
+        return row
+
+    if jobs == 1:
+        rows = [execute(item) for item in enumerate(picked, 1)]
+    else:
+        with ThreadPoolExecutor(max_workers=jobs) as executor:
+            rows = list(executor.map(execute, enumerate(picked, 1)))
     answered = [r for r in rows if not r.get("skipped")]
     return {
         "model": args.model,
         "seed": args.seed,
         "repeats": args.repeats,
+        "jobs": jobs,
         "requested": args.count,
         "sampled": len(rows),
         "available": len(pool),
@@ -287,6 +322,13 @@ def run(args, call) -> dict:
         "summary": summarize(answered),
         "rows": rows,
     }
+
+
+def positive_int(value: str) -> int:
+    n = int(value)
+    if n < 1:
+        raise argparse.ArgumentTypeError(f"must be >= 1, got {value}")
+    return n
 
 
 def parse_args(argv=None) -> argparse.Namespace:
@@ -298,6 +340,9 @@ def parse_args(argv=None) -> argparse.Namespace:
     p.add_argument("--seed", type=int, default=DEFAULT_SEED)
     p.add_argument("--repeats", type=int, default=DEFAULT_REPEATS,
                    help="calls per variant per source (default %(default)s)")
+    p.add_argument("--jobs", type=positive_int, default=DEFAULT_JOBS,
+                   help="sources asked concurrently; 1 = serial "
+                        "(default %(default)s)")
     p.add_argument("--unused", action="store_true",
                    help="sample only unused sources")
     p.add_argument("--model", default=g.DEFAULT_PICKER_MODEL)
