@@ -26,6 +26,7 @@ export interface Scene {
   id: string;
   /** Short UI label for the scene (derived from, never contradicting, the source). */
   title: string;
+  /** Place from the source's own catalog keys; "" when it carries none. */
   place: string;
   year: string;
   credit: string;
@@ -152,7 +153,9 @@ function parseScene(
   const scene: Scene = {
     id: reqString(raw.id, where, "id"),
     title: reqString(raw.title, where, "title"),
-    place: reqString(raw.place, where, "place"),
+    // The one field a source may honestly lack (tickets #1372/#1378): ""
+    // means the catalog keys carried no place.
+    place: optString(raw.place, where, "place"),
     year: reqString(raw.year, where, "year"),
     credit: reqString(raw.credit, where, "credit"),
     sourceUrl: reqString(raw.sourceUrl, where, "sourceUrl"),

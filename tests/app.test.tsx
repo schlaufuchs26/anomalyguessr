@@ -282,6 +282,22 @@ describe("scene rendering", () => {
     expect(gets).toEqual(["scenes/manifest.json"]);
   });
 
+  test("shows only the year when the source keys carry no place (#1378)", async () => {
+    payload = {
+      version: 2,
+      date: "2026-09-10",
+      scenes: [
+        {
+          ...makeScene({ id: "n", title: "Scene N", x: 0.5, y: 0.5, r: 0.05 }),
+          place: "",
+        },
+      ],
+    };
+    await renderGame("daily", "Scene N");
+    const place = document.querySelector("#scene-place");
+    expect(place?.textContent).toBe("1900");
+  });
+
   test("shows the load error when the manifest cannot be loaded", async () => {
     payload = "fail";
     render(<App />);

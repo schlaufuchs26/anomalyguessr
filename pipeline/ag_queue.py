@@ -60,6 +60,9 @@ import ag_catalog
 
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 DAILY_COUNT = 5
+# Pre-#1372 scene labels filled a source without a place with this string. It
+# reads as a fact, so it may not survive into the game (ticket #1378).
+LEGACY_PLACEHOLDER = "Unidentified location"
 SOURCE_KEYS = (
     "repository", "fileUrl", "originalTitle", "date", "place", "license",
     "description",
@@ -69,6 +72,12 @@ ENTRY_KEYS = (
     "anomaly", "family", "explanation", "references", "description",
     "answer", "hints",
 )
+
+
+def clean_place(value) -> str:
+    """The place to show, with the legacy placeholder treated as none."""
+    text = value if isinstance(value, str) else ""
+    return "" if text.strip() == LEGACY_PLACEHOLDER else text
 
 
 def default_data_dir() -> Path:
@@ -154,10 +163,19 @@ def validate_entry(e) -> list:
         r"^[a-z0-9][a-z0-9-]*$", e["id"],
     ):
         errs.append("id must be a lowercase slug (a-z0-9-)")
-    for k in ("title", "place", "year", "credit", "sourceUrl", "anomaly",
+    for k in ("title", "year", "credit", "sourceUrl", "anomaly",
               "description"):
         if not isinstance(e.get(k), str) or not e[k].strip():
             errs.append(f"{k} must be a non-empty string")
+    # Place is the one scene field an honest source may lack (tickets
+    # #1372/#1378): "" says the source keys carried none. A leftover
+    # placeholder would read as a fact, so it is refused.
+    place = e.get("place", "")
+    if not isinstance(place, str):
+        errs.append('place must be a string ("" when the source has none)')
+    elif place.strip() == LEGACY_PLACEHOLDER:
+        errs.append(f'place must be "" when the source has none, not '
+                    f'"{LEGACY_PLACEHOLDER}"')
     if not isinstance(e.get("explanation"), str) or not e["explanation"].strip():
         errs.append("explanation must be a non-empty string "
                     "(why the anomaly cannot be in the original photo)")
@@ -526,6 +544,10 @@ def write_manifest(repo: Path, date: str, scenes: list) -> None:
     for s in scenes:
         eid = s["id"]
         out = dict(s)
+        # Queue entries from before #1372 may still carry the fact-shaped
+        # "Unidentified location" placeholder; the game only ever sees the
+        # honest empty string (ticket #1378).
+        out["place"] = clean_place(out.get("place"))
         out["image"] = f"scenes/{eid}.jpg"
         out["original"] = f"scenes/{eid}-original.jpg"
         # family is queue-side variety metadata (ticket #1232): the game's

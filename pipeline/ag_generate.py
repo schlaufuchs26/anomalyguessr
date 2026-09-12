@@ -678,13 +678,13 @@ def clean_title(source: dict) -> str:
 
 
 def scene_place(source: dict) -> str:
-    """Place from the source's structured keys, or the honest unknown marker.
+    """Place from the source's structured keys, "" when they carry none.
 
-    The queue schema requires a non-empty place string, so the marker stands
-    in for "the keys carry none"; the frontend hides it (ticket #1372: no
-    invented place label).
+    An empty string is the honest shape for "the keys say nothing": a
+    placeholder like the old "Unidentified location" reads as a fact and had
+    to be hidden again by every reader (tickets #1372, #1378).
     """
-    return str(source.get("place") or "").strip() or "Unidentified location"
+    return str(source.get("place") or "").strip()
 
 
 def scene_year(proposal: dict) -> str:
@@ -729,8 +729,7 @@ def build_hints(proposal: dict, answer: dict) -> list:
 def build_description(source: dict, year: str, place: str) -> str:
     title = clean_title(source)
     bits = [title.rstrip(".")]
-    if place and place != "Unidentified location" \
-            and place.lower() not in title.lower():
+    if place and place.lower() not in title.lower():
         bits.append(place)
     if year and year not in title and year != "unknown":
         bits.append(f"circa {year}")

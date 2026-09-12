@@ -81,6 +81,17 @@ describe("parseManifest", () => {
     ).toThrow(/hints/);
   });
 
+  test("accepts an absent place: a source may carry none (#1378)", () => {
+    expect(parseManifest(validManifest({ place: "" })).scenes[0]?.place).toBe(
+      "",
+    );
+    // The old placeholder string is gone from the pipeline; a manifest
+    // without the key parses to the same empty place.
+    expect(
+      parseManifest(validManifest({ place: undefined })).scenes[0]?.place,
+    ).toBe("");
+  });
+
   test("rejects missing required string fields", () => {
     expect(() => parseManifest(validManifest({ image: "" }))).toThrow(/image/);
     expect(() => parseManifest(validManifest({ id: undefined }))).toThrow(/id/);

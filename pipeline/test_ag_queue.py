@@ -138,6 +138,33 @@ class ValidateTest(unittest.TestCase):
         e["hints"] = ["a", "b"]
         self.assertTrue(any("hints" in x for x in q.validate_entry(e)))
 
+    def test_accepts_an_empty_place(self):
+        # "" is the honest shape when the source keys carry no place, so the
+        # scene stays valid (ticket #1378).
+        e = valid_entry()
+        e["place"] = ""
+        e["source"]["place"] = ""
+        self.assertEqual(q.validate_entry(e), [])
+
+    def test_refuses_the_legacy_place_placeholder(self):
+        e = valid_entry()
+        e["place"] = "Unidentified location"
+        self.assertTrue(any("place" in x for x in q.validate_entry(e)))
+
+
+class WriteManifestTest(unittest.TestCase):
+    def test_a_legacy_placeholder_ships_as_an_empty_place(self):
+        """Entries written before #1372 keep the game free of the placeholder."""
+        tmp = Path(tempfile.mkdtemp(prefix="agq_manifest_"))
+        repo = make_repo(tmp)
+        legacy = valid_entry("legacy")
+        legacy["place"] = "Unidentified location"
+        known = valid_entry("known")
+        q.write_manifest(repo, "2026-09-12", [legacy, known])
+        scenes = json.loads(
+            (repo / "scenes" / "manifest.json").read_text())["scenes"]
+        self.assertEqual([s["place"] for s in scenes], ["", "Testville"])
+
 
 class ChooseDayTest(unittest.TestCase):
     def _scenes(self, ids):

@@ -27,8 +27,13 @@ SOURCE_ID = "commons-market-street-2013-10-24-abc123"
 
 def make_img(path: Path, w=1200, h=800, color="gray"):
     path.parent.mkdir(parents=True, exist_ok=True)
+    # png:include-chunk=none keeps ImageMagick's date:create/date:modify text
+    # chunks out of PNG output, so two renders of the same image are
+    # byte-identical; the byte comparison in the best-of-k test flaked
+    # whenever the two renders straddled a second boundary.
     subprocess.run(
-        ["convert", "-size", f"{w}x{h}", f"xc:{color}", str(path)],
+        ["convert", "-size", f"{w}x{h}", f"xc:{color}",
+         "-define", "png:include-chunk=none", str(path)],
         check=True, capture_output=True,
     )
 
@@ -337,9 +342,10 @@ class EntryTest(unittest.TestCase):
         self.assertEqual(g.scene_year({"apparent_era": "modern"}), "modern")
         self.assertEqual(g.scene_year({"apparent_era": ""}), "unknown")
 
-    def test_scene_place_marker(self):
+    def test_scene_place_is_empty_when_the_keys_carry_none(self):
         self.assertEqual(g.scene_place({"place": "Berlin"}), "Berlin")
-        self.assertEqual(g.scene_place({}), "Unidentified location")
+        self.assertEqual(g.scene_place({}), "")
+        self.assertEqual(g.scene_place({"place": "   "}), "")
 
     def test_build_entry_passes_the_queue_validator(self):
         entry = g.build_entry(source(place="Berlin"), proposal(),
@@ -349,6 +355,13 @@ class EntryTest(unittest.TestCase):
         self.assertEqual(entry["place"], "Berlin")
         self.assertEqual(len(entry["hints"]), 3)
         self.assertEqual(entry["family"], "drinks")
+
+    def test_build_entry_leaves_an_unknown_place_empty(self):
+        entry = g.build_entry(source(), proposal(), self.answer(),
+                              "2026-09-12")
+        self.assertEqual(entry["place"], "")
+        self.assertEqual(ag_queue.validate_entry(entry), [])
+        self.assertEqual(entry["source"]["place"], "")
 
     def test_build_entry_uses_catalog_text_for_a_known_label(self):
         entry = g.build_entry(source(), proposal(), self.answer(),
@@ -370,10 +383,12 @@ class EntryTest(unittest.TestCase):
         s = source(title="Street scene - DPLA - 1234567890abcdef.jpg")
         self.assertEqual(g.clean_title(s), "Street scene")
 
-    def test_description_omits_the_unknown_place(self):
+    def test_description_omits_an_unknown_place(self):
         entry = g.build_entry(source(), proposal(), self.answer(),
                               "2026-09-12")
-        self.assertNotIn("Unidentified", entry["description"])
+        self.assertEqual(
+            entry["description"],
+            "Busy market street, 1905, from the Wikimedia Commons catalogue.")
 
 
 # ── Trace sidecar ──────────────────────────────────────────────────────────
