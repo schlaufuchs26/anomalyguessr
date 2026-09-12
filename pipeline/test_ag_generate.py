@@ -81,8 +81,11 @@ def usage(cost=0.001, pt=10, ct=5):
     return {"prompt_tokens": pt, "completion_tokens": ct, "cost": cost}
 
 
-def call(model="stub/model", prompt="P", answer="A", cost=0.001):
+def call(model="stub/model", prompt="P", answer="A", cost=0.001,
+         reasoning="R"):
     return {"model": model, "prompt": prompt, "answer": answer,
+            "reasoning": reasoning, "image": "source.jpg",
+            "at": "2026-09-12T12:00:00+02:00",
             "usage": usage(cost), "duration_s": 0.5}
 
 
@@ -378,6 +381,41 @@ class TraceTest(TempDataMixin, unittest.TestCase):
         self.assertEqual(data["calls"][0]["answer"], "A")
         self.assertIn("recordedAt", data)
 
+    def test_record_call_flushes_a_pending_trace(self):
+        trace = {"source": "src-1", "calls": []}
+        g.record_call(self.data_dir, trace,
+                      {"stage": "proposal", "answer": "A"})
+        pending = g.pending_trace_path(self.data_dir, "src-1")
+        self.assertTrue(pending.exists())
+        self.assertEqual(json.loads(pending.read_text())["calls"][0]["stage"],
+                         "proposal")
+
+    def test_write_trace_clears_the_pending_file(self):
+        trace = {"source": "src-1", "calls": [{"stage": "edit"}]}
+        g.record_call(self.data_dir, trace, {"stage": "proposal"})
+        g.write_trace(self.data_dir, "scene-1", trace)
+        self.assertFalse(g.pending_trace_path(self.data_dir,
+                                              "src-1").exists())
+        self.assertTrue(g.trace_path(self.data_dir, "scene-1").exists())
+
+    def test_write_trace_survives_a_broken_traces_dir(self):
+        # The recorder must never take a scene down with it: a traces path
+        # that cannot be created (here a file where the dir belongs) is
+        # swallowed, the queue entry stays.
+        (self.data_dir / "traces").write_text("not a dir")
+        g.write_trace(self.data_dir, "scene-1", {"calls": []})  # no raise
+        self.assertFalse(g.trace_path(self.data_dir, "scene-1").exists())
+
+    def test_scrub_removes_keys_and_host_paths(self):
+        cleaned = g._scrub({"prompt": "key sk-or-abcdefghijklmnop here",
+                            "path": str(Path.home() / "fuchs" / "x"),
+                            "list": ["pk-live-1234567890"]})
+        blob = json.dumps(cleaned)
+        self.assertNotIn("sk-or-", blob)
+        self.assertNotIn("pk-live-", blob)
+        self.assertNotIn(str(Path.home()), blob)
+        self.assertIn("<redacted>", blob)
+
     def test_recent_labels_reads_the_state(self):
         state = {"version": 1, "scenes": {
             "a": {"id": "a", "anomaly": "Bottle", "added": "2026-09-12"}}}
@@ -427,6 +465,19 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
         proposal_call = data["calls"][0]
         self.assertEqual(proposal_call["prompt"], "proposal-prompt")
         self.assertEqual(proposal_call["answer"], "A")
+        # #1373: reasoning, timestamp and the image used ride along
+        self.assertEqual(proposal_call["reasoning"], "R")
+        self.assertEqual(proposal_call["at"], "2026-09-12T12:00:00+02:00")
+        self.assertEqual(proposal_call["usage"]["cost"], 0.001)
+        edit_call = data["calls"][1]
+        self.assertEqual(edit_call["stage"], "edit")
+        # the edit names its source photo (no host path)
+        self.assertEqual(edit_call["image"],
+                         f"{SOURCE_ID}.jpg")
+        # the finished trace replaces the in-progress sidecar
+        self.assertFalse(
+            g.pending_trace_path(self.data_dir,
+                                 data["source"]).exists())
 
     def test_invalid_proposal_fails_without_an_image_call(self):
         scene, failed, totals = self.run_one(propose=stub_propose(
@@ -435,6 +486,19 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
         self.assertEqual(failed["stage"], "proposal")
         self.assertEqual(totals.get("image_calls", 0), 0)
         self.assertEqual(len(ag_queue.load_state(self.data_dir)["scenes"]), 0)
+
+    def test_failed_scene_keeps_a_pending_trace(self):
+        # A scene that never lands still leaves what was tried: the trace
+        # is flushed as the pipeline runs (#1373).
+        self.run_one(propose=stub_propose(
+            result={"anomaly": ""}, errors=["anomaly must be non-empty"]))
+        pending = g.pending_trace_path(self.data_dir, SOURCE_ID)
+        self.assertTrue(pending.exists())
+        data = json.loads(pending.read_text())
+        self.assertEqual(data["calls"][0]["stage"], "proposal")
+        self.assertIn("anomaly must be non-empty", data["error"])
+        # No final trace exists for a scene that was never saved.
+        self.assertEqual(list((self.data_dir / "traces").glob("*.json")), [])
 
     def test_second_attempt_runs_after_a_gate_failure(self):
         calls = {"n": 0}
@@ -620,8 +684,24 @@ class LlmTest(unittest.TestCase):
         ag_llm.add_usage(total, {"prompt_tokens": 3, "completion_tokens": 4,
                                  "cost": 0.5})
         ag_llm.add_usage(total, None)
-        self.assertEqual(total, {"prompt_tokens": 3, "completion_tokens": 4,
-                                 "cost": 0.5})
+        ag_llm.add_usage(total, {"completion_tokens": 2,
+                                 "reasoning_tokens": 9, "cost": 0.1})
+        self.assertEqual(total, {"prompt_tokens": 3, "completion_tokens": 6,
+                                 "reasoning_tokens": 9, "cost": 0.6})
+
+    def test_usage_of_reads_reasoning_tokens_and_cost(self):
+        usage = ag_llm.usage_of({"usage": {
+            "prompt_tokens": 10, "completion_tokens": 40, "cost": 0.02,
+            "completion_tokens_details": {"reasoning_tokens": 31}}})
+        self.assertEqual(usage, {"prompt_tokens": 10, "completion_tokens": 40,
+                                 "reasoning_tokens": 31, "cost": 0.02})
+
+    def test_reasoning_of_takes_both_field_names(self):
+        body = {"choices": [{"message": {"reasoning_content": "why"}}]}
+        self.assertEqual(ag_llm.reasoning_of(body), "why")
+        alt = {"choices": [{"message": {"reasoning": "how"}}]}
+        self.assertEqual(ag_llm.reasoning_of(alt), "how")
+        self.assertEqual(ag_llm.reasoning_of({}), "")
 
     def test_clean_text_collapses_and_caps(self):
         self.assertEqual(ag_llm.clean_text(" a\n b ", 10), "a b")

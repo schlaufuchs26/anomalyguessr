@@ -31,6 +31,10 @@ export interface ApiScene {
   rejectedAt?: string;
   moderation: Moderation;
   comments: Comment[];
+  /** A generation trace sidecar exists (ticket #1373): the gallery offers
+   *  the "Generation trace" panel only when this is true. The trace body
+   *  itself is fetched on open from /traces/{id}, never inlined here. */
+  hasTrace: boolean;
   images: { edited: string; original: string; audit?: string };
 }
 
@@ -95,18 +99,20 @@ export function isScope(v: unknown): v is string {
 /**
  * Render every state.json scene as its API JSON (newest added first),
  * attaching curation state + image URLs. Never surfaces unsafe ids.
- * `hasAudit` is a (id) => boolean probe supplied by the caller so the
- * list can avoid per-scene stat calls in the hot path when needed.
+ * `hasAudit` and `hasTrace` are (id) => boolean probes supplied by the
+ * caller so the list can avoid per-scene stat calls in the hot path when
+ * needed.
  */
 export function listScenes(
   st: StateFile,
   fb: FeedbackFile,
   hasAudit: (id: string) => boolean,
+  hasTrace: (id: string) => boolean = () => false,
 ): SceneList {
   const scenes: ApiScene[] = [];
   for (const e of Object.values(st.scenes)) {
     if (!/^[a-z0-9][a-z0-9-]*$/.test(e.id)) continue;
-    scenes.push(sceneToApi(e, fb, e.id, hasAudit));
+    scenes.push(sceneToApi(e, fb, e.id, hasAudit, hasTrace));
   }
   scenes.sort(
     (a, b) => b.added.localeCompare(a.added) || a.id.localeCompare(b.id),
@@ -143,6 +149,7 @@ export function sceneToApi(
   fb: FeedbackFile,
   id: string,
   hasAudit: (id: string) => boolean,
+  hasTrace: (id: string) => boolean = () => false,
 ): ApiScene {
   const rejected = id in fb.rejected;
   const accepted = id in fb.accepted;
@@ -174,6 +181,7 @@ export function sceneToApi(
     rejected,
     moderation,
     comments: fb.comments[id] ?? [],
+    hasTrace: hasTrace(id),
     images,
   };
   if (e.source !== undefined) out.source = e.source;
@@ -184,6 +192,11 @@ export function sceneToApi(
 /** The audit crop path for a scene, for existence probes + serving. */
 export function auditCropPath(dataDir: string, id: string): string {
   return path.join(dataDir, "audit", id, "hotspot-crop.png");
+}
+
+/** A scene's generation trace sidecar (ticket #1373), for probes + serving. */
+export function tracePath(dataDir: string, id: string): string {
+  return path.join(dataDir, "traces", `${id}.json`);
 }
 
 /** A scene's library image path (edited or original) under the data dir. */

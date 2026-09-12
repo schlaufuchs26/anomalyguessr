@@ -36,10 +36,13 @@ Deterministic gates stay deterministic: a byte-identical re-serve is refused
 refused (`ag_verify.locate_hotspot`), and the queue validator still checks
 the entry schema.
 
-Each scene gets a trace sidecar (`data/anomalyguessr/traces/<id>.json`) with
-the full prompt and raw answer of the calls that decide content (the
-proposal, the coordinates, the check), so a later audit can see why a scene
-looked the way it did (this is the groundwork for ticket #1373).
+Each scene gets a trace sidecar (`data/anomalyguessr/traces/<id>.json`, ticket
+#1373) with every pipeline step in order: model, full prompt, answer,
+reasoning content, usage (tokens + cost), duration and timestamp, with the
+image named but never embedded. Steps are flushed to
+`traces/pending/<source>.json` as the pipeline runs, so a crash keeps a
+partial record; a finished scene shows the whole flow, a scene from before
+the trace existed shows none.
 
 The run lock, the progress status file, the DM-on-failure path and the queue
 add are unchanged from #1210/#1169: the daily cron and the dashboard's
@@ -340,11 +343,22 @@ def _chat_with_image(prompt: str, image: Path, api_key: str, model: str,
                        temperature, timeout)
 
 
+def image_ref(image: Path | None) -> str:
+    """A stable, host-free id for the image a call saw (ticket #1373).
+
+    The trace is publishable text, so never store the absolute path: the
+    file name identifies the source photo or the attempt's edited output
+    without leaking where the pipeline runs.
+    """
+    return image.name if image is not None else ""
+
+
 def _run_call(prompt: str, image: Path | None, api_key: str, model: str,
               base_url: str, max_tokens: int, timeout: int,
               temperature: float | None) -> dict:
     """One logged vision call: {prompt, answer, parsed, usage, model, latency}."""
     started = time.time()
+    at = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
     if image is None:
         body = ag_llm.chat([{"role": "user", "content": [ag_llm.text_part(prompt)]}],
                            api_key, model, base_url, max_tokens, temperature,
@@ -354,6 +368,8 @@ def _run_call(prompt: str, image: Path | None, api_key: str, model: str,
                                 max_tokens, timeout, temperature)
     content = ag_llm.content_of(body)
     return {"model": model, "prompt": prompt, "answer": content,
+            "reasoning": ag_llm.reasoning_of(body),
+            "image": image_ref(image), "at": at,
             "parsed": ag_llm.parse_json(content),
             "usage": ag_llm.usage_of(body),
             "duration_s": round(time.time() - started, 2)}
@@ -666,29 +682,100 @@ def build_entry(source: dict, proposal: dict, answer: dict, date: str) -> dict:
     }
 
 
-# ── Trace sidecar (ticket #1372 / groundwork for #1373) ────────────────────
+# ── Trace sidecar (ticket #1373) ───────────────────────────────────────────
+#
+# One JSON file per scene (data/anomalyguessr/traces/<scene-id>.json) with
+# every pipeline step in order: model, full prompt, answer, reasoning,
+# usage (tokens + cost), duration and timestamp. While a scene is being
+# generated the growing trace is flushed to traces/pending/<source>.json
+# after each step, so a run that dies mid-scene still leaves a partial
+# record; the final write renames it to the scene id and drops the pending
+# file. Trace I/O is always best-effort: a full disk or a permission error
+# must never fail a scene.
+
+# Anything that looks like an API key or an absolute host path is stripped
+# before writing. The trace is publishable text (ticket #1373): it may end
+# up in the dev gallery over the tunnel, so it must not carry secrets or
+# the box's layout.
+_KEY_RE = re.compile(r"\b(?:sk|pk)-[A-Za-z0-9_\-]{8,}\b")
+
+
+def _scrub(value):
+    """Recursively drop key-shaped strings and absolute host paths."""
+    if isinstance(value, str):
+        cleaned = _KEY_RE.sub("<redacted>", value)
+        cleaned = cleaned.replace(str(Path.home()), "~")
+        return cleaned
+    if isinstance(value, list):
+        return [_scrub(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _scrub(v) for k, v in value.items()}
+    return value
+
 
 def trace_path(data_dir: Path, eid: str) -> Path:
     return data_dir / TRACE_DIRNAME / f"{eid}.json"
 
 
+def pending_trace_path(data_dir: Path, source_id: str) -> Path:
+    slug = re.sub(r"[^a-z0-9._-]", "-", str(source_id).lower())[:120]
+    return data_dir / TRACE_DIRNAME / "pending" / f"{slug or 'source'}.json"
+
+
+def _atomic_json(path: Path, payload: dict) -> None:
+    """Write JSON via tmp + os.replace, so readers never see half a file."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=".trace-",
+                               suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2, ensure_ascii=False)
+            f.write("\n")
+        os.replace(tmp, path)
+    finally:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+
+
+def flush_trace(data_dir: Path, trace: dict) -> None:
+    """Write the in-progress trace to its pending file; never raises."""
+    try:
+        _atomic_json(pending_trace_path(data_dir, trace.get("source", "")),
+                     _scrub(trace))
+    except OSError:
+        pass  # never block generation on trace I/O
+
+
+def record_call(data_dir: Path, trace: dict, step: dict) -> None:
+    """Append one step to the trace and flush the in-progress file.
+
+    This is the emitter (ticket #1373): the trace is written as the
+    pipeline goes, not reconstructed afterwards, so a crash keeps the
+    steps that already ran. Never raises.
+    """
+    trace.setdefault("calls", []).append(step)
+    flush_trace(data_dir, trace)
+
+
+def set_trace_error(data_dir: Path, trace: dict, message: str) -> None:
+    """Record the current attempt's failure reason and flush it."""
+    trace["error"] = message
+    flush_trace(data_dir, trace)
+
+
 def write_trace(data_dir: Path, eid: str, trace: dict) -> None:
-    """Atomically write the scene's generation trace; best-effort."""
-    d = data_dir / TRACE_DIRNAME
-    d.mkdir(parents=True, exist_ok=True)
+    """Finalize a scene's generation trace; best-effort, never raises."""
     trace = dict(trace)
     trace["scene"] = eid
     trace["recordedAt"] = datetime.datetime.now().astimezone().isoformat(
         timespec="seconds")
-    fd, tmp = tempfile.mkstemp(dir=str(d), prefix=".trace-", suffix=".tmp")
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump(trace, f, indent=2, ensure_ascii=False)
-            f.write("\n")
-        os.replace(tmp, trace_path(data_dir, eid))
-    finally:
-        if os.path.exists(tmp):
-            os.unlink(tmp)
+        _atomic_json(trace_path(data_dir, eid), _scrub(trace))
+        pending = pending_trace_path(data_dir, trace.get("source", ""))
+        if pending.exists():
+            pending.unlink()
+    except OSError:
+        pass  # the scene is already saved; a missing sidecar must not fail it
 
 
 # ── Environment / status helpers ───────────────────────────────────────────
@@ -1011,14 +1098,14 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
     for attempt in range(1, args.max_attempts + 1):
         proposal, proposal_call, errors = _attempt_proposal(
             source_image, source, recent, args, api_key)
-        trace["calls"].append({"stage": "proposal", "attempt": attempt,
-                               **_call_trace(proposal_call)})
+        record_call(data_dir, trace, {"stage": "proposal", "attempt": attempt,
+                                      **_call_trace(proposal_call)})
         ag_llm.add_usage(totals, proposal_call.get("usage"))
         if errors:
             last_error = {"id": source["id"], "stage": "proposal",
                           "reason": "; ".join(errors), "attempt": attempt,
                           "answer": proposal_call.get("answer", "")[:400]}
-            trace["error"] = last_error["reason"]
+            set_trace_error(data_dir, trace, last_error["reason"])
             continue
         prompt = edit_prompt(proposal)
         if int(totals.get("image_calls", 0)) >= args.max_generations:
@@ -1034,8 +1121,8 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
                           "reason": str(e), "attempt": attempt}
             break
         totals["image_calls"] = totals.get("image_calls", 0) + 1
-        trace["calls"].append({"stage": "edit", "attempt": attempt,
-                               "prompt": prompt, **image_call})
+        record_call(data_dir, trace, {"stage": "edit", "attempt": attempt,
+                                      "prompt": prompt, **image_call})
         out_path = _write_bytes(edited,
                                 out_dir / f"{source['id']}-a{attempt}.png")
         reason, hotspot = deterministic_gate(out_path, source_image,
@@ -1062,8 +1149,9 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
                 {"stage": "coordinates", "error": str(e)})
         if loc is not None:
             ag_llm.add_usage(totals, loc["call"].get("usage"))
-            trace["calls"].append({"stage": "coordinates", "attempt": attempt,
-                                   **_call_trace(loc["call"])})
+            record_call(data_dir, trace,
+                        {"stage": "coordinates", "attempt": attempt,
+                         **_call_trace(loc["call"])})
         coords = loc["coords"] if loc is not None else None
 
         check = None
@@ -1079,8 +1167,9 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
                 check = None
             if check is not None:
                 ag_llm.add_usage(totals, check["call"].get("usage"))
-                trace["calls"].append({"stage": "check", "attempt": attempt,
-                                       **_call_trace(check["call"])})
+                record_call(data_dir, trace,
+                            {"stage": "check", "attempt": attempt,
+                             **_call_trace(check["call"])})
             if check is not None and check["ok"] is False \
                     and check["fix_prompt"]:
                 if int(totals.get("image_calls", 0)) >= args.max_generations:
@@ -1097,8 +1186,9 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
                                   "reason": str(e), "attempt": attempt}
                     break
                 totals["image_calls"] = totals.get("image_calls", 0) + 1
-                trace["calls"].append({"stage": "fix-edit",
-                                       "attempt": attempt, **fix_call})
+                record_call(data_dir, trace,
+                            {"stage": "fix-edit", "attempt": attempt,
+                             **fix_call})
                 fixed_path = _write_bytes(
                     fixed, out_dir / f"{source['id']}-a{attempt}-fix.png")
                 reason, hotspot = deterministic_gate(
@@ -1126,9 +1216,10 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
                          "error": str(e)})
                 if loc is not None:
                     ag_llm.add_usage(totals, loc["call"].get("usage"))
-                    trace["calls"].append({"stage": "coordinates", "attempt":
-                                           attempt, "after_fix": True,
-                                           **_call_trace(loc["call"])})
+                    record_call(data_dir, trace,
+                                {"stage": "coordinates", "attempt": attempt,
+                                 "after_fix": True,
+                                 **_call_trace(loc["call"])})
                 coords = loc["coords"] if loc is not None else None
                 # Close the correction loop: the fix is judged by the same
                 # checker, so a not-OK verdict really can reject a scene
@@ -1144,9 +1235,9 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
                         {"stage": "recheck", "error": str(e)})
                 if recheck is not None:
                     ag_llm.add_usage(totals, recheck["call"].get("usage"))
-                    trace["calls"].append({"stage": "recheck",
-                                           "attempt": attempt,
-                                           **_call_trace(recheck["call"])})
+                    record_call(data_dir, trace,
+                                {"stage": "recheck", "attempt": attempt,
+                                 **_call_trace(recheck["call"])})
                     check = recheck
                     if check["ok"] is False:
                         last_error = {"id": source["id"], "stage": "check",
@@ -1154,7 +1245,8 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
                                                 + ("; ".join(check["problems"])
                                                    or "no reason given"),
                                       "attempt": attempt}
-                        trace["error"] = last_error["reason"]
+                        set_trace_error(data_dir, trace,
+                                        last_error["reason"])
                         continue
             elif check is not None and check["ok"] is False:
                 last_error = {"id": source["id"], "stage": "check",
@@ -1162,7 +1254,7 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
                                         + ("; ".join(check["problems"])
                                            or "no fix prompt"),
                               "attempt": attempt}
-                trace["error"] = last_error["reason"]
+                set_trace_error(data_dir, trace, last_error["reason"])
                 continue
 
         if coords is None and hotspot is not None:
@@ -1194,7 +1286,7 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
             last_error = {"id": source["id"], "stage": "entry",
                           "reason": "invalid entry: " + "; ".join(errs),
                           "attempt": attempt}
-            trace["error"] = last_error["reason"]
+            set_trace_error(data_dir, trace, last_error["reason"])
             continue
         try:
             ag_queue.state_add(data_dir, entry, out_path, source_image, date)
@@ -1242,6 +1334,7 @@ def _edit(source_image: Path, prompt: str, args, api_key: str, source: dict,
           totals: dict | None = None):
     """One image edit; returns (bytes, trace record)."""
     started = time.time()
+    at = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
     seed = random.randint(0, 2**31 - 1)
     data = image_edit(source_image, prompt, api_key, args.base_url,
                       args.image_model,
@@ -1251,12 +1344,22 @@ def _edit(source_image: Path, prompt: str, args, api_key: str, source: dict,
                       usage_out=totals)
     return data, {"prompt": prompt, "seed": seed,
                   "model": args.image_model,
+                  "image": image_ref(source_image), "at": at,
                   "duration_s": round(time.time() - started, 2)}
 
 
 def _call_trace(call: dict) -> dict:
+    """The trace view of one model call: everything a later audit needs.
+
+    The raw call also carries ``parsed`` (redundant with the answer text)
+    and, for image edits, the seed; those stay out of the sidecar.
+    """
     return {"model": call.get("model"), "prompt": call.get("prompt", ""),
-            "answer": call.get("answer", ""), "usage": call.get("usage"),
+            "answer": call.get("answer", ""),
+            "reasoning": call.get("reasoning", ""),
+            "image": call.get("image", ""),
+            "at": call.get("at"),
+            "usage": call.get("usage"),
             "duration_s": call.get("duration_s"),
             "error": call.get("error")}
 

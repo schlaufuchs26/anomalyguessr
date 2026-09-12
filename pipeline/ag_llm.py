@@ -105,11 +105,31 @@ def content_of(body: dict) -> str:
     return str(content or "")
 
 
+def reasoning_of(body: dict) -> str:
+    """The hidden chain-of-thought of a response, "" when there is none.
+
+    DeepSeek and similar thinking models put it in ``reasoning_content``;
+    a few providers name it ``reasoning`` (same fallback as ag_verify).
+    """
+    choices = body.get("choices") or []
+    if not choices:
+        return ""
+    msg = choices[0].get("message") or {}
+    return str(msg.get("reasoning_content") or msg.get("reasoning") or "")
+
+
 def usage_of(body: dict) -> dict:
-    """Token/cost footprint of one response, zeros when absent."""
+    """Token/cost footprint of one response, zeros when absent.
+
+    ``reasoning_tokens`` is the share of the completion spent on hidden CoT
+    (OpenRouter reports it under ``completion_tokens_details``); the trace
+    records it so a scene that burned its whole budget thinking is visible.
+    """
     u = body.get("usage") or {}
+    details = u.get("completion_tokens_details") or {}
     return {"prompt_tokens": int(u.get("prompt_tokens") or 0),
             "completion_tokens": int(u.get("completion_tokens") or 0),
+            "reasoning_tokens": int(details.get("reasoning_tokens") or 0),
             "cost": float(u.get("cost") or 0.0)}
 
 
@@ -118,12 +138,15 @@ def add_usage(total: dict, usage) -> dict:
     usage = usage or {}
     total["prompt_tokens"] += int(usage.get("prompt_tokens") or 0)
     total["completion_tokens"] += int(usage.get("completion_tokens") or 0)
+    total["reasoning_tokens"] = (total.get("reasoning_tokens", 0)
+                                 + int(usage.get("reasoning_tokens") or 0))
     total["cost"] += float(usage.get("cost") or 0.0)
     return total
 
 
 def zero_usage() -> dict:
-    return {"prompt_tokens": 0, "completion_tokens": 0, "cost": 0.0}
+    return {"prompt_tokens": 0, "completion_tokens": 0,
+            "reasoning_tokens": 0, "cost": 0.0}
 
 
 def strip_fences(text: str) -> str:

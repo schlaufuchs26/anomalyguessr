@@ -137,6 +137,9 @@ describe("scenes list", () => {
     );
     const beta = body.scenes.find((s) => s.id === "beta-street");
     expect(beta?.images.audit).toBeUndefined();
+    // #1373: the list flags who has a trace sidecar, without inlining it
+    expect(alpha?.hasTrace).toBe(true);
+    expect(beta?.hasTrace).toBe(false);
   });
 
   test("summary.unshownAccepted counts only unshown accepted scenes (#1210)", async () => {
@@ -164,6 +167,35 @@ describe("scenes list", () => {
     expect(body.summary.unshownAccepted).toBe(1);
     expect(body.summary.accepted).toBe(2);
     expect(body.summary.unshown).toBe(1);
+  });
+});
+
+describe("generation traces", () => {
+  test("serves one scene's trace sidecar as JSON", async () => {
+    const { env } = await makeEnv();
+    const res = await handle(
+      env,
+      "GET",
+      "traces/alpha-market",
+      req("GET", apiUrl("traces/alpha-market")),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toContain("application/json");
+    const body = await json<{ calls: { stage: string }[] }>(res);
+    expect(body.calls.map((c) => c.stage)).toEqual(["proposal", "edit"]);
+  });
+
+  test("404 for a scene without a trace, an unknown id, and path tricks", async () => {
+    const { env } = await makeEnv();
+    for (const rest of [
+      "traces/beta-street", // known scene, no trace recorded
+      "traces/ghost-scene",
+      "traces/..%2f..%2fstate", // unsafe id
+      "traces/Alpha_Market", // fails the slug rule
+    ]) {
+      const res = await handle(env, "GET", rest, req("GET", apiUrl(rest)));
+      expect(res.status).toBe(404);
+    }
   });
 });
 

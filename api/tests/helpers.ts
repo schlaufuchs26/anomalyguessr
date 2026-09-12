@@ -12,6 +12,44 @@ import type { SceneEntry, StateFile } from "../src/types.ts";
  * the old Go test tree.
  */
 
+/** A generation trace sidecar (ticket #1373), as the pipeline writes it. */
+export const TRACE_FIXTURE = {
+  source: "commons-market-abc123",
+  date: "2026-09-07",
+  model: "deepseek/deepseek-v4.1-flash",
+  image_model: "google/gemini-3.1-flash-image",
+  calls: [
+    {
+      stage: "proposal",
+      attempt: 1,
+      model: "deepseek/deepseek-v4.1-flash",
+      prompt: "Invent ONE anomaly.",
+      answer: '{"anomaly": "Plastic bottle"}',
+      reasoning: "the market predates PET",
+      image: "market.jpg",
+      at: "2026-09-12T15:40:00+02:00",
+      usage: {
+        prompt_tokens: 900,
+        completion_tokens: 120,
+        reasoning_tokens: 0,
+        cost: 0.0003,
+      },
+      duration_s: 3.2,
+    },
+    {
+      stage: "edit",
+      attempt: 1,
+      model: "google/gemini-3.1-flash-image",
+      prompt: "Add ONE plastic bottle.",
+      image: "market.jpg",
+      at: "2026-09-12T15:40:04+02:00",
+      duration_s: 8.1,
+    },
+  ],
+  scene: "commons-market-abc123-plastic-bottle",
+  recordedAt: "2026-09-12T15:40:13+02:00",
+};
+
 /** One state.json scene entry; `source: false` makes it a legacy pre-v2 entry. */
 export function scene(
   id: string,
@@ -86,6 +124,11 @@ export async function makeEnv(
   await writeFile(
     path.join(td, "audit", "alpha-market", "hotspot-crop.png"),
     "alpha-crop",
+  );
+  await mkdir(path.join(td, "traces"), { recursive: true });
+  await writeFile(
+    path.join(td, "traces", "alpha-market.json"),
+    `${JSON.stringify(TRACE_FIXTURE, null, 2)}\n`,
   );
 
   const state: StateFile = {

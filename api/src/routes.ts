@@ -14,6 +14,7 @@ import {
   liveDate,
   localDate,
   manifestScenes,
+  tracePath,
 } from "./scenes.ts";
 import { type Store, sceneExists } from "./store.ts";
 import { MAX_COMMENT, type Moderation, SCENE_ID_RE } from "./types.ts";
@@ -148,7 +149,33 @@ export async function handle(
         return false;
       }
     };
-    return json(listScenes(st, fb, hasAudit));
+    const hasTrace = (id: string): boolean => {
+      try {
+        return pathExists(tracePath(dataDir, id));
+      } catch {
+        return false;
+      }
+    };
+    return json(listScenes(st, fb, hasAudit, hasTrace));
+  }
+
+  // GET /traces/{id}: the scene's generation trace sidecar (ticket #1373).
+  // The trace is publishable text (no keys, no host paths) and served only
+  // by file existence; the list payload stays small via hasTrace.
+  if (method === "GET" && segs.length === 2 && segs[0] === "traces") {
+    const id = segs[1] ?? "";
+    if (!SCENE_ID_RE.test(id)) return notFound();
+    let raw: string;
+    try {
+      raw = await readFile(tracePath(dataDir, id), "utf8");
+    } catch {
+      return notFound();
+    }
+    try {
+      return json(JSON.parse(raw));
+    } catch {
+      return json({ error: "trace file is not valid JSON" }, 500);
+    }
   }
 
   // GET /scenes/{id}/image|original|audit
