@@ -28,6 +28,7 @@ Commands::
     ag_queue.py --data DIR add ENTRY_JSON EDITED_IMG ORIGINAL_IMG [--date YYYY-MM-DD]
     ag_queue.py --data DIR ship --repo GAME_REPO --date YYYY-MM-DD [--commit [--push]]
     ag_queue.py --data DIR backfill-family
+    ag_queue.py --data DIR remove ID [ID...]
 
 The pipeline generates scenes into the queue; Evan moderates each one on the
 dev instance (accept/reject + feedback, ticket #1163). Only ACCEPTED scenes
@@ -211,6 +212,30 @@ def strip_image_paths(e: dict) -> dict:
     out.pop("image", None)
     out.pop("original", None)
     return out
+
+
+def remove_scenes(data_dir: Path, ids, drop_images: bool = True) -> dict:
+    """Delete scenes from the queue state; returns {"removed", "missing"}.
+
+    The repair path for a scene whose source metadata proves the scene wrong
+    (ticket #1338): the state is the ship gate, so a removed scene cannot
+    come back by accident. ``library/<id>/`` (the edited + original image)
+    goes with it unless ``drop_images`` is unset. Unknown ids are reported,
+    not fatal (a stale id must not break a repair run).
+    """
+    state = load_state(data_dir)
+    removed, missing = [], []
+    for eid in ids:
+        if eid not in state["scenes"]:
+            missing.append(eid)
+            continue
+        del state["scenes"][eid]
+        removed.append(eid)
+        if drop_images:
+            shutil.rmtree(data_dir / "library" / eid, ignore_errors=True)
+    if removed:
+        save_state(data_dir, state)
+    return {"removed": removed, "missing": missing}
 
 
 def identify_size(path: Path) -> tuple:
@@ -749,6 +774,11 @@ def main(argv: list) -> int:
                    help="one-time #1232 migration: fill the family field on "
                         "existing scene entries from the catalog")
 
+    p_rm = sub.add_parser("remove",
+                          help="delete scenes from the state (repair path, "
+                               "ticket #1338)")
+    p_rm.add_argument("ids", nargs="+")
+
     args = ap.parse_args(argv)
     data_dir = args.data
     today = datetime.date.today().isoformat()
@@ -775,6 +805,14 @@ def main(argv: list) -> int:
                 entry = json.load(f)
             state_add(data_dir, entry, args.edited, args.original, d)
             print(f"added {entry.get('id')}")
+            return 0
+        if args.cmd == "remove":
+            res = remove_scenes(data_dir, args.ids)
+            print(f"removed {len(res['removed'])} scene(s): "
+                  + ", ".join(res["removed"]))
+            if res["missing"]:
+                print("not in the state: " + ", ".join(res["missing"]),
+                      file=sys.stderr)
             return 0
         if args.cmd == "backfill-family":
             res = backfill_family(data_dir)

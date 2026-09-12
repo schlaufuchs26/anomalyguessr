@@ -238,6 +238,82 @@ class CommonsDateTest(unittest.TestCase):
     def test_no_signal_is_empty(self):
         self.assertEqual(s._commons_date("", "", "", ""), "")
 
+    def test_class_name_in_the_description_is_not_the_photo_date(self):
+        # Ticket #1338, first half: "1900-series" is a Red Line train class.
+        self.assertEqual(
+            s._commons_date("2024-07-17 16:55:48", "2024-07-17 22:43:23",
+                            "South Station Southbound MBTA Red Line Platform, "
+                            "July 2024",
+                            "A southbound 1900-series Red Line train "
+                            "departing South Station, July 2024"),
+            "circa 2024")
+
+    def test_lone_modern_stamp_stays_raw(self):
+        # No year in the free text: the modern value is the scan/upload stamp
+        # of an undated archive photo. entry_photo_year then reports no era.
+        self.assertEqual(
+            s._commons_date("2008-11-06 23:29", "", "Unnamed street view"),
+            "2008-11-06 23:29")
+
+
+class YearGuardTest(unittest.TestCase):
+    def test_series_suffix_is_not_a_year(self):
+        self.assertEqual(
+            s.years_in_text("a southbound 1900-series Red Line train"), [])
+
+    def test_decade_and_ger_suffixes_are_not_years(self):
+        self.assertEqual(s.years_in_text("Oulu Market Place 1900s"), [])
+        self.assertEqual(s.years_in_text("Baujahr 1900er Jahre"), [])
+
+    def test_model_number_is_not_a_year(self):
+        self.assertEqual(s.years_in_text("locomotive model 1900 at the depot"),
+                         [])
+        self.assertEqual(s.years_in_text("no. 1897 of the series"), [])
+
+    def test_plain_and_range_years_survive(self):
+        self.assertEqual(s.years_in_text("Market, 1905-1910"), [1905, 1910])
+        self.assertEqual(s.years_in_text("Street scene 1900"), [1900])
+
+    def test_title_year_beats_a_description_fragment(self):
+        self.assertEqual(
+            s.text_photo_year("Market vendors gathering, ca. 1907",
+                              "The market opened in 1900."), 1907)
+
+
+class EntryPhotoYearTest(unittest.TestCase):
+    def entry(self, title="", description="", date=""):
+        return {"originalTitle": title, "description": description,
+                "date": date}
+
+    def test_title_year_first_then_date(self):
+        self.assertEqual(
+            s.entry_photo_year(self.entry(title="Market, 1905-1910")), 1905)
+        self.assertEqual(
+            s.entry_photo_year(self.entry(title="Street scene",
+                                          date="1900-01-01 00:00:00")), 1900)
+
+    def test_scan_stamp_does_not_beat_a_text_year(self):
+        self.assertEqual(
+            s.entry_photo_year(self.entry(title="Agana (1899-1900)",
+                                          date="2005-09-30 08:11:46")), 1899)
+
+    def test_modern_title_year_is_the_era(self):
+        e = self.entry(title="South Station platform, July 2024",
+                       date="2024-07-17 16:55:48",
+                       description="A southbound 1900-series train.")
+        self.assertEqual(s.entry_photo_year(e), 2024)
+        self.assertEqual(s.ineligible_reason(e), "modern era (2024)")
+
+    def test_no_era_is_unknown(self):
+        e = self.entry(title="Unnamed street view", date="2008-11-06 23:29")
+        self.assertIsNone(s.entry_photo_year(e))
+        self.assertEqual(s.ineligible_reason(e), "era unknown")
+
+    def test_usable_source_has_no_refusal(self):
+        self.assertEqual(
+            s.ineligible_reason(self.entry(title="Market street, 1900")), "")
+
+
 
 class LocAdapterTest(unittest.TestCase):
     def setUp(self):
@@ -381,6 +457,45 @@ class SeedTest(TempDirMixin, unittest.TestCase):
         self.assertEqual(res["added"], 0)
 
 
+class PruneIneligibleTest(TempDirMixin, unittest.TestCase):
+    """Entries without a usable era leave the pool (ticket #1338)."""
+
+    def _put(self, sid, **entry):
+        index = s.load_index(self.data_dir)
+        entry.setdefault("originalTitle", "Street scene 1900")
+        entry.setdefault("date", "1900")
+        entry.setdefault("used", False)
+        entry["image"] = f"images/{sid}.jpg"
+        make_img(s.sources_dir(self.data_dir) / entry["image"], 1200, 800)
+        index["sources"][sid] = entry
+        s.save_index(self.data_dir, index)
+
+    def test_prune_drops_modern_and_unknown_entries(self):
+        self._put("commons-good-1900")
+        self._put("commons-modern-2024", originalTitle="Platform, July 2024",
+                  date="2024-07-17 16:55:48")
+        self._put("commons-no-era", originalTitle="Unnamed view",
+                  date="2008-11-06 23:29")
+        res = s.prune_ineligible(self.data_dir)
+        self.assertEqual([r["id"] for r in res["removed"]],
+                         ["commons-modern-2024", "commons-no-era"])
+        self.assertEqual([r["reason"] for r in res["removed"]],
+                         ["modern era (2024)", "era unknown"])
+        self.assertEqual(res["images"], 2)
+        left = s.load_index(self.data_dir)["sources"]
+        self.assertEqual(list(left), ["commons-good-1900"])
+        # the images of the refused entries are gone, the good one stays
+        self.assertFalse(
+            (s.sources_dir(self.data_dir) / "images/commons-modern-2024.jpg").exists())
+        self.assertTrue(
+            (s.sources_dir(self.data_dir) / "images/commons-good-1900.jpg").exists())
+
+    def test_prune_is_a_noop_on_a_clean_pool(self):
+        self._put("commons-good-1900")
+        self.assertEqual(s.prune_ineligible(self.data_dir),
+                         {"removed": [], "images": 0})
+
+
 class SeedBackendUrlTest(TempDirMixin, unittest.TestCase):
     """Seed through a stubbed Commons adapter to test the download/save path
     without a live network (gated real calls behind AG_SOURCES_NETWORK)."""
@@ -418,6 +533,30 @@ class SeedBackendUrlTest(TempDirMixin, unittest.TestCase):
         self.assertTrue(self.data_dir / "sources" / src["image"] in
                         [Path(v) for v in downloaded.values()])
         self.assertEqual(len(idx["sources"]), 1)
+
+    def test_era_rejected_candidates_are_not_downloaded(self):
+        # Ticket #1338: a born-digital photo never enters the pool, and it is
+        # counted (era_rejected) so a top-up can tell why its hits fell away.
+        raw = commons_raw(title="South Station platform, July 2024",
+                          desc="A southbound 1900-series Red Line train.",
+                          date_original="2024-07-17 16:55:48")
+
+        class FakeCommons(s.CommonsAdapter):
+            def search(self, query, limit, offset=0):
+                return [raw]
+
+        orig = s.ADAPTERS["commons"]
+        orig_fetch = s._fetch_and_save
+        s.ADAPTERS["commons"] = FakeCommons
+        s._fetch_and_save = lambda url, target: target.write_bytes(b"x")
+        try:
+            res = s.seed_backend(self.data_dir, "commons", "q", 5, "d")
+        finally:
+            s.ADAPTERS["commons"] = orig
+            s._fetch_and_save = orig_fetch
+        self.assertEqual(res["era_rejected"], 1)
+        self.assertEqual(res["added"], 0)
+        self.assertEqual(res["downloaded"], 0)
 
 
 class TopUpTest(TempDirMixin, unittest.TestCase):

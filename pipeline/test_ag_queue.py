@@ -200,6 +200,42 @@ class StateAddTest(unittest.TestCase):
                         "2026-09-08")
 
 
+class RemoveScenesTest(unittest.TestCase):
+    """The repair path (ticket #1338): drop a scene that cannot be right."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="agq_rm_"))
+        self.data = self.tmp / "data"
+        self.ed = self.tmp / "ed.jpg"
+        self.orig = self.tmp / "orig.jpg"
+        make_img(self.ed)
+        make_img(self.orig)
+        q.state_add(self.data, valid_entry("s1"), self.ed, self.orig,
+                    "2026-09-08")
+        q.state_add(self.data, valid_entry("s2"), self.ed, self.orig,
+                    "2026-09-08")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_remove_drops_the_scene_and_its_images(self):
+        res = q.remove_scenes(self.data, ["s1"])
+        self.assertEqual(res["removed"], ["s1"])
+        self.assertEqual(res["missing"], [])
+        self.assertNotIn("s1", q.load_state(self.data)["scenes"])
+        self.assertFalse((self.data / "library" / "s1").exists())
+        self.assertTrue((self.data / "library" / "s2" / "s2.jpg").exists())
+
+    def test_remove_reports_unknown_ids_without_failing(self):
+        res = q.remove_scenes(self.data, ["nope"])
+        self.assertEqual(res, {"removed": [], "missing": ["nope"]})
+        self.assertEqual(len(q.load_state(self.data)["scenes"]), 2)
+
+    def test_remove_can_keep_the_images(self):
+        q.remove_scenes(self.data, ["s1"], drop_images=False)
+        self.assertTrue((self.data / "library" / "s1" / "s1.jpg").exists())
+
+
 class InitTest(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp(prefix="agq_init_"))

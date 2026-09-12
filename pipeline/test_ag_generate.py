@@ -104,6 +104,47 @@ class ParseYearTests(unittest.TestCase):
     def test_range_takes_earliest_year(self):
         self.assertEqual(g.parse_year(source(title="Market, 1905-1910")), 1905)
 
+    def test_class_name_is_not_a_year(self):
+        # Ticket #1338: the July-2024 MBTA photo shipped as "circa 1900"
+        # because Commons describes a "1900-series Red Line train".
+        s = source(title="South Station Southbound MBTA Red Line Platform, "
+                         "July 2024",
+                   date="2024-07-17 16:55:48",
+                   description="A southbound 1900-series Red Line train "
+                               "departing South Station, July 2024")
+        self.assertEqual(g.parse_year(s), 2024)
+        self.assertEqual(ag_sources.ineligible_reason(s), "modern era (2024)")
+
+    def test_title_year_beats_a_description_fragment(self):
+        s = source(title="Market vendors gathering on Pike Place, ca. 1907",
+                   description="The market opened in 1900 as a group of carts.")
+        self.assertEqual(g.parse_year(s), 1907)
+
+    def test_era_unknown_is_refused_not_defaulted(self):
+        s = source(title="Unnamed street view", date="2008-11-06 23:29")
+        self.assertIsNone(g.parse_year(s))
+        self.assertEqual(ag_sources.ineligible_reason(s), "era unknown")
+
+    def test_date_field_only_counts_without_a_text_year(self):
+        s = source(title="Street scene", date="1900-01-01 00:00:00")
+        self.assertEqual(g.parse_year(s), 1900)
+
+    def test_scan_stamp_of_an_old_photo_keeps_the_text_year(self):
+        s = source(title="Street scene in Agana (1899-1900)",
+                   date="2005-09-30 08:11:46")
+        self.assertEqual(g.parse_year(s), 1899)
+        self.assertEqual(ag_sources.ineligible_reason(s), "")
+
+    def test_plan_refuses_a_source_without_an_era(self):
+        good = source(sid="commons-good-1900", date="1900")
+        bad = source(sid="commons-modern-2024", date="2024-07-17 16:55:48",
+                     title="South Station platform, July 2024",
+                     description="A southbound 1900-series train.")
+        plan, skipped, _ = g.plan_day([bad, good], random.Random(0))
+        self.assertEqual([s["id"] for s, _ in plan], ["commons-good-1900"])
+        self.assertEqual(skipped, [{"id": "commons-modern-2024",
+                                    "reason": "modern era (2024)"}])
+
 
 class SettingTests(unittest.TestCase):
     def test_market_and_crowd(self):
@@ -582,7 +623,9 @@ class EntryTests(unittest.TestCase):
                                                           "r": 0.05}, None,
                           "", "2026-09-11")
         self.assertEqual(e["place"], "Unidentified location")
-        self.assertEqual(e["year"], "1900")
+        # No established era: the honest marker, never the raw upload stamp
+        # (ticket #1338). The planner refuses such a source before this point.
+        self.assertEqual(e["year"], "unknown")
 
     def test_hints_name_the_region_from_the_answer(self):
         s = source()
@@ -618,6 +661,19 @@ class EntryTests(unittest.TestCase):
         self.assertEqual(g.guess_place(source(title="Street scene in Agana (1899-1900)")),
                          "Agana")
         self.assertEqual(g.guess_place(source(title="Unnamed view")), "")
+
+    def test_guess_place_prefers_raw_coordinates_over_unknown(self):
+        # Ticket #1338, second half: coordinates in the stored raw metadata
+        # are a place; only a source with no location evidence at all may
+        # fall back to "Unidentified location".
+        s = source(title="Unnamed view")
+        s["raw"] = {"gps": {"lat": 42.352233, "lon": -71.053056}}
+        self.assertEqual(g.guess_place(s), "42.3522, -71.0531")
+
+    def test_guess_place_uses_raw_categories_when_place_is_empty(self):
+        s = source(title="Unnamed view")
+        s["raw"] = {"categories": "1900 in Hagåtña, Guam|Market"}
+        self.assertEqual(g.guess_place(s), "Hagåtña, Guam")
 
 
 class AspectTests(unittest.TestCase):

@@ -138,7 +138,6 @@ DEFAULT_IMAGE_SIZE = "1K"
 # the source dimensions (the queue rejects non-landscape scene images).
 ASPECTS = (("16:9", 16 / 9), ("3:2", 1.5), ("4:3", 4 / 3), ("5:4", 1.25),
            ("21:9", 21 / 9), ("2:1", 2.0), ("1:1", 1.0))
-YEAR_RE = re.compile(r"\b(1[89]\d{2}|20[0-2]\d)\b")
 SCENE_ID_RE = re.compile(r"[^a-z0-9]+")
 # Variety caps (catalog selection rule 4, tightened by ticket #1211): one
 # anomaly per LABEL per generation set (Evan: never the same anomaly twice),
@@ -318,21 +317,15 @@ def source_text(source: dict) -> str:
 
 
 def parse_year(source: dict):
-    """Earliest plausible photo year from the catalog metadata.
+    """Era year of the source photo, or None when it cannot be established.
 
-    Commons `date` is often the upload timestamp (a c.1900 photo can carry
-    `2008-11-06`), so the title is checked first, then the description, then
-    `date`. Only 1800-1999 years count: a 2005/2008 stamp is metadata noise,
-    not a photo date. None = no year could be determined; the era rule then
-    only allows fictional-future elements (no anachronism claim).
+    Thin wrapper over ``ag_sources.entry_photo_year`` (ticket #1338), the one
+    rule shared with the dataset: a guarded year from the title (then the
+    description), else the structured ``date`` field. ``None`` means the era
+    is unknown; ``ag_sources.ineligible_reason`` then refuses the source, and
+    the code never falls back to a default like 1900.
     """
-    for text in (source.get("originalTitle", ""), source.get("description", ""),
-                 source.get("date", "")):
-        years = [int(y) for y in YEAR_RE.findall(str(text or ""))
-                 if 1800 <= int(y) <= 1999]
-        if years:
-            return min(years)
-    return None
+    return ag_sources.entry_photo_year(source)
 
 
 def clean_title(source: dict) -> str:
@@ -350,17 +343,22 @@ def clean_title(source: dict) -> str:
 
 
 def guess_place(source: dict) -> str:
-    """Best-effort place from the title ("... in Agana (1899-1900)").
+    """Best-effort place from the source's metadata.
 
     The source dataset's own `place` field is authoritative when set (seeded
-    from Commons categories/GPS, #1174); otherwise fall back to the title
-    heuristic, which lives in ag_sources so the dataset and the generator
-    share one parser.
+    from Commons categories/GPS, #1174); otherwise re-run the shared parser
+    over the raw metadata the adapter stored (title text, categories, GPS
+    coordinates, ticket #1338) so a source from before that resolution still
+    gets its coordinates instead of "Unidentified location". The parser lives
+    in ag_sources so the dataset and the generator cannot drift apart.
     """
     place = str(source.get("place") or "").strip()
     if place:
         return place
-    return ag_sources.place_from_text(clean_title(source))
+    raw = source.get("raw") or {}
+    return ag_sources.extract_place(title=clean_title(source),
+                                    categories=raw.get("categories"),
+                                    gps=raw.get("gps"))
 
 
 def _contains(text: str, words) -> bool:
@@ -638,6 +636,13 @@ def plan_day(sources: list, rng: random.Random, choose=None, usage=None):
     used_prompts = set()
     plan, skipped, picks = [], [], []
     for src in sources:
+        # Refuse rather than guess (ticket #1338): a source without an
+        # established (pre-modern) era never becomes a scene, not even one
+        # with a fictional-future anomaly whose min_year is None.
+        refusal = ag_sources.ineligible_reason(src)
+        if refusal:
+            skipped.append({"id": src["id"], "reason": refusal})
+            continue
         settings = infer_settings(src)
         year = parse_year(src)
         crowd = has_crowd(src)
@@ -838,8 +843,10 @@ def build_credit(source: dict) -> str:
 def build_entry(source: dict, entry: dict, answer: dict, year, place: str,
                 date: str) -> dict:
     eid = scene_id(source["id"], entry["label"])
-    year_str = str(year) if year else (str(source.get("date") or "").strip()
-                                       or "unknown")
+    # The planner refuses a source without an established era (ticket #1338),
+    # so `year` is set for every scene it plans; "unknown" is the honest
+    # marker for a direct call, never the raw upload stamp of the source.
+    year_str = str(year) if year else "unknown"
     source_block = {k: source.get(k, "") for k in (
         "repository", "fileUrl", "originalTitle", "date", "place", "license",
         "description")}
@@ -1264,6 +1271,20 @@ def _run(args, data_dir: Path, lock) -> dict:
 
     unused = ag_sources.list_sources(data_dir, unused=True)
     unused = [s for s in unused if s.get("image")]
+    # Refuse rather than guess (ticket #1338): a pool entry whose era cannot
+    # be established, or which is a born-digital photo, is not pickable. Kept
+    # out of the pick list so it cannot eat one of the day's slots.
+    unusable = []
+    usable = []
+    for s in unused:
+        reason = ag_sources.ineligible_reason(s)
+        (unusable if reason else usable).append(
+            {"id": s["id"], "reason": reason} if reason else s)
+    unused = usable
+    if unusable:
+        report["unusable_sources"] = unusable
+        print(f"skipping {len(unusable)} source(s) without a usable era",
+              file=sys.stderr)
     if not unused:
         report["error"] = ("source dataset has no unused sources; seed it "
                            "with pipeline/ag_sources.py seed")

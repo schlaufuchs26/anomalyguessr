@@ -42,6 +42,7 @@ Commands::
     ag_sources.py --data DIR top-up [--target 30] [--max-calls 6]
     ag_sources.py --data DIR status
     ag_sources.py --data DIR list [--repo REPO] [--unused]
+    ag_sources.py --data DIR prune-era
     ag_sources.py --data DIR mark-used ID [ID...]
     ag_sources.py --data DIR mark-unused ID [ID...]
 
@@ -470,7 +471,29 @@ def _strip_html(s: str) -> str:
 
 
 _ISO_ZERO_RE = re.compile(r"\b(\d{4})-00-00T\d{2}:\d{2}:\d{2}Z\b")
-_YEAR_RE = re.compile(r"\b(1[89]\d{2})\b")
+
+# ── Photo era (year) ───────────────────────────────────────────────────────
+# One rule for the dataset and the generator (ticket #1338): the era of a
+# photo comes from structured metadata first, free text second, and free text
+# only through token guards. A four-digit token inside a name or model number
+# is not a year. The July-2024 MBTA photo shipped as "circa 1900" because its
+# Commons description reads "a southbound 1900-series Red Line train":
+# 1900-series is a vehicle class. A trailing "s" or "er" ("1900s", "1900er")
+# already fails the \b boundary; the tail/head patterns below catch the
+# hyphenated and "model 1900" forms.
+YEAR_RE = re.compile(r"\b(1[5-9]\d{2}|20\d{2})\b")
+_YEAR_NAME_TAIL_RE = re.compile(
+    r"\s*[-\u2013]?\s*(?:series|class|model|type|baureihe|nr|no)\.?\b", re.I)
+_YEAR_NAME_HEAD_RE = re.compile(
+    r"(?:series|class|model|type|baureihe|number|nr|no)\W*$", re.I)
+
+# Era cutoff (ticket #1338). The pool holds historical photographs: the
+# searches ask for dated files, every catalog anomaly anchors before 2020, and
+# an anachronism claim only makes sense against a scene older than the object.
+# A photo at or after this year is a born-digital upload; it is refused
+# instead of shipped with an invented era. Raise it deliberately, never by
+# accident.
+MODERN_YEAR = 2000
 
 
 def _strip_wikidata_date(s: str) -> str:
@@ -487,27 +510,98 @@ def _strip_wikidata_date(s: str) -> str:
     return _ISO_ZERO_RE.sub(r"\1", s)
 
 
-def _photo_year(text: str):
-    """Earliest 19th-century year in a string, else None.
+def years_in_text(text: str) -> list[int]:
+    """Four-digit tokens in ``text`` that can be a photo year, earliest first.
 
-    20xx values are upload/scan stamps for digitized archive photos, not
-    photo dates, so only 1800-1999 counts (same rule as the generator's
-    ``parse_year``).
+    Guards (ticket #1338): "1900-series", "class 1900", "model 1900" and
+    "no. 1900" are names or numbers, not years. "1900s" and "1900er" never
+    match at all: no word boundary sits between the digits and the suffix.
     """
-    years = [int(y) for y in _YEAR_RE.findall(_strip_html(str(text or "")))]
-    return min(years) if years else None
+    s = _strip_html(str(text or ""))
+    found = set()
+    for m in YEAR_RE.finditer(s):
+        if _YEAR_NAME_TAIL_RE.match(s, m.end()):
+            continue
+        if _YEAR_NAME_HEAD_RE.search(s[:m.start()]):
+            continue
+        found.add(int(m.group(1)))
+    return sorted(found)
+
+
+def first_year(text: str):
+    """Earliest plausible year in a text, or None."""
+    years = years_in_text(text)
+    return years[0] if years else None
+
+
+def text_photo_year(title: str = "", description: str = ""):
+    """Era year from free text: the title's own year, else the description's.
+
+    The title is the file's name and speaks about the photograph; a
+    description fragment may talk about something else entirely (a
+    "1900-series" train, a collection donated in 1982). The title therefore
+    wins whenever it names a year.
+    """
+    year = first_year(title)
+    if year is not None:
+        return year
+    return first_year(description)
+
+
+def entry_photo_year(entry: dict):
+    """Era year of a normalized source entry, or None when it cannot be told.
+
+    Evidence order (ticket #1338):
+    1. the free text: title first, then description (guarded, see
+       ``years_in_text``);
+    2. the ``date`` field, which the adapters fill from structured metadata
+       (EXIF / Commons' Information template).
+
+    A modern year in the free text is the photo's own era: a born-digital
+    photo names its year in the title. A modern year that only the ``date``
+    field carries is the scan/upload stamp of an undated archive photo
+    ("2005-09-30" on a c.1900 glass negative), so the era stays unknown.
+    None means "no era"; callers refuse the source instead of guessing.
+    """
+    text_year = text_photo_year(entry.get("originalTitle") or "",
+                                entry.get("description") or "")
+    if text_year is not None and text_year < MODERN_YEAR:
+        return text_year
+    date_year = first_year(str(entry.get("date") or ""))
+    if text_year is None:
+        if date_year is not None and date_year < MODERN_YEAR:
+            return date_year
+        return None
+    return text_year
+
+
+def ineligible_reason(entry: dict) -> str:
+    """Why a source may not become a scene, "" when it is usable.
+
+    Refusing beats guessing (ticket #1338): a photo whose era cannot be
+    established cannot carry an anachronism claim, and a born-digital photo
+    is no historical scene.
+    """
+    year = entry_photo_year(entry)
+    if year is None:
+        return "era unknown"
+    if year >= MODERN_YEAR:
+        return f"modern era ({year})"
+    return ""
 
 
 def _commons_date(original: str, fallback: str, title: str = "",
                   description: str = "") -> str:
-    """Best available photo date from Commons metadata (ticket #1174).
+    """Resolved photo date: structured metadata first, free text second.
 
-    ``DateTimeOriginal`` is the EXIF date; for digitized archive photos that
-    is the scan/upload timestamp (a c.1900 photo carrying 2005-09-30), so a
-    modern stamp is not a photo date. Prefer the first metadata value that
-    carries a 19th-century year; when every metadata value is modern or
-    absent, derive "circa YYYY" from the title/description. Empty only when
-    there is no signal at all.
+    ``DateTimeOriginal`` is the EXIF capture date for a born-digital upload
+    and the uploader's Information-template date for a scanned archive photo;
+    ``DateTime`` is the scan/upload timestamp. Rule (ticket #1338): a
+    metadata value with a pre-modern year is the photo date; otherwise the
+    guarded free-text year is (the title's year wins over the description);
+    a lone modern stamp is kept as its raw value, because it may be the
+    capture date of a modern photo. Either way the caller decides with
+    ``entry_photo_year`` whether the era is usable.
     """
     cleaned = []
     for v in (original, fallback):
@@ -515,11 +609,12 @@ def _commons_date(original: str, fallback: str, title: str = "",
         if c and c not in cleaned:
             cleaned.append(c)
     for c in cleaned:
-        if _photo_year(c):
+        year = first_year(c)
+        if year is not None and year < MODERN_YEAR:
             return c
-    year = _photo_year(title) or _photo_year(description)
-    if year is not None:
-        return f"circa {year}"
+    text_year = text_photo_year(title, description)
+    if text_year is not None:
+        return f"circa {text_year}"
     return cleaned[0] if cleaned else ""
 
 
@@ -780,16 +875,19 @@ def seed_backend(data_dir: Path, backend: str, query: str, limit: int,
                  refresh: bool = True) -> dict:
     """Search a backend, download + normalize candidates, add to the index.
 
-    Returns {added, skipped, refreshed, rejected, downloaded}. ``rejected``
-    counts candidates that failed the license/orientation/size filter (they
-    were search hits but not usable), so a seed run can report how picky the
-    allowlist was. ``offset`` pages into the backend's result set (top-up);
-    ``downloaded + rejected`` is the number of hits the backend returned, so a
+    Returns {added, skipped, refreshed, rejected, era_rejected, downloaded}.
+    ``rejected`` counts candidates that failed the license/orientation/size
+    filter (they were search hits but not usable) and ``era_rejected`` those
+    whose photo era could not be established or is modern (ticket #1338), so a
+    seed run can report how picky the allowlist and the era rule were.
+    ``offset`` pages into the backend's result set (top-up); ``downloaded +
+    rejected + era_rejected`` is the number of hits the backend returned, so a
     caller can tell whether it reached the end of a query.
     """
     adapter = get_adapter(backend, **(adapter_kw or {}))
     raws = adapter.search(query, limit, offset)
     rejected = 0
+    era_rejected = 0
     ids = []
     for raw in raws:
         try:
@@ -799,6 +897,12 @@ def seed_backend(data_dir: Path, backend: str, query: str, limit: int,
             continue
         if norm is None:
             rejected += 1
+            continue
+        # An unusable era is refused at ingestion (ticket #1338): the pool
+        # only ever holds photos whose era is established and pre-modern, so
+        # no later step can inherit a guessed year.
+        if ineligible_reason(norm):
+            era_rejected += 1
             continue
         # The id date is the RAW metadata date, not the improved ``date``:
         # changing the normalized date must not mint a second id for a photo
@@ -834,6 +938,7 @@ def seed_backend(data_dir: Path, backend: str, query: str, limit: int,
         "skipped": res["skipped"],
         "refreshed": res["refreshed"],
         "rejected": rejected,
+        "era_rejected": era_rejected,
         "downloaded": len(ids),
     }
 
@@ -923,6 +1028,35 @@ def _save_topup_state(data_dir: Path, state: dict) -> None:
     save_index(data_dir, index)
 
 
+def prune_ineligible(data_dir: Path) -> dict:
+    """Drop pool entries without a usable era; returns what went.
+
+    The counterweight to the ingestion guard (ticket #1338): entries that
+    entered the pool before the era rule existed (or through an older
+    heuristic) are removed together with their downloaded image, so
+    "unused sources" always means usable sources and a refused candidate
+    cannot be re-picked every run. Runs inside ``top_up`` before the pool is
+    counted, and standalone via ``ag_sources.py prune-era``.
+    """
+    index = load_index(data_dir)
+    removed, images = [], 0
+    for sid in sorted(index["sources"]):
+        reason = ineligible_reason(index["sources"][sid])
+        if not reason:
+            continue
+        entry = index["sources"].pop(sid)
+        removed.append({"id": sid, "reason": reason,
+                        "title": entry.get("originalTitle", "")})
+        rel = entry.get("image") or ""
+        p = sources_dir(data_dir) / rel if rel else None
+        if p is not None and p.exists():
+            os_unlink(p)
+            images += 1
+    if removed:
+        save_index(data_dir, index)
+    return {"removed": removed, "images": images}
+
+
 def top_up(data_dir: Path, target: int = DEFAULT_TOPUP_TARGET,
            limit: int = DEFAULT_TOPUP_LIMIT, date: str | None = None,
            backend: str = "commons", adapter_kw=None, queries=None,
@@ -941,9 +1075,16 @@ def top_up(data_dir: Path, target: int = DEFAULT_TOPUP_TARGET,
     queries = list(queries or TOPUP_QUERIES)
     if not queries:
         raise ValueError("top_up needs at least one query")
+    # Self-heal first (ticket #1338): entries without a usable era must not
+    # count as pool stock, or the run would stop early on a phantom pool.
+    pruned = prune_ineligible(data_dir)
+    if pruned["removed"]:
+        say(f"top-up: pruned {len(pruned['removed'])} source(s) "
+            f"without a usable era")
     before = status(data_dir)
     report = {"backend": backend, "target": target, "before": before,
               "added": 0, "skipped": 0, "refreshed": 0, "rejected": 0,
+              "era_rejected": 0, "pruned": pruned["removed"],
               "downloaded": 0, "calls": 0, "queries": [], "errors": [],
               "stopped": ""}
     if before["unused"] >= target:
@@ -973,10 +1114,12 @@ def top_up(data_dir: Path, target: int = DEFAULT_TOPUP_TARGET,
             _save_topup_state(data_dir, state)
             continue
         report["calls"] += 1
-        for k in ("added", "skipped", "refreshed", "rejected", "downloaded"):
+        for k in ("added", "skipped", "refreshed", "rejected", "era_rejected",
+                  "downloaded"):
             report[k] += res.get(k, 0)
         report["queries"].append({"query": q, "offset": offset, **res})
-        hits = res["downloaded"] + res["rejected"]
+        hits = (res["downloaded"] + res["rejected"]
+                + res.get("era_rejected", 0))
         state["offsets"][q] = offset + limit if hits >= limit else 0
         cursor += 1
         state["cursor"] = cursor % len(queries)
@@ -1012,6 +1155,8 @@ def main(argv=None) -> int:
     s.add_argument("--date", default=None)
 
     sub.add_parser("status")
+    sub.add_parser("prune-era",
+                   help="drop pool entries whose photo era is unusable")
     ls = sub.add_parser("list")
     ls.add_argument("--repo", default=None)
     ls.add_argument("--unused", action="store_true")
@@ -1061,6 +1206,9 @@ def main(argv=None) -> int:
         return 0
     if args.cmd == "status":
         print(json.dumps(status(data_dir), indent=2))
+        return 0
+    if args.cmd == "prune-era":
+        print(json.dumps(prune_ineligible(data_dir), indent=2))
         return 0
     if args.cmd == "list":
         for s in list_sources(data_dir, args.repo, args.unused):
