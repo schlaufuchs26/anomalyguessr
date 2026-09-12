@@ -34,14 +34,24 @@ export function modePath(base: URL, mode: Mode | null): string {
 /**
  * The mode a pathname names under this base; null (the frontpage) for the
  * base itself, an unknown path or anything outside the base.
+ *
+ * Moderation and Live resolve only outside a production build (ticket
+ * #1374): the public Pages build compiles their branches away, so a
+ * `/moderation` or `/live` deep link there lands on the frontpage through
+ * the caller's fallback instead of starting a run it cannot serve.
  */
 export function modeFromPath(pathname: string, base: URL): Mode | null {
   const basePath = base.pathname;
   if (!pathname.startsWith(basePath)) return null;
   const rest = pathname.slice(basePath.length);
-  return rest === "daily" || rest === "moderation" || rest === "live"
-    ? rest
-    : null;
+  if (rest === "daily") return "daily";
+  if (
+    process.env.NODE_ENV !== "production" &&
+    (rest === "moderation" || rest === "live")
+  ) {
+    return rest;
+  }
+  return null;
 }
 
 /**
@@ -50,12 +60,19 @@ export function modeFromPath(pathname: string, base: URL): Mode | null {
  * flag) and a `/live` load whose scope=live fetch failed degrade to the
  * frontpage instead of starting a run over the wrong set. Daily is always
  * there.
+ *
+ * A production build knows only Daily (ticket #1374), so it returns before
+ * the dev-mode guards; the branches are dead code and drop out of the Pages
+ * bundle.
  */
 export function effectiveMode(
   requested: Mode | null,
   moderationAvailable: boolean,
   liveAvailable: boolean,
 ): Mode | null {
+  if (process.env.NODE_ENV === "production") {
+    return requested === "daily" ? "daily" : null;
+  }
   if (requested === "moderation" && !moderationAvailable) return null;
   if (requested === "live" && !liveAvailable) return null;
   return requested;

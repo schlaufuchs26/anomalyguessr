@@ -21,10 +21,33 @@ Play it: <https://schlaufuchs26.github.io/anomalyguessr/>
 ```sh
 bun install
 bun index.html     # dev server (HMR, serves index.html + frontend.tsx)
-bun run build      # static site into dist/ (minified React bundle + scenes/)
+bun run build      # public Pages site into dist/ (minified React bundle + scenes/)
+bun run build:dev  # dev-instance dist/ (same, plus the dev-only surfaces)
 bun run checks     # format + tsc + biome + knip + tests
 bun run test:e2e   # browser layout smoke tests (Playwright, needs a browser)
 ```
+
+### Public build vs dev build
+
+One frontend source serves two hosts: GitHub Pages (the public game at
+anomalyguessr.com) and the dev instance at `fuchs.science/anomalyguessr/`.
+The gallery link, the Live and Moderation modes and the queue API calls are
+dev-only (ticket #1374): their code is gated on
+`process.env.NODE_ENV !== "production"`, which Bun's minifier resolves at
+build time.
+
+- `bun run build` (alias `build:pages`, what the deploy workflow runs)
+  defines `NODE_ENV=production`, so the dev-only surfaces are compiled out of
+  the bundle, and then runs `scripts/check-public-build.ts`, which fails when
+  a marker only dev code emits survives in `dist/`.
+- `bun run build:dev` defines `NODE_ENV=development` and keeps them; the dev
+  clone is built with it (`scripts/deploy-frontends.sh` in the fuchs repo).
+- `bun index.html` (the dev server) and `bun test` run outside production,
+  so they exercise the dev surfaces too.
+
+A public build must expose only the frontpage and the daily/quiz path. The
+gallery page itself lives in the fuchs dashboard (`dashboard/`), served under
+`/anomalyguessr/gallery/` on the dev host; this repo never builds it.
 
 `test:e2e` runs real Chromium at a short laptop viewport (1280x757) against
 the dev server: it guesses a scene and asserts the HUD stays a bounded

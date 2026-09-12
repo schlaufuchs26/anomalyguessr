@@ -285,11 +285,14 @@ export function App() {
   /** Start the run of a frontpage mode over the loaded manifest (#1214). */
   const startMode = (mode: Mode, loaded: Manifest) => {
     const now = new Date();
+    // Moderation reviews the raw queue; Daily and Live play a daily set
+    // (prepared v2 scenes in order, or 5 seeded from a v1 pool). Moderation
+    // is dev-only, so the production bundle drops the comparison (#1374).
+    const moderation =
+      process.env.NODE_ENV !== "production" && mode === "moderation";
     startRun(
-      // Moderation reviews the raw queue; Daily and Live play a daily set
-      // (prepared v2 scenes in order, or 5 seeded from a v1 pool).
-      mode === "moderation" ? loaded.scenes : dailySet(loaded, now),
-      mode === "moderation",
+      moderation ? loaded.scenes : dailySet(loaded, now),
+      moderation,
       now,
     );
   };
@@ -318,9 +321,9 @@ export function App() {
     // serves now (#1237); Moderation plays the raw queue. Live's manifest is
     // null when its fetch failed, which already degraded the mode above.
     const source =
-      mode === "live"
+      process.env.NODE_ENV !== "production" && mode === "live"
         ? liveManifest
-        : mode === "moderation"
+        : process.env.NODE_ENV !== "production" && mode === "moderation"
           ? manifest
           : dailyManifest;
     if (mode && source) {
@@ -366,7 +369,7 @@ export function App() {
       // played before #1221.
       let daily = loaded;
       let live: Manifest | null = null;
-      if (dev) {
+      if (dev && process.env.NODE_ENV !== "production") {
         // The dev instance's manifest is the unmoderated queue; fetch the
         // day's set for the Daily mode (ticket #1221) and the set prod serves
         // now for the Live mode (ticket #1237). Prod's manifest already is
@@ -533,24 +536,31 @@ export function App() {
     return `💡 Show hint (${hintsUsed}/3)`;
   };
 
-  const postModerationAction = async (action: "accept" | "reject") => {
-    if (!scene || mod.busy || mod.done) return;
-    setMod({ ...mod, busy: true, status: "Saving…" });
-    try {
-      await postModeration(scene.id, action, modFeedback.trim());
-      setMod({
-        status: action === "accept" ? "✓ Accepted." : "✕ Rejected.",
-        done: true,
-        busy: false,
-      });
-    } catch (err) {
-      setMod({
-        status: `Save failed: ${String(err)}`,
-        done: false,
-        busy: false,
-      });
-    }
-  };
+  /**
+   * The moderation verdict (dev instance only, ticket #1163), compiled out of
+   * the production bundle (#1374) together with the queue API prefix it calls.
+   */
+  const postModerationAction =
+    process.env.NODE_ENV !== "production"
+      ? async (action: "accept" | "reject") => {
+          if (!scene || mod.busy || mod.done) return;
+          setMod({ ...mod, busy: true, status: "Saving…" });
+          try {
+            await postModeration(scene.id, action, modFeedback.trim());
+            setMod({
+              status: action === "accept" ? "✓ Accepted." : "✕ Rejected.",
+              done: true,
+              busy: false,
+            });
+          } catch (err) {
+            setMod({
+              status: `Save failed: ${String(err)}`,
+              done: false,
+              busy: false,
+            });
+          }
+        }
+      : null;
 
   if (status === "loading") {
     return (
@@ -627,7 +637,7 @@ export function App() {
     return (
       <main>
         <Header showMenu={devMode} />
-        {moderation ? (
+        {moderation && process.env.NODE_ENV !== "production" ? (
           <ModerationEmpty onReload={() => void loadRef.current(false)} />
         ) : (
           <section id="empty" className="empty-state">
@@ -766,7 +776,7 @@ export function App() {
               {index >= queue.length - 1 ? "Results →" : "Next →"}
             </button>
           </div>
-          {moderation && answered ? (
+          {moderation && answered && process.env.NODE_ENV !== "production" ? (
             <div id="moderate" className="moderate">
               <label className="moderate-label" htmlFor="moderate-feedback">
                 Moderation verdict
@@ -786,7 +796,7 @@ export function App() {
                   className="btn ghost"
                   type="button"
                   disabled={mod.busy || mod.done}
-                  onClick={() => void postModerationAction("reject")}
+                  onClick={() => void postModerationAction?.("reject")}
                 >
                   ✕ Reject
                 </button>
@@ -795,7 +805,7 @@ export function App() {
                   className="btn primary"
                   type="button"
                   disabled={mod.busy || mod.done}
-                  onClick={() => void postModerationAction("accept")}
+                  onClick={() => void postModerationAction?.("accept")}
                 >
                   ✓ Accept
                 </button>
@@ -821,8 +831,9 @@ export function App() {
 
 /**
  * The image-overview page (ticket #1204), a sibling of the game under the same
- * /anomalyguessr/ mount. Rendered only on the dev instance: the static prod
- * build (GitHub Pages) has no gallery, and a dead link there would 404.
+ * /anomalyguessr/ mount. Dev-only (ticket #1374): the production Pages bundle
+ * compiles every reference to it away, so the public site has neither the page
+ * nor a link to it.
  */
 const GALLERY_URL = "gallery/";
 
@@ -869,7 +880,7 @@ function ModeSelect({
             {devMode ? "The next set to ship" : "Today's set"}
           </span>
         </a>
-        {liveAvailable ? (
+        {liveAvailable && process.env.NODE_ENV !== "production" ? (
           <a
             id="mode-live"
             className="mode-btn"
@@ -880,7 +891,7 @@ function ModeSelect({
             <span className="mode-sub">The set on prod right now</span>
           </a>
         ) : null}
-        {devMode ? (
+        {devMode && process.env.NODE_ENV !== "production" ? (
           <a
             id="mode-moderation"
             className="mode-btn"
@@ -907,6 +918,11 @@ function ModeSelect({
  * gallery link (dev only) are ordinary anchors: the reload guard recognizes
  * a click on them as a deliberate leave (ticket #1230), so no handler is
  * needed here.
+ *
+ * The gallery link and its URL drop out of the production bundle entirely
+ * (ticket #1374): `showMenu` is only true where the queue API serves the dev
+ * instance, and the `NODE_ENV` comparison lets the Pages build remove the
+ * anchor, so the public site has nothing to link to.
  */
 function Header({ showMenu }: { showMenu: boolean }) {
   return (
@@ -922,7 +938,7 @@ function Header({ showMenu }: { showMenu: boolean }) {
             🦊 AnomalyGuessr
           </a>
         </h1>
-        {showMenu ? (
+        {showMenu && process.env.NODE_ENV !== "production" ? (
           <a
             className="menu-btn"
             href={GALLERY_URL}

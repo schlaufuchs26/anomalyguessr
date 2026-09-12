@@ -1,0 +1,27 @@
+name: Public Build Split
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  # The public Pages build must carry no dev-only surface (gallery, Live /
+  # Moderation modes, the queue API calls; ticket #1374). `bun run build`
+  # defines NODE_ENV=production and then runs scripts/check-public-build.ts,
+  # so this job fails on a bundle that kept one.
+  pages-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install
+      - run: bun run build
