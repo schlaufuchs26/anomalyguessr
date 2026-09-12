@@ -19,10 +19,18 @@ each ``--repeats`` times (3 by default):
 
 The summary reports how often each variant's majority pick differs from the
 ``image`` majority, how stable each variant is across its own repeats (the
-sampling-noise control: V4.1-Flash sends no temperature, so repeats vary),
-how often a pick differs from the rule pick, and the prompt/completion
-tokens, cost and latency each variant pays. That says whether the photo
-earns its tokens or whether a text-only picker would do.
+sampling-noise control), how often a pick differs from the rule pick, and the
+prompt/completion tokens, cost and latency each variant pays. That says
+whether the photo earns its tokens or whether a text-only picker would do.
+
+Stability has two extra measures (ticket #1313): ``pair_agreement`` is the
+share of same-source repeat pairs that picked the same label (the raw 38%
+number of #1217), and ``split_majority_agreement`` splits a source's repeats
+into two halves, takes each half's majority and asks whether the two votes
+agree. The latter predicts what a k-draw majority picker (``--repeats 6`` =
+two 3-draw votes) would reproduce. ``--temperature`` passes a sampling
+temperature to the picker: omit it to keep the provider default, pass 0.0 to
+make repeats converge.
 
 The candidate list per source is built independently (variety caps within
 one list, no cross-source bookkeeping), so all variants see the identical
@@ -41,7 +49,6 @@ inject the picker and spend nothing.
 
 import argparse
 import base64
-import collections
 import json
 import os
 import random
@@ -123,13 +130,13 @@ def candidates_for(source: dict, seed) -> list:
 
 
 def majority(labels: list):
-    """The most frequent label; ties resolve to the earliest pick."""
-    clean = [x for x in labels if x]
-    if not clean:
-        return None
-    counts = collections.Counter(clean)
-    top = max(counts.values())
-    return next(x for x in clean if counts[x] == top)
+    """The most frequent label; ties resolve to the earliest pick.
+
+    Thin alias for the production helper (``ag_generate.majority_label``),
+    ticket #1313: the multi-draw picker and this harness must agree on the
+    tie-break rule.
+    """
+    return g.majority_label(labels)
 
 
 def stable(labels: list) -> bool:
@@ -140,6 +147,39 @@ def stable(labels: list) -> bool:
     """
     clean = [x for x in labels if x]
     return bool(clean) and len(clean) == len(labels) and len(set(clean)) == 1
+
+
+def pair_agreement(labels: list) -> tuple:
+    """``(agreeing_pairs, total_pairs)`` over the repeats that parsed.
+
+    The #1217 stability measure: two repeats of the same photo+prompt agreed
+    in 38% of pairs without a temperature. Pairs count once each, in input
+    order; ``(0, 0)`` when fewer than two repeats parsed.
+    """
+    clean = [x for x in labels if x]
+    if len(clean) < 2:
+        return 0, 0
+    total = len(clean) * (len(clean) - 1) // 2
+    agree = sum(1 for i, a in enumerate(clean) for b in clean[i + 1:]
+                if a == b)
+    return agree, total
+
+
+def split_majority_agreement(labels: list):
+    """Do two independent halves of the repeats agree on a majority label?
+
+    Answers the production question behind ``--draws`` (ticket #1313): if
+    each half is a k-draw majority vote, how often do two such votes land on
+    the same label? ``None`` when either half has no parsed pick.
+    """
+    clean = [x for x in labels if x]
+    half = len(clean) // 2
+    if half < 1:
+        return None
+    first, second = majority(clean[:half]), majority(clean[half:])
+    if first is None or second is None:
+        return None
+    return first == second
 
 
 def ask_source(source: dict, candidates: list, data_dir: Path, call,
@@ -218,13 +258,16 @@ def summarize(rows: list, baseline: str = "image") -> dict:
     """
     summary = {
         "sources": len(rows), "baseline": baseline,
-        "pick_stable_rate": {}, "changed_vs_baseline": {},
+        "pick_stable_rate": {}, "pair_agreement": {},
+        "split_majority_agreement": {},
+        "changed_vs_baseline": {},
         "differs_from_rule": {}, "fallback_sources": {},
         "prompt_tokens": {}, "completion_tokens": {}, "cost_usd": {},
         "latency_s_median": {}, "latency_s_total": {},
     }
     for variant in VARIANTS:
         changed = differs = stable_n = fallback = 0
+        pairs_ok = pairs_total = split_sources = split_ok = 0
         prompt = completion = 0
         cost = 0.0
         latencies = []
@@ -237,6 +280,13 @@ def summarize(rows: list, baseline: str = "image") -> dict:
                 differs += 1
             if row["stable"].get(variant):
                 stable_n += 1
+            agree, total = pair_agreement(row["picks"].get(variant) or [])
+            pairs_ok += agree
+            pairs_total += total
+            split = split_majority_agreement(row["picks"].get(variant) or [])
+            if split is not None:
+                split_sources += 1
+                split_ok += 1 if split else 0
             u = row["usage"].get(variant) or {}
             prompt += int(u.get("prompt_tokens") or 0)
             completion += int(u.get("completion_tokens") or 0)
@@ -244,6 +294,10 @@ def summarize(rows: list, baseline: str = "image") -> dict:
             latencies += list(row["latency_s"].get(variant) or [])
         n = len(rows) or 1
         summary["pick_stable_rate"][variant] = round(stable_n / n, 3)
+        summary["pair_agreement"][variant] = (
+            round(pairs_ok / pairs_total, 3) if pairs_total else None)
+        summary["split_majority_agreement"][variant] = (
+            round(split_ok / split_sources, 3) if split_sources else None)
         summary["changed_vs_baseline"][variant] = round(changed / n, 3)
         summary["differs_from_rule"][variant] = round(differs / n, 3)
         summary["fallback_sources"][variant] = fallback
@@ -259,11 +313,16 @@ def summarize(rows: list, baseline: str = "image") -> dict:
 # ── Run loop ───────────────────────────────────────────────────────────────
 
 def make_call(api_key: str, base_url: str, model: str, max_tokens: int,
-              timeout: int):
-    """The real picker call, closed over the configured model/API."""
+              timeout: int, temperature=None):
+    """The real picker call, closed over the configured model/API.
+
+    ``temperature`` (ticket #1313) is passed through to the request; ``None``
+    keeps the provider default, 0.0 makes repeats converge.
+    """
     def call(prompt: str, image_url):
         return g.picker_request(prompt, api_key, base_url, model, max_tokens,
-                                timeout, image_url=image_url)
+                                timeout, image_url=image_url,
+                                temperature=temperature)
     return call
 
 
@@ -312,6 +371,7 @@ def run(args, call) -> dict:
     answered = [r for r in rows if not r.get("skipped")]
     return {
         "model": args.model,
+        "temperature": args.temperature,
         "seed": args.seed,
         "repeats": args.repeats,
         "jobs": jobs,
@@ -346,6 +406,9 @@ def parse_args(argv=None) -> argparse.Namespace:
     p.add_argument("--unused", action="store_true",
                    help="sample only unused sources")
     p.add_argument("--model", default=g.DEFAULT_PICKER_MODEL)
+    p.add_argument("--temperature", type=float, default=None,
+                   help="picker temperature; omit (default) for the provider "
+                        "default, 0.0 to make repeats converge (#1313)")
     p.add_argument("--base-url", default=g.DEFAULT_BASE_URL)
     p.add_argument("--max-tokens", type=int,
                    default=g.DEFAULT_PICKER_MAX_TOKENS)
@@ -366,7 +429,8 @@ def main(argv=None) -> int:
         print(json.dumps({"error": "OPENROUTER_API_KEY not set (pass --env)"}))
         return 1
     report = run(args, make_call(api_key, args.base_url, args.model,
-                                 args.max_tokens, args.timeout))
+                                 args.max_tokens, args.timeout,
+                                 args.temperature))
     text = json.dumps(report, indent=2)
     print(text)
     if args.report:

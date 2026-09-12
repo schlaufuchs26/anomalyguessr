@@ -264,9 +264,114 @@ class PickerTests(unittest.TestCase):
         self.assertEqual(p["reasoning"], {"enabled": False})
         self.assertEqual(p["max_tokens"], 123)
         self.assertEqual(p["model"], g.DEFAULT_PICKER_MODEL)
+        # Ticket #1313: temperature 0 makes the pick reproduce.
+        self.assertEqual(p["temperature"], g.DEFAULT_PICKER_TEMPERATURE)
         parts = p["messages"][0]["content"]
         self.assertTrue(any(x["type"] == "image_url" for x in parts))
         self.assertEqual(out, body)
+
+    def test_picker_request_omits_temperature_when_none(self):
+        captured = {}
+
+        def fake_urlopen(req, timeout=None):
+            captured["payload"] = json.loads(req.data)
+            return io.BytesIO(json.dumps({"choices": [{}]}).encode())
+
+        orig = g.urllib.request.urlopen
+        g.urllib.request.urlopen = fake_urlopen
+        try:
+            g.picker_request("p", "key", temperature=None)
+        finally:
+            g.urllib.request.urlopen = orig
+        self.assertNotIn("temperature", captured["payload"])
+
+        g.urllib.request.urlopen = fake_urlopen
+        try:
+            g.picker_request("p", "key", temperature=0.4)
+        finally:
+            g.urllib.request.urlopen = orig
+        self.assertEqual(captured["payload"]["temperature"], 0.4)
+
+    def test_majority_label_ties_resolve_to_the_first_pick(self):
+        self.assertEqual(g.majority_label(["a", "b", "a"]), "a")
+        self.assertEqual(g.majority_label(["b", "a", "b", "a"]), "b")
+        self.assertIsNone(g.majority_label([]))
+        self.assertEqual(g.majority_label([None, None, "a"]), "a")
+
+    def test_make_vision_picker_majority_over_draws(self):
+        tmp = Path(tempfile.mkdtemp())
+        try:
+            img = tmp / "sources" / "images" / "s.jpg"
+            make_img(img, 100, 60)
+            cands = [self.entry("Modern daypack"),
+                     self.entry("Plastic bottle (clear PET)")]
+            answers = iter(['{"label": "Modern daypack"}',
+                            '{"label": "Plastic bottle (clear PET)"}',
+                            '{"label": "Modern daypack"}'])
+            bodies = []
+
+            def fake_call(image, prompt, api_key, base_url, model,
+                          max_tokens, timeout, temperature=None):
+                body = {"choices": [{"message": {"content": next(answers)}}],
+                        "usage": {"prompt_tokens": 10, "completion_tokens": 2,
+                                  "cost": 0.001}}
+                bodies.append(temperature)
+                return body
+
+            orig = g.pick_via_vision
+            g.pick_via_vision = fake_call
+            try:
+                choose = g.make_vision_picker(tmp, "key", g.DEFAULT_BASE_URL,
+                                              draws=3)
+                res = choose({"id": "x", "image": "images/s.jpg"}, cands)
+            finally:
+                g.pick_via_vision = orig
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+        self.assertEqual(res["label"], "Modern daypack")  # 2 of 3 draws
+        self.assertEqual(len(bodies), 3)
+        self.assertEqual(bodies[0], g.DEFAULT_PICKER_TEMPERATURE)
+        self.assertEqual(res["usage"]["cost"], 0.003)
+        self.assertEqual(res["usage"]["prompt_tokens"], 30)
+
+    def test_make_vision_picker_all_draws_fail_is_a_failed_pick(self):
+        tmp = Path(tempfile.mkdtemp())
+        try:
+            img = tmp / "sources" / "images" / "s.jpg"
+            make_img(img, 100, 60)
+
+            def boom(*a, **kw):
+                raise RuntimeError("API down")
+
+            orig = g.pick_via_vision
+            g.pick_via_vision = boom
+            try:
+                choose = g.make_vision_picker(tmp, "key", g.DEFAULT_BASE_URL,
+                                              draws=3)
+                res = choose({"id": "x", "image": "images/s.jpg"},
+                             [self.entry("Modern daypack")])
+            finally:
+                g.pick_via_vision = orig
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        self.assertIsNone(res["label"])
+        self.assertIn("API down", res["error"])
+
+    def test_picker_temperature_provider_default_flag(self):
+        args = g.parse_args([])
+        self.assertEqual(g.picker_temperature(args),
+                         g.DEFAULT_PICKER_TEMPERATURE)
+        args = g.parse_args(["--picker-provider-default"])
+        self.assertIsNone(g.picker_temperature(args))
+        args = g.parse_args(["--picker-temperature", "0.7"])
+        self.assertEqual(g.picker_temperature(args), 0.7)
+
+    def test_picker_stats_record_temperature_and_draws(self):
+        stats = g.picker_stats("llm", False, [], temperature=0.0, draws=3)
+        self.assertEqual(stats["temperature"], 0.0)
+        self.assertEqual(stats["draws"], 3)
+        self.assertNotIn("temperature", g.picker_stats("rules", False, []))
 
     def test_llm_pick_is_used(self):
         seen = []
@@ -529,7 +634,8 @@ class RunTests(TempDataMixin, unittest.TestCase):
         self.write_source(source())
         chosen = {}
 
-        def fake_make(data_dir, api_key, base_url, model, max_tokens, timeout):
+        def fake_make(data_dir, api_key, base_url, model, max_tokens, timeout,
+                      *a, **kw):
             def choose(src, cands):
                 chosen["label"] = cands[-1]["label"]
                 return {"label": cands[-1]["label"], "reason": "test pick",

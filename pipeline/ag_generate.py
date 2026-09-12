@@ -30,7 +30,10 @@ cron prompt left to LLM judgment is now code:
    on, V4.1-Flash spends the whole budget on `reasoning_content` and returns
    `content: null` (measured 2026-09-11). Picks, tokens and cost per pick are
    logged for the A/B (`pipeline/ag_picker_ab.py`, ticket #1217: image vs
-   blank image vs text-only over a source sample).
+   blank image vs text-only over a source sample). Temperature 0 (ticket
+   #1313) makes a repeat of the same photo+prompt reproduce the pick;
+   `--picker-draws N` (default 1) additionally asks N times and keeps the
+   majority label.
 4. **Prompt** - deterministic template per anomaly type + placement recipe
    (`ag_catalog.RECIPES`): one dominant placement instruction, one hard
    numeric scale cap, tone/blend rules (see engineering-practices.md).
@@ -57,7 +60,8 @@ CLI::
 
     ag_generate.py [--data DIR] [--count 10] [--seed N] [--dry-run] [--top-up]
         [--env .env] [--dm-channel ID] [--image-model M] [--vision-model M]
-        [--picker rules|llm] [--picker-model M]
+        [--picker rules|llm] [--picker-model M] [--picker-temperature T]
+        [--picker-draws N] [--picker-provider-default]
         [--max-attempts 2] [--max-generations N] [--date YYYY-MM-DD]
         [--out-dir DIR] [--no-vision]
 
@@ -90,6 +94,7 @@ LLM session is involved).
 
 import argparse
 import base64
+import collections
 import datetime
 import errno
 import fcntl
@@ -138,6 +143,13 @@ MAX_PER_FAMILY = 2
 DEFAULT_PICKER_MODEL = "deepseek/deepseek-v4.1-flash"
 DEFAULT_PICKER_MAX_TOKENS = 200
 DEFAULT_PICKER_TIMEOUT = 120
+# Reproducibility (ticket #1313): a single call without a temperature is
+# near a coin flip (same photo+prompt agreed in only 38% of pairs, #1217).
+# Temperature 0 lifts that to ~88% (measured, 40 sources x 6 repeats); a
+# `draws` majority adds only ~2 points more (3-draw: ~90%), so the default
+# stays 1 draw and the flag is there for a scene that must not flip.
+DEFAULT_PICKER_TEMPERATURE = 0.0
+DEFAULT_PICKER_DRAWS = 1
 
 # Run lock + progress status (ticket #1210). Both live in the data dir next
 # to state.json/feedback.json; they are runtime artifacts, not committed.
@@ -540,10 +552,14 @@ def plan_day(sources: list, rng: random.Random, choose=None):
     return plan, skipped, picks
 
 
-def picker_stats(requested: str, dry_run: bool, picks: list) -> dict:
+def picker_stats(requested: str, dry_run: bool, picks: list,
+                 temperature=None, draws=None) -> dict:
     """Report which path ran and the measured picker token/cost footprint."""
     stats = {"mode": requested, "llm": 0, "fallback": 0, "rules": 0,
              "cost": 0.0, "prompt_tokens": 0, "completion_tokens": 0}
+    if requested == "llm":
+        stats["temperature"] = temperature
+        stats["draws"] = draws
     for p in picks:
         mode = p.get("mode")
         if mode in stats:
@@ -556,6 +572,11 @@ def picker_stats(requested: str, dry_run: bool, picks: list) -> dict:
     if dry_run and requested == "llm":
         stats["note"] = "dry run: rule picks only, no picker API call"
     return stats
+
+
+def picker_temperature(args):
+    """The picker temperature to send; None = the provider's default."""
+    return None if args.picker_provider_default else args.picker_temperature
 
 
 def alternative_entry(source: dict, used_prompts: set, rng: random.Random):
@@ -825,13 +846,19 @@ def picker_request(prompt: str, api_key: str, base_url: str = DEFAULT_BASE_URL,
                    model: str = DEFAULT_PICKER_MODEL,
                    max_tokens: int = DEFAULT_PICKER_MAX_TOKENS,
                    timeout: int = DEFAULT_PICKER_TIMEOUT,
-                   image_url: str | None = None) -> dict:
+                   image_url: str | None = None,
+                   temperature: float | None = DEFAULT_PICKER_TEMPERATURE
+                   ) -> dict:
     """One picker chat call with an optional image part; returns the body.
 
     Reasoning is explicitly OFF: with thinking on, V4.1-Flash emits only
     ``reasoning_content`` and the ``content`` field is null even with
     generous ``max_tokens`` (measured 2026-09-11, ticket #1211). With
     ``reasoning: {enabled: false}`` a tight output budget is enough.
+
+    ``temperature`` is sent only when not None; 0.0 (the default since
+    ticket #1313) makes the pick reproduce, ``None`` keeps the provider's
+    sampling default for A/B runs.
     """
     payload = {
         "model": model,
@@ -841,6 +868,8 @@ def picker_request(prompt: str, api_key: str, base_url: str = DEFAULT_BASE_URL,
         "max_tokens": max_tokens,
         "stream": False,
     }
+    if temperature is not None:
+        payload["temperature"] = temperature
     req = urllib.request.Request(
         base_url.rstrip("/") + "/chat/completions",
         data=json.dumps(payload).encode(),
@@ -861,42 +890,88 @@ def pick_via_vision(source_image: Path, prompt: str, api_key: str,
                     base_url: str = DEFAULT_BASE_URL,
                     model: str = DEFAULT_PICKER_MODEL,
                     max_tokens: int = DEFAULT_PICKER_MAX_TOKENS,
-                    timeout: int = DEFAULT_PICKER_TIMEOUT) -> dict:
+                    timeout: int = DEFAULT_PICKER_TIMEOUT,
+                    temperature: float | None = DEFAULT_PICKER_TEMPERATURE
+                    ) -> dict:
     """One vision picker call over the source photo; returns the body."""
     return picker_request(prompt, api_key, base_url, model, max_tokens,
-                          timeout, image_url=_data_url(source_image))
+                          timeout, image_url=_data_url(source_image),
+                          temperature=temperature)
+
+
+def majority_label(labels: list):
+    """The most frequent label; ties resolve to the earliest pick.
+
+    ``None`` for an all-empty list. Used by the multi-draw picker (ticket
+    #1313) and by the A/B harness to summarize repeats.
+    """
+    clean = [x for x in labels if x]
+    if not clean:
+        return None
+    counts = collections.Counter(clean)
+    top = max(counts.values())
+    return next(x for x in clean if counts[x] == top)
+
+
+def _zero_usage() -> dict:
+    return {"prompt_tokens": 0, "completion_tokens": 0, "cost": 0.0}
+
+
+def _add_usage(total: dict, usage) -> dict:
+    """Fold one response's usage into a running total (ticket #1313)."""
+    usage = usage or {}
+    total["prompt_tokens"] += int(usage.get("prompt_tokens") or 0)
+    total["completion_tokens"] += int(usage.get("completion_tokens") or 0)
+    total["cost"] += float(usage.get("cost") or 0)
+    return total
 
 
 def make_vision_picker(data_dir: Path, api_key: str, base_url: str,
                        model: str = DEFAULT_PICKER_MODEL,
                        max_tokens: int = DEFAULT_PICKER_MAX_TOKENS,
-                       timeout: int = DEFAULT_PICKER_TIMEOUT):
+                       timeout: int = DEFAULT_PICKER_TIMEOUT,
+                       temperature: float | None = DEFAULT_PICKER_TEMPERATURE,
+                       draws: int = DEFAULT_PICKER_DRAWS):
     """Return a ``choose(source, candidates)`` callable for ``plan_day``.
 
     The callable never raises and never invents a label outside the candidate
     list: a missing image, transport error or unparseable answer returns
     ``label: None`` so ``plan_day`` falls back to the rule pick.
+
+    ``draws`` > 1 asks the same question N times and keeps the majority
+    label; usage is summed across the successful draws.
     """
+    draws = max(1, int(draws))
+
     def choose(source: dict, candidates: list) -> dict:
         image = ag_sources.sources_dir(data_dir) / source["image"]
         if not image.exists():
             return {"label": None, "error": f"missing image {image}"}
         prompt = picker_prompt(source, candidates)
-        try:
-            body = pick_via_vision(image, prompt, api_key, base_url, model,
-                                   max_tokens, timeout)
-        except Exception as e:  # noqa: BLE001 - fall back, never lose a scene
-            return {"label": None, "error": f"{type(e).__name__}: {e}"}
-        usage = body.get("usage") or {}
-        content = (body.get("choices") or [{}])[0].get("message", {}).get(
-            "content")
-        match = parse_pick(content, candidates)
-        if match is None:
+        labels, usage, errors, reason = [], _zero_usage(), [], ""
+        for _ in range(draws):
+            try:
+                body = pick_via_vision(image, prompt, api_key, base_url, model,
+                                       max_tokens, timeout, temperature)
+            except Exception as e:  # noqa: BLE001 - fall back, never lose a scene
+                errors.append(f"{type(e).__name__}: {e}")
+                continue
+            _add_usage(usage, body.get("usage"))
+            content = (body.get("choices") or [{}])[0].get("message", {}).get(
+                "content")
+            match = parse_pick(content, candidates)
+            if match is None:
+                errors.append("empty model answer" if not content
+                              else f"off-list label: {str(content)[:120]}")
+                continue
+            labels.append(match["label"])
+            if not reason:
+                reason = match["reason"]
+        picked = majority_label(labels)
+        if picked is None:
             return {"label": None, "usage": usage,
-                    "error": ("empty model answer" if not content
-                              else f"off-list label: {str(content)[:120]}")}
-        return {"label": match["label"], "reason": match["reason"],
-                "usage": usage}
+                    "error": "; ".join(errors) or "no pick"}
+        return {"label": picked, "reason": reason, "usage": usage}
     return choose
 
 
@@ -1028,13 +1103,17 @@ def _run(args, data_dir: Path, lock) -> dict:
             return report
         choose = make_vision_picker(data_dir, api_key, args.base_url,
                                     args.picker_model, args.picker_max_tokens,
-                                    args.picker_timeout)
+                                    args.picker_timeout,
+                                    picker_temperature(args),
+                                    args.picker_draws)
 
     plan, skipped, picks = plan_day(picked, rng, choose=choose)
     report["skipped"] = skipped
     report["planned"] = len(plan)
     report["picks"] = picks
-    report["picker_stats"] = picker_stats(args.picker, args.dry_run, picks)
+    report["picker_stats"] = picker_stats(args.picker, args.dry_run, picks,
+                                          picker_temperature(args),
+                                          args.picker_draws)
     emit()
     if not plan:
         report["error"] = "no source could be matched to a fitting anomaly"
@@ -1187,6 +1266,19 @@ def parse_args(argv=None):
                    help="output budget per pick (reasoning is off)")
     p.add_argument("--picker-timeout", type=int,
                    default=DEFAULT_PICKER_TIMEOUT)
+    p.add_argument("--picker-temperature", type=float,
+                   default=DEFAULT_PICKER_TEMPERATURE,
+                   help="picker sampling temperature (default "
+                        f"{DEFAULT_PICKER_TEMPERATURE}); with "
+                        "--picker-provider-default the request omits it")
+    p.add_argument("--picker-provider-default", action="store_true",
+                   help="omit temperature from the picker request (use the "
+                        "provider's default sampling)")
+    p.add_argument("--picker-draws", type=int, default=DEFAULT_PICKER_DRAWS,
+                   help="ask the picker N times and keep the majority label "
+                        f"(default {DEFAULT_PICKER_DRAWS}; 3 measured only "
+                        "~2 points more reproducible than 1, at 3x pick "
+                        "cost)")
     p.add_argument("--base-url", default=os.environ.get("OPENAI_BASE_URL")
                    or DEFAULT_BASE_URL)
     p.add_argument("--image-size", default=DEFAULT_IMAGE_SIZE)

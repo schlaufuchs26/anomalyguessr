@@ -157,6 +157,25 @@ class MajorityTests(unittest.TestCase):
         self.assertFalse(ab.stable(["a", "a", "b"]))
         self.assertFalse(ab.stable(["a", None, None]))
 
+    def test_pair_agreement_counts_equal_pairs_only(self):
+        # 3 picks -> 3 pairs; a,a,b agrees once.
+        self.assertEqual(ab.pair_agreement(["a", "a", "b"]), (1, 3))
+        self.assertEqual(ab.pair_agreement(["a", "a", "a"]), (3, 3))
+        # Failed repeats drop out of both sides of the ratio.
+        self.assertEqual(ab.pair_agreement(["a", None, "a"]), (1, 1))
+        self.assertEqual(ab.pair_agreement(["a"]), (0, 0))
+        self.assertEqual(ab.pair_agreement([]), (0, 0))
+
+    def test_split_majority_agreement(self):
+        # Two 3-draw halves, each a clear majority.
+        self.assertTrue(ab.split_majority_agreement(
+            ["a", "a", "b", "a", "a", "b"]))
+        self.assertFalse(ab.split_majority_agreement(
+            ["a", "a", "b", "b", "b", "a"]))
+        self.assertFalse(ab.split_majority_agreement(["a", "b"]))
+        self.assertIsNone(ab.split_majority_agreement(["a", None]))
+        self.assertIsNone(ab.split_majority_agreement([]))
+
 
 class AskSourceTests(TempDataMixin, unittest.TestCase):
     def setUp(self):
@@ -304,6 +323,41 @@ class SummarizeTests(unittest.TestCase):
         s = ab.summarize([])
         self.assertEqual(s["sources"], 0)
         self.assertEqual(s["changed_vs_baseline"]["text"], 0.0)
+        self.assertIsNone(s["pair_agreement"]["text"])
+        self.assertIsNone(s["split_majority_agreement"]["text"])
+
+    def test_pair_agreement_and_split_majority_are_summarized(self):
+        # Two sources, each with a 2-repeat image track: one agrees, one not.
+        r1 = row("s1", ["A", "A"], ["A", "A"], ["A", "A"])
+        r2 = row("s2", ["A", "B"], ["A", "A"], ["A", "A"])
+        s = ab.summarize([r1, r2])
+        self.assertEqual(s["pair_agreement"]["image"], 0.5)
+        self.assertEqual(s["pair_agreement"]["blank"], 1.0)
+        self.assertEqual(s["split_majority_agreement"]["image"], 0.5)
+
+
+class TemperatureArgTests(unittest.TestCase):
+    def test_default_is_the_provider_default(self):
+        self.assertIsNone(ab.parse_args([]).temperature)
+
+    def test_value_is_parsed(self):
+        self.assertEqual(ab.parse_args(["--temperature", "0"]).temperature, 0.0)
+
+    def test_make_call_passes_temperature_through(self):
+        seen = {}
+
+        def fake_request(prompt, api_key, base_url, model, max_tokens, timeout,
+                         image_url=None, temperature=None):
+            seen["temperature"] = temperature
+            return {"choices": []}
+
+        orig = ab.g.picker_request
+        ab.g.picker_request = fake_request
+        try:
+            ab.make_call("key", "url", "model", 10, 5, 0.2)("p", None)
+        finally:
+            ab.g.picker_request = orig
+        self.assertEqual(seen["temperature"], 0.2)
 
 
 class RunTests(TempDataMixin, unittest.TestCase):
