@@ -1,0 +1,48 @@
+// DO NOT disable any rules here unless instructed. If you are considering
+// disabling a rule, STOP and ask for instructions.
+// Aligned with dashboard/biome.jsonc: same formatter, same 500-line file gate,
+// same "bun run checks" contract. Biome enables the recommended rule set by
+// default (the explicit `recommended` key is deprecated since 2.5) and moved
+// noExcessiveLinesPerFile from `nursery` to `style` in 2.5.
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.13/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "ignoreUnknown": false
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "style": {
+        "noExcessiveLinesPerFile": {
+          "level": "error",
+          "options": {
+            "maxLines": 500
+          }
+        }
+      }
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double"
+    }
+  },
+  "assist": {
+    "enabled": true,
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  }
+}

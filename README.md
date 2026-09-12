@@ -34,6 +34,24 @@ happy-dom cannot see). CI installs Playwright's Chromium; on a box that ships
 Chromium via nix (the fuchs host), set `PLAYWRIGHT_CHROMIUM_PATH`, or rely on
 the default `/home/exedev/.nix-profile/bin/chromium` when it exists.
 
+## Repo layout
+
+| Path | What it is |
+|------|------------|
+| repo root | the React frontend (`frontend.tsx`, `src/`, `scenes/`, `tests/`, `e2e/`) |
+| `api/` | the TypeScript/Bun HTTP service behind `/anomalyguessr/api/` (manifest, scenes, moderation, on-demand generation); its own package with its own `bun.lock` |
+| `pipeline/` | the Python content pipeline (`ag_generate.py` and friends) plus its `unittest` suites |
+| `data/` | runtime data the pipeline and the API share: `state.json`, `feedback.json`, image caches |
+
+`data/` is gitignored: it is a local cache (a few hundred MB of images) and
+this repo is public. The fuchs box back it up in its nightly
+`scripts/backup.sh` tarball.
+
+```sh
+cd api && bun install && bun run checks   # API: format + tsc + biome + tests
+python3 -m unittest discover -s pipeline -t pipeline -p 'test_ag_*.py'
+```
+
 ## Stack
 
 React 19 + Bun + TypeScript on the house `frontend-template` setup (ticket
@@ -76,9 +94,9 @@ Two manifest generations share one frontend:
   (`YYYY-MM-DD`): the date string hashes to a seed for a deterministic shuffle
   (mulberry32), from which the first 5 scenes are taken. Same date → same set
   and order for everyone; consecutive days rotate the set.
-- **Version 2 (pipeline daily manifest):** the daily content pipeline (fuchs
-  cron, see the game's wiki page) ships exactly the day's 5 scenes in play
-  order inside the manifest (root `date` = the quiz day, `YYYY-MM-DD`). The
+- **Version 2 (pipeline daily manifest):** the daily content pipeline
+  (`pipeline/`, started by a cron on the fuchs host) ships exactly the day's 5
+  scenes in play order inside the manifest (root `date` = the quiz day, `YYYY-MM-DD`). The
   frontend plays them in manifest order; no client-side selection. Everyone
   sees the same 5 because they load the same manifest.
 
@@ -130,8 +148,8 @@ Each scene entry:
   validator (`manifest.ts`) enforces both.
 - Adding a scene = drop `<id>.jpg` + `<id>-original.jpg` into `scenes/`,
   append the manifest entry, done. For pipeline-managed manifests, scenes are
-  managed by the fuchs queue instead (see `data/anomalyguessr/` on the
-  fuchs box); `scenes/` then only ever holds the current day's 5.
+  managed by the pipeline queue instead (see `data/anomalyguessr/`, untracked);
+  `scenes/` then only ever holds the current day's 5.
 
 ## Sources & licensing
 

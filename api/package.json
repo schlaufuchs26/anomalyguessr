@@ -1,0 +1,21 @@
+{
+  "name": "anomalyguessr-api",
+  "version": "1.0.0",
+  "description": "Independent AnomalyGuessr backend: serves manifest/scenes/moderate/image from data/anomalyguessr (extracted from fuchs2, ticket #1171)",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "bun src/server.ts",
+    "tsc": "tsc --pretty --noEmit",
+    "format": "biome format --write .",
+    "biome": "biome check --error-on-warnings .",
+    "test": "bun test",
+    "checks": "bun run format && concurrently -g -c auto 'bun run tsc' 'bun run biome' 'bun run test'"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.13",
+    "@types/bun": "^1.4.2",
+    "concurrently": "^10.0.5",
+    "typescript": "^7.0.2"
+  }
+}

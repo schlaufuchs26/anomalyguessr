@@ -1,4 +1,5 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": ["frontend.tsx", "e2e/**/*.playwright.ts"]
+  "entry": ["frontend.tsx", "e2e/**/*.playwright.ts"],
+  "ignore": ["api/**"]
 }
