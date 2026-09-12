@@ -1,53 +1,43 @@
-"""Tests for pipeline/ag_sources.py (ticket #1170).
+"""Tests for pipeline/ag_sources.py after the #1372 sourcing rebuild.
 
-Run with: python3 scripts/test_ag_sources.py
+Run with: python3 -m unittest discover -s pipeline -t pipeline
 
-No live network is used: the Commons/LOC adapters are tested against
-synthetic records, and the download/save path against a local file:// URL or
-a monkeypatched fetcher. The only live-network gate is behind
+No live network: the Commons adapter is tested against synthetic records and
+the top-up walk against a stub adapter with a monkeypatched downloader. The
+only live-network gate is the Commons smoke test behind
 AG_SOURCES_NETWORK=1 (engineering-practices.md ticket #1084).
 """
 
-import io
 import json
+import os
 import shutil
-import subprocess
 import tempfile
 import unittest
-import urllib.error
 from pathlib import Path
 
 import ag_sources as s
 
-SCRIPTS_DIR = Path(__file__).resolve().parent
 
-
-def make_img(path: Path, w=1200, h=800, color="gray"):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    subprocess.run(
-        ["convert", "-size", f"{w}x{h}", f"xc:{color}", str(path)],
-        check=True, capture_output=True,
-    )
-
-
-def commons_raw(title="Market Street 1900", width=2000, height=1500,
-                license="Public domain", desc="A busy market street.",
-                categories="Market|Streets", date_original="1900",
-                coords=None):
+def commons_raw(title="Market Street", width=2000, height=1500,
+                license="CC BY-SA 4.0", desc="A busy market street.",
+                categories="Market|Streets", date_original="2013-10-24 15:02:48",
+                assessments="quality", mime="image/jpeg", coords=None):
     raw = {
         "title": f"File:{title}.jpg",
         "pageid": 123,
         "imageinfo": [{
             "url": f"https://upload.example/{title}.jpg",
             "descriptionurl": f"https://commons.wikimedia.org/wiki/File:{title}.jpg",
-            "width": width, "height": height,
+            "width": width, "height": height, "mime": mime,
             "extmetadata": {
                 "LicenseShortName": {"value": license},
                 "LicenseUrl": {"value": "https://example.org/lic"},
                 "ObjectName": {"value": title},
                 "DateTimeOriginal": {"value": date_original},
+                "DateTime": {"value": "2014-09-13 00:26:23"},
                 "ImageDescription": {"value": desc},
                 "Categories": {"value": categories},
+                "Assessments": {"value": assessments},
             },
         }],
     }
@@ -69,13 +59,12 @@ class TempDirMixin:
 class LicenseTest(unittest.TestCase):
     def test_allow_public_domain(self):
         self.assertTrue(s.license_ok("Public domain"))
-        self.assertTrue(s.license_ok("Public Domain"))
         self.assertTrue(s.license_ok("No known restrictions"))
+        self.assertTrue(s.license_ok("CC0"))
 
     def test_allow_cc_by_family(self):
         self.assertTrue(s.license_ok("CC BY 4.0"))
         self.assertTrue(s.license_ok("CC BY-SA 3.0"))
-        self.assertTrue(s.license_ok("CC0"))
 
     def test_deny_noncommercial_and_nd(self):
         self.assertFalse(s.license_ok("CC BY-NC 4.0"))
@@ -103,606 +92,318 @@ class NormalizeIdTest(unittest.TestCase):
         self.assertRegex(sid, r"^commons-market-street-\d{4}-[0-9a-f]{6}$")
 
 
-class CommonsAdapterTest(unittest.TestCase):
-    def setUp(self):
-        self.adapter = s.CommonsAdapter()
+class KeyFilterTest(unittest.TestCase):
+    def test_mime_allowlist(self):
+        self.assertEqual(s.mime_ext("image/jpeg"), "jpg")
+        self.assertEqual(s.mime_ext("IMAGE/PNG"), "png")
+        self.assertEqual(s.mime_ext("application/pdf"), "")
+        self.assertEqual(s.mime_ext("image/svg+xml"), "")
 
-    def test_normalize_landscape_pd(self):
-        raw = commons_raw()
-        n = self.adapter.normalize(raw)
-        self.assertIsNotNone(n)
-        self.assertEqual(n["repository"], "Wikimedia Commons")
-        self.assertEqual(n["license"], "Public domain")
-        self.assertEqual(n["width"], 2000)
-        self.assertEqual(n["originalTitle"], "Market Street 1900")
-        self.assertEqual(n["fileUrl"],
-                         "https://commons.wikimedia.org/wiki/File:Market Street 1900.jpg")
-        self.assertEqual(n["description"], "A busy market street.")
-        self.assertIn("raw", n)
+    def test_dimensions(self):
+        self.assertTrue(s.dimensions_ok(2000, 1500))
+        self.assertFalse(s.dimensions_ok(1500, 2000))   # portrait
+        self.assertFalse(s.dimensions_ok(800, 600))     # too small
+        self.assertFalse(s.dimensions_ok(None, None))
 
-    def test_normalize_rejects_portrait(self):
-        raw = commons_raw(width=1500, height=2000)
-        self.assertIsNone(self.adapter.normalize(raw))
+    def test_entry_reject_reason(self):
+        good = {"license": "CC0", "mime": "image/jpeg", "width": 2000,
+                "height": 1500}
+        self.assertEqual(s.entry_reject_reason(good), "")
+        self.assertEqual(
+            s.entry_reject_reason({**good, "license": "All rights reserved"}),
+            "license")
+        self.assertIn("format",
+                      s.entry_reject_reason({**good, "mime": "image/svg+xml"}))
+        self.assertIn("orientation",
+                      s.entry_reject_reason({**good, "width": 1500,
+                                             "height": 2000}))
 
-    def test_normalize_rejects_small(self):
-        raw = commons_raw(width=800, height=600)
-        self.assertIsNone(self.adapter.normalize(raw))
 
-    def test_normalize_rejects_bad_license(self):
-        raw = commons_raw(license="CC BY-NC 4.0")
-        self.assertIsNone(self.adapter.normalize(raw))
+class BornDigitalTest(unittest.TestCase):
+    def test_year_from_various_metadata_shapes(self):
+        self.assertEqual(s.year_in_metadata("2013-10-24 15:02:48"), 2013)
+        self.assertEqual(s.year_in_metadata("1900 date QS:P571,+1900-00-00T00:00:00Z/9"), 1900)
+        self.assertEqual(s.year_in_metadata("1898"), 1898)
+        self.assertIsNone(s.year_in_metadata(""))
+        self.assertIsNone(s.year_in_metadata(None))
 
-    def test_normalize_missing_imageinfo(self):
-        self.assertIsNone(self.adapter.normalize({"title": "File:X.jpg"}))
+    def test_exif_year_prefers_capture_date(self):
+        entry = {"raw": {"dateTimeOriginal": "1902", "dateTime": "2014-09-13"}}
+        self.assertEqual(s.exif_year(entry), 1902)
 
-    def test_normalize_place_from_categories(self):
-        raw = commons_raw(title="Untitled view",
-                          categories="1900 in Hagåtña, Guam|PD US NOAA")
-        n = self.adapter.normalize(raw)
-        self.assertEqual(n["place"], "Hagåtña, Guam")
+    def test_born_digital_flag(self):
+        self.assertTrue(s.is_born_digital(
+            {"raw": {"dateTimeOriginal": "2019-06-09"}}))
+        self.assertFalse(s.is_born_digital(
+            {"raw": {"dateTimeOriginal": "1902"}}))
+        self.assertFalse(s.is_born_digital({"raw": {}}))
 
-    def test_normalize_place_from_gps_when_no_text(self):
-        raw = commons_raw(title="Untitled view", categories="PD US",
-                          coords=[{"lat": 52.51588889, "lon": 13.37925,
-                                   "type": "camera"}])
-        n = self.adapter.normalize(raw)
-        self.assertEqual(n["place"], "52.5159, 13.3793")
-        self.assertEqual(n["raw"]["gps"]["lat"], 52.51588889)
 
-    def test_normalize_keeps_raw_metadata_date_for_the_id(self):
-        # The raw metadata date feeds the deterministic id; the improved
-        # ``date`` must not change it (a changed id would re-add a used photo).
-        raw = commons_raw(title="Market Street 1900",
-                          date_original="2005-09-30 08:11:46")
-        n = self.adapter.normalize(raw)
-        self.assertEqual(n["_idDate"], "2005-09-30 08:11:46")
-        self.assertEqual(n["date"], "circa 1900")
+class MetadataDateTest(unittest.TestCase):
+    def test_prefers_original(self):
+        self.assertEqual(s.metadata_date("2013-10-24 15:02:48", "2014-01-01"),
+                         "2013-10-24")
 
-    def test_normalize_strips_markup_from_the_title(self):
-        raw = commons_raw(title="Market Street 1900")
-        raw["imageinfo"][0]["extmetadata"]["ObjectName"]["value"] = (
-            "<div class=\"fn\">Boer War market</div>")
-        n = self.adapter.normalize(raw)
-        self.assertEqual(n["originalTitle"], "Boer War market")
+    def test_wikidata_wrapper_reduced_to_year(self):
+        self.assertEqual(
+            s.metadata_date("1900 date QS:P571,+1900-00-00T00:00:00Z/9", ""),
+            "1900")
+
+    def test_empty_when_nothing(self):
+        self.assertEqual(s.metadata_date("", None), "")
 
 
 class PlaceTest(unittest.TestCase):
-    def test_place_from_title_in(self):
-        self.assertEqual(s.place_from_text("Street scene in Agana (1899-1900)"),
-                         "Agana")
+    def test_coordinates_first(self):
+        coords = [{"lat": 52.5159, "lon": 13.3793}]
+        self.assertEqual(s.extract_place(categories="1900 in Berlin", gps=coords),
+                         "52.5159, 13.3793")
 
-    def test_place_from_title_tail(self):
-        self.assertEqual(s.place_from_text("Exposition, Paris, France"),
-                         "Paris, France")
+    def test_category_fallback(self):
+        self.assertEqual(s.extract_place(categories="1900 in Hagåtña, Guam"),
+                         "Hagåtña, Guam")
+        self.assertEqual(s.extract_place(categories="Historical images of Paris"),
+                         "Paris")
 
-    def test_place_from_title_empty_when_unparsable(self):
-        self.assertEqual(s.place_from_text("Unnamed view"), "")
+    def test_no_free_text_parsing(self):
+        # A place mentioned only in a title is NOT used (the #1338 bug).
+        self.assertEqual(s.extract_place(categories="", gps=None), "")
 
-    def test_place_from_categories_year_in(self):
-        self.assertEqual(
-            s.place_from_categories("1900 in Hagåtña, Guam|PD US NOAA"),
-            "Hagåtña, Guam")
-
-    def test_place_from_categories_decade(self):
-        self.assertEqual(s.place_from_categories("India in the 1900s|Photos"),
-                         "India")
-
-    def test_place_from_categories_historical_images(self):
-        self.assertEqual(
-            s.place_from_categories("Historical images of Boulevard des Capucines"),
-            "Boulevard des Capucines")
-
-    def test_place_from_categories_rejects_unidentified_and_lowercase(self):
-        self.assertEqual(s.place_from_categories("Unidentified locations in India"),
-                         "")
-        self.assertEqual(s.place_from_categories("1900 in art"), "")
-
-    def test_extract_place_priority_title_then_category_then_gps(self):
-        self.assertEqual(
-            s.extract_place(title="Street scene in Agana",
-                            categories="1900 in Paris"), "Agana")
-        self.assertEqual(
-            s.extract_place(title="Untitled view", categories="1900 in Paris"),
-            "Paris")
-        self.assertEqual(
-            s.extract_place(title="Untitled view",
-                            gps=[{"lat": 52.51588889, "lon": 13.37925}]),
-            "52.5159, 13.3793")
-
-    def test_extract_place_unparsable_is_empty(self):
-        self.assertEqual(s.extract_place(title="Untitled view",
-                                         categories="PD US NOAA"), "")
+    def test_denied_categories(self):
+        self.assertEqual(s.extract_place(categories="Unidentified locations in India"), "")
 
 
-class CommonsDateTest(unittest.TestCase):
-    def test_modern_exif_stamp_falls_back_to_title_year(self):
-        self.assertEqual(
-            s._commons_date("2005-09-30 08:11:46", "2005-09-30 08:11:46",
-                            "Street scene in Agana (1899-1900)", ""),
-            "circa 1899")
-
-    def test_historical_metadata_date_is_kept(self):
-        self.assertEqual(
-            s._commons_date("1900-01-01 00:00:00", "", "Title"), "1900-01-01 00:00:00")
-
-    def test_wikidata_wrapper_is_unwrapped_to_a_year(self):
-        self.assertEqual(
-            s._commons_date("1900 date QS:P571,+1900-00-00T00:00:00Z/9", "",
-                            "Street scene 1900"), "1900")
-
-    def test_wikidata_century_decade_wrapper(self):
-        self.assertEqual(
-            s._commons_date("1900s date QS:P,+1900/00/00", "", "Toronto market"),
-            "1900")
-
-    def test_no_signal_is_empty(self):
-        self.assertEqual(s._commons_date("", "", "", ""), "")
-
-    def test_class_name_in_the_description_is_not_the_photo_date(self):
-        # Ticket #1338, first half: "1900-series" is a Red Line train class.
-        self.assertEqual(
-            s._commons_date("2024-07-17 16:55:48", "2024-07-17 22:43:23",
-                            "South Station Southbound MBTA Red Line Platform, "
-                            "July 2024",
-                            "A southbound 1900-series Red Line train "
-                            "departing South Station, July 2024"),
-            "circa 2024")
-
-    def test_lone_modern_stamp_stays_raw(self):
-        # No year in the free text: the modern value is the scan/upload stamp
-        # of an undated archive photo. entry_photo_year then reports no era.
-        self.assertEqual(
-            s._commons_date("2008-11-06 23:29", "", "Unnamed street view"),
-            "2008-11-06 23:29")
-
-
-class YearGuardTest(unittest.TestCase):
-    def test_series_suffix_is_not_a_year(self):
-        self.assertEqual(
-            s.years_in_text("a southbound 1900-series Red Line train"), [])
-
-    def test_decade_and_ger_suffixes_are_not_years(self):
-        self.assertEqual(s.years_in_text("Oulu Market Place 1900s"), [])
-        self.assertEqual(s.years_in_text("Baujahr 1900er Jahre"), [])
-
-    def test_model_number_is_not_a_year(self):
-        self.assertEqual(s.years_in_text("locomotive model 1900 at the depot"),
-                         [])
-        self.assertEqual(s.years_in_text("no. 1897 of the series"), [])
-
-    def test_plain_and_range_years_survive(self):
-        self.assertEqual(s.years_in_text("Market, 1905-1910"), [1905, 1910])
-        self.assertEqual(s.years_in_text("Street scene 1900"), [1900])
-
-    def test_title_year_beats_a_description_fragment(self):
-        self.assertEqual(
-            s.text_photo_year("Market vendors gathering, ca. 1907",
-                              "The market opened in 1900."), 1907)
-
-
-class EntryPhotoYearTest(unittest.TestCase):
-    def entry(self, title="", description="", date=""):
-        return {"originalTitle": title, "description": description,
-                "date": date}
-
-    def test_title_year_first_then_date(self):
-        self.assertEqual(
-            s.entry_photo_year(self.entry(title="Market, 1905-1910")), 1905)
-        self.assertEqual(
-            s.entry_photo_year(self.entry(title="Street scene",
-                                          date="1900-01-01 00:00:00")), 1900)
-
-    def test_scan_stamp_does_not_beat_a_text_year(self):
-        self.assertEqual(
-            s.entry_photo_year(self.entry(title="Agana (1899-1900)",
-                                          date="2005-09-30 08:11:46")), 1899)
-
-    def test_modern_title_year_is_the_era(self):
-        e = self.entry(title="South Station platform, July 2024",
-                       date="2024-07-17 16:55:48",
-                       description="A southbound 1900-series train.")
-        self.assertEqual(s.entry_photo_year(e), 2024)
-        self.assertEqual(s.ineligible_reason(e), "modern era (2024)")
-
-    def test_no_era_is_unknown(self):
-        e = self.entry(title="Unnamed street view", date="2008-11-06 23:29")
-        self.assertIsNone(s.entry_photo_year(e))
-        self.assertEqual(s.ineligible_reason(e), "era unknown")
-
-    def test_usable_source_has_no_refusal(self):
-        self.assertEqual(
-            s.ineligible_reason(self.entry(title="Market street, 1900")), "")
-
-
-
-class LocAdapterTest(unittest.TestCase):
+class CommonsNormalizeTest(unittest.TestCase):
     def setUp(self):
-        self.adapter = s.LocAdapter()
+        self.adapter = s.CommonsAdapter()
 
-    def test_normalize_landscape(self):
-        raw = {
-            "id": "https://www.loc.gov/item/abc",
-            "title": "Market Street, 1900",
-            "date": "1900",
-            "image": ["https://tile.loc.gov/full.jpg"],
-            "rights": ["No known restrictions on publication."],
-            "description": ["A busy street."],
-        }
-        n = self.adapter.normalize(raw)
+    def test_accepts_quality_landscape(self):
+        n = self.adapter.normalize(commons_raw())
         self.assertIsNotNone(n)
-        self.assertEqual(n["repository"], "Library of Congress")
-        self.assertEqual(n["license"], "No known restrictions on publication.")
-        self.assertNotIn("image", n)  # normalize does not set image/download
-        self.assertEqual(self.adapter.download_url(raw),
-                         "https://tile.loc.gov/full.jpg")
+        self.assertEqual(n["repository"], "Wikimedia Commons")
+        self.assertEqual(n["width"], 2000)
+        self.assertEqual(n["mime"], "image/jpeg")
+        self.assertEqual(n["quality"], "quality")
+        self.assertTrue(s.quality_ok(n))
+        self.assertEqual(n["date"], "2013-10-24")
+        self.assertTrue(s.is_born_digital(n))
+        self.assertEqual(n["raw"]["dateTimeOriginal"],
+                         "2013-10-24 15:02:48")
 
-    def test_normalize_rejects_no_image(self):
-        raw = {"id": "x", "title": "t", "image": []}
-        self.assertIsNone(self.adapter.normalize(raw))
+    def test_place_from_coordinates(self):
+        n = self.adapter.normalize(commons_raw(
+            coords=[{"lat": 1.5, "lon": 2.5, "type": "camera"}]))
+        self.assertEqual(n["place"], "1.5000, 2.5000")
 
-    def test_normalize_rejects_restricted(self):
-        raw = {
-            "id": "x", "title": "t", "image": ["http://x.jpg"],
-            "rights": ["Restricted: all rights reserved"],
-        }
-        self.assertIsNone(self.adapter.normalize(raw))
+    def test_rejects_portrait_small_license_mime(self):
+        self.assertIsNone(self.adapter.normalize(
+            commons_raw(width=1500, height=2000)))
+        self.assertIsNone(self.adapter.normalize(
+            commons_raw(width=800, height=600)))
+        self.assertIsNone(self.adapter.normalize(
+            commons_raw(license="All rights reserved")))
+        self.assertIsNone(self.adapter.normalize(
+            commons_raw(mime="image/svg+xml")))
+
+    def test_quality_ok_false_without_assessment(self):
+        n = self.adapter.normalize(commons_raw(assessments=""))
+        self.assertFalse(s.quality_ok(n))
+
+    def test_strips_html_from_title_and_description(self):
+        raw = commons_raw()
+        raw["imageinfo"][0]["extmetadata"]["ObjectName"] = {
+            "value": '<div class="fn">Castle</div>'}
+        n = self.adapter.normalize(raw)
+        self.assertEqual(n["originalTitle"], "Castle")
 
 
 class IndexTest(TempDirMixin, unittest.TestCase):
-    def _entry(self, eid, license="Public domain"):
-        return {
-            "id": eid,
-            "repository": "Test",
-            "fileUrl": f"http://example/{eid}",
-            "originalTitle": "Scene " + eid,
-            "date": "1900",
-            "place": "",
-            "license": license,
-            "licenseUrl": "",
-            "description": "desc",
-            "image": f"images/{eid}.jpg",
-            "width": 1200, "height": 800,
-            "raw": {},
-        }
+    def entry(self, sid="commons-x-abc123", used=False, license="CC0"):
+        return {"id": sid, "repository": "Wikimedia Commons",
+                "fileUrl": "https://c/1", "originalTitle": "X",
+                "date": "2013-10-24", "place": "", "license": license,
+                "licenseUrl": "", "description": "", "width": 2000,
+                "height": 1500, "mime": "image/jpeg", "used": used,
+                "image": f"images/{sid}.jpg"}
 
-    def test_add_and_merge(self):
-        res = s.add_sources(self.data_dir, [self._entry("a"), self._entry("b")], "2026-09-11")
-        self.assertEqual(res, {"added": 2, "skipped": 0, "refreshed": 0})
-        res2 = s.add_sources(self.data_dir, [self._entry("a")], "2026-09-11")
-        self.assertEqual(res2, {"added": 0, "skipped": 1, "refreshed": 0})
-        idx = s.load_index(self.data_dir)
-        self.assertEqual(len(idx["sources"]), 2)
-        self.assertEqual(idx["sources"]["a"]["used"], False)
-        self.assertEqual(idx["sources"]["a"]["added"], "2026-09-11")
-
-    def test_refresh_updates_metadata_but_keeps_used_and_added(self):
-        s.add_sources(self.data_dir, [self._entry("a")], "2026-09-11")
-        s.mark_used(self.data_dir, ["a"], True)
-        updated = self._entry("a")
-        updated["place"] = "Agana"
-        updated["date"] = "circa 1899"
-        res = s.add_sources(self.data_dir, [updated], "2026-09-12")
-        self.assertEqual(res, {"added": 0, "skipped": 1, "refreshed": 1})
-        src = s.load_index(self.data_dir)["sources"]["a"]
-        self.assertEqual(src["place"], "Agana")
-        self.assertEqual(src["date"], "circa 1899")
-        self.assertTrue(src["used"])          # used-tracking survives
-        self.assertEqual(src["added"], "2026-09-11")
-
-    def test_refresh_off_leaves_stale_metadata(self):
-        s.add_sources(self.data_dir, [self._entry("a")], "d")
-        updated = self._entry("a")
-        updated["place"] = "Agana"
-        res = s.add_sources(self.data_dir, [updated], "d", refresh=False)
-        self.assertEqual(res, {"added": 0, "skipped": 1, "refreshed": 0})
-        self.assertEqual(s.load_index(self.data_dir)["sources"]["a"]["place"], "")
-
-    def test_mark_used(self):
-        s.add_sources(self.data_dir, [self._entry("a"), self._entry("b")], "d")
-        upd = s.mark_used(self.data_dir, ["a", "missing"], True)
-        self.assertEqual(upd, ["a"])
-        self.assertTrue(s.load_index(self.data_dir)["sources"]["a"]["used"])
-        self.assertFalse(s.load_index(self.data_dir)["sources"]["b"]["used"])
-        # mark-unused flips back; idempotent
-        self.assertEqual(s.mark_used(self.data_dir, ["a"], False), ["a"])
-        self.assertFalse(s.load_index(self.data_dir)["sources"]["a"]["used"])
-        self.assertEqual(s.mark_used(self.data_dir, ["a"], False), [])
-
-    def test_status_and_list(self):
-        s.add_sources(self.data_dir, [self._entry("a"), self._entry("b")], "d")
-        s.mark_used(self.data_dir, ["a"], True)
-        st = s.status(self.data_dir)
-        self.assertEqual(st["total"], 2)
-        self.assertEqual(st["used"], 1)
-        self.assertEqual(st["unused"], 1)
-        unused = s.list_sources(self.data_dir, unused=True)
-        self.assertEqual([x["id"] for x in unused], ["b"])
-
-
-class SeedTest(TempDirMixin, unittest.TestCase):
-    def test_manual_seed(self):
-        src_dir = self._tmp / "manual"
-        src_dir.mkdir()
-        make_img(src_dir / "photo1.jpg", 1200, 800)
-        meta = {
-            "photo1.jpg": {
-                "repository": "Example Archive",
-                "originalTitle": "Old Market",
-                "date": "1910",
-                "license": "Public domain",
-                "description": "A market.",
-            }
-        }
-        (src_dir / s.MANUAL_META).write_text(json.dumps(meta))
-        res = s.seed_backend(self.data_dir, "manual", "", 10, "2026-09-11",
-                             {"directory": src_dir})
-        self.assertEqual(res["added"], 1)
-        self.assertEqual(res["rejected"], 0)
-        idx = s.load_index(self.data_dir)
-        src = next(iter(idx["sources"].values()))
-        self.assertEqual(src["originalTitle"], "Old Market")
-        self.assertEqual(src["width"], 1200)
-        # image copied on disk
-        img = self.data_dir / "sources" / src["image"]
-        self.assertTrue(img.exists())
-
-    def test_manual_rejects_no_license(self):
-        src_dir = self._tmp / "manual2"
-        src_dir.mkdir()
-        make_img(src_dir / "photo1.jpg", 1200, 800)
-        # no metadata.json -> normalize returns None -> rejected
-        res = s.seed_backend(self.data_dir, "manual", "", 10, "d",
-                             {"directory": src_dir})
-        self.assertEqual(res["rejected"], 1)
+    def test_add_is_idempotent_and_preserves_used(self):
+        s.add_sources(self.data_dir, [self.entry()], "2026-09-12")
+        s.mark_used(self.data_dir, ["commons-x-abc123"], True)
+        res = s.add_sources(self.data_dir, [self.entry()], "2026-09-12")
         self.assertEqual(res["added"], 0)
-
-
-class PruneIneligibleTest(TempDirMixin, unittest.TestCase):
-    """Entries without a usable era leave the pool (ticket #1338)."""
-
-    def _put(self, sid, **entry):
+        self.assertEqual(res["skipped"], 1)
         index = s.load_index(self.data_dir)
-        entry.setdefault("originalTitle", "Street scene 1900")
-        entry.setdefault("date", "1900")
-        entry.setdefault("used", False)
-        entry["image"] = f"images/{sid}.jpg"
-        make_img(s.sources_dir(self.data_dir) / entry["image"], 1200, 800)
-        index["sources"][sid] = entry
-        s.save_index(self.data_dir, index)
+        self.assertTrue(index["sources"]["commons-x-abc123"]["used"])
 
-    def test_prune_drops_modern_and_unknown_entries(self):
-        self._put("commons-good-1900")
-        self._put("commons-modern-2024", originalTitle="Platform, July 2024",
-                  date="2024-07-17 16:55:48")
-        self._put("commons-no-era", originalTitle="Unnamed view",
-                  date="2008-11-06 23:29")
-        res = s.prune_ineligible(self.data_dir)
-        self.assertEqual([r["id"] for r in res["removed"]],
-                         ["commons-modern-2024", "commons-no-era"])
-        self.assertEqual([r["reason"] for r in res["removed"]],
-                         ["modern era (2024)", "era unknown"])
-        self.assertEqual(res["images"], 2)
-        left = s.load_index(self.data_dir)["sources"]
-        self.assertEqual(list(left), ["commons-good-1900"])
-        # the images of the refused entries are gone, the good one stays
-        self.assertFalse(
-            (s.sources_dir(self.data_dir) / "images/commons-modern-2024.jpg").exists())
-        self.assertTrue(
-            (s.sources_dir(self.data_dir) / "images/commons-good-1900.jpg").exists())
+    def test_status_counts_born_digital(self):
+        e = self.entry()
+        e["raw"] = {"dateTimeOriginal": "2019-01-01"}
+        s.add_sources(self.data_dir, [e], "2026-09-12")
+        st = s.status(self.data_dir)
+        self.assertEqual(st["total"], 1)
+        self.assertEqual(st["unused"], 1)
+        self.assertEqual(st["born_digital"], 1)
 
-    def test_prune_is_a_noop_on_a_clean_pool(self):
-        self._put("commons-good-1900")
-        self.assertEqual(s.prune_ineligible(self.data_dir),
-                         {"removed": [], "images": 0})
+    def test_list_unused_and_mark_unused(self):
+        s.add_sources(self.data_dir, [self.entry()], "2026-09-12")
+        self.assertEqual(len(s.list_sources(self.data_dir, unused=True)), 1)
+        s.mark_used(self.data_dir, ["commons-x-abc123"], True)
+        self.assertEqual(len(s.list_sources(self.data_dir, unused=True)), 0)
+        s.mark_used(self.data_dir, ["nope"], True)  # unknown id: ignored
+
+    def test_prune_invalid_drops_and_removes_image(self):
+        e = self.entry()
+        e["license"] = "All rights reserved"
+        img = s.images_dir(self.data_dir) / f"{e['id']}.jpg"
+        img.parent.mkdir(parents=True, exist_ok=True)
+        img.write_bytes(b"x")
+        s.add_sources(self.data_dir, [e], "2026-09-12")
+        res = s.prune_invalid(self.data_dir)
+        self.assertEqual(len(res["removed"]), 1)
+        self.assertEqual(res["images"], 1)
+        self.assertFalse(img.exists())
+        self.assertEqual(s.status(self.data_dir)["total"], 0)
+
+    def test_paths_default_to_repo_data(self):
+        self.assertTrue(str(s.default_data_dir()).endswith("data/anomalyguessr"))
+        self.assertEqual(s.sources_dir(self.data_dir),
+                         self.data_dir / "sources")
 
 
-class SeedBackendUrlTest(TempDirMixin, unittest.TestCase):
-    """Seed through a stubbed Commons adapter to test the download/save path
-    without a live network (gated real calls behind AG_SOURCES_NETWORK)."""
+def stub_raw(title, born=1902, license="CC0"):
+    return {"title": f"File:{title}.jpg", "pageid": 1,
+            "imageinfo": [{"url": f"https://upload.example/{title}.jpg",
+                           "descriptionurl": f"https://commons.example/{title}",
+                           "width": 2000, "height": 1500,
+                           "mime": "image/jpeg",
+                           "extmetadata": {
+                               "LicenseShortName": {"value": license},
+                               "ObjectName": {"value": title},
+                               "Assessments": {"value": "quality"},
+                               "Categories": {"value": f"Quality images|{title}"},
+                               "DateTimeOriginal": {"value": born}}}]}
 
-    def test_download_and_add(self):
-        raw = commons_raw()
-        # Stub the adapter's search + a fake fetcher by replacing _fetch_and_save.
-        class FakeCommons(s.CommonsAdapter):
-            def search(self, query, limit, offset=0):
-                return [raw]
 
-        orig = s.ADAPTERS["commons"]
-        s.ADAPTERS["commons"] = FakeCommons
-        orig_fetch = s._fetch_and_save
-        downloaded = {}
+class StubCommons(s.CommonsAdapter):
+    """A CommonsAdapter whose pages come from memory (no network)."""
 
-        def fake_fetch(url, target):
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(b"fakeimage")
-            downloaded[url] = str(target)
+    pages = []
+    calls = 0
 
-        s._fetch_and_save = fake_fetch
+    def quality_batch(self, limit, cursor=None):
+        StubCommons.calls += 1
+        start = int(cursor or 0)
+        chunk = self.pages[start:start + limit]
+        nxt = str(start + limit) if start + limit < len(self.pages) else ""
+        return chunk, nxt
+
+
+class SelectCandidatesTest(unittest.TestCase):
+    def test_filters_quality_and_counts_born_digital(self):
+        adapter = s.CommonsAdapter()
+        raws = [commons_raw(title="Good", assessments="quality"),
+                commons_raw(title="Bad", assessments="featured|potd")]
+        res = s.select_candidates(raws, adapter)
+        self.assertEqual(len(res["pairs"]), 1)
+        self.assertEqual(res["quality_rejected"], 1)
+        self.assertEqual(res["born_digital"], 1)
+
+    def test_exclude_born_digital_flag(self):
+        adapter = s.CommonsAdapter()
+        old = s.EXCLUDE_BORN_DIGITAL
+        s.EXCLUDE_BORN_DIGITAL = True
         try:
-            res = s.seed_backend(self.data_dir, "commons", "market street", 5, "d")
-            # re-seed is idempotent (skipped, not duplicated)
-            res2 = s.seed_backend(self.data_dir, "commons", "market street", 5, "d")
+            res = s.select_candidates([commons_raw()], adapter)
+            self.assertEqual(len(res["pairs"]), 0)
+            self.assertEqual(res["born_digital"], 1)
         finally:
-            s.ADAPTERS["commons"] = orig
-            s._fetch_and_save = orig_fetch
-        self.assertEqual(res["added"], 1)
-        self.assertEqual(res["rejected"], 0)
-        self.assertEqual(res2["added"], 0)
-        idx = s.load_index(self.data_dir)
-        src = next(iter(idx["sources"].values()))
-        self.assertTrue(self.data_dir / "sources" / src["image"] in
-                        [Path(v) for v in downloaded.values()])
-        self.assertEqual(len(idx["sources"]), 1)
-
-    def test_era_rejected_candidates_are_not_downloaded(self):
-        # Ticket #1338: a born-digital photo never enters the pool, and it is
-        # counted (era_rejected) so a top-up can tell why its hits fell away.
-        raw = commons_raw(title="South Station platform, July 2024",
-                          desc="A southbound 1900-series Red Line train.",
-                          date_original="2024-07-17 16:55:48")
-
-        class FakeCommons(s.CommonsAdapter):
-            def search(self, query, limit, offset=0):
-                return [raw]
-
-        orig = s.ADAPTERS["commons"]
-        orig_fetch = s._fetch_and_save
-        s.ADAPTERS["commons"] = FakeCommons
-        s._fetch_and_save = lambda url, target: target.write_bytes(b"x")
-        try:
-            res = s.seed_backend(self.data_dir, "commons", "q", 5, "d")
-        finally:
-            s.ADAPTERS["commons"] = orig
-            s._fetch_and_save = orig_fetch
-        self.assertEqual(res["era_rejected"], 1)
-        self.assertEqual(res["added"], 0)
-        self.assertEqual(res["downloaded"], 0)
+            s.EXCLUDE_BORN_DIGITAL = old
 
 
 class TopUpTest(TempDirMixin, unittest.TestCase):
-    """Top-up paging/dedup against stubbed Commons searches (no network)."""
-
-    def _install(self, search_fn):
-        class FakeCommons(s.CommonsAdapter):
-            def search(self, query, limit, offset=0):
-                return search_fn(query, limit, offset)
-
-        self._orig_adapter = s.ADAPTERS["commons"]
-        self._orig_fetch = s._fetch_and_save
-        s.ADAPTERS["commons"] = FakeCommons
-
-        def fake_fetch(url, target):
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(b"fakeimage")
-
-        s._fetch_and_save = fake_fetch
+    def setUp(self):
+        super().setUp()
+        self._old_cls = s.CommonsAdapter
+        StubCommons.calls = 0
+        StubCommons.pages = [stub_raw(f"Photo {i}") for i in range(6)]
+        s.CommonsAdapter = StubCommons
+        # Downloads write a placeholder file instead of hitting the network.
+        self._old_fetch = s._fetch_and_save
+        s._fetch_and_save = lambda url, target: (
+            target.parent.mkdir(parents=True, exist_ok=True),
+            target.write_bytes(b"img"), 3)[-1]
 
     def tearDown(self):
-        s.ADAPTERS["commons"] = self._orig_adapter
-        s._fetch_and_save = self._orig_fetch
+        s.CommonsAdapter = self._old_cls
+        s._fetch_and_save = self._old_fetch
         super().tearDown()
 
-    def test_top_up_fills_pool_and_is_idempotent_preserving_used(self):
-        per = {
-            "q1": [commons_raw(title="Market Street A"),
-                   commons_raw(title="Market Street B")],
-            "q2": [commons_raw(title="Harbour C"),
-                   commons_raw(title="Harbour D")],
-        }
-        self._install(lambda q, limit, offset: per.get(q, [])[offset:offset + limit])
-        rep = s.top_up(self.data_dir, target=3, limit=10,
-                       queries=["q1", "q2"], max_calls=5)
-        self.assertEqual(rep["added"], 4)
-        self.assertEqual(rep["after"]["unused"], 4)
+    def test_walks_category_and_reaches_target(self):
+        rep = s.top_up(self.data_dir, target=4, batch=2, max_calls=5)
         self.assertEqual(rep["stopped"], "target reached")
+        self.assertEqual(rep["after"]["unused"], 4)
+        self.assertEqual(rep["examples"], ["Photo 0", "Photo 1", "Photo 2"])
+        self.assertTrue(rep["added"] >= 4)
 
-        first = sorted(s.load_index(self.data_dir)["sources"])[0]
-        s.mark_used(self.data_dir, [first], True)
-        rep2 = s.top_up(self.data_dir, target=4, limit=10,
-                        queries=["q1", "q2"], max_calls=5)
-        idx = s.load_index(self.data_dir)
-        self.assertEqual(len(idx["sources"]), 4)         # no duplicate entries
-        self.assertTrue(idx["sources"][first]["used"])   # used survives re-seed
-        self.assertEqual(rep2["added"], 0)
+    def test_resumes_from_persisted_cursor(self):
+        s.top_up(self.data_dir, target=2, batch=2, max_calls=1)
+        first = s.status(self.data_dir)["total"]
+        self.assertEqual(first, 2)
+        rep = s.top_up(self.data_dir, target=6, batch=2, max_calls=5)
+        # The second run continues at page 2; nothing is duplicated.
+        self.assertEqual(rep["skipped"], 0)
+        self.assertEqual(rep["after"]["total"],
+                         len(StubCommons.pages))
 
-    def test_top_up_pages_deeper_on_repeat_runs(self):
-        raws = [commons_raw(title=f"Street {i}") for i in range(30)]
-        offsets = []
+    def test_reports_cursor_and_stops_when_exhausted(self):
+        rep = s.top_up(self.data_dir, target=99, batch=2, max_calls=10)
+        self.assertEqual(rep["stopped"], "category exhausted")
+        self.assertEqual(rep["shortfall"], 99 - len(StubCommons.pages))
+        state = s._load_quality_state(self.data_dir)
+        self.assertEqual(state.get("continue"), "")
 
-        def search_fn(query, limit, offset):
-            offsets.append(offset)
-            return raws[offset:offset + limit]
-
-        self._install(search_fn)
-        first = s.top_up(self.data_dir, target=100, limit=10,
-                         queries=["q"], max_calls=1)
-        second = s.top_up(self.data_dir, target=100, limit=10,
-                          queries=["q"], max_calls=1)
-        self.assertEqual(first["added"], 10)
-        self.assertEqual(second["added"], 10)
-        self.assertEqual(offsets, [0, 10])
-        self.assertEqual(s.status(self.data_dir)["total"], 20)
-
-    def test_top_up_is_a_noop_when_the_pool_is_healthy(self):
-        self._install(lambda q, limit, offset: [commons_raw(title="Market Street A")])
-        s.top_up(self.data_dir, target=1, limit=10, queries=["q"], max_calls=3)
-        rep = s.top_up(self.data_dir, target=1, limit=10, queries=["q"], max_calls=3)
+    def test_healthy_pool_short_circuits(self):
+        s.top_up(self.data_dir, target=1, batch=2, max_calls=1)
+        calls = StubCommons.calls
+        rep = s.top_up(self.data_dir, target=1, batch=2, max_calls=1)
         self.assertEqual(rep["stopped"], "pool healthy")
-        self.assertEqual(rep["calls"], 0)
+        self.assertEqual(StubCommons.calls, calls)
 
-    def test_top_up_records_a_dead_query_and_continues(self):
-        err = urllib.error.HTTPError("u", 429, "slow down", {}, io.BytesIO())
-
-        def search_fn(query, limit, offset):
-            if query == "bad":
-                raise err
-            return [commons_raw(title="Market Street X")]
-
-        self._install(search_fn)
-        rep = s.top_up(self.data_dir, target=5, limit=10,
-                       queries=["bad", "good"], max_calls=2)
-        err.close()
-        self.assertEqual(len(rep["errors"]), 1)
-        self.assertEqual(rep["added"], 1)
-
-    def test_top_up_reports_a_shortfall(self):
-        self._install(lambda q, limit, offset: [commons_raw(title="Market Street A")])
-        rep = s.top_up(self.data_dir, target=10, limit=10,
-                       queries=["q"], max_calls=1)
-        self.assertEqual(rep["shortfall"], 9)
+    def test_rejected_counted_not_downloaded(self):
+        StubCommons.pages = [stub_raw("Portrait") , stub_raw("Small")]
+        for raw in StubCommons.pages:
+            raw["imageinfo"][0]["height"] = 4000  # portrait, rejected
+        rep = s.top_up(self.data_dir, target=5, batch=2, max_calls=2)
+        self.assertEqual(rep["added"], 0)
+        self.assertEqual(rep["rejected"], 2)
+        self.assertEqual(rep["downloaded"], 0)
 
 
-class BackoffTest(unittest.TestCase):
-    def test_rate_limit_is_retried_then_succeeds(self):
-        calls = {"n": 0}
-
-        def fn():
-            calls["n"] += 1
-            if calls["n"] < 3:
-                raise urllib.error.HTTPError("u", 429, "slow down", {}, io.BytesIO())
-            return "ok"
-
-        self.assertEqual(s._with_backoff(fn, retries=3, backoff=(0, 0, 0)), "ok")
-        self.assertEqual(calls["n"], 3)
-
-    def test_non_retryable_error_raises_immediately(self):
-        calls = {"n": 0}
-
-        def fn():
-            calls["n"] += 1
-            raise urllib.error.HTTPError("u", 404, "nope", {}, io.BytesIO())
-
-        with self.assertRaises(urllib.error.HTTPError) as cm:
-            s._with_backoff(fn, retries=3, backoff=(0, 0, 0))
-        cm.exception.close()
-        self.assertEqual(calls["n"], 1)
+class ManualSeedTest(TempDirMixin, unittest.TestCase):
+    def test_manual_import(self):
+        src = self._tmp / "manual"
+        src.mkdir()
+        (src / "photo.jpg").write_bytes(b"img")
+        (src / s.MANUAL_META).write_text(json.dumps({
+            "photo.jpg": {"license": "CC0", "originalTitle": "Old photo",
+                          "width": 1200, "height": 800,
+                          "repository": "Manual"}}))
+        res = s.seed_backend(self.data_dir, "manual", "", 10, "2026-09-12",
+                             {"directory": src})
+        self.assertEqual(res["added"], 1)
+        self.assertEqual(res["downloaded"], 1)
+        self.assertEqual(s.entry_reject_reason(
+            s.list_sources(self.data_dir)[0]), "")
 
 
-class LiveNetworkTest(unittest.TestCase):
-    """Optional live tests, gated behind AG_SOURCES_NETWORK=1.
-
-    Engineering-practices.md ticket #1084: unit tests must not dial live
-    services (flake source); the deterministic path is covered by synthetic
-    fixtures above. These exercise the real Commons API once, opt-in.
-    """
-
-    @unittest.skipUnless(__import__("os").environ.get("AG_SOURCES_NETWORK"),
-                         "set AG_SOURCES_NETWORK=1 to run live network tests")
-    def test_commons_seed_live(self):
-        import tempfile
-        tmp = Path(tempfile.mkdtemp())
-        try:
-            data_dir = tmp / "anomalyguessr"
-            res = s.seed_backend(data_dir, "commons", "market street", 3, "2026-09-11")
-            self.assertEqual(res["added"], 3)
-            self.assertEqual(res["rejected"], 0)
-            idx = s.load_index(data_dir)
-            self.assertEqual(len(idx["sources"]), 3)
-            for src in idx["sources"].values():
-                self.assertTrue((data_dir / "sources" / src["image"]).exists())
-                self.assertGreater(src["width"], 0)
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
+@unittest.skipUnless(os.environ.get("AG_SOURCES_NETWORK") == "1",
+                     "live Commons smoke test (AG_SOURCES_NETWORK=1)")
+class CommonsLiveTest(unittest.TestCase):
+    def test_quality_batch_returns_pages(self):
+        adapter = s.CommonsAdapter()
+        raws, cursor = adapter.quality_batch(3)
+        self.assertTrue(raws)
+        self.assertTrue(cursor)
 
 
 if __name__ == "__main__":

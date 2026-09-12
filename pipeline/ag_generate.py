@@ -1,117 +1,68 @@
 #!/usr/bin/env python3
-"""AnomalyGuessr deterministic scene generator (ticket #1169).
+"""AnomalyGuessr scene generator: a four-step LLM flow (ticket #1372).
 
-Replaces the agent-mode generation loop of `cron/daily-anomalyguessr.yaml`
-with a script: pick N random UNUSED sources from the source dataset
-(`pipeline/ag_sources.py`, ticket #1170), run each through a fixed sequence of
-model calls, and add the verified scenes to the queue (`pipeline/ag_queue.py`).
+Sourcing and generation are two separate problems (Evan, 2026-09-12).
+Sourcing (`pipeline/ag_sources.py`) fills the pool from Commons "Quality
+images" with key filters only; this script turns one pooled photo into one
+queued scene.
 
-Evan's contract (#1169): "randomly select 10 unused source images from the
-dataset and run them through a sequence of model calls." Everything the old
-cron prompt left to LLM judgment is now code:
+Per scene:
 
-1. **Source choice** - with `--top-up`, `ag_sources.top_up()` grows the pool
-   first (#1174); then `ag_sources.list_sources(unused=True)`, shuffled with
-   a seeded RNG; a source is marked used only after a scene from it landed
-   in the queue, so a failed attempt leaves it reusable.
-2. **Candidate filter** - `pipeline/ag_catalog.py` (machine-readable mirror of
-   `wiki/entries/anomalyguessr-anomalies.md`) is the hard pre-filter:
-   setting fit, density rule, era rule (`min_year > photo year`), variety
-   caps (one anomaly per label per set, same family max 2x), plus the
-   cross-day novelty tier (ticket #1328): labels used in the last
-   `NOVELTY_WINDOW_DAYS` drop out when enough fresh candidates remain, and
-   source images that can host a fresh anomaly are picked first. The rules
-   stay authoritative: the model can never plant a plastic bottle in 1905 or
-   a person in an empty street.
-3. **Anomaly choice (ticket #1211)** - with `--picker llm` (default) one
-   `deepseek/deepseek-v4.1-flash` vision call over the source image + the
-   candidate list picks which candidate fits THIS photo best and returns a
-   one-line reason. An off-list label, empty content or API error falls back
-   to the rule pick (`--picker rules`), so the picker can never lose a scene
-   the rules could have filled. Reasoning is explicitly disabled
-   (`reasoning: {enabled: false}`) with a tight `max_tokens`: with thinking
-   on, V4.1-Flash spends the whole budget on `reasoning_content` and returns
-   `content: null` (measured 2026-09-11). Picks, tokens and cost per pick are
-   logged for the A/B (`pipeline/ag_picker_ab.py`, ticket #1217: image vs
-   blank image vs text-only over a source sample). Temperature 0 (ticket
-   #1313) makes a repeat of the same photo+prompt reproduce the pick;
-   `--picker-draws N` (default 1) additionally asks N times and keeps the
-   majority label.
-4. **Prompt** - deterministic template per anomaly type + placement recipe
-   (`ag_catalog.RECIPES`): one dominant placement instruction, one hard
-   numeric scale cap, tone/blend rules (see engineering-practices.md).
-5. **Image edit** - the same OpenRouter call the `image_generate` tool makes
-   (`google/gemini-3.1-flash-image`, source image as a data URL, fresh
-   int32 seed per call, `aspect_ratio` from the source dimensions).
-6. **Verify** - `ag_verify.verify()` (full-image vision bounding box as the
-   primary answer; the box must cover the WHOLE anomaly and the stored
-   answer radius follows the box's half-diagonal, so every part of it is
-   clickable, ticket #1328; pixel-diff as sanity gate + fallback, #1165;
-   `--dedup` guards against byte-identical re-serves, #1124). Each added
-   scene reports its measured rendered size (`scale_measured`,
-   `scale_over_budget`) as tuning data, not as a rejection gate (#1328).
-7. **Entry text** - deterministic from the source metadata + the catalog
-   entry: no free-form LLM text. `place`/`year` come from the catalog
-   metadata with heuristics; `explanation`/`references` from the catalog;
-   `hints` from the placement recipe + the verified answer position.
+1. **Propose** (`propose_anomaly`): one `deepseek/deepseek-v4.1-flash` vision
+   call over the source photo. The model judges the photo's apparent era and
+   invents ONE subtle time-travel anomaly for THIS image: a real later-era
+   object for a historical photo, a fictional-future element for a modern
+   one (Evan: modern photos are fine, "dann nutzen wir fictional futures").
+   It answers with label, kind, apparent era, figure flag, placement,
+   explanation and references. `ag_catalog.INSPIRATION` supplies few-shot
+   shape examples; recently used labels are passed in to avoid repeats.
+2. **Apply** (`image_edit`): one `google/gemini-3.1-flash-image` call that
+   adds the anomaly. The generation prompt keeps the hard constraints (one
+   dominant placement instruction, ONE numeric scale cap with a
+   same-distance anchor, keep everything else, tone match, grain, no glow);
+   the long proscriptive rule list moved into the checker.
+3. **Locate** (`locate_anomaly`): one vision call over the edited image for
+   the click target (x/y/r, figure flag), with the proposal and the edit
+   prompt as context. The answer is widened when the deterministic diff
+   hotspot falls outside it, so a wildly wrong circle cannot ship alone.
+4. **Check** (`check_scene`): one vision call against the requirements list
+   (time-travel framing, subtlety, scale, tone, grain, keep-the-rest,
+   identifiability). A not-OK verdict with a fix prompt triggers ONE
+   correction edit, then the deterministic gates run again and the checker
+   gets the last word: a scene the re-check still rejects is dropped.
 
-Model-call sequence per scene: the anomaly picker vision call, the image
-edit, then the verification vision pass (inside `ag_verify`). Before the
-FIRST image call of a run, `ag_verify.preflight_vision()` makes one real call
-to the configured VISION_MODEL (ticket #1307): a broken model (wrong slug, or
-one whose reasoning eats the answer) fails the run loudly instead of
-rejecting all 10 scenes after 10 image generations. Skipped for `--dry-run`
-and `--no-vision`.
+Deterministic gates stay deterministic: a byte-identical re-serve is refused
+(`ag_verify.identical_output_check`), a scene that is not a localized edit is
+refused (`ag_verify.locate_hotspot`), and the queue validator still checks
+the entry schema.
 
-Retries (run-guards #1122/#1124): at most `--max-attempts` generations per
-source, each with a MATERIALLY different anomaly (never the same prompt), and
-every previous output is passed to `ag_verify --dedup`. Budget guard:
-`--max-generations` caps the image calls per run.
+Each scene gets a trace sidecar (`data/anomalyguessr/traces/<id>.json`) with
+the full prompt and raw answer of the calls that decide content (the
+proposal, the coordinates, the check), so a later audit can see why a scene
+looked the way it did (this is the groundwork for ticket #1373).
+
+The run lock, the progress status file, the DM-on-failure path and the queue
+add are unchanged from #1210/#1169: the daily cron and the dashboard's
+"generate more" both go through this script.
 
 CLI::
 
     ag_generate.py [--data DIR] [--count 10] [--seed N] [--dry-run] [--top-up]
-        [--env .env] [--dm-channel ID] [--image-model M] [--vision-model M]
-        [--picker rules|llm] [--picker-model M] [--picker-temperature T]
-        [--picker-draws N] [--picker-provider-default]
+        [--env .env] [--dm-channel ID] [--model M] [--image-model M]
         [--max-attempts 2] [--max-generations N] [--date YYYY-MM-DD]
-        [--out-dir DIR] [--no-vision]
+        [--out-dir DIR] [--report FILE] [--no-check] [--no-preflight]
 
-`--dry-run` prints the plan (source -> anomaly -> prompt) without any API
-call or queue write; use it to inspect a day's plan for free. A dry run
-never calls the LLM picker (it would not be free), so it shows the rule
-picks.
-
-**Run lock (ticket #1210).** Every non-dry run takes an exclusive
-`flock` on `data/anomalyguessr/generate.lock` for its whole duration, so
-the daily cron and a manual "generate more" run cannot overlap. The flock
-is held by the process and released by the kernel on exit, so a killed run
-cannot leave a stale lock. `ag_queue.state_add` writes atomically per scene
-(tmp file + rename) but is still a read-modify-write without a lock, so two
-overlapping generators could lose each other's updates; the run lock is
-what serializes them.
-
-**Progress status (ticket #1210).** Unless the run is a dry run, the script
-keeps `data/anomalyguessr/generate-status.json` up to date (state, planned,
-added, failed, imageCalls, startedAt/finishedAt/error), written atomically
-after planning and after every scene. The dashboard's server reads it to
-show "generating 3 / 10" while the run is in flight.
-
-Exit code 0 = ran (even with fewer than `--count` scenes; the JSON report
-lists what failed); 1 = no scene was added or a hard error occurred. When
-`--dm-channel` is set, a short failure message is posted to that Discord
-channel (the old cron's "bei echten Problemen kurze DM" rule, now that no
-LLM session is involved).
+Exit code 0 = ran (fewer than `--count` scenes is possible; the JSON report
+lists what failed); 1 = no scene was added or a hard error occurred.
 """
 
 import argparse
-import base64
-import collections
 import datetime
 import errno
 import fcntl
 import hashlib
 import json
+import math
 import os
 import random
 import re
@@ -127,64 +78,42 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 import ag_catalog  # noqa: E402
+import ag_llm  # noqa: E402
 import ag_queue  # noqa: E402
 import ag_sources  # noqa: E402
 import ag_verify  # noqa: E402
 
+# The three text/vision calls (proposal, coordinates, check) share one cheap
+# multimodal model; the image edit is the expensive call.
+MODEL = "deepseek/deepseek-v4.1-flash"
 IMAGE_MODEL = "google/gemini-3.1-flash-image"
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 DEFAULT_IMAGE_SIZE = "1K"
+DEFAULT_MODEL_MAX_TOKENS = 900
+DEFAULT_MODEL_TIMEOUT = 120
+# A single pick without a temperature is near a coin flip (#1217); 0 makes a
+# repeat of the same photo+prompt reproduce the proposal (#1313).
+DEFAULT_TEMPERATURE = 0.0
 # Landscape aspect ratios accepted by the image model, nearest-match against
 # the source dimensions (the queue rejects non-landscape scene images).
 ASPECTS = (("16:9", 16 / 9), ("3:2", 1.5), ("4:3", 4 / 3), ("5:4", 1.25),
            ("21:9", 21 / 9), ("2:1", 2.0), ("1:1", 1.0))
 SCENE_ID_RE = re.compile(r"[^a-z0-9]+")
-# Variety caps (catalog selection rule 4, tightened by ticket #1211): one
-# anomaly per LABEL per generation set (Evan: never the same anomaly twice),
-# the same family at most twice (a bottle and a can are different anomalies
-# but one family). The prompt-key rule (label|recipe must not repeat) is
-# kept as a second guard.
-MAX_PER_LABEL = 1
-MAX_PER_FAMILY = 2
 
-# Anomaly picker (ticket #1211): one vision call per source over the
-# pre-filtered candidate list. V4.1-Flash reasoning must be OFF: with
-# thinking on it spends the whole max_tokens on reasoning_content and
-# returns content: null (measured 2026-09-11, see the module docstring).
-DEFAULT_PICKER_MODEL = "deepseek/deepseek-v4.1-flash"
-DEFAULT_PICKER_MAX_TOKENS = 200
-DEFAULT_PICKER_TIMEOUT = 120
-# Reproducibility (ticket #1313): a single call without a temperature is
-# near a coin flip (same photo+prompt agreed in only 38% of pairs, #1217).
-# Temperature 0 lifts that to ~88% (measured, 40 sources x 6 repeats); a
-# `draws` majority adds only ~2 points more (3-draw: ~90%), so the default
-# stays 1 draw and the flag is there for a scene that must not flip.
-DEFAULT_PICKER_TEMPERATURE = 0.0
-DEFAULT_PICKER_DRAWS = 1
+# How recently used anomaly labels feed the proposal prompt (the free-form
+# replacement for the old catalog label/family novelty tier, #1328).
+REPEAT_WINDOW_DAYS = 7
+REPEAT_LABEL_LIMIT = 15
 
 # Run lock + progress status (ticket #1210). Both live in the data dir next
 # to state.json/feedback.json; they are runtime artifacts, not committed.
 LOCK_NAME = "generate.lock"
 STATUS_NAME = "generate-status.json"
-
-SETTING_KEYWORDS = {
-    "market": ("market", "bazaar", "stall", "souk", "fair", "vendor",
-               "produce", "shop", "store"),
-    "street": ("street", "road", "avenue", "square", "sidewalk", "plaza",
-               "town", "parade", "alley", "lane", "bridge"),
-    "station": ("station", "railway", "railroad", "train", "platform",
-                "depot", "tram"),
-    "harbor": ("harbor", "harbour", "dock", "port", "quay", "wharf", "boat",
-               "ship", "fish market", "pier"),
-}
-# Density rule: person/robot anomalies only where people already exist.
-CROWD_KEYWORDS = ("crowd", "people", "pedestrian", "parade", "procession",
-                  "festival", "ceremony", "onlookers", "shoppers", "busy",
-                  "market", "stall", "bazaar", "fair")
+TRACE_DIRNAME = "traces"
 
 
 class GenerationError(RuntimeError):
-    """A single image-edit call failed (retryable with another anomaly)."""
+    """A model call or a deterministic gate failed for one attempt."""
 
 
 class RunLockedError(RuntimeError):
@@ -196,17 +125,614 @@ class RunLockedError(RuntimeError):
             f"another generation run is in progress (pid {holder})")
 
 
+# ── Prompts ────────────────────────────────────────────────────────────────
+
+# Tone/blend rules that stay hard constraints of the *generation* call: the
+# model has to aim at them directly. The rest of the old proscriptive list
+# (scale verification, placement of risky objects, framing) moved into the
+# checker (ticket #1372).
+KEEP = ("Keep every other part of the photograph EXACTLY as it is: same "
+        "composition, people, goods and background; do not redraw, move, "
+        "add or recolor anything else.")
+BLEND = ("Match the ORIGINAL photo's actual tone and coloration EXACTLY, "
+         "whatever it is (many old photographs are true black-and-white/"
+         "grayscale: the added element must then also be grayscale); never "
+         "add sepia, never add any warm or color cast, never add a filter; "
+         "film grain lies OVER the object; soft edges, consistent lighting "
+         "and shadow direction, realistic perspective; it must look "
+         "photographed, not pasted. No glow, low contrast, not a focal "
+         "point.")
+DEFAULT_OBJECT_SCALE = ("about 2 percent of the image height (roughly 20-30 "
+                        "pixels on a 1200-pixel-tall image), never more than "
+                        "3 percent")
+DEFAULT_FIGURE_SCALE = "roughly 8-15 percent of the image height"
+SIZE_ANCHOR = ("judge it against something at the same distance in the "
+               "photo (a crate, a wheel or a person's shoe) so its "
+               "perspective matches the scene")
+
+# The checker's requirements list: the hard-won rules of the agent era, moved
+# here from the generation prompt. A violation should be caught and corrected
+# instead of being pre-empted by an ever-longer recipe.
+REQUIREMENTS = (
+    "1. Time travel only: a real element from a LATER era than the "
+    "photograph, or a clearly futuristic one. Pure fantasy (flying saucers, "
+    "dragons, unicorns, ghosts, magic) is a failure.\n"
+    "2. Subtle: one small element, not centered, not the largest thing in "
+    "the frame, not a focal point; partly hidden or at the edge is best.\n"
+    "3. Scale: realistic for its position, judged against something at the "
+    "same distance. A small object must stay under about 3 percent of the "
+    "image height; a person roughly 8-15 percent, never a giant.\n"
+    "4. Tone: exactly the photograph's tone and coloration (a grayscale "
+    "photo stays grayscale); no sepia, no color cast, no filter.\n"
+    "5. Grain lies over the added element; soft edges; consistent lighting "
+    "and shadow direction; realistic perspective; no glow; it must look "
+    "photographed, not pasted.\n"
+    "6. Everything else unchanged: same composition, people, goods and "
+    "background; nothing else redrawn, moved or recolored.\n"
+    "7. The added element must be identifiable as the anachronism (not so "
+    "tiny or so blended that a player cannot find it)."
+)
+
+
+def proposal_prompt(source: dict, recent=()) -> str:
+    lines = [
+        "You are the content designer for a spot-the-anachronism game: "
+        "players get a real photograph and must find the ONE thing that does "
+        "not belong to its time.",
+        "This photograph comes from "
+        f"{source.get('repository') or 'a public archive'}. Judge its "
+        "apparent era yourself from what you see.",
+        "Invent ONE anomaly to hide in THIS photograph:",
+        "- If the photo clearly predates the present, the anomaly is a real "
+        "object, garment or vehicle from a LATER era (after the photo).",
+        "- If the photo looks modern, the anomaly is a clearly futuristic "
+        "element (a fictional-future device or figure), because nothing in "
+        "the real present would read as out of place.",
+        "- It must be ONE small, concrete thing that could plausibly sit in "
+        "this scene: an object, or one extra person whose only modern or "
+        "futuristic tell is a small detail.",
+        "- Pure fantasy is out: no flying saucers, dragons, unicorns, ghosts "
+        "or magic. Everything must read as a thing from another time.",
+        "- Keep it subtle: findable, but not obvious.",
+        "Style examples (do not copy them; they only show the shape):",
+    ]
+    lines += [f"- {line}" for line in ag_catalog.inspiration_lines()]
+    if recent:
+        lines.append("Avoid these anomalies used by recent scenes: "
+                     + "; ".join(str(r) for r in recent) + ".")
+    lines.append(
+        'Answer as strict JSON only, no prose: {"anomaly": "<short label>", '
+        '"kind": "later-era"|"fictional-future", "apparent_era": "<the year '
+        'or decade that best fits the photo, or \\"modern\\">", '
+        '"figure": true|false, "placement": "<one sentence: where in THIS '
+        'photo it sits, how it is partly hidden, and how large it should '
+        'look next to things at the same distance>", "explanation": "<one '
+        'sentence: why it cannot belong to this photograph>", "references": '
+        '[{"label": "<source name>", "url": "https://..."}]}')
+    return "\n".join(lines)
+
+
+def scale_rule(proposal: dict) -> str:
+    """The ONE hard numeric scale cap for the edit call (ticket #1328)."""
+    if proposal.get("figure"):
+        return ("CRITICAL SCALE: the figure's rendered height must be "
+                f"realistic for its position ({DEFAULT_FIGURE_SCALE}), "
+                f"{SIZE_ANCHOR}, never a giant foreground figure.")
+    return ("CRITICAL SCALE: its rendered height in the final image must be "
+            f"{DEFAULT_OBJECT_SCALE}; {SIZE_ANCHOR}; if in doubt make it "
+            "smaller and hide more of it behind the foreground object.")
+
+
+def edit_prompt(proposal: dict) -> str:
+    head = (f"Edit this historical photograph: add ONE "
+            f"{proposal['anomaly']}, {proposal['placement']}.")
+    return " ".join((head, scale_rule(proposal), KEEP, BLEND))
+
+
+def coord_prompt(proposal: dict, prompt: str = "") -> str:
+    lines = [
+        f"You added this to the photograph: {proposal['anomaly']} "
+        f"({proposal['placement']}).",
+    ]
+    if prompt:
+        lines.append(f"The edit instruction was: {prompt}")
+    lines.append(
+        "Return the click target that covers the WHOLE added element in THIS "
+        "edited image.")
+    lines.append(
+        'Answer as strict JSON only: {"x": <0..1>, "y": <0..1>, '
+        '"r": <0..1>, "figure": true|false}, where x is the center across '
+        "the width, y the center down the height, r the radius as a fraction "
+        "of the image height that covers all of it (for a person: head to "
+        "feet, shoes included), and figure is true when it is a human-like "
+        "figure.")
+    return "\n".join(lines)
+
+
+def check_prompt(proposal: dict) -> str:
+    return ("You are the quality checker for a spot-the-anachronism game.\n"
+            "The image you see should be the original photograph with ONE "
+            f"element added: {proposal['anomaly']} "
+            f"({proposal['placement']}).\n"
+            "Check it against these requirements:\n"
+            f"{REQUIREMENTS}\n"
+            'Answer as strict JSON only: {"ok": true|false, "problems": '
+            '["<short problem>", ...], "fix_prompt": "<one self-contained '
+            'instruction to fix the problems, or empty when ok>"}')
+
+
+# ── Proposal validation / references ───────────────────────────────────────
+
+def valid_reference(ref) -> bool:
+    return (isinstance(ref, dict) and isinstance(ref.get("label"), str)
+            and ref["label"].strip()
+            and isinstance(ref.get("url"), str)
+            and re.match(r"^https?://", ref["url"]))
+
+
+def resolve_references(proposal: dict, source: dict) -> tuple:
+    """(references, origin) for the scene entry: the model's when usable.
+
+    Fallback chain (all recorded in the trace): the same-family catalog
+    entry's curated references, then the source file page. The queue schema
+    requires at least one {label, url} per factual claim, so a proposal
+    without usable URLs cannot become a scene on its own.
+    """
+    refs = [{"label": str(r.get("label")).strip()[:120],
+             "url": str(r.get("url")).strip()}
+            for r in (proposal.get("references") or []) if valid_reference(r)]
+    if refs:
+        return refs[:3], "model"
+    family = ag_catalog.family_of(str(proposal.get("anomaly") or ""))
+    curated = ag_catalog.references_for_family(family) if family else []
+    if curated:
+        return curated, "catalog-family"
+    entry = ag_catalog.entry_for_label(str(proposal.get("anomaly") or ""))
+    if entry:
+        return [dict(r) for r in entry["references"]], "catalog-label"
+    return [{"label": "Source photograph",
+             "url": source.get("fileUrl") or source.get("sourceUrl") or ""}], \
+        "source"
+
+
+def proposal_errors(proposal) -> list:
+    """Why a proposal cannot be rendered into a scene, [] when it can."""
+    errs = []
+    if not isinstance(proposal, dict):
+        return ["proposal is not a JSON object"]
+    if not isinstance(proposal.get("anomaly"), str) or \
+            not proposal["anomaly"].strip():
+        errs.append("anomaly must be a non-empty string")
+    elif len(proposal["anomaly"]) > 80:
+        errs.append("anomaly label is longer than 80 characters")
+    if proposal.get("kind") not in ("later-era", "fictional-future"):
+        errs.append("kind must be later-era or fictional-future")
+    if not isinstance(proposal.get("apparent_era"), str) or \
+            not proposal["apparent_era"].strip():
+        errs.append("apparent_era must be a non-empty string")
+    if not isinstance(proposal.get("placement"), str) or \
+            not proposal["placement"].strip():
+        errs.append("placement must be a non-empty string")
+    if not isinstance(proposal.get("explanation"), str) or \
+            not proposal["explanation"].strip():
+        errs.append("explanation must be a non-empty string")
+    return errs
+
+
+def normalize_proposal(proposal: dict) -> dict:
+    """Whitespace-collapse and cap the proposal's free-text fields."""
+    out = dict(proposal)
+    for key, limit in (("anomaly", 80), ("apparent_era", 40),
+                       ("placement", 400), ("explanation", 400)):
+        out[key] = ag_llm.clean_text(out.get(key), limit)
+    out["figure"] = bool(out.get("figure"))
+    return out
+
+
+# ── Model calls ────────────────────────────────────────────────────────────
+
+def _chat_with_image(prompt: str, image: Path, api_key: str, model: str,
+                     base_url: str, max_tokens: int, timeout: int,
+                     temperature: float | None):
+    message = {"role": "user",
+               "content": [ag_llm.text_part(prompt), ag_llm.image_part(image)]}
+    return ag_llm.chat([message], api_key, model, base_url, max_tokens,
+                       temperature, timeout)
+
+
+def _run_call(prompt: str, image: Path | None, api_key: str, model: str,
+              base_url: str, max_tokens: int, timeout: int,
+              temperature: float | None) -> dict:
+    """One logged vision call: {prompt, answer, parsed, usage, model, latency}."""
+    started = time.time()
+    if image is None:
+        body = ag_llm.chat([{"role": "user", "content": [ag_llm.text_part(prompt)]}],
+                           api_key, model, base_url, max_tokens, temperature,
+                           timeout)
+    else:
+        body = _chat_with_image(prompt, image, api_key, model, base_url,
+                                max_tokens, timeout, temperature)
+    content = ag_llm.content_of(body)
+    return {"model": model, "prompt": prompt, "answer": content,
+            "parsed": ag_llm.parse_json(content),
+            "usage": ag_llm.usage_of(body),
+            "duration_s": round(time.time() - started, 2)}
+
+
+def propose_anomaly(image: Path, source: dict, recent, api_key: str,
+                    model: str, base_url: str, max_tokens: int, timeout: int,
+                    temperature: float | None) -> dict:
+    """Call 1: the creative proposal (era judgement + anomaly + placement)."""
+    prompt = proposal_prompt(source, recent)
+    result = _run_call(prompt, image, api_key, model, base_url, max_tokens,
+                       timeout, temperature)
+    proposal = result["parsed"]
+    errors = proposal_errors(proposal)
+    if errors:
+        parsed = None
+    else:
+        parsed = normalize_proposal(proposal)
+    return {"proposal": parsed, "errors": errors, "call": result}
+
+
+def locate_anomaly(image: Path, proposal: dict, prompt: str, api_key: str,
+                   model: str, base_url: str, max_tokens: int, timeout: int,
+                   temperature: float | None) -> dict:
+    """Call 3: the click target in the edited image (context of 1 and 2)."""
+    text = coord_prompt(proposal, prompt)
+    result = _run_call(text, image, api_key, model, base_url, max_tokens,
+                       timeout, temperature)
+    coords = valid_coords(result["parsed"])
+    return {"coords": coords, "call": result}
+
+
+def check_scene(image: Path, proposal: dict, api_key: str, model: str,
+                base_url: str, max_tokens: int, timeout: int,
+                temperature: float | None) -> dict:
+    """Call 4: does the scene meet the requirements, and how to fix it."""
+    prompt = check_prompt(proposal)
+    result = _run_call(prompt, image, api_key, model, base_url, max_tokens,
+                       timeout, temperature)
+    parsed = result["parsed"] or {}
+    ok = parsed.get("ok")
+    problems = parsed.get("problems")
+    if not isinstance(problems, list):
+        problems = []
+    problems = [ag_llm.clean_text(p, 200) for p in problems if p]
+    return {"ok": ok if isinstance(ok, bool) else None,
+            "problems": problems,
+            "fix_prompt": ag_llm.clean_text(parsed.get("fix_prompt"), 600),
+            "call": result}
+
+
+def valid_coords(raw) -> dict | None:
+    """A usable click target from the coordinate call, None when malformed."""
+    if not isinstance(raw, dict):
+        return None
+    try:
+        x, y, r = float(raw["x"]), float(raw["y"]), float(raw["r"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if not (0.0 <= x <= 1.0 and 0.0 <= y <= 1.0):
+        return None
+    if not (0.0 < r <= 0.5):
+        return None
+    return {"x": x, "y": y, "r": r, "figure": bool(raw.get("figure"))}
+
+
+def finalize_answer(coords: dict, hotspot) -> tuple:
+    """The stored answer + a conflict report against the diff hotspot.
+
+    The LLM's target is the answer (ticket #1372). The deterministic hotspot
+    is the cheap sanity check: when its center falls outside the LLM circle,
+    the circle is widened to cover the causal edit region (capped at the
+    queue's maximum), so a wildly wrong box cannot ship alone, and the
+    disagreement is reported (idea #1343).
+    """
+    x, y, r = coords["x"], coords["y"], coords["r"]
+    if coords.get("figure"):
+        r = max(r, ag_verify.PERSON_MIN_RADIUS)
+    r = max(0.02, min(r, ag_verify.MAX_ANSWER_RADIUS))
+    conflict = None
+    if hotspot:
+        cx, cy = float(hotspot["cx"]), float(hotspot["cy"])
+        delta = math.hypot(cx - x, cy - y)
+        if delta > r:
+            conflict = {"delta": round(delta, 4),
+                        "llm_center": [round(x, 4), round(y, 4)],
+                        "hotspot_center": [round(cx, 4), round(cy, 4)]}
+            r = min(ag_verify.MAX_ANSWER_RADIUS, delta * 1.1)
+    return {"x": round(x, 4), "y": round(y, 4), "r": round(r, 4)}, conflict
+
+
+def deterministic_gate(edited: Path, original: Path, dedup):
+    """(reason, hotspot): the pixel-evidence gates, never skipped.
+
+    A byte-identical re-serve and a whole-frame repaint are refused here, so
+    the model calls only ever judge a genuinely localized edit.
+    """
+    dup = ag_verify.identical_output_check(edited, original, dedup)
+    if dup is not None:
+        return dup.get("reason") or "identical output", None
+    loc = ag_verify.locate_hotspot(edited, original)
+    if not loc["ok"]:
+        return loc.get("reason") or "no localized edit", None
+    return None, loc["hotspot"]
+
+
+# ── Image edit ─────────────────────────────────────────────────────────────
+
+def aspect_ratio_for(width: int, height: int) -> str:
+    if not width or not height:
+        return "3:2"
+    ratio = width / height
+    return min(ASPECTS, key=lambda a: abs(a[1] - ratio))[0]
+
+
+def image_edit(source_image: Path, prompt: str, api_key: str,
+               base_url: str = DEFAULT_BASE_URL, model: str = IMAGE_MODEL,
+               aspect_ratio: str = "3:2", image_size: str = DEFAULT_IMAGE_SIZE,
+               seed=None, timeout: int = 180, usage_out: dict | None = None
+               ) -> bytes:
+    """One OpenRouter image-edit call; mirrors the fuchs image_generate tool.
+
+    A fresh int32 seed per call is the #1124 cache-buster; the explicit
+    clamp also works around the #1152 seed-overflow 400. When ``usage_out``
+    is given, the response's token/cost usage is folded into it, so the run
+    report's cost covers every call (ticket #1372).
+    """
+    if seed is None:
+        seed = random.randint(0, 2**31 - 1)
+    seed = int(seed) % (2**31)
+    payload = {
+        "model": model,
+        "messages": [{
+            "role": "user",
+            "content": [ag_llm.text_part(prompt),
+                        ag_llm.image_part(source_image)],
+        }],
+        "modalities": ["image", "text"],
+        "stream": False,
+        "seed": seed,
+        "image_config": {"aspect_ratio": aspect_ratio,
+                         "image_size": image_size},
+    }
+    req = urllib.request.Request(
+        base_url.rstrip("/") + "/chat/completions",
+        data=json.dumps(payload).encode(),
+        headers={"Authorization": f"Bearer {api_key}",
+                 "Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            body = json.load(r)
+    except urllib.error.HTTPError as e:
+        raise GenerationError(f"image request failed: HTTP {e.code} "
+                              f"{e.read()[:300]!r}") from e
+    except urllib.error.URLError as e:
+        raise GenerationError(f"image request failed: {e}") from e
+    choices = body.get("choices") or []
+    if usage_out is not None:
+        ag_llm.add_usage(usage_out, ag_llm.usage_of(body))
+    images = (choices[0].get("message", {}).get("images") or []) if choices \
+        else []
+    if not images:
+        raise GenerationError("no images returned (model refusal?)")
+    return ag_llm.decode_data_url(images[0]["image_url"]["url"])
+
+
+# ── Entry text (deterministic from the proposal + source keys) ─────────────
+
+def slugify(text: str) -> str:
+    return SCENE_ID_RE.sub("-", text.lower()).strip("-")
+
+
+def scene_id(source_id: str, label: str) -> str:
+    """Scene id = readable source prefix + the source's short hash + anomaly.
+
+    Raw source ids are long (title slug + date + hash); taking the full id
+    plus a label would make unreadable scene ids, and truncating alone can
+    collide between near-identical titles. Keeping the id's trailing 6-hex
+    hash guarantees uniqueness.
+    """
+    sid = source_id or ""
+    m = re.search(r"-([0-9a-f]{6})$", sid)
+    if m:
+        tail, prefix = m.group(1), sid[:m.start()]
+    else:
+        tail = hashlib.sha1(sid.encode()).hexdigest()[:6]
+        prefix = sid
+    prefix = prefix[:56].rstrip("-")
+    return f"{prefix}-{tail}-{slugify(label)[:24].rstrip('-')}"
+
+
+def strip_html(s: str) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", s or "")).strip()
+
+
+def clean_title(source: dict) -> str:
+    t = strip_html(str(source.get("originalTitle") or ""))
+    t = re.sub(r"^File:", "", t).strip()
+    t = re.sub(r"\.(jpe?g|png|gif|webp|tiff?)$", "", t, flags=re.I)
+    t = t.replace("_", " ")
+    # Drop archive/gallery bookkeeping suffixes (" - DPLA - <hash>",
+    # " - <32 hex>", " - <long id>") that carry no scene information.
+    t = re.sub(r"\s*-\s*(?:DPLA|LOC|NARA)\s*-\s*[0-9A-Za-z_-]{8,}\s*$", "",
+               t, flags=re.I)
+    t = re.sub(r"\s*-\s*[0-9a-f]{16,}\s*$", "", t, flags=re.I)
+    t = re.sub(r"\s*-\s*\d{6,}\s*$", "", t)
+    return re.sub(r"\s+", " ", t).strip(' "') or "Photograph"
+
+
+def scene_place(source: dict) -> str:
+    """Place from the source's structured keys, or the honest unknown marker.
+
+    The queue schema requires a non-empty place string, so the marker stands
+    in for "the keys carry none"; the frontend hides it (ticket #1372: no
+    invented place label).
+    """
+    return str(source.get("place") or "").strip() or "Unidentified location"
+
+
+def scene_year(proposal: dict) -> str:
+    """The displayed era: the proposal call's judgement (ticket #1372)."""
+    era = ag_llm.clean_text(proposal.get("apparent_era"), 40)
+    m = re.search(r"(?<!\d)(1[0-9]\d{2}|20\d{2})(?!\d)", era)
+    return m.group(1) if m else (era or "unknown")
+
+
+def region_phrase(answer: dict) -> str:
+    x, y = answer.get("x", 0.5), answer.get("y", 0.5)
+    horiz = "left" if x < 0.34 else ("right" if x > 0.66 else "center")
+    vert = "upper" if y < 0.34 else ("lower" if y > 0.66 else "middle")
+    if horiz == "center":
+        return f"{vert} center"
+    return f"{vert} {horiz}"
+
+
+def article(label: str) -> str:
+    return "An" if label[:1].upper() in ("A", "E", "I", "O", "U") else "A"
+
+
+def build_hints(proposal: dict, answer: dict) -> list:
+    region = region_phrase(answer)
+    where = ag_llm.clean_text(proposal.get("placement"), 120)
+    label = proposal["anomaly"]
+    if proposal.get("figure"):
+        return [
+            "Look at the people in the scene; one of them does not belong.",
+            f"Check the {region} of the frame: a figure there is out of "
+            "time.",
+            f"{article(label)} {label} is in the {region}. {where}",
+        ]
+    return [
+        "Scan the whole photograph; a small thing here does not belong to "
+        "its time.",
+        f"It sits in the {region} of the frame and is partly hidden.",
+        f"{article(label)} {label} is in the {region}. {where}",
+    ]
+
+
+def build_description(source: dict, year: str, place: str) -> str:
+    title = clean_title(source)
+    bits = [title.rstrip(".")]
+    if place and place != "Unidentified location" \
+            and place.lower() not in title.lower():
+        bits.append(place)
+    if year and year not in title and year != "unknown":
+        bits.append(f"circa {year}")
+    repo = source.get("repository") or "an archive"
+    bits.append(f"from the {repo} catalogue")
+    return ", ".join(bits) + "."
+
+
+def build_credit(source: dict) -> str:
+    raw = source.get("raw") or {}
+    artist = strip_html(str(raw.get("artist") or ""))
+    repo = source.get("repository") or "unknown repository"
+    return f"{artist} via {repo}" if artist else repo
+
+
+def build_entry(source: dict, proposal: dict, answer: dict, date: str) -> dict:
+    eid = scene_id(source["id"], proposal["anomaly"])
+    year = scene_year(proposal)
+    place = scene_place(source)
+    entry = ag_catalog.entry_for_label(proposal["anomaly"])
+    if entry is not None:
+        explanation = entry["explanation"]
+        refs = [dict(r) for r in entry["references"]]
+    else:
+        explanation = proposal["explanation"]
+        refs, _ = resolve_references(proposal, source)
+    family = ag_catalog.family_of(proposal["anomaly"]) or "other"
+    source_block = {k: source.get(k, "") for k in (
+        "repository", "fileUrl", "originalTitle", "date", "place", "license",
+        "description")}
+    return {
+        "id": eid,
+        "title": clean_title(source),
+        "place": place,
+        "year": year,
+        "description": build_description(source, year, place),
+        "anomaly": proposal["anomaly"],
+        "family": family,
+        "answer": answer,
+        "hints": build_hints(proposal, answer),
+        "explanation": explanation,
+        "references": refs,
+        "source": source_block,
+        "credit": build_credit(source),
+        "sourceUrl": source.get("fileUrl", ""),
+    }
+
+
+# ── Trace sidecar (ticket #1372 / groundwork for #1373) ────────────────────
+
+def trace_path(data_dir: Path, eid: str) -> Path:
+    return data_dir / TRACE_DIRNAME / f"{eid}.json"
+
+
+def write_trace(data_dir: Path, eid: str, trace: dict) -> None:
+    """Atomically write the scene's generation trace; best-effort."""
+    d = data_dir / TRACE_DIRNAME
+    d.mkdir(parents=True, exist_ok=True)
+    trace = dict(trace)
+    trace["scene"] = eid
+    trace["recordedAt"] = datetime.datetime.now().astimezone().isoformat(
+        timespec="seconds")
+    fd, tmp = tempfile.mkstemp(dir=str(d), prefix=".trace-", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(trace, f, indent=2, ensure_ascii=False)
+            f.write("\n")
+        os.replace(tmp, trace_path(data_dir, eid))
+    finally:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+
+
+# ── Environment / status helpers ───────────────────────────────────────────
+
+def ensure_tool_path() -> None:
+    """Put the nix profile on PATH: `identify` lives there, and the cron
+    terminal env (core/plugins/cron/plugin.go cronPath) does not include it.
+    """
+    nix_bin = Path.home() / ".nix-profile" / "bin"
+    if nix_bin.is_dir():
+        parts = os.environ.get("PATH", "").split(":")
+        if str(nix_bin) not in parts:
+            os.environ["PATH"] = str(nix_bin) + ":" + os.environ.get("PATH", "")
+
+
+def status_path(data_dir: Path) -> Path:
+    return data_dir / STATUS_NAME
+
+
+def write_status(data_dir: Path, **fields) -> None:
+    """Atomically write the progress status the dashboard polls."""
+    payload = dict(fields)
+    payload["updatedAt"] = datetime.datetime.now().astimezone().isoformat(
+        timespec="seconds")
+    data_dir.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=str(data_dir), prefix=".status-",
+                               suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2, ensure_ascii=False)
+            f.write("\n")
+        os.replace(tmp, status_path(data_dir))
+    finally:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+
+
 class RunLock:
     """Exclusive cross-process lock for one whole generation run.
 
     `ag_queue.state_add` is atomic per scene (tmp file + rename) but is a
-    read-modify-write without a lock, so two concurrent generators would
-    lose each other's state updates. The daily cron and the dashboard's
-    manual "generate more" both go through this script, so each run holds
-    an flock on `data/anomalyguessr/generate.lock` for its whole duration.
-    The kernel drops the lock when the process exits (even on SIGKILL), so
-    a crashed run cannot block the next one; the lock file itself stays and
-    is reused.
+    read-modify-write without a lock, so two concurrent generators would lose
+    each other's state updates. The kernel drops the flock when the process
+    exits (even on SIGKILL), so a crashed run cannot block the next one.
     """
 
     def __init__(self, data_dir: Path):
@@ -246,944 +772,70 @@ class RunLock:
             self._file = None
 
 
-def status_path(data_dir: Path) -> Path:
-    return data_dir / STATUS_NAME
+# ── Source selection ───────────────────────────────────────────────────────
 
+def recent_labels(data_dir: Path, today=None,
+                  days: int = REPEAT_WINDOW_DAYS) -> list:
+    """Labels of scenes added in the recent window, newest first.
 
-def write_status(data_dir: Path, **fields) -> None:
-    """Atomically write the progress status the dashboard polls.
-
-    Best-effort observability: a failure to write it must never break a
-    generation run, so callers ignore the error (see the runner's `emit`).
+    The creative proposal call gets them so it can avoid repeats; this
+    replaces the old catalog label/family novelty tier, which lost its input
+    once the model started inventing labels (ticket #1372).
     """
-    payload = dict(fields)
-    payload["updatedAt"] = datetime.datetime.now().astimezone().isoformat(
-        timespec="seconds")
-    data_dir.mkdir(parents=True, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(dir=str(data_dir), prefix=".status-",
-                               suffix=".tmp")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump(payload, f, indent=2, ensure_ascii=False)
-            f.write("\n")
-        os.replace(tmp, status_path(data_dir))
-    finally:
-        if os.path.exists(tmp):
-            os.unlink(tmp)
-
-
-# ── Environment / small helpers ────────────────────────────────────────────
-
-def ensure_tool_path() -> None:
-    """Put the nix profile on PATH: `identify` lives there, and the cron
-    terminal env (core/plugins/cron/plugin.go cronPath) does not include it.
-    """
-    nix_bin = Path.home() / ".nix-profile" / "bin"
-    if nix_bin.is_dir():
-        parts = os.environ.get("PATH", "").split(":")
-        if str(nix_bin) not in parts:
-            os.environ["PATH"] = str(nix_bin) + ":" + os.environ.get("PATH", "")
-
-
-def slugify(text: str) -> str:
-    return SCENE_ID_RE.sub("-", text.lower()).strip("-")
-
-
-def scene_id(source_id: str, label: str) -> str:
-    """Scene id = readable source prefix + the source's short hash + anomaly.
-
-    Raw source ids are ~100 chars (title slug + date + hash); taking the full
-    id plus a label would make unreadable scene ids, and truncating alone can
-    collide between near-identical titles (the three Paris Exposition
-    sources). Keeping the id's trailing 6-hex hash guarantees uniqueness.
-    """
-    sid = source_id or ""
-    m = re.search(r"-([0-9a-f]{6})$", sid)
-    if m:
-        tail, prefix = m.group(1), sid[:m.start()]
-    else:
-        tail = hashlib.sha1(sid.encode()).hexdigest()[:6]
-        prefix = sid
-    prefix = prefix[:56].rstrip("-")
-    return f"{prefix}-{tail}-{slugify(label)[:24].rstrip('-')}"
-
-
-def source_text(source: dict) -> str:
-    raw = source.get("raw") or {}
-    extra = " ".join(str(raw.get(k, "")) for k in ("categories", "title",
-                                                   "subject", "partof"))
-    return " ".join(str(source.get(k, "")) for k in
-                    ("originalTitle", "description", "place")) + " " + extra
-
-
-def parse_year(source: dict):
-    """Era year of the source photo, or None when it cannot be established.
-
-    Thin wrapper over ``ag_sources.entry_photo_year`` (ticket #1338), the one
-    rule shared with the dataset: a guarded year from the title (then the
-    description), else the structured ``date`` field. ``None`` means the era
-    is unknown; ``ag_sources.ineligible_reason`` then refuses the source, and
-    the code never falls back to a default like 1900.
-    """
-    return ag_sources.entry_photo_year(source)
-
-
-def clean_title(source: dict) -> str:
-    t = strip_html(str(source.get("originalTitle") or ""))
-    t = re.sub(r"^File:", "", t).strip()
-    t = re.sub(r"\.(jpe?g|png|gif|webp|tiff?)$", "", t, flags=re.I)
-    t = t.replace("_", " ")
-    # Drop archive/gallery bookkeeping suffixes (" - DPLA - <hash>",
-    # " - <32 hex>", " - <long id>") that carry no scene information.
-    t = re.sub(r"\s*-\s*(?:DPLA|LOC|NARA)\s*-\s*[0-9A-Za-z_-]{8,}\s*$", "",
-               t, flags=re.I)
-    t = re.sub(r"\s*-\s*[0-9a-f]{16,}\s*$", "", t, flags=re.I)
-    t = re.sub(r"\s*-\s*\d{6,}\s*$", "", t)
-    return re.sub(r"\s+", " ", t).strip(' "')
-
-
-def guess_place(source: dict) -> str:
-    """Best-effort place from the source's metadata.
-
-    The source dataset's own `place` field is authoritative when set (seeded
-    from Commons categories/GPS, #1174); otherwise re-run the shared parser
-    over the raw metadata the adapter stored (title text, categories, GPS
-    coordinates, ticket #1338) so a source from before that resolution still
-    gets its coordinates instead of "Unidentified location". The parser lives
-    in ag_sources so the dataset and the generator cannot drift apart.
-    """
-    place = str(source.get("place") or "").strip()
-    if place:
-        return place
-    raw = source.get("raw") or {}
-    return ag_sources.extract_place(title=clean_title(source),
-                                    categories=raw.get("categories"),
-                                    gps=raw.get("gps"))
-
-
-def _contains(text: str, words) -> bool:
-    """Word-prefix match ("streets" matches, "valley" does not match
-    "alley"): substring matching produced false positives like valley ->
-    street via the "alley" keyword.
-    """
-    return any(re.search(r"\b" + re.escape(w), text) for w in words)
-
-
-def infer_settings(source: dict) -> tuple:
-    text = source_text(source).lower()
-    found = tuple(name for name, words in SETTING_KEYWORDS.items()
-                  if _contains(text, words))
-    return found
-
-
-def has_crowd(source: dict) -> bool:
-    return _contains(source_text(source).lower(), CROWD_KEYWORDS)
-
-
-def anomaly_fits(entry: dict, settings: tuple, year, crowd: bool) -> bool:
-    """Setting fit + density rule + era rule (catalog selection rules 0-2)."""
-    if entry["settings"] and settings:
-        if not set(entry["settings"]) & set(settings):
-            return False
-    if entry["type"] == "person" and not crowd:
-        return False
-    if entry["recipe"].startswith("person") and not crowd:
-        return False
-    if entry["min_year"] is None:
-        return True
-    if year is None:
-        return False  # cannot make an anachronism claim without a photo year
-    return entry["min_year"] > year
-
-
-# ── Planning ───────────────────────────────────────────────────────────────
-
-# Cross-day novelty (ticket #1328). The hard pre-filter has no memory between
-# runs, so the same few labels (bottles, daypacks, suitcases) won nearly every
-# day. These constants make recent use a candidate signal: labels/families
-# above the reuse thresholds drop out of a source's candidate list whenever
-# enough fresh ones remain, and sources that can host a novel anomaly are
-# picked first. Thresholds are counts inside the window (10 scenes/day, so a
-# family at 6 has run once a day; a label at 2 has already repeated).
-NOVELTY_WINDOW_DAYS = 7
-LABEL_REUSE_MAX = 1      # label used more than once in the window = used up
-FAMILY_REUSE_MAX = 8     # family used more than ~once a day = used up
-FRESH_CHOICE_MIN = 3     # drop used candidates only when >=3 fresh ones remain
-
-
-def label_usage(state: dict, today=None) -> dict:
-    """Recent anomaly usage from the queue state (ticket #1328).
-
-    Returns ``{"families": {family: n}, "labels": {label: n}}`` over the
-    scenes added within ``NOVELTY_WINDOW_DAYS``. Retired labels resolve
-    through ``ag_catalog.family_of``, so an old "Plastic bottle" still counts
-    against the drinks family. An empty state yields empty maps, which makes
-    every entry fresh (the pre-#1328 behaviour).
-    """
-    day = today or datetime.date.today()
-    cutoff = (day - datetime.timedelta(days=NOVELTY_WINDOW_DAYS)).isoformat()
-    families, labels = collections.Counter(), collections.Counter()
-    for scene in (state.get("scenes") or {}).values():
-        if not isinstance(scene, dict):
-            continue
-        if str(scene.get("added") or "") < cutoff:
-            continue
-        label = str(scene.get("anomaly") or "")
-        if label:
-            labels[label] += 1
-        family = ag_catalog.family_of(label)
-        if family:
-            families[family] += 1
-    return {"families": dict(families), "labels": dict(labels)}
-
-
-def load_label_usage(data_dir: Path, today=None) -> dict:
-    """``label_usage`` for a data dir; an unreadable state means "all fresh"."""
     try:
         state = ag_queue.load_state(data_dir)
     except (OSError, ValueError):
-        return {}
-    return label_usage(state, today)
-
-
-def is_fresh(entry: dict, usage) -> bool:
-    """True when the entry's label/family was not used up in the window."""
-    if not usage:
-        return True
-    return (usage.get("families", {}).get(entry["family"], 0)
-            <= FAMILY_REUSE_MAX
-            and usage.get("labels", {}).get(entry["label"], 0)
-            <= LABEL_REUSE_MAX)
-
-
-def fresh_candidate_count(source: dict, usage) -> int:
-    """Fitting anomalies this source could host that are not recently used.
-
-    Source selection uses it to favour images that can carry a novel anomaly
-    (ticket #1328): a harbor whose only fits are recently used labels ranks
-    below a market with fresh candidates.
-    """
-    settings = infer_settings(source)
-    year = parse_year(source)
-    crowd = has_crowd(source)
-    return sum(1 for e in ag_catalog.CATALOG
-               if anomaly_fits(e, settings, year, crowd)
-               and is_fresh(e, usage))
-
-
-def pick_entries(pool: list, counts_label: dict, counts_family: dict,
-                 settings: tuple, year, crowd: bool, used_prompts: set,
-                 usage=None):
-    """Fitting catalog entries, freshest then least-used first, deterministic.
-
-    ``pool`` is the RNG-shuffled catalog; ties between equally-unused entries
-    resolve to the shuffled order, so a fixed seed reproduces the plan. This
-    is the hard pre-filter the anomaly picker chooses from (ticket #1211):
-    every returned entry already satisfies setting fit, density, era and the
-    variety caps.
-
-    ``usage`` (from ``label_usage``) adds the cross-day novelty tier (ticket
-    #1328): not-recently-used labels sort first, and the recently-used ones
-    are dropped entirely when at least ``FRESH_CHOICE_MIN`` fresh candidates
-    remain. Without ``usage`` the ordering is the pre-#1328 one.
-    """
-    cands = [e for e in pool
-             if anomaly_fits(e, settings, year, crowd)
-             and counts_label.get(e["label"], 0) < MAX_PER_LABEL
-             and counts_family.get(e["family"], 0) < MAX_PER_FAMILY
-             and build_prompt_key(e) not in used_prompts]
-    if usage:
-        fresh = [e for e in cands if is_fresh(e, usage)]
-        if len(fresh) >= FRESH_CHOICE_MIN:
-            cands = fresh
-    fam_use = usage.get("families", {}) if usage else {}
-    lab_use = usage.get("labels", {}) if usage else {}
-
-    def key(e):
-        return (0 if is_fresh(e, usage) else 1,
-                fam_use.get(e["family"], 0), lab_use.get(e["label"], 0),
-                counts_label.get(e["label"], 0),
-                counts_family.get(e["family"], 0))
-    cands.sort(key=key)
-    return cands
-
-
-def build_prompt_key(entry: dict) -> str:
-    return entry["label"] + "|" + entry["recipe"]
-
-
-def picker_prompt(source: dict, candidates: list) -> str:
-    """The one picker instruction: choose from the given candidate list.
-
-    The rules already guaranteed every candidate is historically valid, so
-    the model only judges scene FIT (placement + plausibility); that keeps it
-    from "fixing" the rules by picking something anachronistic.
-    """
-    year = parse_year(source)
-    facts = [
-        f"year: {year}" if year else "year: unknown",
-        f"place: {guess_place(source) or 'unknown'}",
-        f"scene: {', '.join(infer_settings(source)) or 'unknown'}",
-        f"people present: {'yes' if has_crowd(source) else 'no crowd'}",
-    ]
-    lines = [f'{i}. "{e["label"]}" - {e["size"]}'
-             for i, e in enumerate(candidates, 1)]
-    return (
-        "This is a real historical photograph. Every candidate below is "
-        "historically valid for this scene (era and setting are already "
-        "checked). Choose the ONE that would fit THIS particular scene best: "
-        "the most natural place to hide it and the most plausible context. "
-        "Prefer a candidate whose real-world size and placement suit the "
-        "scene over the most anachronistic one.\n"
-        f"Photo facts: {'; '.join(facts)}.\n"
-        "Candidates:\n" + "\n".join(lines) + "\n"
-        'Answer as strict JSON only, no prose: '
-        '{"label": "<exact candidate label>", "reason": "<one short sentence>"}. '
-        "The label must be copied exactly from the candidate list (the quoted "
-        "text only, without the size after the dash)."
-    )
-
-
-def _match_label(raw: str, candidates: list):
-    """Map the model's answer to one candidate label, lenient about extras.
-
-    Models tend to echo the size suffix ("Modern daypack (a modern nylon
-    daypack, 45-55 cm)") or trailing punctuation; the exact label is then a
-    prefix of the answer. The longest matching label wins so a shorter label
-    cannot shadow a longer one.
-    """
-    cleaned = str(raw or "").strip().strip('"').strip("'").strip()
-    if not cleaned:
-        return None
-    low = cleaned.lower()
-    exact = next((e for e in candidates if e["label"].lower() == low), None)
-    if exact is not None:
-        return exact
-    prefixed = [e for e in candidates if low.startswith(e["label"].lower())]
-    if not prefixed:
-        return None
-    return max(prefixed, key=lambda e: len(e["label"]))
-
-
-def parse_pick(content, candidates: list):
-    """Parse the picker's answer; None unless it names a listed candidate.
-
-    Lenient about markdown fences/extra prose and about the label's size
-    suffix, strict about the label itself: an off-list label is a failed pick
-    (the caller falls back to the rule pick), never an excuse to insert an
-    anomaly the hard rules excluded.
-    """
-    if not content:
-        return None
-    s = re.sub(r"^```(?:json)?\s*|\s*```$", "", str(content).strip())
-    m = re.search(r"\{.*\}", s, re.S)
-    if not m:
-        return None
-    try:
-        obj = json.loads(m.group(0))
-    except json.JSONDecodeError:
-        return None
-    entry = _match_label(obj.get("label"), candidates)
-    if entry is None:
-        return None
-    return {"label": entry["label"], "reason": str(obj.get("reason") or "")[:200]}
-
-
-def _choose_entry(source: dict, cands: list, choose):
-    """Pick one candidate: model pick when configured, else the rule pick.
-
-    Returns ``(entry, info)``. Any picker problem (missing key, API error,
-    empty/off-list answer, a raising injected picker) resolves to ``cands[0]``
-    with ``mode="fallback"``, so a failed pick never loses a scene.
-    """
-    rule = cands[0]
-    if choose is None:
-        return rule, {"mode": "rules", "picked": rule["label"],
-                      "model_pick": None, "reason": "", "usage": None}
-    try:
-        info = choose(source, cands) or {}
-    except Exception as e:  # noqa: BLE001 - picker failure must not lose a scene
-        info = {"label": None, "error": f"{type(e).__name__}: {e}"}
-    label = info.get("label")
-    picked = next((e for e in cands if e["label"] == label), None)
-    if picked is None:
-        return rule, {"mode": "fallback", "picked": rule["label"],
-                      "model_pick": label,
-                      "reason": info.get("reason", ""),
-                      "error": info.get("error") or "off-list/empty pick",
-                      "usage": info.get("usage")}
-    return picked, {"mode": "llm", "picked": picked["label"],
-                    "model_pick": picked["label"],
-                    "reason": info.get("reason", ""),
-                    "usage": info.get("usage")}
-
-
-def plan_day(sources: list, rng: random.Random, choose=None, usage=None):
-    """Assign one anomaly per source; returns (plan, skipped, picks).
-
-    The hard rules pre-filter the catalog into candidates per source
-    (`pick_entries`). If ``choose`` is given (the LLM picker), it is asked
-    which candidate fits the photo best; anything but a valid on-list label
-    falls back to the rule pick. Greedy variety keeps one label per set and
-    <=2 per family. A source with no fitting candidate is skipped and stays
-    unused (e.g. unparseable year, or an empty/unknown setting). ``usage``
-    carries the recent-use novelty signal into the candidate order (ticket
-    #1328).
-    """
-    pool = list(ag_catalog.CATALOG)
-    rng.shuffle(pool)
-    counts_label, counts_family = {}, {}
-    used_prompts = set()
-    plan, skipped, picks = [], [], []
-    for src in sources:
-        # Refuse rather than guess (ticket #1338): a source without an
-        # established (pre-modern) era never becomes a scene, not even one
-        # with a fictional-future anomaly whose min_year is None.
-        refusal = ag_sources.ineligible_reason(src)
-        if refusal:
-            skipped.append({"id": src["id"], "reason": refusal})
+        return []
+    day = today or datetime.date.today()
+    cutoff = (day - datetime.timedelta(days=days)).isoformat()
+    out = []
+    scenes = sorted(state.get("scenes", {}).values(),
+                    key=lambda s: str(s.get("added") or ""), reverse=True)
+    for s in scenes:
+        if str(s.get("added") or "") < cutoff:
             continue
-        settings = infer_settings(src)
-        year = parse_year(src)
-        crowd = has_crowd(src)
-        cands = pick_entries(pool, counts_label, counts_family, settings,
-                             year, crowd, used_prompts, usage=usage)
-        if not cands:
-            skipped.append({"id": src["id"], "reason": "no fitting anomaly"})
-            continue
-        entry, info = _choose_entry(src, cands, choose)
-        counts_label[entry["label"]] = counts_label.get(entry["label"], 0) + 1
-        counts_family[entry["family"]] = counts_family.get(entry["family"], 0) + 1
-        used_prompts.add(build_prompt_key(entry))
-        plan.append((src, entry))
-        picks.append({**info, "source": src["id"],
-                      "candidates": [e["label"] for e in cands]})
-    return plan, skipped, picks
+        label = str(s.get("anomaly") or "")
+        if label and label not in out:
+            out.append(label)
+        if len(out) >= REPEAT_LABEL_LIMIT:
+            break
+    return out
 
 
-def picker_stats(requested: str, dry_run: bool, picks: list,
-                 temperature=None, draws=None) -> dict:
-    """Report which path ran and the measured picker token/cost footprint."""
-    stats = {"mode": requested, "llm": 0, "fallback": 0, "rules": 0,
-             "cost": 0.0, "prompt_tokens": 0, "completion_tokens": 0}
-    if requested == "llm":
-        stats["temperature"] = temperature
-        stats["draws"] = draws
-    for p in picks:
-        mode = p.get("mode")
-        if mode in stats:
-            stats[mode] += 1
-        u = p.get("usage") or {}
-        stats["cost"] += float(u.get("cost") or 0)
-        stats["prompt_tokens"] += int(u.get("prompt_tokens") or 0)
-        stats["completion_tokens"] += int(u.get("completion_tokens") or 0)
-    stats["cost"] = round(stats["cost"], 6)
-    if dry_run and requested == "llm":
-        stats["note"] = "dry run: rule picks only, no picker API call"
-    return stats
+def select_sources(data_dir: Path, count: int, seed=None) -> list:
+    """Up to ``count`` random unused sources that have an image on disk."""
+    unused = [s for s in ag_sources.list_sources(data_dir, unused=True)
+              if s.get("image")
+              and (ag_sources.sources_dir(data_dir) / s["image"]).exists()]
+    rng = random.Random(seed)
+    rng.shuffle(unused)
+    return unused[:max(0, count)]
 
 
-def picker_temperature(args):
-    """The picker temperature to send; None = the provider's default."""
-    return None if args.picker_provider_default else args.picker_temperature
+def moderation_rate(data_dir: Path, last: int = 20) -> dict:
+    """Acceptance rate of the most recently added scenes (the ground truth).
 
-
-def alternative_entry(source: dict, used_prompts: set, rng: random.Random,
-                      usage=None):
-    """A fitting anomaly for a retry, different from every used prompt.
-
-    Shuffled per call so retries do not always fall back to the same catalog
-    entry (run-guard 2: the retry must be materially different).
+    The report carries it so the new flow's rate can be compared against the
+    pipeline it replaced as soon as Evan moderates a batch (ticket #1372).
     """
-    pool = list(ag_catalog.CATALOG)
-    rng.shuffle(pool)
-    cands = pick_entries(pool, {}, {}, infer_settings(source),
-                         parse_year(source), has_crowd(source), used_prompts,
-                         usage=usage)
-    return cands[0] if cands else None
-
-
-# ── Prompt / entry text (deterministic) ────────────────────────────────────
-
-BLEND = ("Match the ORIGINAL photo's actual tone and coloration EXACTLY, "
-         "whatever it is (many old photographs are true black-and-white/"
-         "grayscale: the added element must then also be grayscale); never "
-         "add sepia, never add any warm or color cast, never add a filter; "
-         "film grain lies OVER the object; soft edges, consistent lighting "
-         "and shadow direction, realistic perspective; it must look "
-         "photographed, not pasted. No glow, low contrast, not a focal "
-         "point.")
-KEEP = ("Keep every other part of the photograph EXACTLY as it is: same "
-        "composition, people, goods and background; do not redraw, move, "
-        "add or recolor anything else.")
-
-
-DEFAULT_OBJECT_SCALE = ("about 2 percent of the image height (roughly 20-30 "
-                        "pixels on a 1200-pixel-tall image), never more than "
-                        "3 percent")
-DEFAULT_PERSON_SCALE = "roughly 8-15 percent of the image height"
-# Relative-size anchor (ticket #1328). Evan's "scaling is off" feedback is
-# about perspective, not the raw pixel budget: the absolute number alone
-# cannot tell the model how large the object should look next to the things
-# around it. Every budget sentence therefore names a same-distance reference.
-SIZE_ANCHOR = ("judge it against something at the same distance in the "
-               "photo (a crate, a wheel or a person's shoe) so its "
-               "perspective matches the scene")
-
-
-def scale_sentence(entry: dict) -> str:
-    """The one hard numeric scale cap (engineering-practices: one number).
-
-    Catalog entries override the small-object default where the real-world
-    size demands it (traffic cone, tarp, container, bicycle); persons and
-    robots get a realistic mid-ground height budget instead. Each sentence
-    also carries the SIZE_ANCHOR relative-size rule (ticket #1328).
-    """
-    if entry["type"] == "person":
-        budget = entry.get("scale") or DEFAULT_PERSON_SCALE
-        return (f"CRITICAL SCALE: the person's rendered height must be "
-                f"realistic for their position ({budget}), {SIZE_ANCHOR}, "
-                "never a giant figure.")
-    if entry["type"] == "future" and entry["recipe"].startswith("person"):
-        budget = entry.get("scale") or DEFAULT_PERSON_SCALE
-        return (f"CRITICAL SCALE: its rendered height must be realistic for "
-                f"its position ({budget}), {SIZE_ANCHOR}, never a giant "
-                "foreground figure.")
-    budget = entry.get("scale") or DEFAULT_OBJECT_SCALE
-    return (f"CRITICAL SCALE: its rendered height in the final image must be "
-            f"{budget}; {SIZE_ANCHOR}; if in doubt make it smaller and hide "
-            "more of it behind the foreground object.")
-
-
-def build_prompt(entry: dict) -> str:
-    recipe, _ = ag_catalog.RECIPES[entry["recipe"]]
-    if entry["type"] == "object":
-        head = (f"Edit this historical photograph: add one small modern "
-                f"object, placed naturally {recipe}. The object is "
-                f"{entry['size']} ({entry['label']}).")
-    elif entry["type"] == "person":
-        head = (f"Edit this historical photograph: add ONE entirely new "
-                f"person, placed naturally {recipe}. The person is "
-                f"{entry['noun']}, whose only modern tells are "
-                f"{entry['tells']}. Everything else about the outfit, "
-                "posture and appearance matches the photo's era exactly; the "
-                "tells are small details, never a full modern outfit.")
-    else:  # future / robot
-        head = (f"Edit this historical photograph: add ONE clearly "
-                f"futuristic {entry['noun']}, placed naturally {recipe}. "
-                f"It is {entry['size']} and looks like a time traveler from "
-                f"a fictional FUTURE: {entry['tells']}. Do NOT add a flying "
-                "saucer, spaceship, dragon, unicorn or any other fantasy "
-                "element (time-travel framing only).")
-    return " ".join((head, scale_sentence(entry), KEEP, BLEND))
-
-
-def region_phrase(answer: dict) -> str:
-    x, y = answer.get("x", 0.5), answer.get("y", 0.5)
-    horiz = "left" if x < 0.34 else ("right" if x > 0.66 else "center")
-    vert = "upper" if y < 0.34 else ("lower" if y > 0.66 else "middle")
-    if horiz == "center":
-        return f"{vert} center"
-    return f"{vert} {horiz}"
-
-
-def article(label: str) -> str:
-    return "An" if label[:1].upper() in ("A", "E", "I", "O", "U") else "A"
-
-
-def build_hints(source: dict, entry: dict, answer: dict) -> list:
-    _, where = ag_catalog.RECIPES[entry["recipe"]]
-    region = region_phrase(answer)
-    if entry["type"] == "object":
-        return [
-            f"Scan the whole photograph; something small is out of place "
-            f"{where}.",
-            f"It is a small modern object in the {region} of the frame.",
-            f"{article(entry['label'])} {entry['label']} is {where}, in the "
-            f"{region}.",
-        ]
-    if entry["type"] == "person":
-        return [
-            "Look at the people in the scene; one of them does not belong.",
-            f"Check the {where}: one figure is not wearing this era's "
-            "clothes or shoes.",
-            f"The {entry['noun']} {where}, in the {region}: {entry['tells']}.",
-        ]
-    return [
-        "Look closely; something in this photograph is not from this world "
-        "or this century.",
-        f"Check the {where}: there is technology that did not exist yet.",
-        f"The {entry['noun']} {where}, in the {region}: {entry['tells']}.",
-    ]
-
-
-def build_description(source: dict, year, place: str) -> str:
-    title = clean_title(source) or "Historical photograph"
-    bits = [title.rstrip(".")]
-    if place and place.lower() not in title.lower():
-        bits.append(place)
-    if year and str(year) not in title:
-        bits.append(f"circa {year}")
-    repo = source.get("repository") or "an archive"
-    bits.append(f"from the {repo} catalogue")
-    return ", ".join(bits) + "."
-
-
-def strip_html(s: str) -> str:
-    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", s or "")).strip()
-
-
-def build_credit(source: dict) -> str:
-    raw = source.get("raw") or {}
-    artist = strip_html(str(raw.get("artist") or ""))
-    repo = source.get("repository") or "unknown repository"
-    return f"{artist} via {repo}" if artist else repo
-
-
-def build_entry(source: dict, entry: dict, answer: dict, year, place: str,
-                date: str) -> dict:
-    eid = scene_id(source["id"], entry["label"])
-    # The planner refuses a source without an established era (ticket #1338),
-    # so `year` is set for every scene it plans; "unknown" is the honest
-    # marker for a direct call, never the raw upload stamp of the source.
-    year_str = str(year) if year else "unknown"
-    source_block = {k: source.get(k, "") for k in (
-        "repository", "fileUrl", "originalTitle", "date", "place", "license",
-        "description")}
-    return {
-        "id": eid,
-        "title": clean_title(source) or "Historical photograph",
-        "place": place or "Unidentified location",
-        "year": year_str,
-        "description": build_description(source, year, place),
-        "anomaly": entry["label"],
-        # Variety bucket (ticket #1232): stored with the scene so the ship
-        # step's family preference and its Go mirror read it from the data
-        # instead of each keeping a copy of the label->family map.
-        "family": entry["family"],
-        "answer": answer,
-        "hints": build_hints(source, entry, answer),
-        "explanation": entry["explanation"],
-        "references": [dict(r) for r in entry["references"]],
-        "source": source_block,
-        "credit": build_credit(source),
-        "sourceUrl": source.get("fileUrl", ""),
-    }
-
-
-def verify_label(entry: dict) -> str:
-    """`anomaly` string for ag_verify (persons carry their tells)."""
-    if entry["type"] == "person":
-        return f"{entry['label']}, with {entry['tells']}"
-    return entry["label"]
-
-
-def is_figure(entry: dict) -> bool:
-    """True when the anomaly is a human figure (person or humanoid robot).
-
-    Both are whole-body anomalies: the answer must cover head to feet, not
-    just the modern tell or the mechanical head (ticket #1308). Passed to
-    `ag_verify.verify(person=...)`.
-    """
-    return entry["type"] == "person" or entry["recipe"].startswith("person")
-
-
-# ── Scale reporting (ticket #1328) ─────────────────────────────────────────
-SIZE_HINT_RE = re.compile(r"(\d+(?:\.\d+)?)\s*(?:%|percent)", re.I)
-# Report a scene as over its size budget when the measured rendered size is
-# this far above the catalog budget. Reporting only, never a rejection:
-# measured on the live queue (2026-09-12), the number does not separate the
-# scenes Evan called "scaling is way off" (2.0-2.7x the budget) from scenes
-# he praised (up to 7x), so a gate would drop good scenes and keep bad ones.
-SCALE_WARN_FACTOR = 1.5
-
-
-def size_hint_fraction(text):
-    """Largest percent number in a vision size hint, as a fraction."""
-    if not text:
-        return None
-    nums = [float(n) for n in SIZE_HINT_RE.findall(str(text))]
-    return max(nums) / 100 if nums else None
-
-
-def measured_scale(verdict: dict):
-    """Rendered size of the verified anomaly as a frame-height fraction.
-
-    Whichever is larger: the vision box's longest side or the model's own
-    size hint ("about 12 percent of the image height"). None when the
-    verdict carries no vision evidence (pixel-diff fallback path).
-    """
-    vision = verdict.get("vision") or {}
-    vals = []
-    box = vision.get("box")
-    if isinstance(box, list) and len(box) == 4:
-        vals.append(max(abs(box[2] - box[0]), abs(box[3] - box[1])))
-    hint = size_hint_fraction(vision.get("size_hint"))
-    if hint is not None:
-        vals.append(hint)
-    return max(vals) if vals else None
-
-
-def scale_report(entry: dict, verdict: dict) -> dict:
-    """Measured size + catalog budget for the run report (no gate)."""
-    measured = measured_scale(verdict)
-    budget = ag_catalog.scale_max(entry)
-    if measured is None:
-        return {"scale_budget": budget, "scale_measured": None,
-                "scale_over_budget": None}
-    return {"scale_budget": budget, "scale_measured": round(measured, 4),
-            "scale_over_budget": measured > budget * SCALE_WARN_FACTOR}
-
-
-# ── Model calls ────────────────────────────────────────────────────────────
-
-def aspect_ratio_for(width: int, height: int) -> str:
-    if not width or not height:
-        return "3:2"
-    ratio = width / height
-    return min(ASPECTS, key=lambda a: abs(a[1] - ratio))[0]
-
-
-def _data_url(path: Path) -> str:
-    ext = path.suffix.lower().lstrip(".")
-    mime = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
-            "webp": "image/webp", "gif": "image/gif"}.get(ext, "image/jpeg")
-    return f"data:{mime};base64,{base64.b64encode(path.read_bytes()).decode()}"
-
-
-def decode_data_url(url: str) -> bytes:
-    if not url.startswith("data:"):
-        raise GenerationError(f"unexpected image url (not a data URL): "
-                              f"{url[:40]}")
-    _, _, b64 = url.partition(",")
-    return base64.b64decode(b64)
-
-
-def image_edit(source_image: Path, prompt: str, api_key: str,
-               base_url: str = DEFAULT_BASE_URL, model: str = IMAGE_MODEL,
-               aspect_ratio: str = "3:2", image_size: str = DEFAULT_IMAGE_SIZE,
-               seed=None, timeout: int = 180) -> bytes:
-    """One OpenRouter image-edit call; mirrors the fuchs image_generate tool.
-
-    A fresh int32 seed per call is the #1124 cache-buster; the explicit
-    clamp also works around the #1152 seed-overflow 400.
-    """
-    if seed is None:
-        seed = random.randint(0, 2**31 - 1)
-    seed = int(seed) % (2**31)
-    payload = {
-        "model": model,
-        "messages": [{
-            "role": "user",
-            "content": [
-                {"type": "text", "text": prompt},
-                {"type": "image_url", "image_url": {"url": _data_url(source_image)}},
-            ],
-        }],
-        "modalities": ["image", "text"],
-        "stream": False,
-        "seed": seed,
-        "image_config": {"aspect_ratio": aspect_ratio,
-                         "image_size": image_size},
-    }
-    req = urllib.request.Request(
-        base_url.rstrip("/") + "/chat/completions",
-        data=json.dumps(payload).encode(),
-        headers={"Authorization": f"Bearer {api_key}",
-                 "Content-Type": "application/json"},
-    )
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
-            body = json.load(r)
-    except urllib.error.HTTPError as e:
-        raise GenerationError(f"image request failed: HTTP {e.code} "
-                              f"{e.read()[:300]!r}") from e
-    except urllib.error.URLError as e:
-        raise GenerationError(f"image request failed: {e}") from e
-    choices = body.get("choices") or []
-    images = (choices[0].get("message", {}).get("images") or []) if choices \
-        else []
-    if not images:
-        raise GenerationError("no images returned (model refusal?)")
-    return decode_data_url(images[0]["image_url"]["url"])
-
-
-def picker_content(prompt: str, image_url: str | None) -> list:
-    """The picker message parts: the text prompt, plus the image when given.
-
-    ``image_url`` is a data URL (``_data_url(image)``). The A/B harness
-    (``ag_picker_ab``, ticket #1217) also calls this with a blank image or
-    with ``None`` to measure whether the photo changes the pick at all.
-    """
-    content = [{"type": "text", "text": prompt}]
-    if image_url:
-        content.append({"type": "image_url", "image_url": {"url": image_url}})
-    return content
-
-
-def picker_request(prompt: str, api_key: str, base_url: str = DEFAULT_BASE_URL,
-                   model: str = DEFAULT_PICKER_MODEL,
-                   max_tokens: int = DEFAULT_PICKER_MAX_TOKENS,
-                   timeout: int = DEFAULT_PICKER_TIMEOUT,
-                   image_url: str | None = None,
-                   temperature: float | None = DEFAULT_PICKER_TEMPERATURE,
-                   seed: int | None = None,
-                   provider: dict | None = None
-                   ) -> dict:
-    """One picker chat call with an optional image part; returns the body.
-
-    Reasoning is explicitly OFF: with thinking on, V4.1-Flash emits only
-    ``reasoning_content`` and the ``content`` field is null even with
-    generous ``max_tokens`` (measured 2026-09-11, ticket #1211). With
-    ``reasoning: {enabled: false}`` a tight output budget is enough.
-
-    ``temperature`` is sent only when not None; 0.0 (the default since
-    ticket #1313) makes the pick reproduce, ``None`` keeps the provider's
-    sampling default for A/B runs.
-
-    ``seed`` and ``provider`` exist for reproducibility experiments
-    (ticket #1334): ``seed`` is a no-op on the default DeepSeek route,
-    which does not support it, and ``provider`` passes an OpenRouter
-    routing block (``order``/``require_parameters``) so a test can pin the
-    endpoint. The production picker sends neither.
-    """
-    payload = {
-        "model": model,
-        "messages": [{"role": "user",
-                      "content": picker_content(prompt, image_url)}],
-        "reasoning": {"enabled": False},
-        "max_tokens": max_tokens,
-        "stream": False,
-    }
-    if temperature is not None:
-        payload["temperature"] = temperature
-    if seed is not None:
-        payload["seed"] = seed
-    if provider is not None:
-        payload["provider"] = provider
-    req = urllib.request.Request(
-        base_url.rstrip("/") + "/chat/completions",
-        data=json.dumps(payload).encode(),
-        headers={"Authorization": f"Bearer {api_key}",
-                 "Content-Type": "application/json"},
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
-            return json.load(r)
-    except urllib.error.HTTPError as e:
-        raise GenerationError(f"picker request failed: HTTP {e.code} "
-                              f"{e.read()[:300]!r}") from e
-    except urllib.error.URLError as e:
-        raise GenerationError(f"picker request failed: {e}") from e
-
-
-def pick_via_vision(source_image: Path, prompt: str, api_key: str,
-                    base_url: str = DEFAULT_BASE_URL,
-                    model: str = DEFAULT_PICKER_MODEL,
-                    max_tokens: int = DEFAULT_PICKER_MAX_TOKENS,
-                    timeout: int = DEFAULT_PICKER_TIMEOUT,
-                    temperature: float | None = DEFAULT_PICKER_TEMPERATURE
-                    ) -> dict:
-    """One vision picker call over the source photo; returns the body."""
-    return picker_request(prompt, api_key, base_url, model, max_tokens,
-                          timeout, image_url=_data_url(source_image),
-                          temperature=temperature)
-
-
-def majority_label(labels: list):
-    """The most frequent label; ties resolve to the earliest pick.
-
-    ``None`` for an all-empty list. Used by the multi-draw picker (ticket
-    #1313) and by the A/B harness to summarize repeats.
-    """
-    clean = [x for x in labels if x]
-    if not clean:
-        return None
-    counts = collections.Counter(clean)
-    top = max(counts.values())
-    return next(x for x in clean if counts[x] == top)
-
-
-def _zero_usage() -> dict:
-    return {"prompt_tokens": 0, "completion_tokens": 0, "cost": 0.0}
-
-
-def _add_usage(total: dict, usage) -> dict:
-    """Fold one response's usage into a running total (ticket #1313)."""
-    usage = usage or {}
-    total["prompt_tokens"] += int(usage.get("prompt_tokens") or 0)
-    total["completion_tokens"] += int(usage.get("completion_tokens") or 0)
-    total["cost"] += float(usage.get("cost") or 0)
-    return total
-
-
-def make_vision_picker(data_dir: Path, api_key: str, base_url: str,
-                       model: str = DEFAULT_PICKER_MODEL,
-                       max_tokens: int = DEFAULT_PICKER_MAX_TOKENS,
-                       timeout: int = DEFAULT_PICKER_TIMEOUT,
-                       temperature: float | None = DEFAULT_PICKER_TEMPERATURE,
-                       draws: int = DEFAULT_PICKER_DRAWS):
-    """Return a ``choose(source, candidates)`` callable for ``plan_day``.
-
-    The callable never raises and never invents a label outside the candidate
-    list: a missing image, transport error or unparseable answer returns
-    ``label: None`` so ``plan_day`` falls back to the rule pick.
-
-    ``draws`` > 1 asks the same question N times and keeps the majority
-    label; usage is summed across the successful draws.
-    """
-    draws = max(1, int(draws))
-
-    def choose(source: dict, candidates: list) -> dict:
-        image = ag_sources.sources_dir(data_dir) / source["image"]
-        if not image.exists():
-            return {"label": None, "error": f"missing image {image}"}
-        prompt = picker_prompt(source, candidates)
-        labels, usage, errors, reason = [], _zero_usage(), [], ""
-        for _ in range(draws):
-            try:
-                body = pick_via_vision(image, prompt, api_key, base_url, model,
-                                       max_tokens, timeout, temperature)
-            except Exception as e:  # noqa: BLE001 - fall back, never lose a scene
-                errors.append(f"{type(e).__name__}: {e}")
-                continue
-            _add_usage(usage, body.get("usage"))
-            content = (body.get("choices") or [{}])[0].get("message", {}).get(
-                "content")
-            match = parse_pick(content, candidates)
-            if match is None:
-                errors.append("empty model answer" if not content
-                              else f"off-list label: {str(content)[:120]}")
-                continue
-            labels.append(match["label"])
-            if not reason:
-                reason = match["reason"]
-        picked = majority_label(labels)
-        if picked is None:
-            return {"label": None, "usage": usage,
-                    "error": "; ".join(errors) or "no pick"}
-        return {"label": picked, "reason": reason, "usage": usage}
-    return choose
-
-
-def notify_discord(channel_id: str, content: str, token: str,
-                   timeout: int = 30) -> bool:
-    """Post a plain bot message to a Discord channel (failure alert only)."""
-    if not channel_id or not token:
-        return False
-    payload = json.dumps({"content": content[:1900]}).encode()
-    req = urllib.request.Request(
-        f"https://discord.com/api/v10/channels/{channel_id}/messages",
-        data=payload,
-        headers={"Authorization": f"Bot {token}",
-                 "Content-Type": "application/json",
-                 "User-Agent": "AnomalyGuessr-generator/1.0"},
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
-            return 200 <= r.status < 300
-    except Exception:  # noqa: BLE001 - alerting must never break the run
-        return False
+        state = ag_queue.load_state(data_dir)
+        fb = ag_queue.load_feedback(data_dir)
+    except (OSError, ValueError):
+        return {"window": 0, "accepted": 0, "rejected": 0, "unmoderated": 0,
+                "acceptance_rate": None}
+    scenes = sorted(state.get("scenes", {}).values(),
+                    key=lambda s: str(s.get("added") or ""), reverse=True)
+    scenes = scenes[:last]
+    accepted = set(fb.get("accepted", {}))
+    rejected = set(fb.get("rejected", {})) | set(fb.get("excluded", {}))
+    acc = sum(1 for s in scenes if s.get("id") in accepted and
+              s.get("id") not in rejected)
+    rej = sum(1 for s in scenes if s.get("id") in rejected)
+    decided = acc + rej
+    return {"window": len(scenes), "accepted": acc, "rejected": rej,
+            "unmoderated": len(scenes) - decided,
+            "acceptance_rate": round(acc / decided, 3) if decided else None}
 
 
 # ── Run loop ───────────────────────────────────────────────────────────────
@@ -1199,13 +851,7 @@ def _now_iso() -> str:
 
 
 def run(args) -> dict:
-    """Run one generation batch, guarded by the cross-process run lock.
-
-    A dry run is free (no lock, no status): it only plans. Every other run
-    takes `RunLock` first; if another run (daily cron or a manual click)
-    holds it, the report carries a `locked` flag + error and nothing is
-    written to the queue or the status file.
-    """
+    """Run one generation batch, guarded by the cross-process run lock."""
     ensure_tool_path()
     if args.env:
         ag_verify.load_env(Path(args.env))
@@ -1236,10 +882,10 @@ def run(args) -> dict:
 def _run(args, data_dir: Path, lock) -> dict:
     date = args.date or datetime.date.today().isoformat()
     started = time.time()
-    started_iso = datetime.datetime.now().astimezone().isoformat(
-        timespec="seconds")
+    started_iso = _now_iso()
     report = {"date": date, "data": str(data_dir), "planned": 0, "added": [],
-              "failed": [], "skipped": [], "image_calls": 0, "dry_run": False}
+              "failed": [], "skipped": [], "image_calls": 0, "dry_run": False,
+              "model": args.model, "image_model": args.image_model}
 
     def emit(state: str = "running", **extra) -> None:
         """Best-effort progress for the dashboard (see module docstring)."""
@@ -1257,193 +903,89 @@ def _run(args, data_dir: Path, lock) -> dict:
 
     emit()
 
-    # Top up the source pool first (#1174) so the generator cannot run dry
-    # silently. A top-up failure (network, rate limit) must not cost the run
-    # its scenes, so it only lands in the report.
     if args.top_up and not args.dry_run:
         try:
             report["topup"] = ag_sources.top_up(
-                data_dir, target=args.topup_target,
+                data_dir, target=args.topup_target, batch=args.topup_batch,
                 max_calls=args.topup_max_calls, date=date,
                 log=lambda m: print(m, file=sys.stderr))
         except Exception as e:  # noqa: BLE001 - never block generation
             report["topup"] = {"error": str(e)}
 
-    unused = ag_sources.list_sources(data_dir, unused=True)
-    unused = [s for s in unused if s.get("image")]
-    # Refuse rather than guess (ticket #1338): a pool entry whose era cannot
-    # be established, or which is a born-digital photo, is not pickable. Kept
-    # out of the pick list so it cannot eat one of the day's slots.
-    unusable = []
-    usable = []
-    for s in unused:
-        reason = ag_sources.ineligible_reason(s)
-        (unusable if reason else usable).append(
-            {"id": s["id"], "reason": reason} if reason else s)
-    unused = usable
-    if unusable:
-        report["unusable_sources"] = unusable
-        print(f"skipping {len(unusable)} source(s) without a usable era",
-              file=sys.stderr)
-    if not unused:
-        report["error"] = ("source dataset has no unused sources; seed it "
-                           "with pipeline/ag_sources.py seed")
+    picked = select_sources(data_dir, args.count, args.seed)
+    if not picked:
+        report["error"] = ("source dataset has no unused sources; fill it "
+                           "with pipeline/ag_sources.py top-up")
         emit(state="error", error=report["error"], finishedAt=_now_iso())
         return report
-    if len(unused) < args.count:
-        report["warning"] = (f"source pool low: {len(unused)} unused sources, "
+    if len(picked) < args.count:
+        report["warning"] = (f"source pool low: {len(picked)} unused sources, "
                              f"wanted {args.count} scenes "
                              "(run pipeline/ag_sources.py top-up)")
-
-    rng = random.Random(args.seed)
-    rng.shuffle(unused)
-    # Novelty (ticket #1328): prefer the unused sources that can host an
-    # anomaly no recent run has used. The shuffle stays the tie-break, so a
-    # fixed seed still reproduces the pick.
-    usage = load_label_usage(data_dir, datetime.date.fromisoformat(date))
-    if usage:
-        unused.sort(key=lambda s: -fresh_candidate_count(s, usage))
-        report["novelty"] = {
-            "window_days": NOVELTY_WINDOW_DAYS,
-            "recent_families": usage.get("families", {}),
-            "recent_labels": usage.get("labels", {}),
-        }
-    picked = unused[:args.count]
-
-    api_key = os.environ.get("OPENROUTER_API_KEY", "")
-    choose = None
-    if args.picker == "llm" and not args.dry_run:
-        if not api_key:
-            report["error"] = "OPENROUTER_API_KEY not set (pass --env)"
-            emit(state="error", error=report["error"], finishedAt=_now_iso())
-            return report
-        choose = make_vision_picker(data_dir, api_key, args.base_url,
-                                    args.picker_model, args.picker_max_tokens,
-                                    args.picker_timeout,
-                                    picker_temperature(args),
-                                    args.picker_draws)
-
-    plan, skipped, picks = plan_day(picked, rng, choose=choose, usage=usage)
-    report["skipped"] = skipped
-    report["planned"] = len(plan)
-    report["picks"] = picks
-    report["picker_stats"] = picker_stats(args.picker, args.dry_run, picks,
-                                          picker_temperature(args),
-                                          args.picker_draws)
-    emit()
-    if not plan:
-        report["error"] = "no source could be matched to a fitting anomaly"
-        emit(state="error", error=report["error"], finishedAt=_now_iso())
-        return report
+    report["planned"] = len(picked)
+    recent = recent_labels(data_dir, datetime.date.fromisoformat(date))
 
     if args.dry_run:
         report["dry_run"] = True
         report["plan"] = [
-            {"source": s["id"], "anomaly": e["label"], "recipe": e["recipe"],
-             "year": parse_year(s), "settings": list(infer_settings(s)),
-             "picker": picks[i]["mode"], "reason": picks[i].get("reason", ""),
-             "candidates": picks[i]["candidates"], "prompt": build_prompt(e)}
-            for i, (s, e) in enumerate(plan)
+            {"source": s["id"], "title": clean_title(s),
+             "place": scene_place(s),
+             "proposal_prompt": proposal_prompt(s, recent),
+             "edit_prompt_template": "add ONE <anomaly>, <placement>. "
+                                     + scale_rule({"figure": False}) + " "
+                                     + KEEP + " " + BLEND}
+            for s in picked
         ]
+        report["recent_labels"] = recent
         return report
 
-    if api_key and not args.no_vision:
-        # Vision preflight (#1307): one real call before the first image
-        # call, so a broken VISION_MODEL (wrong slug, or a thinking model
-        # whose reasoning eats the answer) fails the run loudly instead of
-        # rejecting all 10 scenes after 10 image generations (the #1285
-        # model-swap trap). The call takes a few seconds and costs a
-        # fraction of one scene.
+    api_key = os.environ.get("OPENROUTER_API_KEY", "")
+    if not api_key:
+        report["error"] = "OPENROUTER_API_KEY not set (pass --env)"
+        emit(state="error", error=report["error"], finishedAt=_now_iso())
+        return report
+    if not args.no_preflight:
+        # Preflight (#1307): one real call before the first image call, so a
+        # broken vision model fails the run loudly instead of rejecting every
+        # scene after every image generation.
         try:
             report["vision_preflight"] = ag_verify.preflight_vision(
-                api_key, args.vision_model)
+                api_key, args.model)
         except (RuntimeError, OSError) as e:
             report["error"] = f"vision preflight failed: {e}"
             emit(state="error", error=report["error"], finishedAt=_now_iso())
             return report
+
     out_dir = Path(args.out_dir) if args.out_dir else Path(
         tempfile.mkdtemp(prefix="ag-gen-"))
-    # Planned prompts are "used" from the start, so a retry never repeats a
-    # prompt that another scene of the same run already uses.
-    used_prompts = {build_prompt_key(e) for _, e in plan}
-    for s, entry in plan:
-        if args.max_generations and report["image_calls"] >= args.max_generations:
-            report["failed"].append({"id": s["id"], "reason": "generation budget"})
+    totals = ag_llm.zero_usage()
+    used_prompts = set()
+    for source in picked:
+        if int(totals.get("image_calls", 0)) >= args.max_generations:
+            report["failed"].append({"id": source["id"],
+                                     "reason": "generation budget"})
             emit()
             continue
-        current = entry
-        previous_outputs = []
-        result = None
-        for attempt in range(1, args.max_attempts + 1):
-            if args.max_generations and report["image_calls"] >= args.max_generations:
-                break
-            source_image = ag_sources.sources_dir(data_dir) / s["image"]
-            if not source_image.exists():
-                result = {"ok": False, "reason": f"missing image {source_image}"}
-                break
-            prompt = build_prompt(current)
-            try:
-                report["image_calls"] += 1
-                emit()
-                img = image_edit(
-                    source_image, prompt, api_key, args.base_url,
-                    args.image_model, aspect_ratio_for(s.get("width"),
-                                                       s.get("height")),
-                    args.image_size, timeout=args.image_timeout)
-            except GenerationError as e:
-                result = {"ok": False, "reason": str(e), "stage": "image",
-                          "attempt": attempt}
-                continue
-            out_path = _write_bytes(img, out_dir / f"{s['id']}-a{attempt}.png")
-            try:
-                verdict = ag_verify.verify(
-                    out_path, source_image, verify_label(current),
-                    crop_out=data_dir / "audit" / scene_id(s["id"],
-                                                           current["label"]),
-                    vision=not args.no_vision, env_path=args.env,
-                    vision_model=args.vision_model,
-                    dedup=list(previous_outputs) or None,
-                    person=is_figure(current))
-            except (RuntimeError, OSError, ValueError) as e:
-                result = {"ok": False, "reason": f"verify error: {e}",
-                          "stage": "verify", "attempt": attempt}
-                previous_outputs.append(out_path)
-                continue
-            previous_outputs.append(out_path)
-            if verdict.get("ok"):
-                entry_json = build_entry(s, current, verdict["answer"],
-                                         parse_year(s), guess_place(s), date)
-                try:
-                    ag_queue.state_add(data_dir, entry_json, out_path,
-                                       source_image, date)
-                except Exception as e:  # noqa: BLE001 - queue reject = drop scene
-                    result = {"ok": False, "reason": f"queue add: {e}",
-                              "stage": "queue", "attempt": attempt}
-                    continue
-                ag_sources.mark_used(data_dir, [s["id"]], True)
-                report["added"].append({
-                    "scene": entry_json["id"], "source": s["id"],
-                    "anomaly": current["label"],
-                    "localization": verdict.get("localization"),
-                    "answer": verdict["answer"], "attempt": attempt,
-                    **scale_report(current, verdict)})
-                result = None
-                break
-            result = {"ok": False, "reason": verdict.get("reason", "rejected"),
-                      "stage": "verify", "attempt": attempt,
-                      "localization": verdict.get("localization")}
-            # Retry guard (#1122): the next attempt must be materially
-            # different, so pick another anomaly instead of resending the
-            # same prompt to the same source.
-            alt = alternative_entry(s, used_prompts | {build_prompt_key(current)},
-                                    rng, usage=usage)
-            if alt is None or attempt >= args.max_attempts:
-                break
-            current = alt
-        if result is not None:
-            report["failed"].append({"id": s["id"], **result})
+        scene, failed = _generate_one(source, args, data_dir, date, out_dir,
+                                      recent + sorted(used_prompts), totals,
+                                      emit)
+        if scene is not None:
+            report["added"].append(scene["report"])
+            used_prompts.add(scene["label"])
+        elif failed is not None:
+            report["failed"].append(failed)
         emit()
+
     report["duration_s"] = round(time.time() - started, 1)
+    report["image_calls"] = int(totals.get("image_calls", 0))
+    report["model_usage"] = {k: v for k, v in totals.items()
+                             if k != "image_calls"}
+    report["cost_total"] = round(totals["cost"], 6)
+    if report["added"]:
+        report["cost_per_scene"] = round(totals["cost"] / len(report["added"]), 6)
+        report["seconds_per_scene"] = round(
+            report["duration_s"] / len(report["added"]), 1)
+    report["moderation"] = moderation_rate(data_dir)
     if report.get("error") or not report["added"]:
         message = report.get("error") or (
             f"no scenes added ({len(report['failed'])} failed)")
@@ -1452,6 +994,271 @@ def _run(args, data_dir: Path, lock) -> dict:
         emit(state="done", finishedAt=_now_iso(),
              durationS=report["duration_s"])
     return report
+
+
+def _generate_one(source: dict, args, data_dir: Path, date: str,
+                  out_dir: Path, recent: list, totals: dict, emit) -> tuple:
+    """One source through the whole flow; returns (scene|None, failure|None)."""
+    api_key = os.environ.get("OPENROUTER_API_KEY", "")
+    source_image = ag_sources.sources_dir(data_dir) / source["image"]
+    if not source_image.exists():
+        return None, {"id": source["id"], "reason": f"missing image "
+                      f"{source_image}", "stage": "source"}
+    previous_outputs = []
+    trace = {"source": source["id"], "date": date, "model": args.model,
+             "image_model": args.image_model, "calls": []}
+    last_error = None
+    for attempt in range(1, args.max_attempts + 1):
+        proposal, proposal_call, errors = _attempt_proposal(
+            source_image, source, recent, args, api_key)
+        trace["calls"].append({"stage": "proposal", "attempt": attempt,
+                               **_call_trace(proposal_call)})
+        ag_llm.add_usage(totals, proposal_call.get("usage"))
+        if errors:
+            last_error = {"id": source["id"], "stage": "proposal",
+                          "reason": "; ".join(errors), "attempt": attempt,
+                          "answer": proposal_call.get("answer", "")[:400]}
+            trace["error"] = last_error["reason"]
+            continue
+        prompt = edit_prompt(proposal)
+        if int(totals.get("image_calls", 0)) >= args.max_generations:
+            last_error = last_error or {"id": source["id"],
+                                        "stage": "budget",
+                                        "reason": "generation budget"}
+            break
+        try:
+            edited, image_call = _edit(source_image, prompt, args, api_key,
+                                       source, totals)
+        except GenerationError as e:
+            last_error = {"id": source["id"], "stage": "image",
+                          "reason": str(e), "attempt": attempt}
+            break
+        totals["image_calls"] = totals.get("image_calls", 0) + 1
+        trace["calls"].append({"stage": "edit", "attempt": attempt,
+                               "prompt": prompt, **image_call})
+        out_path = _write_bytes(edited,
+                                out_dir / f"{source['id']}-a{attempt}.png")
+        reason, hotspot = deterministic_gate(out_path, source_image,
+                                             list(previous_outputs) or None)
+        if reason:
+            last_error = {"id": source["id"], "stage": "gate",
+                          "reason": reason, "attempt": attempt}
+            previous_outputs.append(out_path)
+            trace.setdefault("gate_failures", []).append(
+                {"attempt": attempt, "reason": reason})
+            continue
+        previous_outputs.append(out_path)
+
+        loc = None
+        try:
+            loc = locate_anomaly(out_path, proposal, prompt, api_key,
+                                 args.model, args.base_url,
+                                 args.model_max_tokens, args.model_timeout,
+                                 args.temperature)
+        except ag_llm.LLMError as e:
+            last_error = {"id": source["id"], "stage": "coordinates",
+                          "reason": str(e), "attempt": attempt}
+            trace.setdefault("call_errors", []).append(
+                {"stage": "coordinates", "error": str(e)})
+        if loc is not None:
+            ag_llm.add_usage(totals, loc["call"].get("usage"))
+            trace["calls"].append({"stage": "coordinates", "attempt": attempt,
+                                   **_call_trace(loc["call"])})
+        coords = loc["coords"] if loc is not None else None
+
+        check = None
+        corrected = False
+        if not args.no_check:
+            try:
+                check = check_scene(out_path, proposal, api_key, args.model,
+                                    args.base_url, args.model_max_tokens,
+                                    args.model_timeout, args.temperature)
+            except ag_llm.LLMError as e:
+                trace.setdefault("call_errors", []).append(
+                    {"stage": "check", "error": str(e)})
+                check = None
+            if check is not None:
+                ag_llm.add_usage(totals, check["call"].get("usage"))
+                trace["calls"].append({"stage": "check", "attempt": attempt,
+                                       **_call_trace(check["call"])})
+            if check is not None and check["ok"] is False \
+                    and check["fix_prompt"]:
+                if int(totals.get("image_calls", 0)) >= args.max_generations:
+                    last_error = {"id": source["id"], "stage": "budget",
+                                  "reason": "generation budget"}
+                    break
+                try:
+                    fixed, fix_call = _edit(source_image,
+                                            _fix_prompt(proposal,
+                                                        check["fix_prompt"]),
+                                            args, api_key, source, totals)
+                except GenerationError as e:
+                    last_error = {"id": source["id"], "stage": "fix",
+                                  "reason": str(e), "attempt": attempt}
+                    break
+                totals["image_calls"] = totals.get("image_calls", 0) + 1
+                trace["calls"].append({"stage": "fix-edit",
+                                       "attempt": attempt, **fix_call})
+                fixed_path = _write_bytes(
+                    fixed, out_dir / f"{source['id']}-a{attempt}-fix.png")
+                reason, hotspot = deterministic_gate(
+                    fixed_path, source_image, list(previous_outputs) or None)
+                if reason:
+                    last_error = {"id": source["id"], "stage": "gate",
+                                  "reason": f"after fix: {reason}",
+                                  "attempt": attempt}
+                    previous_outputs.append(fixed_path)
+                    trace.setdefault("gate_failures", []).append(
+                        {"attempt": attempt, "reason": f"after fix: {reason}"})
+                    continue
+                previous_outputs.append(fixed_path)
+                out_path = fixed_path
+                corrected = True
+                try:
+                    loc = locate_anomaly(out_path, proposal, prompt, api_key,
+                                         args.model, args.base_url,
+                                         args.model_max_tokens,
+                                         args.model_timeout, args.temperature)
+                except ag_llm.LLMError as e:
+                    loc = None
+                    trace.setdefault("call_errors", []).append(
+                        {"stage": "coordinates", "after_fix": True,
+                         "error": str(e)})
+                if loc is not None:
+                    ag_llm.add_usage(totals, loc["call"].get("usage"))
+                    trace["calls"].append({"stage": "coordinates", "attempt":
+                                           attempt, "after_fix": True,
+                                           **_call_trace(loc["call"])})
+                coords = loc["coords"] if loc is not None else None
+                # Close the correction loop: the fix is judged by the same
+                # checker, so a not-OK verdict really can reject a scene
+                # (ticket #1372). One extra cheap call per corrected scene.
+                try:
+                    recheck = check_scene(out_path, proposal, api_key,
+                                          args.model, args.base_url,
+                                          args.model_max_tokens,
+                                          args.model_timeout, args.temperature)
+                except ag_llm.LLMError as e:
+                    recheck = None
+                    trace.setdefault("call_errors", []).append(
+                        {"stage": "recheck", "error": str(e)})
+                if recheck is not None:
+                    ag_llm.add_usage(totals, recheck["call"].get("usage"))
+                    trace["calls"].append({"stage": "recheck",
+                                           "attempt": attempt,
+                                           **_call_trace(recheck["call"])})
+                    check = recheck
+                    if check["ok"] is False:
+                        last_error = {"id": source["id"], "stage": "check",
+                                      "reason": "checker rejected after fix: "
+                                                + ("; ".join(check["problems"])
+                                                   or "no reason given"),
+                                      "attempt": attempt}
+                        trace["error"] = last_error["reason"]
+                        continue
+            elif check is not None and check["ok"] is False:
+                last_error = {"id": source["id"], "stage": "check",
+                              "reason": "checker rejected: "
+                                        + ("; ".join(check["problems"])
+                                           or "no fix prompt"),
+                              "attempt": attempt}
+                trace["error"] = last_error["reason"]
+                continue
+
+        if coords is None and hotspot is not None:
+            # The coordinate call is the answer source; when it is unusable,
+            # the diff hotspot still gives a deterministic click target.
+            answer = {"x": round(float(hotspot["cx"]), 4),
+                      "y": round(float(hotspot["cy"]), 4),
+                      "r": 0.05, "fallback": "hotspot"}
+            conflict = None
+            trace["coordinates_fallback"] = "hotspot"
+        elif coords is None:
+            last_error = {"id": source["id"], "stage": "coordinates",
+                          "reason": "no click target and no diff hotspot",
+                          "attempt": attempt}
+            continue
+        else:
+            answer, conflict = finalize_answer(coords, hotspot)
+        if check is None:
+            check_summary = {"ok": None, "problems": [], "skipped": True,
+                             "corrected": corrected}
+        else:
+            check_summary = {"ok": check["ok"],
+                             "problems": check["problems"],
+                             "corrected": corrected}
+
+        entry = build_entry(source, proposal, answer, date)
+        errs = ag_queue.validate_entry(entry)
+        if errs:
+            last_error = {"id": source["id"], "stage": "entry",
+                          "reason": "invalid entry: " + "; ".join(errs),
+                          "attempt": attempt}
+            trace["error"] = last_error["reason"]
+            continue
+        try:
+            ag_queue.state_add(data_dir, entry, out_path, source_image, date)
+        except Exception as e:  # noqa: BLE001 - queue reject = drop scene
+            last_error = {"id": source["id"], "stage": "queue",
+                          "reason": f"queue add: {e}", "attempt": attempt}
+            break
+        ag_sources.mark_used(data_dir, [source["id"]], True)
+        write_trace(data_dir, entry["id"], trace)
+        scene_report = {
+            "scene": entry["id"], "source": source["id"],
+            "anomaly": entry["anomaly"], "kind": proposal["kind"],
+            "era": entry["year"], "place": entry["place"],
+            "attempt": attempt, "answer": answer,
+            "coord_conflict": conflict,
+            "checker": check_summary,
+        }
+        return {"report": scene_report, "label": entry["anomaly"]}, None
+    return None, last_error or {"id": source["id"], "reason": "no attempt ran"}
+
+
+def _attempt_proposal(source_image: Path, source: dict, recent: list, args,
+                      api_key: str):
+    """Call 1 with its error handling; returns (proposal, call, errors)."""
+    try:
+        result = propose_anomaly(source_image, source, recent, api_key,
+                                 args.model, args.base_url,
+                                 args.model_max_tokens, args.model_timeout,
+                                 args.temperature)
+    except ag_llm.LLMError as e:
+        call = {"model": args.model, "prompt": proposal_prompt(source, recent),
+                "answer": "", "usage": ag_llm.zero_usage(), "error": str(e),
+                "duration_s": 0.0}
+        return None, call, [str(e)]
+    return result["proposal"], result["call"], result["errors"]
+
+
+def _fix_prompt(proposal: dict, fix: str) -> str:
+    head = (f"Edit this photograph again: fix ONLY these problems with the "
+            f"added {proposal['anomaly']}: {fix}.")
+    return " ".join((head, scale_rule(proposal), KEEP, BLEND))
+
+
+def _edit(source_image: Path, prompt: str, args, api_key: str, source: dict,
+          totals: dict | None = None):
+    """One image edit; returns (bytes, trace record)."""
+    started = time.time()
+    seed = random.randint(0, 2**31 - 1)
+    data = image_edit(source_image, prompt, api_key, args.base_url,
+                      args.image_model,
+                      aspect_ratio_for(source.get("width"),
+                                       source.get("height")),
+                      args.image_size, seed=seed, timeout=args.image_timeout,
+                      usage_out=totals)
+    return data, {"prompt": prompt, "seed": seed,
+                  "model": args.image_model,
+                  "duration_s": round(time.time() - started, 2)}
+
+
+def _call_trace(call: dict) -> dict:
+    return {"model": call.get("model"), "prompt": call.get("prompt", ""),
+            "answer": call.get("answer", ""), "usage": call.get("usage"),
+            "duration_s": call.get("duration_s"),
+            "error": call.get("error")}
 
 
 def failure_message(report: dict) -> str:
@@ -1467,74 +1274,84 @@ def failure_message(report: dict) -> str:
     return "\n".join(lines)
 
 
+def notify_discord(channel_id: str, content: str, token: str,
+                   timeout: int = 30) -> bool:
+    """Post a plain bot message to a Discord channel (failure alert only)."""
+    if not channel_id or not token:
+        return False
+    payload = json.dumps({"content": content[:1900]}).encode()
+    req = urllib.request.Request(
+        f"https://discord.com/api/v10/channels/{channel_id}/messages",
+        data=payload,
+        headers={"Authorization": f"Bot {token}",
+                 "Content-Type": "application/json",
+                 "User-Agent": "AnomalyGuessr-generator/1.0"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return 200 <= r.status < 300
+    except Exception:  # noqa: BLE001 - alerting must never break the run
+        return False
+
+
 def parse_args(argv=None):
     p = argparse.ArgumentParser(
         prog="ag_generate.py",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        description="Deterministic AnomalyGuessr generator (ticket #1169).")
+        description="AnomalyGuessr generator, four-step LLM flow (#1372).")
     p.add_argument("--data", default=None,
                    help="data dir (default: repo data/anomalyguessr)")
     p.add_argument("--count", type=int, default=10,
                    help="scenes to generate (default 10)")
     p.add_argument("--seed", type=int, default=None,
-                   help="RNG seed (default: system random); a fixed seed "
-                        "reproduces the day's plan")
+                   help="source-sampling seed (default: system random)")
     p.add_argument("--date", default=None, help="queue date (default today)")
     p.add_argument("--dry-run", action="store_true",
-                   help="print the plan, call nothing, write nothing")
+                   help="print the selected sources and prompts, call nothing")
     p.add_argument("--env", default=None, help=".env path for API keys")
     p.add_argument("--dm-channel", default=None,
                    help="Discord channel for failure alerts")
+    p.add_argument("--model", default=MODEL,
+                   help=f"vision/text model for proposal, coordinates and "
+                        f"check (default {MODEL})")
     p.add_argument("--image-model", default=IMAGE_MODEL)
-    p.add_argument("--vision-model", default=None)
-    p.add_argument("--picker", choices=("rules", "llm"), default="llm",
-                   help="anomaly picker: a vision call over the fitting "
-                        "candidates (llm, default) or the least-used rule "
-                        "pick (rules); an llm failure falls back to rules")
-    p.add_argument("--picker-model", default=DEFAULT_PICKER_MODEL,
-                   help=f"picker vision model (default {DEFAULT_PICKER_MODEL})")
-    p.add_argument("--picker-max-tokens", type=int,
-                   default=DEFAULT_PICKER_MAX_TOKENS,
-                   help="output budget per pick (reasoning is off)")
-    p.add_argument("--picker-timeout", type=int,
-                   default=DEFAULT_PICKER_TIMEOUT)
-    p.add_argument("--picker-temperature", type=float,
-                   default=DEFAULT_PICKER_TEMPERATURE,
-                   help="picker sampling temperature (default "
-                        f"{DEFAULT_PICKER_TEMPERATURE}); with "
-                        "--picker-provider-default the request omits it")
-    p.add_argument("--picker-provider-default", action="store_true",
-                   help="omit temperature from the picker request (use the "
-                        "provider's default sampling)")
-    p.add_argument("--picker-draws", type=int, default=DEFAULT_PICKER_DRAWS,
-                   help="ask the picker N times and keep the majority label "
-                        f"(default {DEFAULT_PICKER_DRAWS}; 3 measured only "
-                        "~2 points more reproducible than 1, at 3x pick "
-                        "cost)")
+    p.add_argument("--model-max-tokens", type=int,
+                   default=DEFAULT_MODEL_MAX_TOKENS)
+    p.add_argument("--model-timeout", type=int, default=DEFAULT_MODEL_TIMEOUT)
+    p.add_argument("--temperature", type=float, default=DEFAULT_TEMPERATURE,
+                   help="sampling temperature for the text/vision calls "
+                        f"(default {DEFAULT_TEMPERATURE}; omit with "
+                        "--provider-default)")
+    p.add_argument("--provider-default", action="store_true",
+                   help="omit the temperature (use the provider's default)")
     p.add_argument("--base-url", default=os.environ.get("OPENAI_BASE_URL")
                    or DEFAULT_BASE_URL)
     p.add_argument("--image-size", default=DEFAULT_IMAGE_SIZE)
     p.add_argument("--image-timeout", type=int, default=180)
-    p.add_argument("--no-vision", action="store_true",
-                   help="skip the vision localization (diff fallback only)")
+    p.add_argument("--no-check", action="store_true",
+                   help="skip the checker call (and its correction edit)")
+    p.add_argument("--no-preflight", action="store_true",
+                   help="skip the one-call vision preflight")
     p.add_argument("--max-attempts", type=int, default=2,
-                   help="generations per source, each with a different "
-                        "anomaly (run-guard #1122; default 2)")
+                   help="proposals per source, each a fresh generation "
+                        "(run-guard #1122; default 2)")
     p.add_argument("--max-generations", type=int, default=0,
                    help="hard cap on image calls per run (0 = count*attempts)")
     p.add_argument("--out-dir", default=None,
                    help="working dir for attempts (default: temp dir)")
     p.add_argument("--report", default=None, help="write the JSON report here")
     p.add_argument("--top-up", action="store_true",
-                   help="top up the source pool before picking sources "
-                        "(#1174; the daily cron passes this)")
+                   help="fill the source pool before picking sources")
     p.add_argument("--topup-target", type=int,
                    default=ag_sources.DEFAULT_TOPUP_TARGET,
                    help=f"unused sources the top-up aims for "
                         f"(default {ag_sources.DEFAULT_TOPUP_TARGET})")
+    p.add_argument("--topup-batch", type=int,
+                   default=ag_sources.DEFAULT_TOPUP_BATCH,
+                   help="Quality-images category members per page")
     p.add_argument("--topup-max-calls", type=int,
                    default=ag_sources.DEFAULT_TOPUP_CALLS,
-                   help="backend searches per top-up")
+                   help="category pages per top-up")
     args = p.parse_args(argv)
     if not args.max_generations:
         args.max_generations = max(1, args.count * max(1, args.max_attempts))

@@ -11,7 +11,6 @@ import re
 import unittest
 
 import ag_catalog as c
-import ag_generate as g
 
 
 class CatalogShapeTests(unittest.TestCase):
@@ -74,18 +73,41 @@ class ScaleMaxTests(unittest.TestCase):
 
 
 class GeneratorCompatibilityTests(unittest.TestCase):
-    """Everything the generator needs from an entry actually works."""
+    """Everything the generator needs from the catalog actually works.
 
-    def test_every_entry_builds_a_prompt(self):
-        for e in c.CATALOG:
-            with self.subTest(label=e["label"]):
-                prompt = g.build_prompt(e)
-                self.assertIn("CRITICAL SCALE", prompt)
-                self.assertIn("Keep every other part of the photograph", prompt)
+    Since #1372 the generator does not build a prompt from a catalog entry:
+    a model proposes the anomaly. The catalog's remaining jobs are the
+    few-shot inspiration list, the curated text for a matched label and the
+    family resolver, so those are what these tests guard.
+    """
 
     def test_every_entry_survives_the_family_resolver(self):
         for e in c.CATALOG:
             self.assertEqual(c.family_of(e["label"]), e["family"])
+
+    def test_entry_lookup_is_exact_and_case_insensitive(self):
+        e = next(e for e in c.CATALOG if e["type"] == "person")
+        self.assertEqual(c.entry_for_label(e["label"])["label"], e["label"])
+        self.assertEqual(c.entry_for_label(e["label"].lower())["label"],
+                         e["label"])
+        self.assertIsNone(c.entry_for_label("Not a catalog label"))
+        self.assertIsNone(c.entry_for_label(""))
+
+    def test_every_family_has_curated_references(self):
+        for e in c.CATALOG:
+            with self.subTest(label=e["label"]):
+                refs = c.references_for_family(e["family"])
+                self.assertTrue(refs)
+                self.assertRegex(refs[0]["url"], r"^https?://")
+
+    def test_inspiration_lines_are_usable(self):
+        lines = c.inspiration_lines()
+        self.assertGreaterEqual(len(lines), 3)
+        for line in lines:
+            self.assertIsInstance(line, str)
+            self.assertTrue(line.strip())
+        self.assertEqual(c.inspiration_lines(0), [])
+        self.assertEqual(len(c.inspiration_lines(2)), 2)
 
 
 if __name__ == "__main__":

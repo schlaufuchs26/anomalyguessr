@@ -125,6 +125,17 @@ function dailySet(manifest: Manifest, day: Date): Scene[] {
   return manifest.scenes;
 }
 
+/** The place line, or "" when the source keys carried no place (ticket #1372). */
+export function placeLabel(place: string | undefined | null): string {
+  if (!place || place === "Unidentified location") return "";
+  return place;
+}
+
+/** "place, year" with the unknown-place marker omitted. */
+export function scenePlaceLine(scene: Scene): string {
+  return [placeLabel(scene.place), scene.year].filter(Boolean).join(", ");
+}
+
 export function App() {
   const [status, setStatus] = useState<
     "loading" | "error" | "home" | "playing" | "end" | "empty"
@@ -646,7 +657,7 @@ export function App() {
             {scene?.title}
           </span>
           <span id="scene-place" className="scene-place">
-            {scene ? `${scene.place}, ${scene.year}` : ""}
+            {scene ? scenePlaceLine(scene) : ""}
           </span>
           <span id="scene-progress" className="progress">
             {`${index + 1} / ${queue.length}`}
@@ -659,7 +670,7 @@ export function App() {
           key={`${scene?.id ?? ""}-${index}`}
           alt={
             scene
-              ? `Historical photo: ${scene.title} (${scene.place}, ${scene.year})`
+              ? `Historical photo: ${scene.title} (${scenePlaceLine(scene)})`
               : ""
           }
           image={scene?.image ?? ""}

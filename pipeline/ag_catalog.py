@@ -3,10 +3,20 @@
 
 The human-facing catalog lives in `wiki/entries/anomalyguessr-anomalies.md`;
 the deterministic generator (`pipeline/ag_generate.py`) cannot parse prose, so
-this module is the structured mirror the script picks from. Keep the two in
-sync when a recipe works or fails: the wiki page stays the reference for the
-reasoning (risk notes, run notes, era table), this file is the data the
-pipeline actually uses.
+this module is the structured mirror. Keep the two in sync when a recipe
+works or fails: the wiki page stays the reference for the reasoning (risk
+notes, run notes, era table), this file is the data the pipeline uses.
+
+Since the #1372 rebuild the generator no longer *picks* from this catalog: a
+creative model proposes an anomaly per photo. The catalog now serves three
+jobs (all documented below):
+
+- ``INSPIRATION``: a few-shot example list for the proposal prompt, so the
+  model sees the shape of a good anomaly without being limited to it.
+- curated text: when the model's label matches a catalog entry, that entry's
+  vetted ``explanation``/``references`` are reused instead of the model's.
+- ``family_of``: the variety bucket (ship-time distinctness, ag_queue) and
+  the one-time ``backfill_family`` resolver for older scene labels.
 
 An entry mirrors one catalog row:
 
@@ -22,13 +32,15 @@ An entry mirrors one catalog row:
                  rendered-height budget (person/future)
     min_year     earliest plausible decade for an anachronism; the element
                  may only be planted when min_year > photo year (era rule,
-                 #1136/#1122). None = no era check (fictional future, #1161)
-    risk         "low" | "medium" | "high" (documentation; the generator
-                 treats every entry the same, the risk notes drive retries)
+                 #1136/#1122). None = no era check (fictional future, #1161).
+                 The #1372 generator does not enforce this any more (a model
+                 judges the era); the field documents the era anchor.
+    risk         "low" | "medium" | "high" (documentation)
     scale_max    optional numeric budget (fraction of image height) that the
-                 generator's scale gate enforces; defaults per type via
-                 scale_max() (ticket #1328). Must agree with the largest
-                 percent number in the entry's prose `scale`.
+                 old scale gate enforced; the #1372 checker owns scale now,
+                 so this stays as the catalog's numeric note (ticket #1328).
+                 Must agree with the largest percent number in the entry's
+                 prose `scale`.
     explanation  English sentence for the scene's `explanation` field
     references   [{label, url}] for every factual claim in the explanation
     tells        person/future only: the 1-2 modern tells in the prompt
@@ -39,8 +51,9 @@ persons, or clearly futuristic technology (robots/gadgets, #1161). No UFOs,
 no fantasy creatures.
 """
 
-# Placement recipes (prompt phrase, hint phrase). Keys are referenced by the
-# catalog entries; ag_generate.build_prompt turns them into full instructions.
+# Placement recipes (prompt phrase, hint phrase). The #1372 generator puts
+# the model's own placement sentence into the edit prompt, so these are the
+# reference wording for the wiki + the catalog's own notes.
 RECIPES = {
     "ground": (
         "on the ground at the very bottom edge of the photo, half hidden "
@@ -480,6 +493,60 @@ def by_type(kind: str) -> list:
 
 def labels() -> list:
     return [e["label"] for e in CATALOG]
+
+
+def entry_for_label(label) -> dict | None:
+    """The catalog entry whose label is exactly ``label``, or None.
+
+    Exact match only: the generator reuses a matched entry's curated
+    explanation and references, and a near match would attach the wrong
+    citation. Case-insensitive because the models capitalize freely.
+    """
+    if not isinstance(label, str) or not label:
+        return None
+    low = label.strip().lower()
+    for e in CATALOG:
+        if e["label"].lower() == low:
+            return e
+    return None
+
+
+def references_for_family(family: str) -> list:
+    """Curated references of the first catalog entry in a family, [] if none.
+
+    Fallback for a model-proposed anomaly whose own references are unusable:
+    a same-family catalog entry's citations are a reasonable stand-in for the
+    era claim. The generator logs when this path fires (trace sidecar).
+    """
+    for e in CATALOG:
+        if e["family"] == family:
+            return [dict(r) for r in e["references"]]
+    return []
+
+
+# Few-shot inspiration for the creative proposal call (#1372). Not a
+# mandate: the model invents an anomaly for the actual photo, these lines
+# only show the shape of a good one. The three kinds the game uses are
+# represented (later-era object, time-traveler person, fictional-future
+# technology), plus a hint at the plausible-era anchor each needs.
+INSPIRATION = (
+    "Plastic bottle (clear PET); a later-era object, transparent PET bottles "
+    "became common in the 1970s",
+    "Paper coffee cup with lid; a later-era object, disposable lidded cups "
+    "are a 20th-century convenience",
+    "Wheeled suitcase; a later-era object, rolling suitcases only became "
+    "common in the 1970s",
+    "Portable transistor radio; a later-era object, the first ones appeared "
+    "in the mid-1950s",
+    "Time traveler: young man in a suit; a modern person among the crowd "
+    "with modern sneakers as the only tell",
+    "Robot time traveler; a fictional-future humanoid, clearly not from this "
+    "era and not a fantasy creature",
+)
+
+
+def inspiration_lines(n: int = 6) -> list:
+    return list(INSPIRATION[:max(0, int(n))])
 
 
 # label -> family for the current catalog. The ship step reads the family

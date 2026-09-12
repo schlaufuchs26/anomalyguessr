@@ -52,14 +52,18 @@ cd api && bun install && bun run checks   # API: format + tsc + biome + tests
 python3 -m unittest discover -s pipeline -t pipeline -p 'test_ag_*.py'
 ```
 
-`pipeline/ag_picker_ab.py` is the measurement harness for the anomaly
-picker: over N sources it asks the same prompt with the same candidate list
-three ways (real photo / blank gray photo / no photo), repeats each, and
-reports how far the variants drift apart versus the model's own run-to-run
-spread, plus tokens, cost and latency per variant. It calls OpenRouter live
-(pass `--env` with `OPENROUTER_API_KEY`; a 40-source run costs a few cents)
-and asks `--jobs` sources at once (8 by default), which turns that run from
-~20 minutes into ~2.
+The content pipeline is two halves (ticket #1372). **Sourcing**
+(`pipeline/ag_sources.py`) fills a pool of source photos from Wikimedia
+Commons' "Quality images" assessment category, filtered on structured keys
+only (license, quality rating, MIME/format, pixel size); its `top-up`
+command walks the category from a persisted cursor. **Generation**
+(`pipeline/ag_generate.py`) turns one pooled photo into one queued scene with
+a four-step model flow: a `deepseek-v4.1-flash` vision call proposes a
+subtle time-travel anomaly for that photo, a `gemini-3.1-flash-image` call
+applies it, another vision call returns the click target, and a final vision
+call checks the scene against the requirements list (one correction edit is
+allowed). Each scene gets a trace sidecar under `data/anomalyguessr/traces/`
+with the full prompt and answer of the calls that decided its content.
 
 ## Stack
 

@@ -196,7 +196,10 @@ def validate_entry(e) -> list:
         errs.append("source must be an object (provenance is required)")
     else:
         for k in SOURCE_KEYS:
-            if k in ("place", "description"):
+            if k in ("place", "description", "date"):
+                # Provenance detail that a source may honestly lack: an
+                # unparsable date or an empty place is not a broken entry
+                # (ticket #1372).
                 if not isinstance(src.get(k, ""), str):
                     errs.append(f"source.{k} must be a string")
                 continue
