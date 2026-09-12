@@ -30,7 +30,9 @@ into two halves, takes each half's majority and asks whether the two votes
 agree. The latter predicts what a k-draw majority picker (``--repeats 6`` =
 two 3-draw votes) would reproduce. ``--temperature`` passes a sampling
 temperature to the picker: omit it to keep the provider default, pass 0.0 to
-make repeats converge.
+make repeats converge. ``--request-seed`` and ``--provider`` (ticket #1334)
+send a ``seed`` and/or an OpenRouter routing block, so a run can test
+whether a fixed seed or a pinned endpoint makes the pick reproduce.
 
 The candidate list per source is built independently (variety caps within
 one list, no cross-source bookkeeping), so all variants see the identical
@@ -313,16 +315,22 @@ def summarize(rows: list, baseline: str = "image") -> dict:
 # ── Run loop ───────────────────────────────────────────────────────────────
 
 def make_call(api_key: str, base_url: str, model: str, max_tokens: int,
-              timeout: int, temperature=None):
+              timeout: int, temperature=None, request_seed=None,
+              provider=None):
     """The real picker call, closed over the configured model/API.
 
     ``temperature`` (ticket #1313) is passed through to the request; ``None``
     keeps the provider default, 0.0 makes repeats converge.
+
+    ``request_seed`` and ``provider`` (ticket #1334) let a run test whether a
+    seed or a pinned endpoint makes the pick reproduce. The default route
+    (DeepSeek) ignores the seed: its endpoint does not support the parameter.
     """
     def call(prompt: str, image_url):
         return g.picker_request(prompt, api_key, base_url, model, max_tokens,
                                 timeout, image_url=image_url,
-                                temperature=temperature)
+                                temperature=temperature, seed=request_seed,
+                                provider=provider)
     return call
 
 
@@ -373,6 +381,8 @@ def run(args, call) -> dict:
         "model": args.model,
         "temperature": args.temperature,
         "seed": args.seed,
+        "request_seed": args.request_seed,
+        "provider": args.provider,
         "repeats": args.repeats,
         "jobs": jobs,
         "requested": args.count,
@@ -389,6 +399,17 @@ def positive_int(value: str) -> int:
     if n < 1:
         raise argparse.ArgumentTypeError(f"must be >= 1, got {value}")
     return n
+
+
+def json_object(value: str) -> dict:
+    """Parse a CLI arg as a JSON object (the ``--provider`` routing block)."""
+    try:
+        obj = json.loads(value)
+    except json.JSONDecodeError as e:
+        raise argparse.ArgumentTypeError(f"not valid JSON: {e}") from e
+    if not isinstance(obj, dict):
+        raise argparse.ArgumentTypeError("must be a JSON object")
+    return obj
 
 
 def parse_args(argv=None) -> argparse.Namespace:
@@ -409,6 +430,14 @@ def parse_args(argv=None) -> argparse.Namespace:
     p.add_argument("--temperature", type=float, default=None,
                    help="picker temperature; omit (default) for the provider "
                         "default, 0.0 to make repeats converge (#1313)")
+    p.add_argument("--request-seed", type=int, default=None,
+                   help="integer `seed` for the picker request; only "
+                        "endpoints that support it honor it (DeepSeek, the "
+                        "default route, does not; #1334)")
+    p.add_argument("--provider", type=json_object, default=None,
+                   help="JSON provider-routing block, e.g. "
+                        "'{\"order\": [\"novita\"], \"allow_fallbacks\": "
+                        "false}' (#1334)")
     p.add_argument("--base-url", default=g.DEFAULT_BASE_URL)
     p.add_argument("--max-tokens", type=int,
                    default=g.DEFAULT_PICKER_MAX_TOKENS)
@@ -430,7 +459,8 @@ def main(argv=None) -> int:
         return 1
     report = run(args, make_call(api_key, args.base_url, args.model,
                                  args.max_tokens, args.timeout,
-                                 args.temperature))
+                                 args.temperature, args.request_seed,
+                                 args.provider))
     text = json.dumps(report, indent=2)
     print(text)
     if args.report:

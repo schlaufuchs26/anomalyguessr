@@ -300,6 +300,41 @@ class PickerTests(unittest.TestCase):
             g.urllib.request.urlopen = orig
         self.assertEqual(captured["payload"]["temperature"], 0.4)
 
+    def test_picker_request_omits_seed_and_provider_when_none(self):
+        captured = {}
+
+        def fake_urlopen(req, timeout=None):
+            captured["payload"] = json.loads(req.data)
+            return io.BytesIO(json.dumps({"choices": [{}]}).encode())
+
+        orig = g.urllib.request.urlopen
+        g.urllib.request.urlopen = fake_urlopen
+        try:
+            g.picker_request("p", "key")
+        finally:
+            g.urllib.request.urlopen = orig
+        self.assertNotIn("seed", captured["payload"])
+        self.assertNotIn("provider", captured["payload"])
+
+    def test_picker_request_sends_seed_and_provider_when_given(self):
+        captured = {}
+
+        def fake_urlopen(req, timeout=None):
+            captured["payload"] = json.loads(req.data)
+            return io.BytesIO(json.dumps({"choices": [{}]}).encode())
+
+        orig = g.urllib.request.urlopen
+        g.urllib.request.urlopen = fake_urlopen
+        try:
+            g.picker_request("p", "key", seed=42,
+                             provider={"order": ["novita"]})
+        finally:
+            g.urllib.request.urlopen = orig
+        # Ticket #1334: both knobs exist for reproducibility experiments.
+        self.assertEqual(captured["payload"]["seed"], 42)
+        self.assertEqual(captured["payload"]["provider"],
+                         {"order": ["novita"]})
+
     def test_majority_label_ties_resolve_to_the_first_pick(self):
         self.assertEqual(g.majority_label(["a", "b", "a"]), "a")
         self.assertEqual(g.majority_label(["b", "a", "b", "a"]), "b")

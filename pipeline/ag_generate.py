@@ -1019,7 +1019,9 @@ def picker_request(prompt: str, api_key: str, base_url: str = DEFAULT_BASE_URL,
                    max_tokens: int = DEFAULT_PICKER_MAX_TOKENS,
                    timeout: int = DEFAULT_PICKER_TIMEOUT,
                    image_url: str | None = None,
-                   temperature: float | None = DEFAULT_PICKER_TEMPERATURE
+                   temperature: float | None = DEFAULT_PICKER_TEMPERATURE,
+                   seed: int | None = None,
+                   provider: dict | None = None
                    ) -> dict:
     """One picker chat call with an optional image part; returns the body.
 
@@ -1031,6 +1033,12 @@ def picker_request(prompt: str, api_key: str, base_url: str = DEFAULT_BASE_URL,
     ``temperature`` is sent only when not None; 0.0 (the default since
     ticket #1313) makes the pick reproduce, ``None`` keeps the provider's
     sampling default for A/B runs.
+
+    ``seed`` and ``provider`` exist for reproducibility experiments
+    (ticket #1334): ``seed`` is a no-op on the default DeepSeek route,
+    which does not support it, and ``provider`` passes an OpenRouter
+    routing block (``order``/``require_parameters``) so a test can pin the
+    endpoint. The production picker sends neither.
     """
     payload = {
         "model": model,
@@ -1042,6 +1050,10 @@ def picker_request(prompt: str, api_key: str, base_url: str = DEFAULT_BASE_URL,
     }
     if temperature is not None:
         payload["temperature"] = temperature
+    if seed is not None:
+        payload["seed"] = seed
+    if provider is not None:
+        payload["provider"] = provider
     req = urllib.request.Request(
         base_url.rstrip("/") + "/chat/completions",
         data=json.dumps(payload).encode(),

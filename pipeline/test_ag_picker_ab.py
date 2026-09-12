@@ -347,7 +347,8 @@ class TemperatureArgTests(unittest.TestCase):
         seen = {}
 
         def fake_request(prompt, api_key, base_url, model, max_tokens, timeout,
-                         image_url=None, temperature=None):
+                         image_url=None, temperature=None, seed=None,
+                         provider=None):
             seen["temperature"] = temperature
             return {"choices": []}
 
@@ -358,6 +359,47 @@ class TemperatureArgTests(unittest.TestCase):
         finally:
             ab.g.picker_request = orig
         self.assertEqual(seen["temperature"], 0.2)
+
+    def test_make_call_passes_seed_and_provider_through(self):
+        seen = {}
+
+        def fake_request(prompt, api_key, base_url, model, max_tokens, timeout,
+                         image_url=None, temperature=None, seed=None,
+                         provider=None):
+            seen.update(seed=seed, provider=provider)
+            return {"choices": []}
+
+        orig = ab.g.picker_request
+        ab.g.picker_request = fake_request
+        try:
+            ab.make_call("key", "url", "model", 10, 5, 0.0,
+                         request_seed=42,
+                         provider={"order": ["novita"]})("p", None)
+        finally:
+            ab.g.picker_request = orig
+        self.assertEqual(seen["seed"], 42)
+        self.assertEqual(seen["provider"], {"order": ["novita"]})
+
+    def test_request_seed_defaults_to_none(self):
+        self.assertIsNone(ab.parse_args([]).request_seed)
+
+    def test_request_seed_is_parsed(self):
+        self.assertEqual(ab.parse_args(["--request-seed", "7"]).request_seed, 7)
+
+    def test_provider_defaults_to_none(self):
+        self.assertIsNone(ab.parse_args([]).provider)
+
+    def test_provider_is_parsed_as_json_object(self):
+        args = ab.parse_args(["--provider", '{"order": ["novita"]}'])
+        self.assertEqual(args.provider, {"order": ["novita"]})
+
+    def test_provider_rejects_non_object_json(self):
+        with self.assertRaises(SystemExit):
+            ab.parse_args(["--provider", "[1, 2]"])
+
+    def test_provider_rejects_invalid_json(self):
+        with self.assertRaises(SystemExit):
+            ab.parse_args(["--provider", "{not json"])
 
 
 class RunTests(TempDataMixin, unittest.TestCase):
