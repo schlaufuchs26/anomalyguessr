@@ -336,9 +336,14 @@ export function App() {
    * then starts the URL's mode or shows the frontpage (ticket #1223); this is
    * also the Reload action of the empty state (#1202/#1210), which re-applies
    * the current route. The ref keeps the mount effect off the dependency list.
+   *
+   * `showLoading` is false for a reload: the screen already has something to
+   * show (the empty state), and blanking it to "Loading…" while the fetch is
+   * in flight only makes it flash; the route effect swaps it once the answer
+   * lands (#1287).
    */
-  const load = async () => {
-    setStatus("loading");
+  const load = async (showLoading = true) => {
+    if (showLoading) setStatus("loading");
     try {
       const { manifest: loaded, moderation: dev } =
         await loadManifest(parseManifest);
@@ -612,7 +617,7 @@ export function App() {
       <main>
         <Header showMenu={devMode} />
         {moderation ? (
-          <ModerationEmpty onReload={() => void loadRef.current()} />
+          <ModerationEmpty onReload={() => void loadRef.current(false)} />
         ) : (
           <section id="empty" className="empty-state">
             <h2>No scenes available</h2>
@@ -621,7 +626,7 @@ export function App() {
               id="reload-btn"
               className="btn primary"
               type="button"
-              onClick={() => void loadRef.current()}
+              onClick={() => void loadRef.current(false)}
             >
               Reload
             </button>

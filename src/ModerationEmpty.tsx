@@ -1,11 +1,17 @@
 /**
- * Empty state of the dev moderation queue (tickets #1202 + #1210).
+ * Empty state of the dev moderation queue (tickets #1202, #1210, #1287).
  *
  * #1202 made an empty queue a calm message instead of a broken game shell.
  * #1210 adds the two things Evan needs there: how deep the pipeline buffer
  * is (unshown accepted scenes the next daily can draw from) and a button to
  * top the queue up on demand, with the run's progress while it works. A
  * finished run reloads the manifest so the new unmoderated scenes appear.
+ *
+ * That reload is triggered by the running -> done transition observed while
+ * polling, not by "the status file says done" (#1287): the file keeps the
+ * last run's result forever, so a done run whose scenes never reached this
+ * queue (the daily cron ships them, or moderation rejected them) would
+ * reload the manifest on every mount, forever.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type GenerateStatus, loadGenerateStatus, startGenerate } from "./api";
@@ -19,19 +25,21 @@ export function ModerationEmpty({ onReload }: { onReload: () => void }) {
   const [starting, setStarting] = useState(false);
   const reload = useRef(onReload);
   reload.current = onReload;
-  // A run that added scenes reloads the manifest once; after that the app
-  // either plays them (this component unmounts) or shows a fresh empty state.
-  const reloaded = useRef(false);
+  // True once a read saw a run in flight. Only a run we watched running may
+  // trigger the reload when it finishes (#1287); a done result already in
+  // the status file at mount is the previous run's, and acting on it would
+  // reload the manifest in an endless loop whenever the queue stays empty.
+  const sawRunning = useRef(false);
 
   const refresh = useCallback(async (): Promise<GenerateStatus | null> => {
     try {
       const next = await loadGenerateStatus();
       setStatus(next);
       if (next.state === "error" && next.error) setError(next.error);
-      if (next.state === "done" && next.added > 0 && !reloaded.current) {
-        reloaded.current = true;
-        reload.current();
-      }
+      const finished =
+        sawRunning.current && !next.running && next.state === "done";
+      sawRunning.current = next.running;
+      if (finished && next.added > 0) reload.current();
       return next;
     } catch (err) {
       setError(String(err));
@@ -55,7 +63,11 @@ export function ModerationEmpty({ onReload }: { onReload: () => void }) {
     setStarting(true);
     setError("");
     try {
-      setStatus(await startGenerate());
+      const next = await startGenerate();
+      setStatus(next);
+      // A run that finishes before the first poll still counts as observed
+      // running, so its scenes trigger the reload too.
+      sawRunning.current = next.running;
     } catch (err) {
       setError(String(err));
     } finally {

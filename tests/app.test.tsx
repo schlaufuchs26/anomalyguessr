@@ -1069,6 +1069,37 @@ describe("on-demand generation from the empty queue (#1210)", () => {
     ).toBeInTheDocument();
   });
 
+  test("a finished run that left the queue empty does not reload in a loop", async () => {
+    // Ticket #1287: the generator status file keeps the last run's result, so
+    // a done run with added scenes is still visible on the next page load. A
+    // run whose scenes never reach this queue (the daily cron ships them, or
+    // they were all moderated away) must not make the empty state reload
+    // forever: the auto-reload only fires when a run we observed running
+    // finishes, not for a pre-existing result.
+    payload = EMPTY;
+    generateStatus = {
+      state: "done",
+      running: false,
+      buffer: 2,
+      count: 5,
+      planned: 5,
+      added: 2,
+      failed: 0,
+      imageCalls: 4,
+    };
+    await renderModerationEmpty();
+    // Give a reload loop time to spin up (it would fetch the manifest again
+    // and again); a stable single fetch is the fixed behavior.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    const manifestGets = gets.filter((url) =>
+      url.includes("scenes/manifest.json"),
+    );
+    expect(manifestGets.length).toBe(1);
+    expect(screen.getByText("Moderation queue is empty")).toBeInTheDocument();
+  });
+
   test("a refused start surfaces the server message", async () => {
     payload = EMPTY;
     startFailure = {
