@@ -29,7 +29,8 @@ cron prompt left to LLM judgment is now code:
    (`reasoning: {enabled: false}`) with a tight `max_tokens`: with thinking
    on, V4.1-Flash spends the whole budget on `reasoning_content` and returns
    `content: null` (measured 2026-09-11). Picks, tokens and cost per pick are
-   logged for the A/B.
+   logged for the A/B (`pipeline/ag_picker_ab.py`, ticket #1217: image vs
+   blank image vs text-only over a source sample).
 4. **Prompt** - deterministic template per anomaly type + placement recipe
    (`ag_catalog.RECIPES`): one dominant placement instruction, one hard
    numeric scale cap, tone/blend rules (see engineering-practices.md).
@@ -807,12 +808,25 @@ def image_edit(source_image: Path, prompt: str, api_key: str,
     return decode_data_url(images[0]["image_url"]["url"])
 
 
-def pick_via_vision(source_image: Path, prompt: str, api_key: str,
-                    base_url: str = DEFAULT_BASE_URL,
-                    model: str = DEFAULT_PICKER_MODEL,
-                    max_tokens: int = DEFAULT_PICKER_MAX_TOKENS,
-                    timeout: int = DEFAULT_PICKER_TIMEOUT) -> dict:
-    """One vision picker call; returns the raw OpenRouter response body.
+def picker_content(prompt: str, image_url: str | None) -> list:
+    """The picker message parts: the text prompt, plus the image when given.
+
+    ``image_url`` is a data URL (``_data_url(image)``). The A/B harness
+    (``ag_picker_ab``, ticket #1217) also calls this with a blank image or
+    with ``None`` to measure whether the photo changes the pick at all.
+    """
+    content = [{"type": "text", "text": prompt}]
+    if image_url:
+        content.append({"type": "image_url", "image_url": {"url": image_url}})
+    return content
+
+
+def picker_request(prompt: str, api_key: str, base_url: str = DEFAULT_BASE_URL,
+                   model: str = DEFAULT_PICKER_MODEL,
+                   max_tokens: int = DEFAULT_PICKER_MAX_TOKENS,
+                   timeout: int = DEFAULT_PICKER_TIMEOUT,
+                   image_url: str | None = None) -> dict:
+    """One picker chat call with an optional image part; returns the body.
 
     Reasoning is explicitly OFF: with thinking on, V4.1-Flash emits only
     ``reasoning_content`` and the ``content`` field is null even with
@@ -821,14 +835,8 @@ def pick_via_vision(source_image: Path, prompt: str, api_key: str,
     """
     payload = {
         "model": model,
-        "messages": [{
-            "role": "user",
-            "content": [
-                {"type": "text", "text": prompt},
-                {"type": "image_url",
-                 "image_url": {"url": _data_url(source_image)}},
-            ],
-        }],
+        "messages": [{"role": "user",
+                      "content": picker_content(prompt, image_url)}],
         "reasoning": {"enabled": False},
         "max_tokens": max_tokens,
         "stream": False,
@@ -847,6 +855,16 @@ def pick_via_vision(source_image: Path, prompt: str, api_key: str,
                               f"{e.read()[:300]!r}") from e
     except urllib.error.URLError as e:
         raise GenerationError(f"picker request failed: {e}") from e
+
+
+def pick_via_vision(source_image: Path, prompt: str, api_key: str,
+                    base_url: str = DEFAULT_BASE_URL,
+                    model: str = DEFAULT_PICKER_MODEL,
+                    max_tokens: int = DEFAULT_PICKER_MAX_TOKENS,
+                    timeout: int = DEFAULT_PICKER_TIMEOUT) -> dict:
+    """One vision picker call over the source photo; returns the body."""
+    return picker_request(prompt, api_key, base_url, model, max_tokens,
+                          timeout, image_url=_data_url(source_image))
 
 
 def make_vision_picker(data_dir: Path, api_key: str, base_url: str,

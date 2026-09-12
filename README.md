@@ -52,6 +52,13 @@ cd api && bun install && bun run checks   # API: format + tsc + biome + tests
 python3 -m unittest discover -s pipeline -t pipeline -p 'test_ag_*.py'
 ```
 
+`pipeline/ag_picker_ab.py` is the measurement harness for the anomaly
+picker: over N sources it asks the same prompt with the same candidate list
+three ways (real photo / blank gray photo / no photo), repeats each, and
+reports how far the variants drift apart versus the model's own run-to-run
+spread, plus tokens, cost and latency per variant. It calls OpenRouter live
+(pass `--env` with `OPENROUTER_API_KEY`; a 40-source run costs a few cents).
+
 ## Stack
 
 React 19 + Bun + TypeScript on the house `frontend-template` setup (ticket
