@@ -3,14 +3,13 @@ import type { Manifest } from "../manifest";
 /**
  * Single place where the frontend talks to the AnomalyGuessr backend.
  *
- * Ticket #1171 extracts the backend into an independent TypeScript service
- * that serves `/anomalyguessr/api/...` (manifest, scenes, moderate). That
- * service and its nginx location are not wired live yet, so the URLs below
- * stay on the scheme the dev instance serves TODAY: the manifest comes from
- * `scenes/manifest.json` (nginx proxies that path to the queue API on the dev
- * host, and GitHub Pages serves the static ship set), and moderation posts to
- * the existing fuchs2 route. Switching to #1171 is a change in this file
- * only; the game and queue call these functions, never raw URLs.
+ * The backend is the TypeScript service
+ * `services/anomalyguessr-api`, served behind nginx at `/anomalyguessr/api/`
+ * (ticket #1242; the Go copy in fuchs2 is gone). Manifest URLs stay relative
+ * on purpose: the dev host proxies `scenes/manifest.json` to the service,
+ * while GitHub Pages serves the static ship set from the same path, so one
+ * build keeps working on both hosts. The dev-only calls (moderation,
+ * generate) use the absolute API prefix.
  */
 const MANIFEST_URL = "scenes/manifest.json";
 
@@ -34,7 +33,7 @@ const LIVE_MANIFEST_URL = "scenes/live.json";
 
 /** Moderation endpoint for the dev workflow (ticket #1163). */
 function moderationUrl(sceneId: string): string {
-  return `/api/v1/anomalyguessr/scenes/${sceneId}/moderate`;
+  return `/anomalyguessr/api/scenes/${sceneId}/moderate`;
 }
 
 /** Manifest JSON as served: a v1/v2 manifest plus the queue API's flag. */
@@ -110,7 +109,7 @@ export async function postModeration(
 }
 
 /** Dev queue generation, on demand (ticket #1210). */
-const GENERATE_URL = "/api/v1/anomalyguessr/generate";
+const GENERATE_URL = "/anomalyguessr/api/generate";
 
 /** Status of the dev generator: buffer depth + the last/current run. */
 export interface GenerateStatus {

@@ -120,7 +120,7 @@ beforeEach(() => {
   startCalls = 0;
   globalThis.fetch = (async (input: unknown, init?: RequestInit) => {
     const url = String(input);
-    if (url.includes("/anomalyguessr/generate")) {
+    if (url.includes("/anomalyguessr/api/generate")) {
       if (init?.method === "POST") {
         startCalls++;
         if (startFailure) {
@@ -886,7 +886,7 @@ describe("moderation mode (dev instance, #1163)", () => {
     fireEvent.click(screen.getByRole("button", { name: "✓ Accept" }));
 
     await waitFor(() => expect(posts).toHaveLength(1));
-    expect(posts[0]?.url).toBe("/api/v1/anomalyguessr/scenes/a/moderate");
+    expect(posts[0]?.url).toBe("/anomalyguessr/api/scenes/a/moderate");
     expect(posts[0]?.body).toEqual({
       action: "accept",
       feedback: "nice scene",
