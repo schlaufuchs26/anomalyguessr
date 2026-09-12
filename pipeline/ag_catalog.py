@@ -25,6 +25,10 @@ An entry mirrors one catalog row:
                  #1136/#1122). None = no era check (fictional future, #1161)
     risk         "low" | "medium" | "high" (documentation; the generator
                  treats every entry the same, the risk notes drive retries)
+    scale_max    optional numeric budget (fraction of image height) that the
+                 generator's scale gate enforces; defaults per type via
+                 scale_max() (ticket #1328). Must agree with the largest
+                 percent number in the entry's prose `scale`.
     explanation  English sentence for the scene's `explanation` field
     references   [{label, url}] for every factual claim in the explanation
     tells        person/future only: the 1-2 modern tells in the prompt
@@ -160,7 +164,7 @@ _OBJECTS = [
          settings=("street", "market"), recipe="ground_mid",
          size="an orange traffic cone, 45-70 cm tall", min_year=1940,
          scale="roughly 2-3 percent of the image height, never more than 4 percent",
-         risk="medium",
+         scale_max=0.04, risk="medium",
          explanation="Traffic cones are a mid-20th-century invention; this "
                      "scene predates them.",
          references=[{"label": "Traffic cone",
@@ -169,7 +173,7 @@ _OBJECTS = [
          settings=("street", "market"), recipe="wall",
          size="a modern road bicycle, about 110 cm tall", min_year=1975,
          scale="roughly 8-12 percent of the image height, never a foreground object",
-         risk="medium",
+         scale_max=0.12, risk="medium",
          explanation="Derailleur-geared modern bicycles are a later-20th-"
                      "century development that this photo predates.",
          references=[{"label": "Bicycle",
@@ -178,7 +182,7 @@ _OBJECTS = [
          settings=("street", "harbor", "market"), recipe="ground_mid",
          size="a blue plastic tarpaulin, 1-2 m across", min_year=1950,
          scale="roughly 3-5 percent of the image height, never more than 6 percent",
-         risk="medium",
+         scale_max=0.06, risk="medium",
          explanation="Woven plastic tarpaulins only became common in the "
                      "mid-20th century, after this photograph.",
          references=[{"label": "Tarpaulin",
@@ -187,7 +191,7 @@ _OBJECTS = [
          settings=("street", "market"), recipe="wall",
          size="a modern printed advertising poster, 50-80 cm", min_year=1960,
          scale="roughly 3-5 percent of the image height, never a foreground object",
-         risk="medium",
+         scale_max=0.05, risk="medium",
          explanation="Offset-printed advertising posters with modern "
                      "typography belong to a later era than this photo.",
          references=[{"label": "Poster",
@@ -196,7 +200,7 @@ _OBJECTS = [
          settings=("street",), recipe="wall",
          size="a roll of yellow-black barrier tape", min_year=1950,
          scale="a thin ribbon, at most 2 percent of the image height",
-         risk="high",
+         scale_max=0.02, risk="high",
          explanation="Plastic barrier tape is a 20th-century safety product "
                      "that did not exist when this photo was taken.",
          references=[{"label": "Barrier tape",
@@ -205,7 +209,7 @@ _OBJECTS = [
          settings=("street",), recipe="wall",
          size="a shared electric kick scooter, about 110 cm tall", min_year=2015,
          scale="roughly 6-10 percent of the image height, a background object",
-         risk="high",
+         scale_max=0.10, risk="high",
          explanation="Electric kick scooters only appeared in the 2010s, over "
                      "a century after this photograph.",
          references=[{"label": "Motorized scooter",
@@ -215,7 +219,7 @@ _OBJECTS = [
          settings=("station", "street"), recipe="bench",
          size="a wheeled suitcase, 60-75 cm tall", min_year=1970,
          scale="roughly 3-5 percent of the image height, never a foreground object",
-         risk="medium",
+         scale_max=0.05, risk="medium",
          explanation="Rolling suitcases with wheels only became common in the "
                      "1970s, after this photograph was taken.",
          references=[{"label": "Suitcase",
@@ -224,7 +228,7 @@ _OBJECTS = [
          settings=("station", "street", "market"), recipe="bench",
          size="a modern nylon daypack, 45-55 cm", min_year=1960,
          scale="roughly 2-4 percent of the image height",
-         risk="medium",
+         scale_max=0.04, risk="medium",
          explanation="Lightweight nylon daypacks with zips are a later-20th-"
                      "century product, not yet in use here.",
          references=[{"label": "Backpack",
@@ -232,7 +236,7 @@ _OBJECTS = [
     dict(label="Over-ear headphones", type="object", family="electronics",
          settings=("station", "street"), recipe="bench",
          size="over-ear headphones, about 20 cm", min_year=1960, risk="high",
-         scale="roughly 2-3 percent of the image height",
+         scale="roughly 2-3 percent of the image height", scale_max=0.03,
          explanation="Over-ear headphones are an electronic audio product "
                      "from a later era than this photograph.",
          references=[{"label": "Headphones",
@@ -243,6 +247,7 @@ _OBJECTS = [
          size="a corrugated steel shipping container, about 2.5 m tall",
          min_year=1950, risk="medium",
          scale="roughly 6-10 percent of the image height, a background element at the quay",
+         scale_max=0.10,
          explanation="Standardized steel shipping containers only appeared in "
                      "the 1950s, after this photograph.",
          references=[{"label": "Intermodal container",
@@ -250,7 +255,7 @@ _OBJECTS = [
     dict(label="Plastic cooler box", type="object", family="container",
          settings=("harbor",), recipe="deck",
          size="a plastic cooler box, 50-60 cm", min_year=1950, risk="medium",
-         scale="roughly 2-4 percent of the image height",
+         scale="roughly 2-4 percent of the image height", scale_max=0.04,
          explanation="Moulded plastic cooler boxes are a mid-20th-century "
                      "product and cannot belong to this scene.",
          references=[{"label": "Cooler",
@@ -259,12 +264,129 @@ _OBJECTS = [
          settings=("harbor",), recipe="deck",
          size="a coil of brightly colored synthetic rope, 30-40 cm across",
          min_year=1940, risk="medium",
-         scale="roughly 2-3 percent of the image height",
+         scale="roughly 2-3 percent of the image height", scale_max=0.03,
          explanation="Bright synthetic nylon rope only replaced natural fibre "
                      "rope in the mid-20th century, after this photo.",
          references=[{"label": "Nylon",
                       "url": "https://en.wikipedia.org/wiki/Nylon"}]),
+    # Household / consumer goods (ticket #1328: the catalog was thin outside
+    # drinks/luggage, so those families dominated every run).
+    dict(label="Disposable lighter", type="object", family="household",
+         settings=("market", "street"), recipe="stall",
+         size="a small disposable cigarette lighter, about 8 cm", min_year=1970,
+         risk="medium",
+         explanation="Disposable lighters are a 1970s mass-market product and "
+                     "cannot belong to this scene.",
+         references=[{"label": "Lighter",
+                      "url": "https://en.wikipedia.org/wiki/Lighter"}]),
+    dict(label="Folding nylon umbrella", type="object", family="household",
+         settings=("street", "market", "station"), recipe="ground_mid",
+         size="a folded nylon umbrella, about 60 cm long", min_year=1950,
+         risk="medium",
+         explanation="Lightweight nylon umbrellas with steel ribs are a "
+                     "mid-20th-century product, later than this photo.",
+         references=[{"label": "Umbrella",
+                      "url": "https://en.wikipedia.org/wiki/Umbrella"}]),
+    dict(label="Plastic bucket", type="object", family="container",
+         settings=("market", "harbor", "street"), recipe="ground_mid",
+         size="a moulded plastic bucket, about 30 cm tall", min_year=1950,
+         risk="medium",
+         explanation="Moulded plastic buckets only replaced metal and wood "
+                     "containers in the mid-20th century.",
+         references=[{"label": "Bucket",
+                      "url": "https://en.wikipedia.org/wiki/Bucket"}]),
+    dict(label="Stackable plastic crate", type="object", family="container",
+         settings=("market", "harbor"), recipe="ground_mid",
+         size="a stackable plastic crate, about 30 cm tall", min_year=1960,
+         risk="medium",
+         explanation="Stackable plastic crates are a 1960s shipping and "
+                     "retail product, not yet in use in this photo.",
+         references=[{"label": "Crate",
+                      "url": "https://en.wikipedia.org/wiki/Crate"}]),
+    # Sports and electronics: distinct silhouettes, none of them a bottle.
+    dict(label="Bicycle helmet", type="object", family="sports",
+         settings=("street", "station"), recipe="ground_mid",
+         size="a hard-shell bicycle helmet, about 25 cm across", min_year=1975,
+         risk="medium",
+         explanation="Hard-shell bicycle helmets only became common in the "
+                     "1970s, decades after this photograph.",
+         references=[{"label": "Bicycle helmet",
+                      "url": "https://en.wikipedia.org/wiki/Bicycle_helmet"}]),
+    dict(label="Hula hoop", type="object", family="sports",
+         settings=("street", "market"), recipe="ground_mid",
+         size="a plastic hula hoop, about 80 cm across", min_year=1958,
+         risk="medium",
+         explanation="The plastic hula hoop was a 1958 craze; it could not "
+                     "have been in this scene.",
+         references=[{"label": "Hula hoop",
+                      "url": "https://en.wikipedia.org/wiki/Hula_hoop"}]),
+    dict(label="Portable transistor radio", type="object", family="electronics",
+         settings=("market", "station", "street"), recipe="stall",
+         size="a small portable transistor radio, about 20 cm wide",
+         min_year=1954, risk="medium",
+         explanation="Portable transistor radios only appeared in the "
+                     "mid-1950s, later than this photograph.",
+         references=[{"label": "Transistor radio",
+                      "url": "https://en.wikipedia.org/wiki/Transistor_radio"}]),
+    dict(label="Pocket calculator", type="object", family="electronics",
+         settings=("market", "station"), recipe="stall",
+         size="a pocket calculator, about 15 cm wide", min_year=1971,
+         risk="medium",
+         explanation="Pocket calculators are a 1970s electronic device that "
+                     "did not exist when this photo was taken.",
+         references=[{"label": "Calculator",
+                      "url": "https://en.wikipedia.org/wiki/Calculator"}]),
+    dict(label="Compact digital camera", type="object", family="electronics",
+         settings=("station", "street", "market"), recipe="bench",
+         size="a compact digital camera, about 10 cm wide", min_year=1990,
+         risk="medium",
+         explanation="Digital cameras only became consumer products in the "
+                     "1990s, a century after this photograph.",
+         references=[{"label": "Digital camera",
+                      "url": "https://en.wikipedia.org/wiki/Digital_camera"}]),
+    dict(label="Credit card", type="object", family="money",
+         settings=("market", "station"), recipe="stall",
+         size="a printed plastic payment card, about 9 cm wide", min_year=1950,
+         risk="high",
+         explanation="Plastic payment cards only appeared in the 1950s, so "
+                     "one cannot belong to this scene.",
+         references=[{"label": "Payment card",
+                      "url": "https://en.wikipedia.org/wiki/Payment_card"}]),
+    dict(label="Steel vacuum flask", type="object", family="container",
+         settings=("market", "station", "street"), recipe="stall",
+         size="a steel vacuum flask, about 25 cm tall", min_year=1904,
+         risk="medium",
+         explanation="The vacuum flask was only patented in 1904, after this "
+                     "photograph was taken.",
+         references=[{"label": "Vacuum flask",
+                      "url": "https://en.wikipedia.org/wiki/Vacuum_flask"}]),
+    # Harbor/waterfront, which had only three entries before.
+    dict(label="Synthetic life jacket", type="object", family="clothing",
+         settings=("harbor",), recipe="deck",
+         size="a bright orange synthetic life jacket, about 50 cm",
+         min_year=1960, risk="medium",
+         explanation="Bright foam-filled synthetic life jackets are a "
+                     "mid-20th-century safety product, not yet in use here.",
+         references=[{"label": "Life jacket",
+                      "url": "https://en.wikipedia.org/wiki/Life_jacket"}]),
 ]
+
+# Numeric twin of the prompt's scale budget (ticket #1328): the maximum
+# rendered height fraction the scale gate accepts before it rejects a scene.
+# Entries whose prompt budget is the small-object default carry no
+# `scale_max`; the per-type defaults below match the prompt wording
+# (DEFAULT_OBJECT_SCALE "never more than 3 percent", DEFAULT_PERSON_SCALE
+# "8-15 percent"). test_ag_catalog checks that the numeric agrees with the
+# largest percent number in an entry's prose `scale`.
+DEFAULT_OBJECT_SCALE_MAX = 0.03
+DEFAULT_PERSON_SCALE_MAX = 0.15
+
+
+def scale_max(entry: dict) -> float:
+    if entry["type"] == "person" or entry["recipe"].startswith("person"):
+        return entry.get("scale_max", DEFAULT_PERSON_SCALE_MAX)
+    return entry.get("scale_max", DEFAULT_OBJECT_SCALE_MAX)
+
 
 # Type 2: time-traveler person (a NEW person among the existing people).
 _PERSONS = [
@@ -339,6 +461,7 @@ _FUTURES = [
          recipe="ground_mid",
          size="a sleek metallic handheld device, about 20 cm", min_year=None,
          scale="about 2 percent of the image height (roughly 20-30 pixels on a 1200-pixel-tall image), never more than 3 percent",
+         scale_max=0.03,
          risk="high", noun="sleek metallic device of unknown future design",
          tells="a smooth metal-and-glass body with a small unlit indicator, "
                "no buttons or seams of its era",

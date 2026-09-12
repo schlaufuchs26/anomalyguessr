@@ -8,6 +8,7 @@ queue is a temp dir. The live API path is deliberately never exercised here
 (that is what the cron run is for).
 """
 
+import datetime
 import io
 import json
 import os
@@ -479,6 +480,16 @@ class PromptTests(unittest.TestCase):
         self.assertIn("Keep every other part of the photograph EXACTLY", p)
         self.assertNotIn("difficulty", p.lower())
 
+    def test_every_prompt_anchors_the_size_at_the_same_distance(self):
+        # #1328: Evan's "scaling is off" feedback is about perspective, so the
+        # budget sentence names a same-distance reference in every prompt type
+        # (the absolute pixel number alone cannot place the object in depth).
+        for label in ("Plastic bottle (clear PET)", "Traffic cone (orange)",
+                      "Time traveler: tourist", "Robot time traveler"):
+            p = g.build_prompt(self.entry(label))
+            self.assertIn("same distance", p, label)
+            self.assertIn("perspective matches the scene", p, label)
+
     def test_large_object_uses_its_own_scale_budget(self):
         p = g.build_prompt(self.entry("Traffic cone (orange)"))
         self.assertIn("never more than 4 percent", p)
@@ -849,6 +860,190 @@ class RunLockAndStatusTests(TempDataMixin, unittest.TestCase):
         self.assertEqual(status["state"], "error")
         self.assertIn("no unused sources", status["error"])
         self.assertIn("finishedAt", status)
+
+
+class NoveltyTests(unittest.TestCase):
+    """Cross-day novelty (ticket #1328): recent use steers the candidate list
+    and the source pick, so the same bottles/luggage do not win every day.
+    """
+
+    def entry(self, label):
+        return next(e for e in ag_catalog.CATALOG if e["label"] == label)
+
+    def state(self, scenes):
+        return {"version": 1, "scenes": {
+            str(i): {"anomaly": label, "added": day}
+            for i, (day, label) in enumerate(scenes)}}
+
+    def test_usage_counts_only_the_window_and_resolves_retired_labels(self):
+        today = datetime.date(2026, 9, 12)
+        state = self.state([
+            ("2026-09-12", "Plastic bottle (clear PET)"),   # in window
+            ("2026-09-08", "Plastic bottle (clear PET)"),   # 4 days back
+            ("2026-08-01", "Plastic bottle (clear PET)"),   # outside
+            ("2026-09-11", "Plastic bottle"),               # retired label
+        ])
+        usage = g.label_usage(state, today)
+        # three in-window uses count, the old one does not; the retired label
+        # lands in the same family
+        self.assertEqual(usage["labels"]["Plastic bottle (clear PET)"], 2)
+        self.assertEqual(usage["families"]["drinks"], 3)
+
+    def test_is_fresh_thresholds(self):
+        bottle = self.entry("Plastic bottle (clear PET)")
+        fresh_usage = {"families": {"drinks": g.FAMILY_REUSE_MAX},
+                       "labels": {}}
+        used_usage = {"families": {"drinks": g.FAMILY_REUSE_MAX + 1},
+                      "labels": {}}
+        self.assertTrue(g.is_fresh(bottle, fresh_usage))
+        self.assertFalse(g.is_fresh(bottle, used_usage))
+        # a label already used twice is used up even in a fresh family
+        lab = {"families": {}, "labels": {bottle["label"]:
+                                          g.LABEL_REUSE_MAX + 1}}
+        self.assertFalse(g.is_fresh(bottle, lab))
+        self.assertTrue(g.is_fresh(bottle, None))  # no memory -> all fresh
+
+    def test_pick_entries_drops_used_labels_when_fresh_ones_remain(self):
+        pool = list(ag_catalog.CATALOG)
+        usage = {"families": {"drinks": 99}, "labels": {}}
+        # A market with a crowd fits plenty of fresh non-drinks entries, so
+        # the over-used drinks family disappears from the candidate list.
+        cands = g.pick_entries(pool, {}, {}, ("market",), 1900, True, set(),
+                               usage=usage)
+        self.assertTrue(cands)
+        self.assertNotIn("drinks", {e["family"] for e in cands})
+
+    def test_pick_entries_keeps_used_labels_when_the_fresh_pool_is_small(self):
+        pool = [self.entry("Plastic bottle (clear PET)"),
+                self.entry("Paper coffee cup with lid")]
+        usage = {"families": {"drinks": 99}, "labels": {}}
+        cands = g.pick_entries(pool, {}, {}, ("market",), 1900, False, set(),
+                               usage=usage)
+        # fewer than FRESH_CHOICE_MIN fresh candidates: the hard rules still
+        # fill the scene instead of leaving the source empty
+        self.assertEqual(len(cands), 2)
+
+    def test_plan_day_prefers_a_fresh_label(self):
+        src = source(sid="commons-market-1", title="Busy market street, 1900")
+        usage = {"families": {"drinks": 99, "luggage": 99, "person": 99},
+                 "labels": {}}
+        plan, _, picks = g.plan_day([src], random.Random(5), usage=usage)
+        self.assertEqual(len(plan), 1)
+        self.assertNotIn(plan[0][1]["family"], ("drinks", "luggage", "person"))
+
+    def test_fresh_candidate_count_ranks_novel_sources_higher(self):
+        market = source(sid="commons-market-2",
+                        title="Busy market street, 1900")
+        # a crowded street fits persons + objects; with every object family
+        # used up it can only offer recently used entries, so it scores lower
+        usage = {"families": {"drinks": 99, "luggage": 99, "container": 99,
+                              "plastic": 99, "packaging": 99, "print": 99,
+                              "street-furniture": 99, "vehicle": 99,
+                              "cordage": 99, "robot": 99},
+                 "labels": {}}
+        self.assertLess(g.fresh_candidate_count(market, usage),
+                        g.fresh_candidate_count(market, {"families": {},
+                                                         "labels": {}}))
+
+    def test_report_carries_the_novelty_snapshot(self):
+        # a run with a seeded queue state reports which families were used;
+        # the dry run needs no API key and no queue write
+        src = source(sid="commons-market-3",
+                     title="Busy market street, 1900")
+        data_dir = Path(tempfile.mkdtemp())
+        try:
+            make_img(data_dir / "sources" / src["image"])
+            index = ag_sources.load_index(data_dir)
+            index["sources"][src["id"]] = src
+            ag_sources.save_index(data_dir, index)
+            ag_queue.save_state(data_dir, {"version": 1, "scenes": {
+                "old-1": {"anomaly": "Plastic bottle (clear PET)",
+                          "added": datetime.date.today().isoformat()}}})
+            report = g.run(g.parse_args(
+                ["--data", str(data_dir), "--dry-run", "--count", "1",
+                 "--seed", "1"]))
+            self.assertEqual(report["novelty"]["recent_families"]["drinks"], 1)
+            self.assertEqual(report["novelty"]["window_days"],
+                             g.NOVELTY_WINDOW_DAYS)
+        finally:
+            shutil.rmtree(data_dir, ignore_errors=True)
+
+
+class ScaleReportTests(unittest.TestCase):
+    """Measured rendered size is reported, never gated (ticket #1328)."""
+
+    def entry(self, label):
+        return next(e for e in ag_catalog.CATALOG if e["label"] == label)
+
+    def verdict(self, box=None, hint=None, present=True):
+        return {"ok": True, "answer": {"x": 0.5, "y": 0.5, "r": 0.05},
+                "vision": {"present": present, "note": "n", "box": box,
+                           "size_hint": hint}}
+
+    def test_size_hint_fraction_takes_the_largest_percent_number(self):
+        self.assertEqual(g.size_hint_fraction("about 2 percent of the image "
+                                              "height"), 0.02)
+        self.assertEqual(g.size_hint_fraction("roughly 5-12 percent"), 0.12)
+        self.assertEqual(g.size_hint_fraction("12%"), 0.12)
+        self.assertIsNone(g.size_hint_fraction("tiny"))
+
+    def test_measured_scale_takes_box_and_hint_maximum(self):
+        self.assertAlmostEqual(
+            g.measured_scale(self.verdict(box=[0.1, 0.1, 0.16, 0.2])), 0.1)
+        self.assertAlmostEqual(
+            g.measured_scale(self.verdict(box=[0.1, 0.1, 0.16, 0.2],
+                                          hint="about 20 percent")), 0.2)
+        self.assertIsNone(g.measured_scale({"vision": None}))
+
+    def test_scale_report_flags_a_scene_over_budget(self):
+        bottle = self.entry("Plastic bottle (clear PET)")
+        budget = ag_catalog.scale_max(bottle)
+        over = g.scale_report(bottle, self.verdict(
+            box=[0.0, 0.0, 0.10, 0.10], hint=None))
+        self.assertEqual(over["scale_budget"], budget)
+        self.assertTrue(over["scale_over_budget"])
+        ok = g.scale_report(bottle, self.verdict(
+            box=[0.0, 0.0, 0.01, 0.02], hint="about 2 percent"))
+        self.assertFalse(ok["scale_over_budget"])
+        none = g.scale_report(bottle, {"ok": True, "vision": None})
+        self.assertIsNone(none["scale_measured"])
+        self.assertIsNone(none["scale_over_budget"])
+
+    def test_added_scene_reports_its_measured_scale(self):
+        tmp = Path(tempfile.mkdtemp())
+        try:
+            src = source(sid="commons-market-scale-1")
+            make_img(tmp / "sources" / src["image"])
+            index = ag_sources.load_index(tmp)
+            index["sources"][src["id"]] = src
+            ag_sources.save_index(tmp, index)
+
+            def fake_edit(source_image, prompt, *a, **kw):
+                out = tmp / "out.png"
+                make_img(out)
+                return out.read_bytes()
+
+            verdict = {"ok": True, "answer": {"x": 0.5, "y": 0.8, "r": 0.05},
+                       "localization": "vision",
+                       "vision": {"present": True, "note": "n",
+                                  "box": [0.1, 0.7, 0.12, 0.75],
+                                  "size_hint": "about 5 percent of the "
+                                               "image height"}}
+            orig_edit, orig_verify = g.image_edit, ag_verify.verify
+            g.image_edit = fake_edit
+            ag_verify.verify = lambda *a, **kw: verdict
+            try:
+                report = g.run(g.parse_args(
+                    ["--data", str(tmp), "--count", "1", "--seed", "1",
+                     "--picker", "rules", "--env", ""]))
+            finally:
+                g.image_edit, ag_verify.verify = orig_edit, orig_verify
+            self.assertEqual(len(report["added"]), 1)
+            added = report["added"][0]
+            self.assertAlmostEqual(added["scale_measured"], 0.05)
+            self.assertIn("scale_over_budget", added)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
 
 if __name__ == "__main__":

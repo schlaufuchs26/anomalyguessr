@@ -12,7 +12,9 @@ sanity gate:
    fuchs vision model with a structured prompt ("return the bounding box of
    the anomaly as x1,y1,x2,y2 normalized 0..1"). Also asks for present =
    true/false, a short note, and an object-size sanity hint. The answer
-   center + radius come from this box. The full image is used (not a zoom
+   center + radius come from this box; the radius follows the box's
+   half-diagonal (times a margin), so the stored circle covers the WHOLE
+   anomaly (ticket #1328). The full image is used (not a zoom
    crop), because the crop removes the depth/scale context and the whole
    point of #1165 is that the vision model localizes against the real
    scene.
@@ -108,6 +110,15 @@ MIN_BOX_EXTENT = 0.005
 # Max box extent: a box covering nearly the whole frame means the model did
 # not isolate the anomaly (it "found" the whole scene).
 MAX_BOX_EXTENT = 0.95
+# Answer-circle coverage (ticket #1328). The stored answer must cover the
+# WHOLE anomaly, so the radius is the box's half-diagonal (the farthest
+# corner) times this margin, instead of 0.8x the longest extent. That is
+# never smaller than the corner needs and strictly better for elongated
+# boxes (a standing person, a person's shoes at the bottom of a tall box).
+# The old 0.15 cap clipped exactly those boxes and let clicks on a leg/shoe
+# miss; the validator allows r up to 0.5, so the cap moves to 0.22.
+BOX_COVER_MARGIN = 1.3
+MAX_ANSWER_RADIUS = 0.22
 
 
 def md5_file(path: Path) -> str:
@@ -332,16 +343,23 @@ def locate_hotspot(edited: Path, original: Path) -> dict:
 
 
 def box_to_answer(box, radius_from_extent: bool = True) -> dict:
-    """Normalized answer (x,y,r) from a normalized [x1,y1,x2,y2] box."""
+    """Normalized answer (x,y,r) from a normalized [x1,y1,x2,y2] box.
+
+    The radius follows the box's half-diagonal times BOX_COVER_MARGIN, so
+    the answer circle contains every corner of the anomaly's box: a click on
+    the head, the shoes or the hidden half of an object is a hit (ticket
+    #1328). Clamped to [0.02, MAX_ANSWER_RADIUS]; the queue validator allows
+    r up to 0.5.
+    """
     x = (box[0] + box[2]) / 2
     y = (box[1] + box[3]) / 2
     if radius_from_extent:
         w = box[2] - box[0]
         hgt = box[3] - box[1]
-        r = max(w, hgt) * 0.8
+        r = 0.5 * math.hypot(w, hgt) * BOX_COVER_MARGIN
     else:
         r = 0.05
-    r = max(0.02, min(r, 0.15))
+    r = max(0.02, min(r, MAX_ANSWER_RADIUS))
     return {"x": round(x, 4), "y": round(y, 4), "r": round(r, 4)}
 
 
@@ -415,7 +433,13 @@ def vision_user_text(anomaly: str, full_image: bool) -> str:
             ". present=false if the anomaly is not visible or not "
             "recognizable in this image. When present, box is its bounding "
             "box in THIS image, normalized 0..1 (x1,y1 = top-left, x2,y2 = "
-            "bottom-right), tight around the anomaly."
+            "bottom-right). The box must cover the WHOLE anomaly generously, "
+            "not only its most modern detail (ticket #1328): for a person "
+            "include the entire figure from head to feet, shoes included, "
+            "even where another person or object partly hides it; for an "
+            "object include the whole object, including the part that sits "
+            "behind something. A player has to be able to click anywhere on "
+            "the anomaly, so the box must fully contain it."
         )
     return (
         "This is a tight zoom-crop of an edited historical photo. "

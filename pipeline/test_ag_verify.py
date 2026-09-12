@@ -9,6 +9,7 @@ on ag_verify.vision_check, or with --no-vision for the image logic.
 
 import json
 import io
+import math
 import os
 import shutil
 import subprocess
@@ -225,6 +226,19 @@ class VisionPromptTest(unittest.TestCase):
         crop_text = tv.vision_user_text("Digital watch", full_image=False)
         self.assertNotIn("size_hint", crop_text)
 
+    def test_full_image_prompt_demands_the_whole_anomaly(self):
+        # #1328: a tight box around the most modern detail (a person's shoes)
+        # made clicks on the rest of the person miss. The prompt must ask for
+        # the whole figure/object instead.
+        text = tv.vision_user_text("Digital watch", full_image=True)
+        self.assertIn("WHOLE anomaly", text)
+        self.assertIn("head to feet", text)
+        self.assertIn("fully contain", text)
+        # the crop fallback stays a tight localization
+        self.assertNotIn("head to feet",
+                         tv.vision_user_text("Digital watch",
+                                             full_image=False))
+
 
 class MapCropBoxTest(unittest.TestCase):
     def test_maps_to_full_image(self):
@@ -238,8 +252,31 @@ class BoxToAnswerTest(unittest.TestCase):
         ans = tv.box_to_answer([0.1, 0.2, 0.4, 0.5])
         self.assertAlmostEqual(ans["x"], 0.25)
         self.assertAlmostEqual(ans["y"], 0.35)
-        # r = max(w,h)*0.8 = 0.3*0.8 = 0.24 -> clamped to 0.15
-        self.assertEqual(ans["r"], 0.15)
+        # r = 0.5 * hypot(0.3, 0.3) * 1.3 = 0.276 -> clamped to the cap
+        self.assertEqual(ans["r"], tv.MAX_ANSWER_RADIUS)
+
+    def test_radius_covers_every_corner_of_the_box(self):
+        # #1328: a click anywhere on the anomaly must be a hit, so the stored
+        # circle has to contain the box's farthest corner.
+        for box in ([0.1, 0.2, 0.4, 0.5], [0.2, 0.3, 0.25, 0.6],
+                    [0.46, 0.48, 0.50, 0.52], [0.1, 0.1, 0.11, 0.20]):
+            ans = tv.box_to_answer(box)
+            for corner in ((box[0], box[1]), (box[0], box[3]),
+                           (box[2], box[1]), (box[2], box[3])):
+                self.assertLessEqual(
+                    math.hypot(corner[0] - ans["x"], corner[1] - ans["y"]),
+                    ans["r"], box)
+
+    def test_tall_box_is_not_clipped_at_the_old_cap(self):
+        # A mid-ground time traveler (oxford-fair 1912): 0.09 x 0.29, the old
+        # max(w,h)*0.8 rule gave 0.232 -> clipped to 0.15, so a click on the
+        # head or the shoes missed (Evan: "expand to cover the whole time
+        # traveler").
+        ans = tv.box_to_answer([0.355, 0.525, 0.443, 0.852])
+        self.assertGreater(ans["r"], 0.15)
+        self.assertLessEqual(ans["r"], tv.MAX_ANSWER_RADIUS)
+        corner = math.hypot(0.443 - ans["x"], 0.852 - ans["y"])
+        self.assertLessEqual(corner, ans["r"])
 
 
 class VerifyTest(unittest.TestCase):

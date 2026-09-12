@@ -17,9 +17,12 @@ cron prompt left to LLM judgment is now code:
 2. **Candidate filter** - `pipeline/ag_catalog.py` (machine-readable mirror of
    `wiki/entries/anomalyguessr-anomalies.md`) is the hard pre-filter:
    setting fit, density rule, era rule (`min_year > photo year`), variety
-   caps (one anomaly per label per set, same family max 2x). The rules stay
-   authoritative: the model can never plant a plastic bottle in 1905 or a
-   person in an empty street.
+   caps (one anomaly per label per set, same family max 2x), plus the
+   cross-day novelty tier (ticket #1328): labels used in the last
+   `NOVELTY_WINDOW_DAYS` drop out when enough fresh candidates remain, and
+   source images that can host a fresh anomaly are picked first. The rules
+   stay authoritative: the model can never plant a plastic bottle in 1905 or
+   a person in an empty street.
 3. **Anomaly choice (ticket #1211)** - with `--picker llm` (default) one
    `deepseek/deepseek-v4.1-flash` vision call over the source image + the
    candidate list picks which candidate fits THIS photo best and returns a
@@ -41,8 +44,12 @@ cron prompt left to LLM judgment is now code:
    (`google/gemini-3.1-flash-image`, source image as a data URL, fresh
    int32 seed per call, `aspect_ratio` from the source dimensions).
 6. **Verify** - `ag_verify.verify()` (full-image vision bounding box as the
-   primary answer, pixel-diff as sanity gate + fallback, #1165; `--dedup`
-   guards against byte-identical re-serves, #1124).
+   primary answer; the box must cover the WHOLE anomaly and the stored
+   answer radius follows the box's half-diagonal, so every part of it is
+   clickable, ticket #1328; pixel-diff as sanity gate + fallback, #1165;
+   `--dedup` guards against byte-identical re-serves, #1124). Each added
+   scene reports its measured rendered size (`scale_measured`,
+   `scale_over_budget`) as tuning data, not as a rejection gate (#1328).
 7. **Entry text** - deterministic from the source metadata + the catalog
    entry: no free-form LLM text. `place`/`year` come from the catalog
    metadata with heuristics; `explanation`/`references` from the catalog;
@@ -388,23 +395,113 @@ def anomaly_fits(entry: dict, settings: tuple, year, crowd: bool) -> bool:
 
 # ── Planning ───────────────────────────────────────────────────────────────
 
+# Cross-day novelty (ticket #1328). The hard pre-filter has no memory between
+# runs, so the same few labels (bottles, daypacks, suitcases) won nearly every
+# day. These constants make recent use a candidate signal: labels/families
+# above the reuse thresholds drop out of a source's candidate list whenever
+# enough fresh ones remain, and sources that can host a novel anomaly are
+# picked first. Thresholds are counts inside the window (10 scenes/day, so a
+# family at 6 has run once a day; a label at 2 has already repeated).
+NOVELTY_WINDOW_DAYS = 7
+LABEL_REUSE_MAX = 1      # label used more than once in the window = used up
+FAMILY_REUSE_MAX = 8     # family used more than ~once a day = used up
+FRESH_CHOICE_MIN = 3     # drop used candidates only when >=3 fresh ones remain
+
+
+def label_usage(state: dict, today=None) -> dict:
+    """Recent anomaly usage from the queue state (ticket #1328).
+
+    Returns ``{"families": {family: n}, "labels": {label: n}}`` over the
+    scenes added within ``NOVELTY_WINDOW_DAYS``. Retired labels resolve
+    through ``ag_catalog.family_of``, so an old "Plastic bottle" still counts
+    against the drinks family. An empty state yields empty maps, which makes
+    every entry fresh (the pre-#1328 behaviour).
+    """
+    day = today or datetime.date.today()
+    cutoff = (day - datetime.timedelta(days=NOVELTY_WINDOW_DAYS)).isoformat()
+    families, labels = collections.Counter(), collections.Counter()
+    for scene in (state.get("scenes") or {}).values():
+        if not isinstance(scene, dict):
+            continue
+        if str(scene.get("added") or "") < cutoff:
+            continue
+        label = str(scene.get("anomaly") or "")
+        if label:
+            labels[label] += 1
+        family = ag_catalog.family_of(label)
+        if family:
+            families[family] += 1
+    return {"families": dict(families), "labels": dict(labels)}
+
+
+def load_label_usage(data_dir: Path, today=None) -> dict:
+    """``label_usage`` for a data dir; an unreadable state means "all fresh"."""
+    try:
+        state = ag_queue.load_state(data_dir)
+    except (OSError, ValueError):
+        return {}
+    return label_usage(state, today)
+
+
+def is_fresh(entry: dict, usage) -> bool:
+    """True when the entry's label/family was not used up in the window."""
+    if not usage:
+        return True
+    return (usage.get("families", {}).get(entry["family"], 0)
+            <= FAMILY_REUSE_MAX
+            and usage.get("labels", {}).get(entry["label"], 0)
+            <= LABEL_REUSE_MAX)
+
+
+def fresh_candidate_count(source: dict, usage) -> int:
+    """Fitting anomalies this source could host that are not recently used.
+
+    Source selection uses it to favour images that can carry a novel anomaly
+    (ticket #1328): a harbor whose only fits are recently used labels ranks
+    below a market with fresh candidates.
+    """
+    settings = infer_settings(source)
+    year = parse_year(source)
+    crowd = has_crowd(source)
+    return sum(1 for e in ag_catalog.CATALOG
+               if anomaly_fits(e, settings, year, crowd)
+               and is_fresh(e, usage))
+
+
 def pick_entries(pool: list, counts_label: dict, counts_family: dict,
-                 settings: tuple, year, crowd: bool, used_prompts: set):
-    """Fitting catalog entries, best (least-used) first, deterministic order.
+                 settings: tuple, year, crowd: bool, used_prompts: set,
+                 usage=None):
+    """Fitting catalog entries, freshest then least-used first, deterministic.
 
     ``pool`` is the RNG-shuffled catalog; ties between equally-unused entries
     resolve to the shuffled order, so a fixed seed reproduces the plan. This
     is the hard pre-filter the anomaly picker chooses from (ticket #1211):
     every returned entry already satisfies setting fit, density, era and the
     variety caps.
+
+    ``usage`` (from ``label_usage``) adds the cross-day novelty tier (ticket
+    #1328): not-recently-used labels sort first, and the recently-used ones
+    are dropped entirely when at least ``FRESH_CHOICE_MIN`` fresh candidates
+    remain. Without ``usage`` the ordering is the pre-#1328 one.
     """
     cands = [e for e in pool
              if anomaly_fits(e, settings, year, crowd)
              and counts_label.get(e["label"], 0) < MAX_PER_LABEL
              and counts_family.get(e["family"], 0) < MAX_PER_FAMILY
              and build_prompt_key(e) not in used_prompts]
-    cands.sort(key=lambda e: (counts_label.get(e["label"], 0),
-                              counts_family.get(e["family"], 0)))
+    if usage:
+        fresh = [e for e in cands if is_fresh(e, usage)]
+        if len(fresh) >= FRESH_CHOICE_MIN:
+            cands = fresh
+    fam_use = usage.get("families", {}) if usage else {}
+    lab_use = usage.get("labels", {}) if usage else {}
+
+    def key(e):
+        return (0 if is_fresh(e, usage) else 1,
+                fam_use.get(e["family"], 0), lab_use.get(e["label"], 0),
+                counts_label.get(e["label"], 0),
+                counts_family.get(e["family"], 0))
+    cands.sort(key=key)
     return cands
 
 
@@ -518,7 +615,7 @@ def _choose_entry(source: dict, cands: list, choose):
                     "usage": info.get("usage")}
 
 
-def plan_day(sources: list, rng: random.Random, choose=None):
+def plan_day(sources: list, rng: random.Random, choose=None, usage=None):
     """Assign one anomaly per source; returns (plan, skipped, picks).
 
     The hard rules pre-filter the catalog into candidates per source
@@ -526,7 +623,9 @@ def plan_day(sources: list, rng: random.Random, choose=None):
     which candidate fits the photo best; anything but a valid on-list label
     falls back to the rule pick. Greedy variety keeps one label per set and
     <=2 per family. A source with no fitting candidate is skipped and stays
-    unused (e.g. unparseable year, or an empty/unknown setting).
+    unused (e.g. unparseable year, or an empty/unknown setting). ``usage``
+    carries the recent-use novelty signal into the candidate order (ticket
+    #1328).
     """
     pool = list(ag_catalog.CATALOG)
     rng.shuffle(pool)
@@ -538,7 +637,7 @@ def plan_day(sources: list, rng: random.Random, choose=None):
         year = parse_year(src)
         crowd = has_crowd(src)
         cands = pick_entries(pool, counts_label, counts_family, settings,
-                             year, crowd, used_prompts)
+                             year, crowd, used_prompts, usage=usage)
         if not cands:
             skipped.append({"id": src["id"], "reason": "no fitting anomaly"})
             continue
@@ -579,7 +678,8 @@ def picker_temperature(args):
     return None if args.picker_provider_default else args.picker_temperature
 
 
-def alternative_entry(source: dict, used_prompts: set, rng: random.Random):
+def alternative_entry(source: dict, used_prompts: set, rng: random.Random,
+                      usage=None):
     """A fitting anomaly for a retry, different from every used prompt.
 
     Shuffled per call so retries do not always fall back to the same catalog
@@ -588,7 +688,8 @@ def alternative_entry(source: dict, used_prompts: set, rng: random.Random):
     pool = list(ag_catalog.CATALOG)
     rng.shuffle(pool)
     cands = pick_entries(pool, {}, {}, infer_settings(source),
-                         parse_year(source), has_crowd(source), used_prompts)
+                         parse_year(source), has_crowd(source), used_prompts,
+                         usage=usage)
     return cands[0] if cands else None
 
 
@@ -611,6 +712,13 @@ DEFAULT_OBJECT_SCALE = ("about 2 percent of the image height (roughly 20-30 "
                         "pixels on a 1200-pixel-tall image), never more than "
                         "3 percent")
 DEFAULT_PERSON_SCALE = "roughly 8-15 percent of the image height"
+# Relative-size anchor (ticket #1328). Evan's "scaling is off" feedback is
+# about perspective, not the raw pixel budget: the absolute number alone
+# cannot tell the model how large the object should look next to the things
+# around it. Every budget sentence therefore names a same-distance reference.
+SIZE_ANCHOR = ("judge it against something at the same distance in the "
+               "photo (a crate, a wheel or a person's shoe) so its "
+               "perspective matches the scene")
 
 
 def scale_sentence(entry: dict) -> str:
@@ -618,21 +726,23 @@ def scale_sentence(entry: dict) -> str:
 
     Catalog entries override the small-object default where the real-world
     size demands it (traffic cone, tarp, container, bicycle); persons and
-    robots get a realistic mid-ground height budget instead.
+    robots get a realistic mid-ground height budget instead. Each sentence
+    also carries the SIZE_ANCHOR relative-size rule (ticket #1328).
     """
     if entry["type"] == "person":
         budget = entry.get("scale") or DEFAULT_PERSON_SCALE
         return (f"CRITICAL SCALE: the person's rendered height must be "
-                f"realistic for their position ({budget}), never a giant "
-                "figure.")
+                f"realistic for their position ({budget}), {SIZE_ANCHOR}, "
+                "never a giant figure.")
     if entry["type"] == "future" and entry["recipe"].startswith("person"):
         budget = entry.get("scale") or DEFAULT_PERSON_SCALE
         return (f"CRITICAL SCALE: its rendered height must be realistic for "
-                f"its position ({budget}), never a giant foreground figure.")
+                f"its position ({budget}), {SIZE_ANCHOR}, never a giant "
+                "foreground figure.")
     budget = entry.get("scale") or DEFAULT_OBJECT_SCALE
     return (f"CRITICAL SCALE: its rendered height in the final image must be "
-            f"{budget}; if in doubt make it smaller and hide more of it "
-            "behind the foreground object.")
+            f"{budget}; {SIZE_ANCHOR}; if in doubt make it smaller and hide "
+            "more of it behind the foreground object.")
 
 
 def build_prompt(entry: dict) -> str:
@@ -754,6 +864,53 @@ def verify_label(entry: dict) -> str:
     if entry["type"] == "person":
         return f"{entry['label']}, with {entry['tells']}"
     return entry["label"]
+
+
+# ── Scale reporting (ticket #1328) ─────────────────────────────────────────
+SIZE_HINT_RE = re.compile(r"(\d+(?:\.\d+)?)\s*(?:%|percent)", re.I)
+# Report a scene as over its size budget when the measured rendered size is
+# this far above the catalog budget. Reporting only, never a rejection:
+# measured on the live queue (2026-09-12), the number does not separate the
+# scenes Evan called "scaling is way off" (2.0-2.7x the budget) from scenes
+# he praised (up to 7x), so a gate would drop good scenes and keep bad ones.
+SCALE_WARN_FACTOR = 1.5
+
+
+def size_hint_fraction(text):
+    """Largest percent number in a vision size hint, as a fraction."""
+    if not text:
+        return None
+    nums = [float(n) for n in SIZE_HINT_RE.findall(str(text))]
+    return max(nums) / 100 if nums else None
+
+
+def measured_scale(verdict: dict):
+    """Rendered size of the verified anomaly as a frame-height fraction.
+
+    Whichever is larger: the vision box's longest side or the model's own
+    size hint ("about 12 percent of the image height"). None when the
+    verdict carries no vision evidence (pixel-diff fallback path).
+    """
+    vision = verdict.get("vision") or {}
+    vals = []
+    box = vision.get("box")
+    if isinstance(box, list) and len(box) == 4:
+        vals.append(max(abs(box[2] - box[0]), abs(box[3] - box[1])))
+    hint = size_hint_fraction(vision.get("size_hint"))
+    if hint is not None:
+        vals.append(hint)
+    return max(vals) if vals else None
+
+
+def scale_report(entry: dict, verdict: dict) -> dict:
+    """Measured size + catalog budget for the run report (no gate)."""
+    measured = measured_scale(verdict)
+    budget = ag_catalog.scale_max(entry)
+    if measured is None:
+        return {"scale_budget": budget, "scale_measured": None,
+                "scale_over_budget": None}
+    return {"scale_budget": budget, "scale_measured": round(measured, 4),
+            "scale_over_budget": measured > budget * SCALE_WARN_FACTOR}
 
 
 # ── Model calls ────────────────────────────────────────────────────────────
@@ -1092,6 +1249,17 @@ def _run(args, data_dir: Path, lock) -> dict:
 
     rng = random.Random(args.seed)
     rng.shuffle(unused)
+    # Novelty (ticket #1328): prefer the unused sources that can host an
+    # anomaly no recent run has used. The shuffle stays the tie-break, so a
+    # fixed seed still reproduces the pick.
+    usage = load_label_usage(data_dir, datetime.date.fromisoformat(date))
+    if usage:
+        unused.sort(key=lambda s: -fresh_candidate_count(s, usage))
+        report["novelty"] = {
+            "window_days": NOVELTY_WINDOW_DAYS,
+            "recent_families": usage.get("families", {}),
+            "recent_labels": usage.get("labels", {}),
+        }
     picked = unused[:args.count]
 
     api_key = os.environ.get("OPENROUTER_API_KEY", "")
@@ -1107,7 +1275,7 @@ def _run(args, data_dir: Path, lock) -> dict:
                                     picker_temperature(args),
                                     args.picker_draws)
 
-    plan, skipped, picks = plan_day(picked, rng, choose=choose)
+    plan, skipped, picks = plan_day(picked, rng, choose=choose, usage=usage)
     report["skipped"] = skipped
     report["planned"] = len(plan)
     report["picks"] = picks
@@ -1194,7 +1362,8 @@ def _run(args, data_dir: Path, lock) -> dict:
                     "scene": entry_json["id"], "source": s["id"],
                     "anomaly": current["label"],
                     "localization": verdict.get("localization"),
-                    "answer": verdict["answer"], "attempt": attempt})
+                    "answer": verdict["answer"], "attempt": attempt,
+                    **scale_report(current, verdict)})
                 result = None
                 break
             result = {"ok": False, "reason": verdict.get("reason", "rejected"),
@@ -1204,7 +1373,7 @@ def _run(args, data_dir: Path, lock) -> dict:
             # different, so pick another anomaly instead of resending the
             # same prompt to the same source.
             alt = alternative_entry(s, used_prompts | {build_prompt_key(current)},
-                                    rng)
+                                    rng, usage=usage)
             if alt is None or attempt >= args.max_attempts:
                 break
             current = alt
