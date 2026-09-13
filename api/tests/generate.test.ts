@@ -87,8 +87,8 @@ describe("GET /generate", () => {
       scene: "commons-market-street",
       sceneIndex: 2,
       scenesTotal: 5,
-      candidate: 2,
-      candidates: 3,
+      round: 1,
+      draw: 1,
       cost: 0.4213,
     });
     const out = await status(env);
@@ -98,8 +98,8 @@ describe("GET /generate", () => {
       scene: "commons-market-street",
       sceneIndex: 2,
       scenesTotal: 5,
-      candidate: 2,
-      candidates: 3,
+      round: 1,
+      draw: 1,
       cost: 0.4213,
     });
   });

@@ -8,6 +8,7 @@ created with ImageMagick so the queue's landscape check runs for real.
 """
 
 import json
+import math
 import os
 import shutil
 import subprocess
@@ -128,6 +129,14 @@ def stub_check(failed=None, reason="fine", fix_prompt=""):
         "call": call(prompt="check-prompt")}
 
 
+def stub_click_target(covers=True, coords=None, reason="covers it",
+                      cost=0.001):
+    """A click-target verdict stub (#1436): covers, no correction by default."""
+    return lambda *a, **kw: {
+        "covers": covers, "coords": coords, "reason": reason,
+        "call": call(prompt="click-target-prompt", cost=cost)}
+
+
 class TempDataMixin:
     def setUp(self):
         self._tmp = Path(tempfile.mkdtemp())
@@ -143,8 +152,11 @@ class TempDataMixin:
             None, {"cx": 0.5, "cy": 0.6, "x1": 0.45, "y1": 0.55,
                    "x2": 0.55, "y2": 0.65})
         self._old_candidate_gate = g.candidate_gate
+        self._old_click_target = g.check_click_target
+        g.check_click_target = stub_click_target()
 
     def tearDown(self):
+        g.check_click_target = self._old_click_target
         g.candidate_gate = self._old_candidate_gate
         g.deterministic_gate = self._old_gate
         ag_verify.preflight_vision = self._old_preflight
@@ -633,7 +645,7 @@ class TraceTest(TempDataMixin, unittest.TestCase):
 # ── Run loop ───────────────────────────────────────────────────────────────
 
 class CheckScoringTest(unittest.TestCase):
-    """The comparable scale behind best-of-k (ticket #1381)."""
+    """The comparable scale the checker verdict uses (ticket #1381)."""
 
     def test_score_counts_the_requirements_met(self):
         self.assertEqual(g.score_from_failed([]), g.REQUIREMENTS_TOTAL)
@@ -678,12 +690,13 @@ class CheckScoringTest(unittest.TestCase):
 
 class GenerateOneTest(TempDataMixin, unittest.TestCase):
     def run_one(self, *, propose=None, locate=None, check=None, edit=None,
-                count=1, src=None, **argkw):
+                click_target=None, count=1, src=None, **argkw):
         self.write_source(src)
         g.propose_anomaly = propose or stub_propose()
         g.locate_anomaly = locate or stub_locate()
         g.check_scene = check or stub_check()
         g.image_edit = edit or (lambda *a, **kw: img_bytes())
+        g.check_click_target = click_target or stub_click_target()
         args = self.make_args(count=count, **argkw)
         totals = ag_llm.zero_usage()
         picked = ag_sources.list_sources(self.data_dir)[0]
@@ -702,11 +715,12 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
                                        scene["report"]["scene"]).read_text())
 
     def test_happy_path_lands_a_scene(self):
-        scene, failed, totals = self.run_one(candidates=1)
+        scene, failed, totals = self.run_one()
         self.assertIsNone(failed)
         self.assertIn("scene", scene["report"])
         self.assertEqual(totals["image_calls"], 1)
-        self.assertEqual(totals["cost"], round(0.001 * 3, 12))
+        # proposal + check + coordinates + click-target
+        self.assertEqual(totals["cost"], round(0.001 * 4, 12))
         state = ag_queue.load_state(self.data_dir)
         self.assertEqual(len(state["scenes"]), 1)
         entry = next(iter(state["scenes"].values()))
@@ -714,12 +728,12 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
         self.assertTrue(ag_sources.list_sources(self.data_dir)[0]["used"])
 
     def test_happy_path_writes_a_trace(self):
-        scene, _, _ = self.run_one(candidates=1)
+        scene, _, _ = self.run_one()
         data = self.trace_of(scene)
-        # #1381 moved the coordinate call after the correction decision, so
-        # the click target is computed on the image that actually ships.
+        # #1436: one draw, one check, one click-target pass.
         self.assertEqual([c["stage"] for c in data["calls"]],
-                         ["proposal", "edit", "check", "coordinates"])
+                         ["proposal", "edit r0", "check r0", "coordinates",
+                          "click-target 1"])
         proposal_call = data["calls"][0]
         self.assertEqual(proposal_call["prompt"], "proposal-prompt")
         self.assertEqual(proposal_call["answer"], "A")
@@ -728,17 +742,19 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
         self.assertEqual(proposal_call["at"], "2026-09-12T12:00:00+02:00")
         self.assertEqual(proposal_call["usage"]["cost"], 0.001)
         edit_call = data["calls"][1]
-        self.assertEqual(edit_call["stage"], "edit")
+        self.assertEqual(edit_call["stage"], "edit r0")
         # the edit names its source photo (no host path)
-        self.assertEqual(edit_call["image"],
-                         f"{SOURCE_ID}.jpg")
+        self.assertEqual(edit_call["image"], f"{SOURCE_ID}.jpg")
+        self.assertEqual(data["candidate_policy"]["images_per_scene"], 1)
+        self.assertEqual(data["candidate_policy"]["correction_rounds"],
+                         g.CORRECTION_ROUNDS)
         # the finished trace replaces the in-progress sidecar
         self.assertFalse(
             g.pending_trace_path(self.data_dir,
                                  data["source"]).exists())
 
     def test_scene_time_catalogue_provenance_lands_in_the_trace(self):
-        scene, _, _ = self.run_one(candidates=1)
+        scene, _, _ = self.run_one()
         data = self.trace_of(scene)
         self.assertEqual(data["scene_time"]["year"], 1905)
         self.assertEqual(data["scene_time"]["origin"], "catalog")
@@ -758,8 +774,7 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
             return img_bytes()
 
         scene, failed, totals = self.run_one(
-            src=source(date=""), propose=stub_propose(proposal()),
-            edit=edit, candidates=1)
+            src=source(date=""), propose=stub_propose(proposal()), edit=edit)
         self.assertIsNone(scene)
         self.assertEqual(failed["stage"], "year")
         self.assertIn("no catalogue year", failed["reason"])
@@ -769,46 +784,40 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
         self.assertEqual(ag_queue.load_state(self.data_dir)["scenes"], {})
         self.assertTrue(ag_sources.list_sources(self.data_dir)[0]["used"])
 
-    def test_best_of_k_ships_the_highest_scoring_candidate(self):
-        def edit(*a, **kw):
-            color = ["red", "blue", "green"][len(drawn)]
-            drawn.append(color)
-            return img_bytes(color=color)
+    def test_last_checker_verdict_lands_in_the_scene_and_the_trace(self):
+        # #1436: the last verdict travels with the scene, so moderation and
+        # the lightbox show "checker 5/7, failed 3, 7" without an image.
+        def check(*a, **kw):
+            return {"ok": False, "score": 5, "failed": [3, 7],
+                    "reason": "scale off", "fix_prompt": "", "call": call()}
 
-        drawn = []
-
-        def check(image, *a, **kw):
-            if Path(image).name.endswith("-c2.png"):
-                return {"ok": True, "score": g.REQUIREMENTS_TOTAL,
-                        "failed": [], "reason": "clean", "fix_prompt": "",
-                        "call": call()}
-            return {"ok": False, "score": 3, "failed": [1, 2, 3, 4],
-                    "reason": "tone and scale", "fix_prompt": "fix it",
-                    "call": call()}
-
-        scene, failed, totals = self.run_one(edit=edit, check=check,
-                                             candidates=3)
+        scene, failed, _ = self.run_one(check=check)
         self.assertIsNone(failed)
-        self.assertEqual(totals["image_calls"], 3)
         report = scene["report"]
-        self.assertEqual(report["winner"], 2)
-        self.assertEqual(report["candidate_count"], 3)
-        self.assertEqual(report["checker"]["score"], g.REQUIREMENTS_TOTAL)
-        self.assertFalse(report["checker"]["corrected"])
-        self.assertEqual(self.shipped_bytes(scene), img_bytes(color="blue"))
-        # every candidate is in the trace, with prompt, seed and score, so
-        # an audit can see why candidate 2 beat 1 and 3
+        self.assertEqual(report["checker"]["score"], 5)
+        self.assertEqual(report["correction_rounds"], 0)
+        entry = ag_queue.load_state(self.data_dir)["scenes"][report["scene"]]
+        self.assertEqual(entry["checker"],
+                         {"score": 5, "failed": [3, 7], "reason": "scale off"})
         trace = self.trace_of(scene)
-        self.assertEqual([c["candidate"] for c in trace["candidates"]],
-                         [1, 2, 3])
-        self.assertEqual([c["score"] for c in trace["candidates"]],
-                         [3, g.REQUIREMENTS_TOTAL, 3])
-        self.assertEqual(trace["candidates"][0]["reason"], "tone and scale")
-        self.assertIn("Plastic bottle", trace["candidates"][0]["prompt"])
-        self.assertTrue(trace["candidates"][1]["seed"] is not None)
-        self.assertEqual(trace["candidate_policy"]["candidates"], 3)
+        self.assertEqual(trace["calls"][2]["stage"], "check r0")
+        self.assertEqual(trace["calls"][2]["score"], 5)
+        self.assertEqual(trace["calls"][2]["failed"], [3, 7])
 
-    def test_one_correction_runs_and_cannot_veto(self):
+    def test_a_clean_check_ends_the_chain(self):
+        # Evan 13.09.: "if a check identifies no issues no edit is needed".
+        edits = {"n": 0}
+
+        def edit(*a, **kw):
+            edits["n"] += 1
+            return img_bytes()
+
+        scene, failed, _ = self.run_one(edit=edit, check=stub_check())
+        self.assertIsNone(failed)
+        self.assertEqual(edits["n"], 1)
+        self.assertEqual(scene["report"]["correction_rounds"], 0)
+
+    def test_a_flagged_check_drives_two_correction_rounds(self):
         edits = {"n": 0}
 
         def edit(*a, **kw):
@@ -823,32 +832,56 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
                     "reason": "tone off", "fix_prompt": "match the tone",
                     "call": call()}
 
-        scene, failed, totals = self.run_one(edit=edit, check=check,
-                                             candidates=1)
+        scene, failed, totals = self.run_one(edit=edit, check=check)
         self.assertIsNone(failed)
-        self.assertEqual(edits["n"], 2)   # one candidate + one correction
-        self.assertEqual(checks["n"], 2)  # candidate check + post-fix check
-        self.assertEqual(totals["image_calls"], 2)
+        self.assertEqual(edits["n"], 3)    # one draw + two correction edits
+        self.assertEqual(checks["n"], 3)   # r0 + one check per round
+        self.assertEqual(totals["image_calls"], 3)
         report = scene["report"]
-        self.assertTrue(report["checker"]["corrected"])
-        # the post-correction verdict is recorded but did not veto
-        self.assertEqual(report["checker"]["scoreAfterCorrection"], 4)
+        self.assertEqual(report["correction_rounds"], 2)
+        self.assertEqual(report["checker"]["rounds"], 2)
+        self.assertEqual(report["checker"]["score"], 4)
         trace = self.trace_of(scene)
-        self.assertTrue(trace["correction"]["applied"])
-        self.assertEqual([c["stage"] for c in trace["calls"]].count("fix-edit"),
-                         1)
-        self.assertEqual([c["stage"] for c in trace["calls"]].count("recheck"),
-                         1)
+        self.assertEqual([c["stage"] for c in trace["calls"]],
+                         ["proposal", "edit r0", "check r0", "fix-edit r1",
+                          "check r1", "fix-edit r2", "check r2", "coordinates",
+                          "click-target 1"])
 
-    def test_no_fix_prompt_ships_the_winner_unchanged(self):
+    def test_one_clean_round_stops_before_the_second(self):
+        edits = {"n": 0}
+
+        def edit(*a, **kw):
+            edits["n"] += 1
+            return img_bytes()
+
+        checks = {"n": 0}
+
+        def check(*a, **kw):
+            checks["n"] += 1
+            if checks["n"] == 2:
+                return {"ok": True, "score": g.REQUIREMENTS_TOTAL,
+                        "failed": [], "reason": "fixed", "fix_prompt": "",
+                        "call": call()}
+            return {"ok": False, "score": 5, "failed": [3], "reason": "scale",
+                    "fix_prompt": "make it smaller", "call": call()}
+
+        scene, failed, _ = self.run_one(edit=edit, check=check)
+        self.assertIsNone(failed)
+        self.assertEqual(edits["n"], 2)   # one draw + one correction
+        self.assertEqual(checks["n"], 2)
+        self.assertEqual(scene["report"]["correction_rounds"], 1)
+        self.assertEqual(scene["report"]["checker"]["score"],
+                         g.REQUIREMENTS_TOTAL)
+
+    def test_no_fix_prompt_ships_without_a_correction(self):
         scene, failed, totals = self.run_one(
-            check=stub_check(failed=[1], fix_prompt=""), candidates=1)
+            check=stub_check(failed=[1], fix_prompt=""))
         self.assertIsNone(failed)
         self.assertEqual(totals["image_calls"], 1)
-        self.assertFalse(scene["report"]["checker"]["corrected"])
+        self.assertEqual(scene["report"]["correction_rounds"], 0)
         self.assertEqual(scene["report"]["checker"]["failed"], [1])
 
-    def test_correction_that_fails_the_gates_keeps_the_winner(self):
+    def test_correction_that_fails_the_gates_keeps_the_image(self):
         calls = {"n": 0}
 
         def gate(edited, original, dedup):
@@ -859,14 +892,13 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
 
         g.candidate_gate = gate
         scene, failed, totals = self.run_one(
-            check=stub_check(failed=[4], fix_prompt="fix the tone"),
-            candidates=1)
+            check=stub_check(failed=[4], fix_prompt="fix the tone"))
         self.assertIsNone(failed)
-        # the pre-correction winner ships; the broken correction is recorded
-        self.assertFalse(scene["report"]["checker"]["corrected"])
+        # the pre-correction image ships; the broken correction is recorded
+        self.assertEqual(scene["report"]["correction_rounds"], 0)
         self.assertEqual(totals["image_calls"], 2)
-        self.assertEqual(self.trace_of(scene)["correction"]["rejected"],
-                         "whole-frame repaint")
+        self.assertEqual(self.trace_of(scene)["corrections"],
+                         [{"round": 1, "rejected": "whole-frame repaint"}])
 
     def test_a_broken_draw_is_replaced_by_another_one(self):
         calls = {"n": 0}
@@ -878,13 +910,17 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
             return None, {"cx": 0.5, "cy": 0.6}
 
         g.candidate_gate = gate
-        scene, failed, totals = self.run_one(candidates=2)
+        scene, failed, totals = self.run_one()
         self.assertIsNotNone(scene)
-        self.assertEqual(calls["n"], 3)          # 1 broken + 2 shipped draws
-        self.assertEqual(totals["image_calls"], 3)
+        self.assertEqual(calls["n"], 2)   # 1 broken + 1 shipped draw
+        self.assertEqual(totals["image_calls"], 2)
         self.assertEqual(scene["report"]["mechanical_failures"],
                          ["identical output"])
-        self.assertEqual(scene["report"]["candidate_count"], 2)
+        trace = self.trace_of(scene)
+        self.assertEqual([c["stage"] for c in trace["calls"]],
+                         ["proposal", "edit r0", "edit r0", "check r0",
+                          "coordinates", "click-target 1"])
+        self.assertEqual(trace["calls"][1]["rejected"], "identical output")
 
     def test_non_landscape_output_is_replaced(self):
         g.deterministic_gate = lambda *a, **kw: (None, {"cx": 0.5,
@@ -895,37 +931,33 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
             w, h = shapes.pop(0) if shapes else (1200, 800)
             return img_bytes(w=w, h=h)
 
-        scene, failed, totals = self.run_one(edit=edit, candidates=1)
+        scene, failed, totals = self.run_one(edit=edit)
         self.assertIsNotNone(scene)
         self.assertEqual(totals["image_calls"], 2)
         self.assertEqual(scene["report"]["mechanical_failures"],
                          ["non-landscape output (1024x1024)"])
-        self.assertEqual(scene["report"]["candidate_count"], 1)
 
-    def test_no_candidate_passing_the_gates_is_reported(self):
+    def test_no_draw_passing_the_gates_is_reported(self):
         g.candidate_gate = lambda *a, **kw: ("identical output", None)
-        scene, failed, totals = self.run_one(candidates=1)
+        scene, failed, totals = self.run_one()
         self.assertIsNone(scene)
         self.assertEqual(failed["stage"], "image")
-        # 3 draws in the first attempt, the last budgeted draw in the second
-        self.assertEqual(totals["image_calls"], 1 + g.MECHANICAL_RETRIES + 1)
+        # 1+retries draws in the first attempt, the rest of the run budget
+        # (default 1+retries+2 per scene) in the second
+        self.assertEqual(totals["image_calls"], 1 + g.MECHANICAL_RETRIES + 2)
 
-    def test_budget_degrades_to_fewer_candidates_but_still_ships(self):
-        scene, failed, totals = self.run_one(candidates=3, max_generations=2)
-        self.assertIsNone(failed)
-        self.assertEqual(totals["image_calls"], 2)
-        self.assertEqual(scene["report"]["candidate_count"], 2)
-
-    def test_no_check_ships_the_first_gate_passing_candidate(self):
+    def test_no_check_ships_the_single_draw(self):
         def boom(*a, **kw):
             raise AssertionError("--no-check must not call the checker")
 
-        scene, failed, totals = self.run_one(check=boom, candidates=2,
-                                             no_check=True)
+        scene, failed, totals = self.run_one(check=boom, no_check=True)
         self.assertIsNone(failed)
-        self.assertEqual(totals["image_calls"], 2)
+        self.assertEqual(totals["image_calls"], 1)
         self.assertTrue(scene["report"]["checker"]["skipped"])
         self.assertIsNone(scene["report"]["checker"]["score"])
+        entry = ag_queue.load_state(self.data_dir)["scenes"][
+            scene["report"]["scene"]]
+        self.assertNotIn("checker", entry)
 
     def test_invalid_proposal_fails_without_an_image_call(self):
         scene, failed, totals = self.run_one(propose=stub_propose(
@@ -949,7 +981,7 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
         self.assertEqual(list((self.data_dir / "traces").glob("*.json")), [])
 
     def test_second_proposal_after_a_gate_only_failure(self):
-        # Even with every candidate broken, a second proposal (fresh anomaly)
+        # Even with every draw broken, a second proposal (fresh anomaly)
         # gets a chance before the scene is reported failed.
         calls = {"n": 0}
 
@@ -960,26 +992,76 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
             return None, {"cx": 0.5, "cy": 0.6}
 
         g.candidate_gate = gate
-        scene, failed, totals = self.run_one(candidates=1)
+        scene, failed, totals = self.run_one()
         self.assertIsNotNone(scene)
         self.assertEqual(scene["report"]["attempt"], 2)
 
     def test_missing_coordinates_falls_back_to_the_hotspot(self):
-        scene, failed, _ = self.run_one(locate=stub_locate(coords=None),
-                                        candidates=1)
+        scene, failed, _ = self.run_one(locate=stub_locate(coords=None))
         self.assertIsNotNone(scene)
         self.assertEqual(scene["report"]["answer"]["fallback"], "hotspot")
         self.assertEqual(scene["report"]["answer"]["x"], 0.5)
 
     def test_coordinate_conflict_is_reported(self):
         scene, _, _ = self.run_one(locate=stub_locate(
-            {"x": 0.1, "y": 0.1, "r": 0.02, "figure": False}), candidates=1)
+            {"x": 0.1, "y": 0.1, "r": 0.02, "figure": False}))
         self.assertIsNotNone(scene["report"]["coord_conflict"])
+
+    def test_click_target_pass_corrects_and_verifies(self):
+        judged = []
+
+        def click(image, proposal_, answer, *a, **kw):
+            judged.append(dict(answer))
+            if len(judged) == 1:
+                return {"covers": False, "reason": "misses the left half",
+                        "coords": {"x": 0.4, "y": 0.55, "r": 0.1,
+                                   "figure": False},
+                        "call": call()}
+            return {"covers": True, "reason": "now covers it",
+                    "coords": None, "call": call()}
+
+        scene, failed, _ = self.run_one(click_target=click)
+        self.assertIsNone(failed)
+        report = scene["report"]
+        self.assertEqual(report["click_target"]["passes"], 2)
+        self.assertTrue(report["click_target"]["corrected"])
+        self.assertAlmostEqual(report["click_target"]["shift"],
+                               math.hypot(0.1, 0.05), places=4)
+        # the corrected answer is the scene's answer
+        self.assertEqual(report["answer"]["x"], 0.4)
+        self.assertEqual(report["answer"]["r"], 0.1)
+        # pass 2 judged the corrected area
+        self.assertEqual(judged[1]["x"], 0.4)
+        trace = self.trace_of(scene)
+        stages = [c["stage"] for c in trace["calls"]]
+        self.assertIn("click-target 1", stages)
+        self.assertIn("click-target 2", stages)
+        entry = ag_queue.load_state(self.data_dir)["scenes"][
+            report["scene"]]
+        self.assertEqual(entry["answer"]["x"], 0.4)
+        # the last rendered overlay is kept next to the trace
+        overlay = self.data_dir / "traces" / (
+            f"{report['scene']}-click-target.png")
+        self.assertTrue(overlay.exists())
+        self.assertEqual(trace["click_target"]["overlay"], overlay.name)
+
+    def test_click_target_pass_stops_after_an_echoed_verdict(self):
+        def click(image, proposal_, answer, *a, **kw):
+            # echoing the drawn numbers is agreement, not a correction
+            return {"covers": True, "reason": "covers",
+                    "coords": dict(answer), "call": call()}
+
+        scene, _, _ = self.run_one(click_target=click)
+        report = scene["report"]
+        self.assertEqual(report["click_target"]["passes"], 1)
+        self.assertFalse(report["click_target"]["corrected"])
+        self.assertEqual(report["click_target"]["shift"], 0.0)
 
     def test_budget_exhausted_before_the_first_edit(self):
         self.write_source()
         g.propose_anomaly = stub_propose()
         g.image_edit = lambda *a, **kw: img_bytes()
+        g.check_click_target = stub_click_target()
         args = self.make_args(count=1)
         args.max_generations = 0
         totals = ag_llm.zero_usage()
@@ -997,12 +1079,12 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
             kw["usage_out"]["prompt_tokens"] = 900
             return img_bytes()
 
-        scene, _, totals = self.run_one(edit=edit, candidates=2)
-        self.assertEqual(totals["image_cost"], 0.1)
-        self.assertEqual(totals["image_calls"], 2)
+        scene, _, totals = self.run_one(edit=edit)
+        self.assertEqual(totals["image_cost"], 0.05)
+        self.assertEqual(totals["image_calls"], 1)
         trace = self.trace_of(scene)
         # per-call image cost lands in the trace (#1381)
-        edit_calls = [c for c in trace["calls"] if c["stage"] == "edit"]
+        edit_calls = [c for c in trace["calls"] if c["stage"] == "edit r0"]
         self.assertEqual(edit_calls[0]["usage"]["cost"], 0.05)
 
     def test_aspect_ratio_never_asks_for_a_square(self):
@@ -1011,10 +1093,11 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
         self.assertEqual(g.aspect_ratio_for(1200, 800), "3:2")
         self.assertEqual(g.aspect_ratio_for(1920, 800), "21:9")
 
-    def test_budget_default_covers_every_scene_at_full_k(self):
-        args = self.make_args(count=2, candidates=3)
-        self.assertEqual(args.max_generations,
-                         2 * (3 + g.MECHANICAL_RETRIES + 1))
+    def test_budget_default_covers_every_scene(self):
+        args = self.make_args(count=2)
+        self.assertEqual(
+            args.max_generations,
+            2 * (1 + g.MECHANICAL_RETRIES + g.CORRECTION_ROUNDS))
 
 
 class RunTest(TempDataMixin, unittest.TestCase):
@@ -1024,18 +1107,19 @@ class RunTest(TempDataMixin, unittest.TestCase):
         g.locate_anomaly = stub_locate()
         g.check_scene = stub_check()
         g.image_edit = lambda *a, **kw: img_bytes()
-        report = g.run(self.make_args(count=1, candidates=1))
+        report = g.run(self.make_args(count=1))
         self.assertEqual(len(report["added"]), 1)
         self.assertEqual(report["image_calls"], 1)
-        self.assertEqual(report["candidates"], 1)
+        self.assertEqual(report["correction_rounds"], [0])
+        self.assertEqual(report["click_target_corrected"], 0)
         self.assertIn("cost_per_scene", report)
         self.assertIn("moderation", report)
-        self.assertIn("winner_scores", report)
+        self.assertEqual(report["checker_scores"], [g.REQUIREMENTS_TOTAL])
         status = json.loads(g.status_path(self.data_dir).read_text())
         self.assertEqual(status["state"], "done")
         # ticket #1381: the status the dev button polls is honest now
         self.assertEqual(status["phase"], "done")
-        self.assertEqual(status["candidates"], 1)
+        self.assertNotIn("candidates", status)
         self.assertEqual(status["imageCalls"], 1)
         self.assertEqual(status["planned"], 1)
         self.assertEqual(status["scenesTotal"], 1)

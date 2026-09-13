@@ -1095,10 +1095,10 @@ describe("on-demand generation from the empty queue (#1210)", () => {
     ).toBeInTheDocument();
   });
 
-  test("the progress line names the phase, the candidate slot and the cost", async () => {
-    // Ticket #1381: the button used to sit at "added 0 / imageCalls 0" while
-    // the pipeline was visibly working; the status file now carries the
-    // phase, the candidate slot and the running cost.
+  test("the progress line names the phase, the round and the cost", async () => {
+    // Ticket #1381/#1436: the button used to sit at "added 0 / imageCalls 0"
+    // while the pipeline was visibly working; the status file now carries
+    // the phase, the round and the running cost.
     payload = EMPTY;
     await renderModerationEmpty();
     const running = {
@@ -1114,8 +1114,7 @@ describe("on-demand generation from the empty queue (#1210)", () => {
       scene: "commons-market-street",
       sceneIndex: 2,
       scenesTotal: 5,
-      candidate: 2,
-      candidates: 3,
+      round: 1,
       cost: 0.4213,
     };
     generateStatus = running;
@@ -1125,7 +1124,7 @@ describe("on-demand generation from the empty queue (#1210)", () => {
     );
     expect(
       await screen.findByText(
-        "Generating… 1 / 5 · checking candidate 2/3 · $0.42",
+        "Generating… 1 / 5 · checking the result (round 1 of 2) · $0.42",
         {},
         { timeout: 4000 },
       ),

@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import React from "react";
 import {
   agUrl,
+  checkerLabel,
   fmtDate,
   fmtDateTime,
   MOD_LABELS,
@@ -131,6 +132,22 @@ export function SceneCard({
           <span className="td-chip td-chip-anomaly" title="The anomaly">
             {scene.anomaly}
           </span>
+          {scene.checker ? (
+            <span
+              className={
+                scene.checker.score >= 7
+                  ? "td-chip td-chip-checker td-checker-clean"
+                  : "td-chip td-chip-checker"
+              }
+              title={
+                scene.checker.reason ||
+                "How many of the 7 requirements the shipped image met"
+              }
+              data-testid={`td-checker-${scene.id}`}
+            >
+              {checkerLabel(scene.checker)}
+            </span>
+          ) : null}
         </div>
 
         <div className="td-card-actions">

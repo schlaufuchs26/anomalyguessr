@@ -27,25 +27,23 @@ const POLL_MS = 2000;
 function phaseLabel(status: GenerateStatus): string {
   const phase = status.phase;
   if (!phase) return "";
-  const candidate = status.candidate ?? 0;
-  const candidates = status.candidates ?? 0;
-  const slot =
-    candidate > 0 && candidates > 0
-      ? ` candidate ${candidate}/${candidates}`
-      : "";
+  const round = status.round ?? 0;
+  const roundLabel = round > 0 ? ` (round ${round} of 2)` : "";
   switch (phase) {
     case "starting":
       return "starting up";
     case "proposing":
       return "proposing an anomaly";
     case "editing":
-      return `drawing${slot}`;
+      return "drawing the scene image";
     case "checking":
-      return `checking${slot}`;
+      return `checking the result${roundLabel}`;
     case "correcting":
-      return "applying one correction";
+      return `applying a correction${roundLabel}`;
     case "locating":
       return "placing the click target";
+    case "click-target":
+      return "checking the click target";
     case "scene-done":
       return "scene done";
     case "budget":

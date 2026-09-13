@@ -47,10 +47,11 @@ export interface GenerateStatusFile {
   scene?: string;
   sceneIndex?: number;
   scenesTotal?: number;
-  /** Candidate slot the phase is working on, 1-based. */
-  candidate?: number;
-  /** Candidates per source this run was started with (k of best-of-k). */
-  candidates?: number;
+  /** Round the pipeline is in (#1436): 0 = the initial draw, 1/2 = a
+   *  checker-driven correction round. */
+  round?: number;
+  /** Which mechanical retry of the current round is being drawn, 1-based. */
+  draw?: number;
   /** Running cost in USD (all calls so far). */
   cost?: number;
   elapsedS?: number;
@@ -84,9 +85,10 @@ export interface GenerateStatus {
   scene: string | undefined;
   sceneIndex: number;
   scenesTotal: number;
-  /** Candidate slot (1-based) and the k this run uses. */
-  candidate: number;
-  candidates: number;
+  /** Pipeline round (0 = initial draw, 1/2 = correction round). */
+  round: number;
+  /** Mechanical retry of the current round being drawn, 1-based. */
+  draw: number;
   /** Running cost in USD as the generator reports it. */
   cost: number;
   startedAt: string | undefined;
@@ -186,8 +188,8 @@ export class Generator {
       scene: file.scene,
       sceneIndex: file.sceneIndex ?? 0,
       scenesTotal: file.scenesTotal ?? 0,
-      candidate: file.candidate ?? 0,
-      candidates: file.candidates ?? 0,
+      round: file.round ?? 0,
+      draw: file.draw ?? 0,
       cost: file.cost ?? 0,
       startedAt: file.startedAt,
       finishedAt: file.finishedAt,

@@ -4,7 +4,7 @@
 // a mouse convenience on a role="presentation" element.
 import React from "react";
 import { AnswerOverlay, isAnswerCircle } from "./answer";
-import { fmtDate, fmtDateTime, type TDScene } from "./api";
+import { checkerLabel, fmtDate, fmtDateTime, type TDScene } from "./api";
 import { SceneHandle } from "./SceneHandle";
 import { TracePanel } from "./TracePanel";
 
@@ -161,6 +161,14 @@ export function SceneModal({
                 {isAnswerCircle(scene.answer)
                   ? `x=${scene.answer.x.toFixed(2)}, y=${scene.answer.y.toFixed(2)}, r=${scene.answer.r.toFixed(2)}`
                   : "no answer data"}
+              </dd>
+            </div>
+            <div>
+              <dt>Checker</dt>
+              <dd data-testid={`td-modal-checker-${scene.id}`}>
+                {scene.checker
+                  ? `${checkerLabel(scene.checker)}${scene.checker.reason ? ` · ${scene.checker.reason}` : ""}`
+                  : "no checker verdict recorded"}
               </dd>
             </div>
             <div>

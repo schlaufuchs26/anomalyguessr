@@ -27,28 +27,36 @@ Per scene:
    dominant placement instruction, ONE numeric scale cap with a
    same-distance anchor, keep everything else, tone match, grain, no glow);
    the long proscriptive rule list moved into the checker.
-3. **Check** (`check_scene`): one vision call per candidate against the
-   eight requirements (time-travel framing, subtlety, scale, tone, grain,
-   keep-the-rest, identifiability, impossibility at the scene's time). The
-   checker does not vote the scene out: it returns the numbers of the
-   requirements each candidate fails, so the candidate that fails the
-   fewest wins (best-of-k, ticket #1381). Requirement 8 tests the element's
-   introduction year against the scene's year, so an "improbable but
-   possible" element (an e-scooter in 2017) fails.
-4. **Correct** (at most once): when the winner still fails a requirement and
-   the checker supplied a fix prompt, ONE edit applies that fix. The
-   post-correction check scores and records the result; it cannot veto.
+3. **Check** (`check_scene`): one vision call against the eight requirements
+   (time-travel framing, subtlety, scale, tone, grain, keep-the-rest,
+   identifiability, impossibility at the scene's time). The checker does not
+   vote the scene out: it returns the numbers of the requirements it fails
+   plus a repair instruction. Requirement 8 tests the element's introduction
+   year against the scene's year, so an "improbable but possible" element (an
+   e-scooter in 2017) fails.
+4. **Correct** (`fix-edit`, at most `CORRECTION_ROUNDS` = 2): a checker that
+   reports a failing requirement and a fix prompt triggers one edit built
+   from that instruction, then a check again; at most one more round. A
+   check with no findings ends the chain immediately (Evan 2026-09-13), and
+   the last fix-edit is followed by a final check for the record only, which
+   never triggers another edit.
 5. **Locate** (`locate_anomaly`): one vision call over the shipped image for
    the click target (x/y/r, figure flag), with the proposal and the edit
    prompt as context. The answer is widened when the deterministic diff
    hotspot falls outside it, so a wildly wrong circle cannot ship alone.
+6. **Click-target check** (at most `CLICK_TARGET_PASSES` = 2): the answer
+   circle plus a centre crosshair is drawn onto the edited image, and the
+   checker model is asked whether the circle fully encompasses the added
+   element. A corrected answer is rendered again and asked once more; the
+   corrected coordinates are the scene's answer. The last rendered overlay
+   is kept next to the trace so moderation can see what was judged.
 
-One source yields exactly one scene: `--count 5` lands 5 scenes as long as
-the mechanical steps (image call, download, landscape shape) work. A
-mechanically broken candidate is replaced by another draw (up to
-`MECHANICAL_RETRIES` extra image calls per scene); only a source whose image
-call fails or whose every candidate breaks the pixel gates is reported as
-failed, never silently skipped.
+One source yields exactly one scene, drawn as exactly one image: `--count 5`
+lands 5 scenes as long as the mechanical steps (image call, download,
+landscape shape) work. A mechanically broken draw is replaced by another one
+(up to `MECHANICAL_RETRIES` extra image calls per scene, every attempt in the
+trace); only a source whose image call fails or whose draws all break the
+pixel gates is reported as failed, never silently skipped.
 
 Deterministic gates stay deterministic: a byte-identical re-serve is refused
 (`ag_verify.identical_output_check`), a scene that is not a localized edit is
@@ -59,21 +67,25 @@ checks the entry schema.
 Each scene gets a trace sidecar (`data/anomalyguessr/traces/<id>.json`, ticket
 #1373) with every pipeline step in order: model, full prompt, answer,
 reasoning content, usage (tokens + cost), duration and timestamp, with the
-image named but never embedded. Every candidate carries its own edit prompt,
-seed, gate result and check score in `candidates` (ticket #1381), so an audit
-can see why B beat A. Steps are flushed to `traces/pending/<source>.json` as
-the pipeline runs, so a crash keeps a partial record; a finished scene shows
-the whole flow, a scene from before the trace existed shows none. Losing
-candidate images are not kept (they live in the run's temp dir): measured,
-one candidate PNG is 1-2 MB, so keeping three per scene would cost ~50 MB a
-day for pictures nobody looks at once the scores are in the trace. The
-scene-time entry (`scene_time`: the catalogue year, its provenance class, the
-repository field and its raw value) is in the trace too, so a moderator can
-check the date without opening the repository page (tickets #1403, #1430). A
-source without a catalogue year is refused before the model calls and
-consumed, so it is not drawn again every day; the pool gate already keeps
-such sources out. `pipeline/ag_era_audit.py` reruns the impossibility test
-over the whole queue.
+image named but never embedded. The stages carry the round (`edit r0`,
+`check r0`, `fix-edit r1`, `check r1`, `fix-edit r2`, `check r2`,
+`coordinates`, `click-target 1`, `click-target 2`), so the panel shows the
+chain a scene went through; every mechanical retry is a row too (idea #1435
+was that a break makes the draw numbers jump). The last checker verdict
+(score, failed requirement numbers, reason) is stored with the scene as
+`checker` and in the trace, so moderation and the gallery lightbox show
+"checker 5/7, failed 3, 7" before any image is opened. Steps are flushed to
+`traces/pending/<source>.json` as the pipeline runs, so a crash keeps a
+partial record; a finished scene shows the whole flow, a scene from before
+the trace existed shows none. Candidate images are not kept (only the
+shipped image and the last click-target overlay live on). The scene-time
+entry (`scene_time`: the catalogue year, its provenance class, the repository
+field and its raw value) is in the trace too, so a moderator can check the
+date without opening the repository page (tickets #1403, #1430). A source
+without a catalogue year is refused before the model calls and consumed, so
+it is not drawn again every day; the pool gate already keeps such sources
+out. `pipeline/ag_era_audit.py` reruns the impossibility test over the whole
+queue.
 
 The run lock, the progress status file, the DM-on-failure path and the queue
 add are unchanged from #1210/#1169: the daily cron and the dashboard's
@@ -81,7 +93,7 @@ add are unchanged from #1210/#1169: the daily cron and the dashboard's
 
 CLI::
 
-    ag_generate.py [--data DIR] [--count 10] [--candidates 3] [--seed N]
+    ag_generate.py [--data DIR] [--count 10] [--seed N]
         [--dry-run] [--top-up] [--env .env] [--dm-channel ID] [--model M]
         [--image-model M] [--max-attempts 2] [--max-generations N]
         [--date YYYY-MM-DD] [--out-dir DIR] [--report FILE] [--no-check]
@@ -110,6 +122,7 @@ import math
 import os
 import random
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -149,14 +162,20 @@ ASPECTS = (("16:9", 16 / 9), ("3:2", 1.5), ("4:3", 4 / 3), ("5:4", 1.25),
            ("21:9", 21 / 9), ("2:1", 2.0))
 SCENE_ID_RE = re.compile(r"[^a-z0-9]+")
 
-# Best-of-k (ticket #1381, Evan's design): the checker never rejects, it
-# scores every candidate and the best one ships. k edited candidates per
-# source, plus up to MECHANICAL_RETRIES extra image calls to replace a
-# candidate that broke mechanically (image error, non-landscape output,
-# byte-identical re-serve, whole-frame repaint), so a broken draw cannot
-# shrink the planned scene count.
-DEFAULT_CANDIDATES = 3
+# One image per scene (ticket #1436, Evan): the checker no longer ranks
+# candidates, it names what is wrong and the pipeline fixes that at most
+# CORRECTION_ROUNDS times. MECHANICAL_RETRIES stays: a wrong aspect ratio or
+# a byte-identical re-serve is not a quality question, so a broken draw is
+# replaced by a new draw instead of shrinking the planned scene count.
 MECHANICAL_RETRIES = 2
+CORRECTION_ROUNDS = 2
+# The final click-target quality pass: render the answer circle onto the
+# image, ask the checker model whether it covers the anomaly, apply a
+# corrected answer and verify it once (ticket #1436).
+CLICK_TARGET_PASSES = 2
+# The overlay that is handed to the model: a stroke this wide relative to the
+# image height is unambiguous but still leaves the photo readable.
+CLICK_TARGET_STROKE_FRACTION = 0.004
 
 # How recently used anomaly labels feed the proposal prompt (the free-form
 # replacement for the old catalog label/family novelty tier, #1328).
@@ -378,6 +397,31 @@ def coord_prompt(proposal: dict, prompt: str = "") -> str:
     return "\n".join(lines)
 
 
+def click_target_prompt(proposal: dict, answer: dict) -> str:
+    """The click-target check's prompt (ticket #1436): is the circle right?
+
+    The image handed in is the shipped scene with the answer circle and its
+    centre crosshair drawn on it, so the model judges the same geometry the
+    game scores against.
+    """
+    return "\n".join([
+        "You are checking the answer area of a spot-the-anachronism game.",
+        "The image you see is the scene with the candidate answer drawn on "
+        "it: an ellipse and a small crosshair at its centre.",
+        f"The element that does not belong to the photograph's time is: "
+        f"{proposal['anomaly']} ({proposal['placement']}).",
+        f"The drawn area is x={answer['x']:.3f}, y={answer['y']:.3f}, "
+        f"r={answer['r']:.3f} (normalized: x across the width, y down the "
+        "height, r the radius as a fraction of the image height).",
+        "Does the drawn area fully encompass that whole element?",
+        'Answer as strict JSON only: {"covers": true|false, "x": <0..1>, '
+        '"y": <0..1>, "r": <0..1>, "figure": true|false, "reason": "<one '
+        'line>"}. Repeat the drawn numbers when they cover the whole element; '
+        "return corrected numbers when they do not (centre and radius as "
+        "above; for a person head to feet, shoes included).",
+    ])
+
+
 def scene_time_text(scene: dict | None) -> str:
     """The scene's year for the checker, from the catalogue fact.
 
@@ -585,6 +629,54 @@ def locate_anomaly(image: Path, proposal: dict, prompt: str, api_key: str,
     return {"coords": coords, "call": result}
 
 
+def check_click_target(image: Path, proposal: dict, answer: dict, api_key: str,
+                       model: str, base_url: str, max_tokens: int, timeout: int,
+                       temperature: float | None) -> dict:
+    """The click-target check (ticket #1436): does the drawn area cover it?
+
+    ``image`` is the rendered overlay. ``coords`` is the model's corrected
+    answer when it returned usable numbers, else None; ``covers`` is its
+    boolean verdict, None when the answer was not a boolean.
+    """
+    prompt = click_target_prompt(proposal, answer)
+    result = _run_call(prompt, image, api_key, model, base_url, max_tokens,
+                       timeout, temperature)
+    parsed = result["parsed"] or {}
+    covers = parsed.get("covers")
+    return {"covers": covers if isinstance(covers, bool) else None,
+            "coords": valid_coords(parsed),
+            "reason": ag_llm.clean_text(parsed.get("reason"), 300),
+            "call": result}
+
+
+def render_click_target(image: Path, answer: dict, out_path: Path) -> Path:
+    """Draw the answer area onto a copy of the image (ticket #1436).
+
+    The game's answer is a circle in *normalized* coordinates (r is a
+    fraction of the image height), so in pixel space it is an ellipse with
+    radii r*W and r*H; the centre crosshair marks the exact point. The stroke
+    is opaque and scaled to the image height, so the model can see the area
+    without the photo becoming unreadable.
+    """
+    w, h = ag_verify.image_dims(image)
+    cx, cy = answer["x"] * w, answer["y"] * h
+    rx, ry = max(1.0, answer["r"] * w), max(1.0, answer["r"] * h)
+    stroke = max(3, round(h * CLICK_TARGET_STROKE_FRACTION))
+    arm = max(6.0, 0.25 * min(rx, ry))
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        ["convert", str(image),
+         "-stroke", "rgba(255,0,0,1)", "-strokewidth", str(stroke),
+         "-fill", "none",
+         "-draw", f"ellipse {cx:.1f},{cy:.1f} {rx:.1f},{ry:.1f} 0,360",
+         "-stroke", "rgba(0,255,255,1)",
+         "-draw", (f"line {cx:.1f},{cy - arm:.1f} {cx:.1f},{cy + arm:.1f} "
+                   f"line {cx - arm:.1f},{cy:.1f} {cx + arm:.1f},{cy:.1f}"),
+         str(out_path)],
+        check=True, capture_output=True)
+    return out_path
+
+
 def failed_requirements(raw) -> list:
     """Requirement numbers the checker flagged, sorted and de-duplicated.
 
@@ -648,6 +740,21 @@ def valid_coords(raw) -> dict | None:
     if not (0.0 < r <= 0.5):
         return None
     return {"x": x, "y": y, "r": r, "figure": bool(raw.get("figure"))}
+
+
+def clamp_answer(coords: dict) -> dict:
+    """The stored answer shape: figure floor + the queue's radius window.
+
+    Ticket #1308 floors a person's circle at ``PERSON_MIN_RADIUS`` so head and
+    shoes stay clickable; the maximum is the queue validator's cap. Every
+    answer path goes through this, including a click-target correction
+    (ticket #1436).
+    """
+    x, y, r = coords["x"], coords["y"], coords["r"]
+    if coords.get("figure"):
+        r = max(r, ag_verify.PERSON_MIN_RADIUS)
+    r = max(0.02, min(r, ag_verify.MAX_ANSWER_RADIUS))
+    return {"x": round(x, 4), "y": round(y, 4), "r": round(r, 4)}
 
 
 def finalize_answer(coords: dict, hotspot) -> tuple:
@@ -952,7 +1059,7 @@ def build_credit(source: dict) -> str:
 
 
 def build_entry(source: dict, proposal: dict, answer: dict, date: str,
-                scene: dict | None = None) -> dict:
+                scene: dict | None = None, checker: dict | None = None) -> dict:
     eid = scene_id(source["id"], proposal["anomaly"])
     st = scene if scene is not None else scene_time(source)
     year = st["display"]
@@ -969,7 +1076,7 @@ def build_entry(source: dict, proposal: dict, answer: dict, date: str,
     source_block = {k: source.get(k, "") for k in (
         "repository", "fileUrl", "originalTitle", "date", "place", "license",
         "description")}
-    return {
+    out = {
         "id": eid,
         "title": title,
         "place": place,
@@ -984,6 +1091,15 @@ def build_entry(source: dict, proposal: dict, answer: dict, date: str,
         "credit": build_credit(source),
         "sourceUrl": source.get("fileUrl", ""),
     }
+    # The last checker verdict travels with the scene (ticket #1436), so
+    # moderation and the gallery lightbox can show "checker 5/7, failed 3, 7"
+    # without opening any image. A run without the checker (--no-check, or a
+    # failed check call) stores no field.
+    if checker is not None and checker.get("score") is not None:
+        out["checker"] = {"score": checker["score"],
+                          "failed": list(checker.get("failed") or []),
+                          "reason": checker.get("reason") or ""}
+    return out
 
 
 # ── Caption repair path (ticket #1402) ─────────────────────────────────────
@@ -1353,7 +1469,6 @@ def _run(args, data_dir: Path, lock) -> dict:
     report = {"date": date, "data": str(data_dir), "planned": 0, "added": [],
               "failed": [], "skipped": [], "image_calls": 0, "dry_run": False,
               "model": args.model, "image_model": args.image_model,
-              "candidates": args.candidates,
               "max_generations": args.max_generations}
     totals = ag_llm.zero_usage()
 
@@ -1361,8 +1476,8 @@ def _run(args, data_dir: Path, lock) -> dict:
         """Best-effort progress for the dashboard (see module docstring).
 
         Ticket #1381: the status carries the current phase, the scene being
-        worked on, the candidate slot and the running cost, so the dev
-        button shows real progress instead of a frozen "added 0".
+        worked on, the round/draw and the running cost, so the dev button
+        shows real progress instead of a frozen "added 0".
         """
         if lock is None:
             return
@@ -1373,7 +1488,6 @@ def _run(args, data_dir: Path, lock) -> dict:
                          added=len(report["added"]),
                          failed=len(report["failed"]),
                          imageCalls=report["image_calls"],
-                         candidates=args.candidates,
                          cost=round(totals.get("cost", 0.0), 6),
                          elapsedS=round(time.time() - started, 1),
                          startedAt=started_iso, **extra)
@@ -1463,13 +1577,23 @@ def _run(args, data_dir: Path, lock) -> dict:
                              if k not in ("image_calls", "image_cost")}
     report["cost_total"] = round(totals["cost"], 6)
     report["image_cost_total"] = round(totals.get("image_cost", 0.0), 6)
-    report["candidate_scores"] = [cand.get("score")
-                                  for scene in report["added"]
-                                  for cand in scene.get("candidates", [])]
-    report["winner_scores"] = [scene["checker"].get("score")
-                               for scene in report["added"]
-                               if (scene.get("checker") or {}).get("score")
-                               is not None]
+    # The new flow's shape (ticket #1436): how many correction rounds the
+    # checker asked for and what the click-target pass changed, so a run is
+    # comparable without opening a trace.
+    clicks = [s.get("click_target") or {} for s in report["added"]]
+    report["correction_rounds"] = [s.get("correction_rounds")
+                                   for s in report["added"]]
+    report["click_target_corrected"] = sum(1 for c in clicks
+                                           if c.get("corrected"))
+    shifts = [c["shift"] for c in clicks if c.get("shift") is not None]
+    report["click_target_shift_mean"] = (
+        round(sum(shifts) / len(shifts), 4) if shifts else None)
+    report["click_target_cost"] = round(
+        sum(float(c.get("cost") or 0.0) for c in clicks), 6)
+    report["checker_scores"] = [s["checker"].get("score")
+                                for s in report["added"]
+                                if (s.get("checker") or {}).get("score")
+                                is not None]
     if report["added"]:
         report["cost_per_scene"] = round(totals["cost"] / len(report["added"]), 6)
         report["image_calls_per_scene"] = round(
@@ -1489,172 +1613,227 @@ def _run(args, data_dir: Path, lock) -> dict:
 
 
 def image_budget_left(args, totals: dict) -> int:
-    """Image calls the run may still spend (ticket #1381).
+    """Image calls the run may still spend (ticket #1436).
 
     ``--max-generations`` stays a run-level runaway guard, not a per-scene
-    quota: the default covers every planned source at full k plus its one
-    correction, and a scene that runs into the cap degrades to fewer
-    candidates instead of starving the sources queued behind it.
+    quota: the default covers every planned source at one draw plus its
+    mechanical retries and its two correction rounds, and a scene that meets
+    the cap is reported instead of starving the sources queued behind it.
     """
     return max(0, int(args.max_generations) - int(totals.get("image_calls", 0)))
 
 
-def _collect_candidates(source_image: Path, prompt: str, attempt: int, args,
-                        api_key: str, source: dict, data_dir: Path,
-                        out_dir: Path, trace: dict, totals: dict, progress,
-                        previous_outputs: list) -> tuple:
-    """Up to k shippable candidates for one proposal (ticket #1381).
+def _draw_scene_image(source_image: Path, prompt: str, attempt: int, args,
+                      api_key: str, source: dict, data_dir: Path,
+                      out_dir: Path, trace: dict, totals: dict, progress,
+                      previous_outputs: list) -> tuple:
+    """The ONE image for this scene (ticket #1436).
 
-    Draws image edits until ``args.candidates`` of them passed the mechanical
-    gate (landscape shape, byte-identical re-serve, whole-frame repaint),
-    allowing ``MECHANICAL_RETRIES`` extra image calls to replace broken
-    draws. Every draw lands in the trace, kept or rejected, with its reason.
-    Returns (candidates, failure_reasons, budget_hit).
+    Draws image edits until one passes the mechanical gate (landscape shape,
+    byte-identical re-serve, whole-frame repaint), allowing
+    ``MECHANICAL_RETRIES`` extra image calls to replace broken draws. Every
+    draw lands in the trace, kept or rejected, with its reason (idea #1435:
+    a retry used to leave no row, so the draw numbers jumped). Returns
+    ``(draw|None, failure_reasons, budget_hit)`` where ``draw`` carries
+    ``path``, ``seed``, ``hotspot`` and its trace ``record``.
     """
-    wanted = max(1, int(args.candidates))
-    draws_allowed = wanted + MECHANICAL_RETRIES
-    candidates, failures, draw, budget_hit = [], [], 0, False
-    while len(candidates) < wanted and draw < draws_allowed:
+    draws_allowed = 1 + MECHANICAL_RETRIES
+    failures, draw, budget_hit = [], 0, False
+    while draw < draws_allowed:
         if image_budget_left(args, totals) <= 0:
             # Not a draw failure: the gate reasons above stay the report's
             # "why", so a budget stop cannot mask a mechanical rejection.
             budget_hit = True
             break
         draw += 1
-        progress("editing", candidate=draw)
+        progress("editing", round=0, draw=draw)
         try:
             data, image_call = _edit(source_image, prompt, args, api_key,
                                      source, totals)
         except GenerationError as e:
             failures.append(str(e))
             trace.setdefault("call_errors", []).append(
-                {"stage": "edit", "attempt": attempt, "candidate": draw,
+                {"stage": "edit r0", "attempt": attempt, "draw": draw,
                  "error": str(e)})
             continue
         totals["image_calls"] = totals.get("image_calls", 0) + 1
-        record_call(data_dir, trace,
-                    {"stage": "edit", "attempt": attempt, "candidate": draw,
-                     **image_call})
         out_path = _write_bytes(
-            data, out_dir / f"{source['id']}-a{attempt}-c{draw}.png")
+            data, out_dir / f"{source['id']}-a{attempt}-r0-d{draw}.png")
         reason, hotspot = candidate_gate(out_path, source_image,
                                          list(previous_outputs) or None)
         previous_outputs.append(out_path)
-        record = {"candidate": draw, "image": out_path.name,
-                  "seed": image_call.get("seed"), "prompt": prompt,
-                  "duration_s": image_call.get("duration_s")}
+        record = {"stage": "edit r0", "attempt": attempt, "draw": draw,
+                  **image_call}
         if reason:
             record["rejected"] = reason
             failures.append(reason)
             trace.setdefault("gate_failures", []).append(
-                {"candidate": draw, "reason": reason})
-            trace["candidates"].append(record)
+                {"stage": "edit r0", "attempt": attempt, "draw": draw,
+                 "reason": reason})
+            record_call(data_dir, trace, record)
             continue
-        candidates.append({"index": draw, "path": out_path,
-                           "seed": image_call.get("seed"), "record": record,
-                           "hotspot": hotspot})
-        trace["candidates"].append(record)
-    return candidates, failures, budget_hit
+        record_call(data_dir, trace, record)
+        return {"path": out_path, "seed": image_call.get("seed"),
+                "hotspot": hotspot, "record": record}, failures, budget_hit
+    return None, failures, budget_hit
 
 
-def _score_candidates(candidates: list, proposal: dict, args, api_key: str,
-                      data_dir: Path, trace: dict, totals: dict,
-                      progress, scene: dict | None = None) -> dict:
-    """Check every candidate on the same rubric; return the winner.
+def _check_round(image: Path, proposal: dict, scene: dict | None, round_no: int,
+                 attempt: int, args, api_key: str, data_dir: Path,
+                 trace: dict, totals: dict, progress) -> dict | None:
+    """One checker call, recorded as ``check r<round>``; None on call error.
 
-    The score is the number of the seven requirements the candidate meets
-    (ticket #1381), so candidates and runs are directly comparable. Ties go
-    to the candidate drawn first. Without the checker (``--no-check``) the
-    first candidate that passed the pixel gates wins.
+    The score is the number of the seven requirements the image meets,
+    computed in code from the requirement numbers (ticket #1381). ``scene``
+    is the ``scene_time`` anchor, so requirement 8 can test the element's
+    introduction year against the photograph's year (ticket #1403).
     """
-    for cand in candidates:
-        if args.no_check:
-            cand.update({"check": None, "score": None, "failed": [],
-                         "reason": ""})
-            continue
-        progress("checking", candidate=cand["index"])
-        try:
-            check = check_scene(cand["path"], proposal, api_key, args.model,
-                                args.base_url, args.model_max_tokens,
-                                args.model_timeout, args.temperature,
-                                scene=scene)
-        except ag_llm.LLMError as e:
-            trace.setdefault("call_errors", []).append(
-                {"stage": "check", "candidate": cand["index"],
-                 "error": str(e)})
-            check = None
-        if check is not None:
-            ag_llm.add_usage(totals, check["call"].get("usage"))
-            record_call(data_dir, trace,
-                        {"stage": "check", "candidate": cand["index"],
-                         **_call_trace(check["call"])})
-        cand.update({"check": check,
-                     "score": check["score"] if check else None,
-                     "failed": check["failed"] if check else [],
-                     "reason": check["reason"] if check else ""})
-        cand["record"].update({
-            "score": cand["score"], "failed": cand["failed"],
-            "ok": check["ok"] if check else None,
-            "reason": cand["reason"]})
-    ranked = [c for c in candidates if c.get("score") is not None]
-    return max(ranked, key=lambda c: c["score"]) if ranked else candidates[0]
+    progress("checking", round=round_no)
+    try:
+        check = check_scene(image, proposal, api_key, args.model,
+                            args.base_url, args.model_max_tokens,
+                            args.model_timeout, args.temperature, scene=scene)
+    except ag_llm.LLMError as e:
+        trace.setdefault("call_errors", []).append(
+            {"stage": f"check r{round_no}", "attempt": attempt,
+             "error": str(e)})
+        return None
+    ag_llm.add_usage(totals, check["call"].get("usage"))
+    record_call(data_dir, trace,
+                {"stage": f"check r{round_no}", "attempt": attempt,
+                 "score": check["score"], "failed": check["failed"],
+                 **_call_trace(check["call"])})
+    return check
 
 
-def _correction(source_image: Path, proposal: dict, check: dict, attempt: int,
-                args, api_key: str, source: dict, data_dir: Path,
-                out_dir: Path, trace: dict, totals: dict, progress,
-                previous_outputs: list, scene: dict | None = None) -> dict | None:
-    """The one allowed correction pass (ticket #1381).
+def _fix_edit(current: Path, proposal: dict, check: dict, round_no: int,
+              attempt: int, args, api_key: str, source: dict, data_dir: Path,
+              out_dir: Path, trace: dict, totals: dict, progress,
+              previous_outputs: list) -> dict | None:
+    """One correction round (ticket #1436): the checker's repair instruction.
 
-    Applies the checker's fix prompt to the winning candidate. The result is
-    re-checked and recorded but cannot veto: a correction that fails the
-    pixel gates is dropped and the pre-correction winner ships. Returns
-    ``{"path", "hotspot", "check"}`` or None when the winner stays as it is.
+    Edits the CURRENT image, the one that failed the check, so each round
+    refines the last result instead of re-adding the anomaly from scratch.
+    Returns ``{"path", "hotspot"}`` or None when the round is skipped or its
+    output fails the mechanical gates; the image before the round then ships.
     """
     if image_budget_left(args, totals) <= 0:
-        trace["correction"] = {"skipped": "generation budget"}
+        trace.setdefault("corrections", []).append(
+            {"round": round_no, "skipped": "generation budget"})
         return None
     prompt = _fix_prompt(proposal, check["fix_prompt"])
-    progress("correcting")
+    progress("correcting", round=round_no)
     try:
-        data, fix_call = _edit(source_image, prompt, args, api_key, source,
-                               totals)
+        data, fix_call = _edit(current, prompt, args, api_key, source, totals)
     except GenerationError as e:
-        trace["correction"] = {"failed": str(e)}
+        trace.setdefault("corrections", []).append(
+            {"round": round_no, "failed": str(e)})
         trace.setdefault("call_errors", []).append(
-            {"stage": "fix-edit", "attempt": attempt, "error": str(e)})
+            {"stage": f"fix-edit r{round_no}", "attempt": attempt,
+             "error": str(e)})
         return None
     totals["image_calls"] = totals.get("image_calls", 0) + 1
+    fixed_path = _write_bytes(
+        data, out_dir / f"{source['id']}-a{attempt}-r{round_no}-fix.png")
     record_call(data_dir, trace,
-                {"stage": "fix-edit", "attempt": attempt, **fix_call})
-    fixed_path = _write_bytes(data,
-                              out_dir / f"{source['id']}-a{attempt}-fix.png")
-    reason, hotspot = candidate_gate(fixed_path, source_image,
+                {"stage": f"fix-edit r{round_no}", "attempt": attempt,
+                 **fix_call})
+    reason, hotspot = candidate_gate(fixed_path, current,
                                      list(previous_outputs) or None)
     previous_outputs.append(fixed_path)
     if reason:
-        trace["correction"] = {"rejected": reason}
+        trace.setdefault("corrections", []).append(
+            {"round": round_no, "rejected": reason})
         trace.setdefault("gate_failures", []).append(
-            {"stage": "fix-edit", "reason": reason})
+            {"stage": f"fix-edit r{round_no}", "attempt": attempt,
+             "reason": reason})
         return None
-    recheck = None
+    return {"path": fixed_path, "hotspot": hotspot}
+
+
+def _coords_differ(a: dict, b: dict, eps: float = 0.005) -> bool:
+    """Whether a corrected answer differs from the judged one (ticket #1436).
+
+    Models often echo the numbers they were shown; an echoed answer is
+    agreement, not a correction, and must not spend a second pass.
+    """
+    return (abs(a["x"] - b["x"]) > eps or abs(a["y"] - b["y"]) > eps
+            or abs(a["r"] - b["r"]) > eps)
+
+
+def _save_click_target_overlay(data_dir: Path, eid: str, src) -> str:
+    """Copy the last rendered click-target overlay next to the trace.
+
+    The overlay is what the model judged (ticket #1436); keeping it lets a
+    moderator see the drawn area without rerunning anything. Best-effort: a
+    missing overlay or an I/O error must not fail a landed scene.
+    """
+    if not src:
+        return ""
     try:
-        recheck = check_scene(fixed_path, proposal, api_key, args.model,
-                              args.base_url, args.model_max_tokens,
-                              args.model_timeout, args.temperature,
-                              scene=scene)
-    except ag_llm.LLMError as e:
-        trace.setdefault("call_errors", []).append(
-            {"stage": "recheck", "error": str(e)})
-    if recheck is not None:
-        ag_llm.add_usage(totals, recheck["call"].get("usage"))
+        dst = data_dir / TRACE_DIRNAME / f"{eid}-click-target.png"
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(src, dst)
+        return dst.name
+    except OSError:
+        return ""
+
+
+def _click_target_passes(image: Path, proposal: dict, answer: dict,
+                         attempt: int, args, api_key: str, data_dir: Path,
+                         out_dir: Path, trace: dict, totals: dict,
+                         progress) -> tuple:
+    """The click-target quality pass (ticket #1436), at most two calls.
+
+    Renders the answer area onto the shipped image, asks the checker model
+    whether it covers the anomaly, and verifies a corrected answer with a
+    second rendered pass. Returns ``(answer, summary)``; the summary carries
+    the passes, whether the answer was corrected, the centre shift in
+    normalized units and the pass's own cost for the run report.
+    """
+    current, judged = dict(answer), dict(answer)
+    passes, cost, corrected, last_overlay = [], 0.0, False, None
+    for p in range(1, CLICK_TARGET_PASSES + 1):
+        overlay = render_click_target(
+            image, current, out_dir / f"{image.stem}-click-{p}.png")
+        last_overlay = overlay
+        progress("click-target", clickPass=p)
+        try:
+            verdict = check_click_target(overlay, proposal, current, api_key,
+                                         args.model, args.base_url,
+                                         args.model_max_tokens,
+                                         args.model_timeout, args.temperature)
+        except ag_llm.LLMError as e:
+            trace.setdefault("call_errors", []).append(
+                {"stage": f"click-target {p}", "attempt": attempt,
+                 "error": str(e)})
+            passes.append({"pass": p, "overlay": overlay.name,
+                           "answer": current, "error": str(e)})
+            break
+        ag_llm.add_usage(totals, verdict["call"].get("usage"))
+        cost += float((verdict["call"].get("usage") or {}).get("cost") or 0.0)
         record_call(data_dir, trace,
-                    {"stage": "recheck", "attempt": attempt,
-                     **_call_trace(recheck["call"])})
-    trace["correction"] = {"applied": True,
-                           "score": recheck["score"] if recheck else None,
-                           "failed": recheck["failed"] if recheck else []}
-    return {"path": fixed_path, "hotspot": hotspot, "check": recheck}
+                    {"stage": f"click-target {p}", "attempt": attempt,
+                     "judged": current, "covers": verdict["covers"],
+                     "corrected": verdict["coords"],
+                     "verdict_reason": verdict["reason"],
+                     **_call_trace(verdict["call"])})
+        passes.append({"pass": p, "overlay": overlay.name,
+                       "answer": current, "covers": verdict["covers"],
+                       "corrected": verdict["coords"],
+                       "reason": verdict["reason"]})
+        nxt = verdict["coords"]
+        if nxt is None or not _coords_differ(nxt, current):
+            break
+        current = clamp_answer(nxt)
+        corrected = True
+    summary = {"passes": len(passes), "corrected": corrected,
+               "answer": current,
+               "shift": round(math.hypot(current["x"] - judged["x"],
+                                         current["y"] - judged["y"]), 4),
+               "cost": round(cost, 6), "verdicts": passes,
+               "overlay_path": last_overlay}
+    return current, summary
 
 
 def _generate_one(source: dict, args, data_dir: Path, date: str,
@@ -1662,11 +1841,12 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
                   scene_index: int = 1, scene_total: int = 1) -> tuple:
     """One source through the whole flow; returns (scene|None, failure|None).
 
-    Ticket #1381: a source yields exactly one scene, whatever the checker
-    thinks of it. The checker ranks the k candidates and can ask for one
-    correction; it never drops the scene. Only a mechanical failure (the
-    source image missing, the API refusing to produce any candidate, a
-    coordinate-less scene with no diff hotspot) is reported as failed.
+    Ticket #1436: a source yields exactly one scene, drawn as exactly one
+    image. The checker never drops the scene; it reports what is wrong and
+    drives up to two correction rounds plus a final click-target pass. Only a
+    mechanical failure (the source image missing, the API refusing to produce
+    any draw, a coordinate-less scene with no diff hotspot) is reported as
+    failed.
     """
     api_key = os.environ.get("OPENROUTER_API_KEY", "")
     source_image = ag_sources.sources_dir(data_dir) / source["image"]
@@ -1683,11 +1863,11 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
     # proposal never supplies or corrects it.
     st = scene_time(source)
     trace = {"source": source["id"], "date": date, "model": args.model,
-             "image_model": args.image_model, "candidates": [],
-             "scene_time": st,
-             "candidate_policy": {"candidates": args.candidates,
+             "image_model": args.image_model, "scene_time": st,
+             "candidate_policy": {"images_per_scene": 1,
                                   "mechanical_retries": MECHANICAL_RETRIES,
-                                  "correction_passes": 1}}
+                                  "correction_rounds": CORRECTION_ROUNDS,
+                                  "click_target_passes": CLICK_TARGET_PASSES}}
     last_error = None
     if st["year"] is None:
         # The pool gate refuses such a source; refusing here too keeps a
@@ -1715,35 +1895,45 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
             set_trace_error(data_dir, trace, last_error["reason"])
             continue
         prompt = edit_prompt(proposal)
-        candidates, failures, budget_hit = _collect_candidates(
+        draw, failures, budget_hit = _draw_scene_image(
             source_image, prompt, attempt, args, api_key, source, data_dir,
             out_dir, trace, totals, progress, previous_outputs)
-        if not candidates:
+        if draw is None:
             if failures:
                 stage, reason = "image", failures[-1]
             elif budget_hit:
                 stage, reason = "budget", "generation budget"
             else:
-                stage, reason = "image", "no candidate passed the gates"
+                stage, reason = "image", "no draw passed the gates"
             last_error = {"id": source["id"], "stage": stage,
                           "reason": reason, "attempt": attempt}
             set_trace_error(data_dir, trace, last_error["reason"])
             continue
+        final_path, hotspot = draw["path"], draw["hotspot"]
 
-        winner = _score_candidates(candidates, proposal, args, api_key,
-                                   data_dir, trace, totals, progress,
-                                   scene=st)
-        check, hotspot = winner["check"], winner["hotspot"]
-        final_path, corrected = winner["path"], False
-        if not args.no_check and check is not None and check["failed"] \
-                and check["fix_prompt"]:
-            fixed = _correction(source_image, proposal, check, attempt, args,
-                                api_key, source, data_dir, out_dir, trace,
-                                totals, progress, previous_outputs, scene=st)
-            if fixed is not None:
-                final_path, hotspot, corrected = (fixed["path"],
-                                                  fixed["hotspot"], True)
-                check = fixed["check"] if fixed["check"] is not None else check
+        # Generate -> check; a clean check ends the chain right there (Evan
+        # 2026-09-13). Otherwise the checker's repair instruction drives a
+        # fix-edit, at most CORRECTION_ROUNDS rounds, each followed by a
+        # check; the check after the last round is a record, never a trigger.
+        check, rounds_used = None, 0
+        if not args.no_check:
+            check = _check_round(final_path, proposal, st, 0, attempt, args,
+                                 api_key, data_dir, trace, totals, progress)
+            while (check is not None and check["failed"]
+                   and check["fix_prompt"]
+                   and rounds_used < CORRECTION_ROUNDS):
+                rounds_used += 1
+                fixed = _fix_edit(final_path, proposal, check, rounds_used,
+                                  attempt, args, api_key, source, data_dir,
+                                  out_dir, trace, totals, progress,
+                                  previous_outputs)
+                if fixed is None:
+                    rounds_used -= 1
+                    break
+                final_path, hotspot = fixed["path"], fixed["hotspot"]
+                check = _check_round(final_path, proposal, st, rounds_used,
+                                     attempt, args, api_key, data_dir, trace,
+                                     totals, progress)
 
         progress("locating")
         loc = None
@@ -1780,25 +1970,25 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
         else:
             answer, conflict = finalize_answer(coords, hotspot)
 
-        check_summary = {
-            "skipped": bool(args.no_check) or winner["check"] is None,
-            "score": winner["score"], "failed": winner["failed"],
-            "reason": winner["reason"], "corrected": corrected,
-            "scoreAfterCorrection": check["score"] if corrected and check
-            else None,
-            "failedAfterCorrection": check["failed"] if corrected and check
-            else None,
-        }
-        candidate_summary = [
-            {"candidate": c["index"], "score": c.get("score"),
-             "failed": c.get("failed") or [],
-             "rejected": c["record"].get("rejected")}
-            for c in candidates]
-        candidate_summary += [
-            {"candidate": r["candidate"], "rejected": r["rejected"]}
-            for r in trace["candidates"] if r.get("rejected")]
+        # Click-target quality pass (ticket #1436): the rendered answer goes
+        # to the checker model once, a corrected answer is verified once.
+        answer, click = _click_target_passes(
+            final_path, proposal, answer, attempt, args, api_key, data_dir,
+            out_dir, trace, totals, progress)
+        if conflict and click["corrected"]:
+            # The pass moved the answer, so the old hotspot disagreement no
+            # longer describes it.
+            conflict = None
 
-        entry = build_entry(source, proposal, answer, date, scene=st)
+        check_summary = {
+            "skipped": bool(args.no_check) or check is None,
+            "score": check["score"] if check else None,
+            "failed": check["failed"] if check else [],
+            "reason": check["reason"] if check else "",
+            "rounds": rounds_used,
+        }
+        entry = build_entry(source, proposal, answer, date, scene=st,
+                            checker=check_summary)
         errs = ag_queue.validate_entry(entry)
         if errs:
             last_error = {"id": source["id"], "stage": "entry",
@@ -1814,6 +2004,12 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
                           "reason": f"queue add: {e}", "attempt": attempt}
             break
         ag_sources.mark_used(data_dir, [source["id"]], True)
+        overlay = _save_click_target_overlay(data_dir, entry["id"],
+                                             click.get("overlay_path"))
+        if overlay:
+            click["overlay"] = overlay
+        click.pop("overlay_path", None)
+        trace["click_target"] = click
         write_trace(data_dir, entry["id"], trace)
         scene_report = {
             "scene": entry["id"], "source": source["id"],
@@ -1822,15 +2018,13 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
             "scene_time": st,
             "attempt": attempt, "answer": answer,
             "coord_conflict": conflict,
-            "winner": winner["index"] if not corrected else "corrected",
-            "candidate_count": len(candidates),
-            "candidates": candidate_summary,
-            "mechanical_failures": failures,
             "checker": check_summary,
+            "correction_rounds": rounds_used,
+            "click_target": click,
+            "mechanical_failures": failures,
         }
         return {"report": scene_report, "label": entry["anomaly"]}, None
     return None, last_error or {"id": source["id"], "reason": "no attempt ran"}
-
 
 def _attempt_proposal(source_image: Path, source: dict, recent: list, args,
                       api_key: str):
@@ -1971,20 +2165,17 @@ def parse_args(argv=None):
     p.add_argument("--image-size", default=DEFAULT_IMAGE_SIZE)
     p.add_argument("--image-timeout", type=int, default=180)
     p.add_argument("--no-check", action="store_true",
-                   help="skip the checker call (and its correction edit, "
-                        "ticket #1381)")
+                   help="skip the checker calls (and the correction edits, "
+                        "ticket #1436)")
     p.add_argument("--no-preflight", action="store_true",
                    help="skip the one-call vision preflight")
-    p.add_argument("--candidates", type=int, default=DEFAULT_CANDIDATES,
-                   help=f"edited candidates per source; the checker scores "
-                        f"them and the best ships (default "
-                        f"{DEFAULT_CANDIDATES})")
     p.add_argument("--max-attempts", type=int, default=2,
                    help="proposals per source, each a fresh generation "
                         "(run-guard #1122; default 2)")
     p.add_argument("--max-generations", type=int, default=0,
                    help="hard cap on image calls per run "
-                        "(0 = count*(candidates+retries+1); ticket #1381)")
+                        "(0 = count*(1+retries+correction rounds); "
+                        "ticket #1436)")
     p.add_argument("--out-dir", default=None,
                    help="working dir for attempts (default: temp dir)")
     p.add_argument("--report", default=None, help="write the JSON report here")
@@ -2002,7 +2193,7 @@ def parse_args(argv=None):
                    help="category pages per top-up")
     args = p.parse_args(argv)
     if not args.max_generations:
-        per_scene = (max(1, args.candidates) + MECHANICAL_RETRIES + 1)
+        per_scene = 1 + MECHANICAL_RETRIES + CORRECTION_ROUNDS
         args.max_generations = max(1, args.count * per_scene)
     return args
 

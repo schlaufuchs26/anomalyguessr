@@ -11,6 +11,16 @@
  * (documented in wiki/entries/anomalyguessr-queue.md) avoids lost updates.
  */
 
+/** The last checker verdict the generator stored with a scene (#1436). */
+export interface SceneChecker {
+  /** Requirements met, 0..7 (computed from the failed numbers). */
+  score: number;
+  /** Numbers (1..7) of the requirements the shipped image failed. */
+  failed: number[];
+  /** The checker's one-line reason for that verdict. */
+  reason: string;
+}
+
 /** One queue scene as stored in state.json (a manifest scene minus image paths, plus added/shown). */
 export interface SceneEntry {
   id: string;
@@ -37,6 +47,12 @@ export interface SceneEntry {
    * (never rendered into a manifest).
    */
   hints?: string[];
+  /**
+   * Last checker verdict (ticket #1436): the gallery card and lightbox show
+   * it without opening an image. Absent on scenes generated without the
+   * checker, and never written into the public manifest.
+   */
+  checker?: SceneChecker;
   added: string;
   shown: string | null;
   explanation?: string;

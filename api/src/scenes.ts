@@ -10,6 +10,7 @@ import {
   SCENE_HANDLE_RE,
   SCENE_ID_RE,
   type SceneEntry,
+  type SceneChecker,
   type StateFile,
 } from "./types.ts";
 
@@ -39,6 +40,8 @@ export interface ApiScene {
    *  the "Generation trace" panel only when this is true. The trace body
    *  itself is fetched on open from /traces/{id}, never inlined here. */
   hasTrace: boolean;
+  /** Last checker verdict (ticket #1436); absent on older scenes. */
+  checker?: SceneChecker;
   images: { edited: string; original: string; audit?: string };
 }
 
@@ -192,6 +195,7 @@ export function sceneToApi(
   };
   if (e.shortId !== undefined) out.shortId = e.shortId;
   if (e.source !== undefined) out.source = e.source;
+  if (e.checker !== undefined) out.checker = e.checker;
   if (rejectedAt !== undefined) out.rejectedAt = rejectedAt;
   return out;
 }

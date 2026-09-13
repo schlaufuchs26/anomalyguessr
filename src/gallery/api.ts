@@ -7,6 +7,21 @@ export interface TDComment {
   text: string;
   createdAt: string;
 }
+/** The last checker verdict stored with a scene (ticket #1436): requirements
+ *  met (0..7), the failed requirement numbers and the checker's reason. */
+export interface SceneChecker {
+  score: number;
+  failed: number[];
+  reason: string;
+}
+/** "checker 5/8" plus the failed numbers, e.g. "checker 5/8 · failed 3, 7".
+ *  Eight is the checker's requirement count (ag_generate.REQUIREMENTS). */
+export function checkerLabel(checker: SceneChecker): string {
+  const failed = checker.failed.length
+    ? ` · failed ${checker.failed.join(", ")}`
+    : "";
+  return `checker ${checker.score}/8${failed}`;
+}
 /** Answer circle in normalized image coordinates (0..1, top-left origin):
  *  x/y center, r radius. The game scores a click against exactly this
  *  circle (scoring.ts isHit); the gallery draws it (ticket #1209). */
@@ -46,6 +61,9 @@ export interface TDScene {
    *  offers the collapsible "Generation trace" panel. Scenes generated
    *  before the trace existed carry false and show "no trace recorded". */
   hasTrace: boolean;
+  /** Last checker verdict (ticket #1436); absent on scenes generated without
+   *  the checker. The card and the lightbox show it before any image opens. */
+  checker?: SceneChecker;
   images: TDSceneImages;
 }
 export interface TDList {
@@ -143,10 +161,15 @@ export interface TraceUsage {
 
 /** One pipeline step (LLM call or image edit) in the scene's trace. */
 export interface TraceStep {
-  /** proposal | edit | coordinates | check | fix-edit | recheck. */
+  /** proposal | edit r0 | check r0 | fix-edit r1 | check r1 | coordinates |
+   *  click-target 1 | ... (ticket #1436 names the edit/check rounds). */
   stage: string;
   /** Which attempt of the scene produced this step (1-based). */
   attempt?: number;
+  /** Round of the chain: 0 = initial draw, 1/2 = correction rounds. */
+  round?: number;
+  /** Which mechanical retry of the round drew this image (1-based). */
+  draw?: number;
   model?: string;
   prompt?: string;
   answer?: string;
@@ -162,6 +185,21 @@ export interface TraceStep {
   error?: string;
   /** True on the second coordinates call after a correction edit. */
   after_fix?: boolean;
+  /** Click-target steps: the answer area that was judged. */
+  judged?: { x: number; y: number; r: number };
+  /** Click-target steps: the model's corrected numbers, null when none. */
+  corrected?: { x: number; y: number; r: number } | null;
+  /** Click-target steps: whether the drawn area covered the anomaly. */
+  covers?: boolean | null;
+  /** Click-target steps: the model's one-line reason. */
+  verdict_reason?: string;
+  /** Checker stages: requirements met (0..7) and the failed numbers. */
+  score?: number | null;
+  failed?: number[];
+  /** Mechanical-gate rejection of a draw (replaces the answer). */
+  rejected?: string;
+  /** Image-edit steps: the seed used for the draw. */
+  seed?: number;
 }
 
 export interface SceneTrace {

@@ -70,8 +70,15 @@ SOURCE_KEYS = (
 ENTRY_KEYS = (
     "id", "title", "place", "year", "credit", "sourceUrl", "source",
     "anomaly", "family", "explanation", "references", "description",
-    "answer", "shortId",
+    "answer", "shortId", "checker",
 )
+
+# The last checker verdict the generator stored with a scene (ticket #1436):
+# how many of the requirements the shipped image met, which numbers it failed
+# and the checker's one-line reason. Dev-side curation metadata; the public
+# manifest strips it. Mirrors ag_generate.REQUIREMENTS_TOTAL (8 since #1403
+# added "Impossible at the scene's time").
+CHECKER_TOTAL = 8
 
 # ── Short scene handles (ticket #1413) ─────────────────────────────────────
 #
@@ -381,6 +388,26 @@ def validate_entry(e) -> list:
             v = src.get(k)
             if not isinstance(v, str) or not v.strip():
                 errs.append(f"source.{k} must be a non-empty string")
+    # The last checker verdict (ticket #1436) is optional (a run without the
+    # checker stores none), but a present one must be well formed: the score
+    # is 0..7, the failed numbers are 1..7 and the reason is a string.
+    chk = e.get("checker")
+    if chk is not None:
+        if not _is_record(chk):
+            errs.append("checker must be an object when present")
+        else:
+            score = chk.get("score")
+            if not isinstance(score, int) or isinstance(score, bool) or \
+                    not (0 <= score <= CHECKER_TOTAL):
+                errs.append(f"checker.score must be an int in 0..{CHECKER_TOTAL}")
+            failed = chk.get("failed")
+            if not isinstance(failed, list) or any(
+                    not isinstance(n, int) or isinstance(n, bool)
+                    or not (1 <= n <= CHECKER_TOTAL) for n in failed):
+                errs.append(f"checker.failed must be a list of ints in "
+                            f"1..{CHECKER_TOTAL}")
+            if not isinstance(chk.get("reason"), str):
+                errs.append("checker.reason must be a string")
     # Raw source metadata in the caption is what ticket #1402 fixed; a scene
     # with an upload stamp, an unbalanced quote, coordinates as its place or
     # a second year must not reach the queue at all.
@@ -726,6 +753,9 @@ def write_manifest(repo: Path, date: str, scenes: list) -> None:
         # Hints were removed in ticket #1407; stored scenes may still carry
         # the field, and the manifest must not.
         out.pop("hints", None)
+        # The last checker verdict (ticket #1436) is dev-side curation
+        # metadata for the gallery; the public manifest never carries it.
+        out.pop("checker", None)
         # The short handle (ticket #1413) is an internal curation alias the
         # gallery reads from the API list. The public Pages manifest does not
         # need it, so it is stripped from the shipped set.

@@ -19,6 +19,7 @@ import { SceneHandle } from "./SceneHandle";
 /** Human labels for the pipeline's step names (ticket #1372's flow). */
 const STAGE_LABELS: Record<string, string> = {
   proposal: "Anomaly proposal",
+  // Legacy pre-#1436 stage names still readable on old traces.
   edit: "Image edit",
   coordinates: "Locate click target",
   check: "Quality check",
@@ -26,8 +27,22 @@ const STAGE_LABELS: Record<string, string> = {
   recheck: "Re-check after correction",
 };
 
+const ROUND_STAGES: Record<string, string> = {
+  edit: "Image edit",
+  "fix-edit": "Correction edit",
+  check: "Quality check",
+};
+
+/** Stage label incl. the round (#1436: "edit r0", "check r1", ...). */
 function stageLabel(step: TraceStep): string {
-  return STAGE_LABELS[step.stage] ?? step.stage;
+  const stage = step.stage;
+  if (STAGE_LABELS[stage]) return STAGE_LABELS[stage];
+  const round = /^(edit|fix-edit|check) r(\d)$/.exec(stage);
+  const roundLabel = round?.[1] ? ROUND_STAGES[round[1]] : undefined;
+  if (roundLabel && round?.[2]) return `${roundLabel} (round ${round[2]})`;
+  const click = /^click-target (\d)$/.exec(stage);
+  if (click) return `Click-target check ${click[1]}`;
+  return stage;
 }
 
 function StepMeta({ step }: { step: TraceStep }) {

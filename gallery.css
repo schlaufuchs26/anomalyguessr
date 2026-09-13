@@ -356,6 +356,18 @@ body {
   color: var(--text-secondary);
 }
 
+/* Last checker verdict (#1436): visible on the card and in the lightbox
+   before any image is opened. A clean 7/7 reads calmer than a flagged one. */
+.td-chip-checker {
+  background: rgba(230, 180, 80, 0.14);
+  color: #e6b450;
+}
+
+.td-chip-checker.td-checker-clean {
+  background: rgba(110, 200, 140, 0.14);
+  color: #6ec88c;
+}
+
 .td-card-actions {
   display: flex;
   gap: 6px;

@@ -129,9 +129,10 @@ export interface GenerateStatus {
   scene?: string;
   sceneIndex?: number;
   scenesTotal?: number;
-  /** Candidate slot (1-based) and the k the run uses. */
-  candidate?: number;
-  candidates?: number;
+  /** Round of the current scene (#1436): 0 = initial draw, 1/2 = correction. */
+  round?: number;
+  /** Mechanical retry of the current round being drawn, 1-based. */
+  draw?: number;
   /** Running cost in USD as the generator reports it. */
   cost?: number;
   error?: string;
@@ -161,8 +162,8 @@ function parseGenerateStatus(raw: unknown): GenerateStatus {
     ...(typeof r.scene === "string" && r.scene ? { scene: r.scene } : {}),
     sceneIndex: num(r.sceneIndex),
     scenesTotal: num(r.scenesTotal),
-    candidate: num(r.candidate),
-    candidates: num(r.candidates),
+    round: num(r.round),
+    draw: num(r.draw),
     cost: num(r.cost),
     ...(typeof r.error === "string" && r.error ? { error: r.error } : {}),
   };
