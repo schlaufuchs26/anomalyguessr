@@ -129,11 +129,10 @@ def stub_check(failed=None, reason="fine", fix_prompt=""):
         "call": call(prompt="check-prompt")}
 
 
-def stub_click_target(covers=True, coords=None, reason="covers it",
-                      cost=0.001):
-    """A click-target verdict stub (#1436): covers, no correction by default."""
+def stub_click_target(box=None, reason="covers it", cost=0.001):
+    """A click-target box stub (#1445): no box, so the answer is untouched."""
     return lambda *a, **kw: {
-        "covers": covers, "coords": coords, "reason": reason,
+        "box": box, "reason": reason,
         "call": call(prompt="click-target-prompt", cost=cost)}
 
 
@@ -402,6 +401,58 @@ class CoordinateTest(unittest.TestCase):
             {"cx": 0.51, "cy": 0.61})
         self.assertIsNone(conflict)
         self.assertEqual(answer["r"], 0.1)
+
+    def test_valid_box_rejects_degenerate_and_frame_filling_boxes(self):
+        self.assertIsNotNone(g.valid_box({"x1": 0.2, "y1": 0.3,
+                                          "x2": 0.4, "y2": 0.5}))
+        # a single point or an inverted box is a mis-parse, not an object
+        self.assertIsNone(g.valid_box({"x1": 0.2, "y1": 0.3,
+                                       "x2": 0.2, "y2": 0.5}))
+        self.assertIsNone(g.valid_box({"x1": 0.4, "y1": 0.3,
+                                       "x2": 0.2, "y2": 0.5}))
+        self.assertIsNone(g.valid_box({"x1": -0.1, "y1": 0.3,
+                                       "x2": 0.4, "y2": 0.5}))
+        # a box covering almost the whole frame did not isolate the anomaly
+        self.assertIsNone(g.valid_box({"x1": 0.0, "y1": 0.0,
+                                       "x2": 0.99, "y2": 0.99}))
+        self.assertIsNone(g.valid_box(None))
+
+    def test_answer_covers_box_tests_every_corner(self):
+        answer = {"x": 0.5, "y": 0.5, "r": 0.1}
+        self.assertTrue(g.answer_covers_box(
+            answer, {"x1": 0.48, "y1": 0.48, "x2": 0.52, "y2": 0.52}))
+        # a corner just outside the ellipse is not covered
+        self.assertFalse(g.answer_covers_box(
+            answer, {"x1": 0.48, "y1": 0.48, "x2": 0.62, "y2": 0.52}))
+
+    def test_box_answer_follows_the_half_diagonal_rule(self):
+        answer = g.box_answer({"x1": 0.4, "y1": 0.4, "x2": 0.6, "y2": 0.5})
+        self.assertEqual(answer["x"], 0.5)
+        self.assertEqual(answer["y"], 0.45)
+        # half-diagonal (0.5*sqrt(0.2^2+0.1^2)) times the shared margin
+        self.assertAlmostEqual(
+            answer["r"], 0.5 * math.hypot(0.2, 0.1) * ag_verify.BOX_COVER_MARGIN,
+            places=4)
+        self.assertTrue(g.answer_covers_box(
+            answer, {"x1": 0.4, "y1": 0.4, "x2": 0.6, "y2": 0.5}))
+
+    def test_box_answer_floors_a_person_figure(self):
+        answer = g.box_answer({"x1": 0.49, "y1": 0.4, "x2": 0.51, "y2": 0.45,
+                               "figure": True})
+        self.assertGreaterEqual(answer["r"], ag_verify.PERSON_MIN_RADIUS)
+
+    def test_covering_answer_never_drops_the_old_area(self):
+        a = {"x": 0.2, "y": 0.2, "r": 0.05, "figure": False}
+        b = {"x": 0.6, "y": 0.6, "r": 0.05, "figure": False}
+        u = g.covering_answer(a, b)
+        # both disks fit inside the union
+        self.assertLessEqual(math.hypot(u["x"] - a["x"], u["y"] - a["y"])
+                             + a["r"], u["r"] + 1e-9)
+        self.assertLessEqual(math.hypot(u["x"] - b["x"], u["y"] - b["y"])
+                             + b["r"], u["r"] + 1e-9)
+        # a containing circle wins outright, no growth
+        self.assertEqual(g.covering_answer(
+            {"x": 0.5, "y": 0.5, "r": 0.2}, b), {"x": 0.5, "y": 0.5, "r": 0.2})
 
 
 # ── Deterministic gate ─────────────────────────────────────────────────────
@@ -767,8 +818,8 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
         self.assertIsNone(failed)
         self.assertIn("scene", scene["report"])
         self.assertEqual(totals["image_calls"], 1)
-        # proposal + check + coordinates + click-target
-        self.assertEqual(totals["cost"], round(0.001 * 4, 12))
+        # proposal + check + coordinates (click-target skipped)
+        self.assertEqual(totals["cost"], round(0.001 * 3, 12))
         state = ag_queue.load_state(self.data_dir)
         self.assertEqual(len(state["scenes"]), 1)
         entry = next(iter(state["scenes"].values()))
@@ -780,8 +831,7 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
         data = self.trace_of(scene)
         # #1436: one draw, one check, one click-target pass.
         self.assertEqual([c["stage"] for c in data["calls"]],
-                         ["proposal", "edit r0", "check r0", "coordinates",
-                          "click-target 1"])
+                         ["proposal", "edit r0", "check r0", "coordinates"])
         proposal_call = data["calls"][0]
         self.assertEqual(proposal_call["prompt"], "proposal-prompt")
         self.assertEqual(proposal_call["answer"], "A")
@@ -876,7 +926,7 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
 
         def check(*a, **kw):
             checks["n"] += 1
-            return {"ok": False, "score": 4, "failed": [4, 5],
+            return {"ok": False, "score": 4, "failed": [4, 7],
                     "reason": "tone off", "fix_prompt": "match the tone",
                     "call": call()}
 
@@ -958,7 +1008,7 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
             return None, {"cx": 0.5, "cy": 0.6}
 
         g.candidate_gate = gate
-        scene, failed, totals = self.run_one()
+        scene, failed, totals = self.run_one(check=stub_check(failed=[7]))
         self.assertIsNotNone(scene)
         self.assertEqual(calls["n"], 2)   # 1 broken + 1 shipped draw
         self.assertEqual(totals["image_calls"], 2)
@@ -1131,54 +1181,65 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
         self.assertIsNotNone(scene["report"]["coord_conflict"])
 
     def test_click_target_pass_corrects_and_verifies(self):
-        judged = []
+        # #1445: the model localizes, the pipeline compares. The first box
+        # falls outside the drawn ellipse, so the answer grows; the second
+        # box sits inside the corrected area and ends the chain.
+        boxes = [
+            {"x1": 0.62, "y1": 0.42, "x2": 0.68, "y2": 0.48},
+            {"x1": 0.56, "y1": 0.52, "x2": 0.60, "y2": 0.56},
+        ]
+        calls = {"n": 0}
 
-        def click(image, proposal_, answer, *a, **kw):
-            judged.append(dict(answer))
-            if len(judged) == 1:
-                return {"covers": False, "reason": "misses the left half",
-                        "coords": {"x": 0.4, "y": 0.55, "r": 0.1,
-                                   "figure": False},
-                        "call": call()}
-            return {"covers": True, "reason": "now covers it",
-                    "coords": None, "call": call()}
+        def click(image, proposal_, *a, **kw):
+            box = boxes[min(calls["n"], 1)]
+            calls["n"] += 1
+            return {"box": box, "reason": "where it is", "call": call()}
 
-        scene, failed, _ = self.run_one(click_target=click)
+        scene, failed, _ = self.run_one(
+            check=stub_check(failed=[7]), click_target=click)
         self.assertIsNone(failed)
         report = scene["report"]
         self.assertEqual(report["click_target"]["passes"], 2)
         self.assertTrue(report["click_target"]["corrected"])
-        self.assertAlmostEqual(report["click_target"]["shift"],
-                               math.hypot(0.1, 0.05), places=4)
-        # the corrected answer is the scene's answer
-        self.assertEqual(report["answer"]["x"], 0.4)
-        self.assertEqual(report["answer"]["r"], 0.1)
-        # pass 2 judged the corrected area
-        self.assertEqual(judged[1]["x"], 0.4)
+        self.assertGreater(report["click_target"]["shift"], 0.0)
+        answer = report["answer"]
+        # the corrected circle still contains the original one and now the box
+        self.assertGreater(answer["r"], 0.08)
+        self.assertLessEqual(answer["r"], ag_verify.MAX_ANSWER_RADIUS)
+        self.assertLessEqual(
+            math.hypot(answer["x"] - 0.5, answer["y"] - 0.6) + 0.08,
+            answer["r"] + 1e-3)
+        self.assertTrue(g.answer_covers_box(answer, boxes[0]))
+        # pass 2 judged the corrected area, not the original one
         trace = self.trace_of(scene)
-        stages = [c["stage"] for c in trace["calls"]]
-        self.assertIn("click-target 1", stages)
-        self.assertIn("click-target 2", stages)
+        steps = [c for c in trace["calls"]
+                 if str(c["stage"]).startswith("click-target")]
+        self.assertEqual(len(steps), 2)
+        self.assertEqual(steps[0]["judged"]["r"], 0.08)
+        self.assertEqual(steps[1]["judged"], answer)
+        self.assertTrue(steps[1]["covers"])
         entry = ag_queue.load_state(self.data_dir)["scenes"][
             report["scene"]]
-        self.assertEqual(entry["answer"]["x"], 0.4)
+        self.assertEqual(entry["answer"], answer)
         # the last rendered overlay is kept next to the trace
         overlay = self.data_dir / "traces" / (
             f"{report['scene']}-click-target.png")
         self.assertTrue(overlay.exists())
         self.assertEqual(trace["click_target"]["overlay"], overlay.name)
 
-    def test_click_target_pass_stops_after_an_echoed_verdict(self):
-        def click(image, proposal_, answer, *a, **kw):
-            # echoing the drawn numbers is agreement, not a correction
-            return {"covers": True, "reason": "covers",
-                    "coords": dict(answer), "call": call()}
+    def test_click_target_pass_stops_when_the_box_is_already_covered(self):
+        def click(image, proposal_, *a, **kw):
+            # a box inside the drawn ellipse: nothing to correct
+            return {"box": {"x1": 0.48, "y1": 0.58, "x2": 0.52, "y2": 0.62},
+                    "reason": "inside the area", "call": call()}
 
-        scene, _, _ = self.run_one(click_target=click)
+        scene, _, _ = self.run_one(
+            check=stub_check(failed=[7]), click_target=click)
         report = scene["report"]
         self.assertEqual(report["click_target"]["passes"], 1)
         self.assertFalse(report["click_target"]["corrected"])
         self.assertEqual(report["click_target"]["shift"], 0.0)
+        self.assertEqual(report["answer"]["r"], 0.08)
 
     def test_budget_exhausted_before_the_first_edit(self):
         self.write_source()

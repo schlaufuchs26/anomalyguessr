@@ -187,9 +187,11 @@ export interface TraceStep {
   after_fix?: boolean;
   /** Click-target steps: the answer area that was judged. */
   judged?: { x: number; y: number; r: number };
-  /** Click-target steps: the model's corrected numbers, null when none. */
+  /** Click-target steps: the anomaly box the model returned (#1445). */
+  box?: { x1: number; y1: number; x2: number; y2: number } | null;
+  /** Click-target steps: the corrected answer, null when none. */
   corrected?: { x: number; y: number; r: number } | null;
-  /** Click-target steps: whether the drawn area covered the anomaly. */
+  /** Click-target steps: whether the drawn area covered the anomaly box. */
   covers?: boolean | null;
   /** Click-target steps: the model's one-line reason. */
   verdict_reason?: string;

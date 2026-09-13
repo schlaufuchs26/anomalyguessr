@@ -51,12 +51,15 @@ Per scene:
    the click target (x/y/r, figure flag), with the proposal and the edit
    prompt as context. The answer is widened when the deterministic diff
    hotspot falls outside it, so a wildly wrong circle cannot ship alone.
-6. **Click-target check** (at most `CLICK_TARGET_PASSES` = 2): the answer
+6. **Click-target check** (at most `CLICK_TARGET_PASSES` = 2, only when the
+   checker failed requirement 7, Identifiable; ticket #1445): the answer
    circle plus a centre crosshair is drawn onto the edited image, and the
-   checker model is asked whether the circle fully encompasses the added
-   element. A corrected answer is rendered again and asked once more; the
-   corrected coordinates are the scene's answer. The last rendered overlay
-   is kept next to the trace so moderation can see what was judged.
+   checker model returns the anomaly's bounding box in that image. The
+   pipeline compares the box against the drawn ellipse deterministically; a
+   corner outside it grows the answer to the smallest circle covering both,
+   and a second rendered pass verifies the result. The last rendered overlay
+   is kept next to the trace so moderation can see what was judged. A pass
+   that never ran is recorded as `skipped` in the summary and the trace.
 
 One source yields exactly one scene, drawn as exactly one image: `--count 5`
 lands 5 scenes as long as the mechanical steps (image call, download,
@@ -176,10 +179,15 @@ SCENE_ID_RE = re.compile(r"[^a-z0-9]+")
 # replaced by a new draw instead of shrinking the planned scene count.
 MECHANICAL_RETRIES = 2
 CORRECTION_ROUNDS = 2
-# The final click-target quality pass: render the answer circle onto the
-# image, ask the checker model whether it covers the anomaly, apply a
-# corrected answer and verify it once (ticket #1436).
+# The click-target pass only runs when the checker failed requirement 7
+# (Identifiable; index 6 in REQUIREMENTS), the one finding that actually
+# questions whether the answer area can be found (ticket #1445). On 37
+# stored scenes a per-scene pass corrected nothing while every drawn answer
+# was consistent with the model's own localization, so the bare call was
+# dropped. When it does run it is box-based: the model localizes the
+# element, the pipeline grows the drawn area deterministically.
 CLICK_TARGET_PASSES = 2
+CLICK_TARGET_REQUIREMENT = 7
 # The overlay that is handed to the model: a stroke this wide relative to the
 # image height is unambiguous but still leaves the photo readable.
 CLICK_TARGET_STROKE_FRACTION = 0.004
@@ -472,28 +480,30 @@ def coord_prompt(proposal: dict, prompt: str = "") -> str:
     return "\n".join(lines)
 
 
-def click_target_prompt(proposal: dict, answer: dict) -> str:
-    """The click-target check's prompt (ticket #1436): is the circle right?
+def click_target_prompt(proposal: dict) -> str:
+    """The click-target check's prompt (tickets #1436, #1445): where is it?
 
-    The image handed in is the shipped scene with the answer circle and its
-    centre crosshair drawn on it, so the model judges the same geometry the
-    game scores against.
+    The image handed in is the shipped scene with the candidate answer drawn
+    on it. The model only *localizes* the element: it returns a bounding box,
+    the pipeline does the geometry. Ticket #1445: the earlier wording asked
+    the model to repeat or correct the drawn x/y/r and it echoed the numbers
+    (0 of 5 corrections), while a box is a task it can actually answer.
     """
     return "\n".join([
         "You are checking the answer area of a spot-the-anachronism game.",
         "The image you see is the scene with the candidate answer drawn on "
-        "it: an ellipse and a small crosshair at its centre.",
+        "it: an ellipse outlines the answer area and a small crosshair marks "
+        "its centre.",
         f"The element that does not belong to the photograph's time is: "
         f"{proposal['anomaly']} ({proposal['placement']}).",
-        f"The drawn area is x={answer['x']:.3f}, y={answer['y']:.3f}, "
-        f"r={answer['r']:.3f} (normalized: x across the width, y down the "
-        "height, r the radius as a fraction of the image height).",
-        "Does the drawn area fully encompass that whole element?",
-        'Answer as strict JSON only: {"covers": true|false, "x": <0..1>, '
-        '"y": <0..1>, "r": <0..1>, "figure": true|false, "reason": "<one '
-        'line>"}. Repeat the drawn numbers when they cover the whole element; '
-        "return corrected numbers when they do not (centre and radius as "
-        "above; for a person head to feet, shoes included).",
+        "Return the bounding box of that element as it appears in THIS "
+        "image, generous enough to include all of it (for a person: head to "
+        "feet, shoes included).",
+        'Answer as strict JSON only: {"x1": <0..1>, "y1": <0..1>, '
+        '"x2": <0..1>, "y2": <0..1>, "figure": true|false, "reason": "<one '
+        'line>"}, where x1,y1 is the top-left corner and x2,y2 the '
+        "bottom-right corner of the box (normalized: x across the width, y "
+        "down the height).",
     ])
 
 
@@ -715,22 +725,21 @@ def locate_anomaly(image: Path, proposal: dict, prompt: str, api_key: str,
     return {"coords": coords, "call": result}
 
 
-def check_click_target(image: Path, proposal: dict, answer: dict, api_key: str,
+def check_click_target(image: Path, proposal: dict, api_key: str,
                        model: str, base_url: str, max_tokens: int, timeout: int,
                        temperature: float | None) -> dict:
-    """The click-target check (ticket #1436): does the drawn area cover it?
+    """The click-target check (tickets #1436, #1445): where is the element?
 
-    ``image`` is the rendered overlay. ``coords`` is the model's corrected
-    answer when it returned usable numbers, else None; ``covers`` is its
-    boolean verdict, None when the answer was not a boolean.
+    ``image`` is the rendered overlay. ``box`` is the anomaly's bounding box
+    when the model returned usable numbers, else None; ``reason`` is its
+    one-line note. The coverage decision is deterministic and lives in the
+    caller (ticket #1445).
     """
-    prompt = click_target_prompt(proposal, answer)
+    prompt = click_target_prompt(proposal)
     result = _run_call(prompt, image, api_key, model, base_url, max_tokens,
                        timeout, temperature)
     parsed = result["parsed"] or {}
-    covers = parsed.get("covers")
-    return {"covers": covers if isinstance(covers, bool) else None,
-            "coords": valid_coords(parsed),
+    return {"box": valid_box(parsed),
             "reason": ag_llm.clean_text(parsed.get("reason"), 300),
             "call": result}
 
@@ -826,6 +835,83 @@ def valid_coords(raw) -> dict | None:
     if not (0.0 < r <= 0.5):
         return None
     return {"x": x, "y": y, "r": r, "figure": bool(raw.get("figure"))}
+
+
+def valid_box(raw) -> dict | None:
+    """A usable anomaly bounding box from the click-target call (ticket #1445).
+
+    Normalized corners with x1<x2 and y1<y2, each within the frame and
+    between the localization gates ag_verify uses elsewhere (a single point
+    or a near-full-frame box is a mis-parse, not an object). Anything
+    malformed is None, which leaves the drawn answer untouched.
+    """
+    if not isinstance(raw, dict):
+        return None
+    try:
+        x1, y1 = float(raw["x1"]), float(raw["y1"])
+        x2, y2 = float(raw["x2"]), float(raw["y2"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if not all(0.0 <= v <= 1.0 for v in (x1, y1, x2, y2)):
+        return None
+    w, h = x2 - x1, y2 - y1
+    if w < ag_verify.MIN_BOX_EXTENT or h < ag_verify.MIN_BOX_EXTENT:
+        return None
+    if max(w, h) > ag_verify.MAX_BOX_EXTENT:
+        return None
+    return {"x1": x1, "y1": y1, "x2": x2, "y2": y2,
+            "figure": bool(raw.get("figure"))}
+
+
+def box_answer(box: dict) -> dict:
+    """The answer circle covering an anomaly box (ticket #1445).
+
+    Reuses the coordinate path's half-diagonal rule
+    (``ag_verify.box_to_answer``), so a box-based correction has the same
+    shape as every other answer.
+    """
+    answer = ag_verify.box_to_answer(
+        [box["x1"], box["y1"], box["x2"], box["y2"]],
+        person=bool(box.get("figure")))
+    answer["figure"] = bool(box.get("figure"))
+    return answer
+
+
+def answer_covers_box(answer: dict, box: dict) -> bool:
+    """Whether the drawn ellipse contains every corner of the box (#1445).
+
+    The answer is a circle in normalized coordinates (r is a fraction of the
+    image height), so the test is Euclidean there; a corner just outside the
+    ellipse counts as not covered.
+    """
+    r = float(answer["r"])
+    if r <= 0:
+        return False
+    return all(
+        ((x - answer["x"]) / r) ** 2 + ((y - answer["y"]) / r) ** 2 <= 1.0
+        for x in (box["x1"], box["x2"]) for y in (box["y1"], box["y2"]))
+
+
+def covering_answer(a: dict, b: dict) -> dict:
+    """Smallest answer circle containing both a and b (ticket #1445).
+
+    A correction never drops the region the coordinate call already claimed;
+    it only adds the box's area. When neither circle contains the other, the
+    minimal covering circle sits on the line between the two centres.
+    """
+    dx, dy = b["x"] - a["x"], b["y"] - a["y"]
+    d = math.hypot(dx, dy)
+    figure = bool(a.get("figure") or b.get("figure"))
+    if d + b["r"] <= a["r"]:
+        return dict(a)
+    if d + a["r"] <= b["r"]:
+        return dict(b)
+    r = (d + a["r"] + b["r"]) / 2
+    if d == 0:
+        return {"x": a["x"], "y": a["y"], "r": r, "figure": figure}
+    t = (r - a["r"]) / d
+    return {"x": a["x"] + dx * t, "y": a["y"] + dy * t, "r": r,
+            "figure": figure}
 
 
 def clamp_answer(coords: dict) -> dict:
@@ -2051,8 +2137,8 @@ def _fix_edit(current: Path, proposal: dict, check: dict, round_no: int,
 def _coords_differ(a: dict, b: dict, eps: float = 0.005) -> bool:
     """Whether a corrected answer differs from the judged one (ticket #1436).
 
-    Models often echo the numbers they were shown; an echoed answer is
-    agreement, not a correction, and must not spend a second pass.
+    A correction below the tolerance is agreement, not a change, and must
+    not spend a second pass.
     """
     return (abs(a["x"] - b["x"]) > eps or abs(a["y"] - b["y"]) > eps
             or abs(a["r"] - b["r"]) > eps)
@@ -2080,13 +2166,16 @@ def _click_target_passes(image: Path, proposal: dict, answer: dict,
                          attempt: int, args, api_key: str, data_dir: Path,
                          out_dir: Path, trace: dict, totals: dict,
                          progress) -> tuple:
-    """The click-target quality pass (ticket #1436), at most two calls.
+    """The click-target quality pass (tickets #1436, #1445), at most two calls.
 
-    Renders the answer area onto the shipped image, asks the checker model
-    whether it covers the anomaly, and verifies a corrected answer with a
-    second rendered pass. Returns ``(answer, summary)``; the summary carries
-    the passes, whether the answer was corrected, the centre shift in
-    normalized units and the pass's own cost for the run report.
+    Renders the answer area onto the shipped image and asks the checker model
+    for the anomaly's bounding box. The coverage decision is deterministic:
+    when a box corner falls outside the drawn ellipse, the answer grows to
+    the smallest circle containing both the drawn area and the box, and a
+    second rendered pass verifies that correction. Returns ``(answer,
+    summary)``; the summary carries the passes, whether the answer was
+    corrected, the centre shift in normalized units and the pass's own cost
+    for the run report.
     """
     current, judged = dict(answer), dict(answer)
     passes, cost, corrected, last_overlay = [], 0.0, False, None
@@ -2096,7 +2185,7 @@ def _click_target_passes(image: Path, proposal: dict, answer: dict,
         last_overlay = overlay
         progress("click-target", clickPass=p)
         try:
-            verdict = check_click_target(overlay, proposal, current, api_key,
+            verdict = check_click_target(overlay, proposal, api_key,
                                          args.model, args.base_url,
                                          args.model_max_tokens,
                                          args.model_timeout, args.temperature)
@@ -2109,20 +2198,29 @@ def _click_target_passes(image: Path, proposal: dict, answer: dict,
             break
         ag_llm.add_usage(totals, verdict["call"].get("usage"))
         cost += float((verdict["call"].get("usage") or {}).get("cost") or 0.0)
+        box = verdict["box"]
+        covers = None if box is None else answer_covers_box(current, box)
+        nxt = None
+        if box is not None and not covers:
+            # The person rule follows the proposal, not the check's flag: a
+            # stray "figure" on a small object must not inflate its circle.
+            person = {"figure": bool(proposal.get("figure"))}
+            nxt = clamp_answer(covering_answer(current,
+                                               box_answer({**box, **person})))
+            if not _coords_differ(nxt, current):
+                nxt = None
         record_call(data_dir, trace,
                     {"stage": f"click-target {p}", "attempt": attempt,
-                     "judged": current, "covers": verdict["covers"],
-                     "corrected": verdict["coords"],
+                     "judged": current, "box": box, "covers": covers,
+                     "corrected": nxt,
                      "verdict_reason": verdict["reason"],
                      **_call_trace(verdict["call"])})
         passes.append({"pass": p, "overlay": overlay.name,
-                       "answer": current, "covers": verdict["covers"],
-                       "corrected": verdict["coords"],
-                       "reason": verdict["reason"]})
-        nxt = verdict["coords"]
-        if nxt is None or not _coords_differ(nxt, current):
+                       "answer": current, "box": box, "covers": covers,
+                       "corrected": nxt, "reason": verdict["reason"]})
+        if nxt is None:
             break
-        current = clamp_answer(nxt)
+        current = nxt
         corrected = True
     summary = {"passes": len(passes), "corrected": corrected,
                "answer": current,
@@ -2289,11 +2387,17 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
         else:
             answer, conflict = finalize_answer(coords, hotspot)
 
-        # Click-target quality pass (ticket #1436): the rendered answer goes
-        # to the checker model once, a corrected answer is verified once.
-        answer, click = _click_target_passes(
-            final_path, proposal, answer, attempt, args, api_key, data_dir,
-            out_dir, trace, totals, progress)
+        # Click-target quality pass (tickets #1436, #1445): only the checker's
+        # identifiability finding questions the answer area; then the model
+        # localizes the element and the pipeline grows the drawn area.
+        if check and CLICK_TARGET_REQUIREMENT in (check.get("failed") or []):
+            answer, click = _click_target_passes(
+                final_path, proposal, answer, attempt, args, api_key, data_dir,
+                out_dir, trace, totals, progress)
+        else:
+            click = {"passes": 0, "corrected": False, "answer": answer,
+                     "shift": 0.0, "cost": 0.0, "verdicts": [],
+                     "skipped": "checker did not fail identifiability"}
         if conflict and click["corrected"]:
             # The pass moved the answer, so the old hotspot disagreement no
             # longer describes it.
