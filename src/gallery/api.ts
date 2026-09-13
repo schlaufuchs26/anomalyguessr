@@ -65,6 +65,9 @@ export interface TDScene {
   /** Last checker verdict (ticket #1436); absent on scenes generated without
    *  the checker. The card and the lightbox show it before any image opens. */
   checker?: SceneChecker;
+  /** The scene shipped with an unrepaired checker finding (ticket #1449);
+   *  the card flags it so moderation looks at it first. */
+  needsReview?: boolean;
   images: TDSceneImages;
 }
 export interface TDList {

@@ -42,6 +42,9 @@ export interface ApiScene {
   hasTrace: boolean;
   /** Last checker verdict (ticket #1436); absent on older scenes. */
   checker?: SceneChecker;
+  /** The scene shipped with an unrepaired checker finding (ticket #1449):
+   *  moderation should look at it first. Never in the public manifest. */
+  needsReview?: boolean;
   images: { edited: string; original: string; audit?: string };
 }
 
@@ -196,6 +199,7 @@ export function sceneToApi(
   if (e.shortId !== undefined) out.shortId = e.shortId;
   if (e.source !== undefined) out.source = e.source;
   if (e.checker !== undefined) out.checker = e.checker;
+  if (e.needs_review !== undefined) out.needsReview = e.needs_review;
   if (rejectedAt !== undefined) out.rejectedAt = rejectedAt;
   return out;
 }

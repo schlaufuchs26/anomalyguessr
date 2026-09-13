@@ -22,6 +22,10 @@ export interface FixtureScene {
   answer?: { x: number; y: number; r: number } | null;
   /** A generation trace sidecar exists (ticket #1373). */
   hasTrace?: boolean;
+  /** Last checker verdict (ticket #1436). */
+  checker?: { score: number; failed: number[]; reason: string };
+  /** Unrepaired checker finding (ticket #1449). */
+  needsReview?: boolean;
 }
 
 export function makeScene(over: Partial<FixtureScene>): {
@@ -46,6 +50,8 @@ export function makeScene(over: Partial<FixtureScene>): {
   comments: { text: string; createdAt: string }[];
   hasTrace: boolean;
   images: { edited: string; original: string; audit?: string };
+  checker?: { score: number; failed: number[]; reason: string };
+  needsReview?: boolean;
 } {
   const moderation = over.moderation ?? "unmoderated";
   const rejected = moderation === "rejected";
@@ -72,6 +78,8 @@ export function makeScene(over: Partial<FixtureScene>): {
     moderation,
     comments: over.comments ?? [],
     hasTrace: over.hasTrace ?? false,
+    ...(over.checker ? { checker: over.checker } : {}),
+    ...(over.needsReview ? { needsReview: true } : {}),
     images: {
       edited: agUrl(`scenes/${over.id}/image`),
       original: agUrl(`scenes/${over.id}/original`),

@@ -70,7 +70,7 @@ SOURCE_KEYS = (
 ENTRY_KEYS = (
     "id", "title", "place", "year", "credit", "sourceUrl", "source",
     "anomaly", "family", "explanation", "references", "description",
-    "answer", "shortId", "checker",
+    "answer", "shortId", "checker", "needs_review",
 )
 
 # The last checker verdict the generator stored with a scene (ticket #1436):
@@ -408,6 +408,12 @@ def validate_entry(e) -> list:
                             f"1..{CHECKER_TOTAL}")
             if not isinstance(chk.get("reason"), str):
                 errs.append("checker.reason must be a string")
+    # Ticket #1449: a scene the pipeline could not fully repair carries a
+    # moderation flag. Optional (older scenes have none); a present one must
+    # be a boolean.
+    review = e.get("needs_review")
+    if review is not None and not isinstance(review, bool):
+        errs.append("needs_review must be a boolean when present")
     # Raw source metadata in the caption is what ticket #1402 fixed; a scene
     # with an upload stamp, an unbalanced quote, coordinates as its place or
     # a second year must not reach the queue at all.
@@ -756,6 +762,9 @@ def write_manifest(repo: Path, date: str, scenes: list) -> None:
         # The last checker verdict (ticket #1436) is dev-side curation
         # metadata for the gallery; the public manifest never carries it.
         out.pop("checker", None)
+        # The moderation flag (ticket #1449) is dev-side too: the game shows
+        # only accepted scenes, so the flag has no place in the manifest.
+        out.pop("needs_review", None)
         # The short handle (ticket #1413) is an internal curation alias the
         # gallery reads from the API list. The public Pages manifest does not
         # need it, so it is stripped from the shipped set.

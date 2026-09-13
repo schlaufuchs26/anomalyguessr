@@ -1,7 +1,13 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { agUrl } from "../src/gallery/api";
-import { FIXTURE, listBody, mockList, renderPage } from "./galleryFixtures";
+import {
+  FIXTURE,
+  listBody,
+  makeScene,
+  mockList,
+  renderPage,
+} from "./galleryFixtures";
 
 describe("AnomalyGuessrGalleryPage", () => {
   let origFetch: typeof global.fetch;
@@ -201,5 +207,38 @@ describe("short scene handles (#1413)", () => {
     expect(chip.textContent).toBe("AG-3");
     fireEvent.click(chip);
     await waitFor(() => expect(written).toEqual(["AG-3"]));
+  });
+
+  test("an unrepaired checker finding is flagged on the card (#1449)", async () => {
+    mockList(
+      [
+        makeScene({
+          id: "rv1",
+          title: "Flagged Market",
+          place: "Zeta",
+          year: "2021",
+          anomaly: "Hovering pod",
+          added: "2026-09-13",
+          moderation: "accepted",
+          needsReview: true,
+          checker: {
+            score: 7,
+            failed: [8],
+            reason: "not clearly impossible for 2021",
+          },
+        }),
+      ],
+      ["rv1"],
+    );
+    renderPage();
+    await waitFor(() =>
+      expect(screen.getByText("Flagged Market")).toBeInTheDocument(),
+    );
+    expect(screen.getByTestId("td-review-rv1").textContent).toBe(
+      "needs review",
+    );
+    expect(screen.getByTestId("td-checker-rv1").textContent).toBe(
+      "checker 7/8 · failed 8",
+    );
   });
 });

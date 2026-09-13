@@ -121,12 +121,22 @@ def stub_locate(coords="default"):
                              "call": call(prompt="coord-prompt")}
 
 
-def stub_check(failed=None, reason="fine", fix_prompt=""):
+def stub_check(failed=None, reason="fine", fix_prompt="", image_match=True):
     failed = list(failed or [])
     return lambda *a, **kw: {
         "ok": not failed, "score": g.REQUIREMENTS_TOTAL - len(failed),
         "failed": failed, "reason": reason, "fix_prompt": fix_prompt,
+        "image_match": image_match,
         "call": call(prompt="check-prompt")}
+
+
+def stub_reconcile(anomaly="Hovering transport pod", explanation="A hovering "
+                   "pod is a fictional-future element and does not exist even "
+                   "in 2026.", title="House with a hovering pod", ok=True):
+    return lambda *a, **kw: {
+        "anomaly": anomaly, "explanation": explanation, "title": title,
+        "reason": "the image shows a pod, not the named element",
+        "ok": ok, "call": call(prompt="reconcile-prompt")}
 
 
 def stub_click_target(box=None, reason="covers it", cost=0.001):
@@ -288,6 +298,57 @@ class PromptTests(unittest.TestCase):
         self.assertIn("fix the tone", text)
         retry = g._fix_prompt(proposal(), "fix the tone", retry=True)
         self.assertIn(g.REFUSAL_RETRY, retry)
+
+    def test_fix_prompt_forbids_changing_the_object(self):
+        # #1449: the fix-edit repairs presentation only; the head says so
+        # even when the checker's own note is appended.
+        text = g._fix_prompt(proposal(), "make it smaller")
+        self.assertIn("never replace, remove or change which object it is",
+                      text)
+        self.assertIn("scale, placement, lighting", text)
+
+    def test_check_prompt_asks_for_image_match(self):
+        # #1449: the checker must say whether the image shows the named
+        # element, so a diverged image can be reconciled instead of shipped.
+        text = g.check_prompt(proposal())
+        self.assertIn("image_match", text)
+        self.assertIn("different object", text)
+        # The repair instruction is presentation-only from the checker side.
+        self.assertIn("never ask for a different object", text)
+
+    def test_agreement_prompt_names_the_scene_text_and_the_image(self):
+        text = g.agreement_prompt(proposal(), {"year": 2021,
+                                               "display": "2021",
+                                               "field": "exif"})
+        self.assertIn("Plastic bottle (clear PET)", text)
+        self.assertIn("DIFFERENT element", text)
+        self.assertIn("2021", text)
+        self.assertIn("anomaly", text)
+
+
+class PresentationOnlyFixTest(unittest.TestCase):
+    """The #1449 guard: a repair may not swap the anomaly's object."""
+
+    def test_presentation_repairs_are_usable(self):
+        for fix in ("Shrink it to under 3 percent of the image height.",
+                    "Recolor the hard hat to grayscale and match the grain.",
+                    "Reposition it behind the crate at the left edge.",
+                    "Replace it with a much smaller, grain-matched version."):
+            usable, why = g.presentation_only_fix(fix)
+            self.assertTrue(usable, fix)
+            self.assertIn("presentation", why)
+
+    def test_object_swap_repairs_are_not_usable(self):
+        for fix in ("Replace the humanoid robot with a hovering drone.",
+                    "Swap it for a floating pod.",
+                    "Use a different element that is clearly futuristic.",
+                    "Turn it into a holographic display."):
+            usable, why = g.presentation_only_fix(fix)
+            self.assertFalse(usable, fix)
+            self.assertIn("different object", why)
+
+    def test_an_empty_fix_is_not_usable(self):
+        self.assertFalse(g.presentation_only_fix("")[0])
 
     def test_proposal_prompt_asks_for_a_placement_kind(self):
         # #1439: the refusal rate gets split by placement kind, so the
@@ -789,13 +850,14 @@ class CheckScoringTest(unittest.TestCase):
 
 class GenerateOneTest(TempDataMixin, unittest.TestCase):
     def run_one(self, *, propose=None, locate=None, check=None, edit=None,
-                click_target=None, count=1, src=None, **argkw):
+                click_target=None, reconcile=None, count=1, src=None, **argkw):
         self.write_source(src)
         g.propose_anomaly = propose or stub_propose()
         g.locate_anomaly = locate or stub_locate()
         g.check_scene = check or stub_check()
         g.image_edit = edit or (lambda *a, **kw: img_bytes())
         g.check_click_target = click_target or stub_click_target()
+        g.reconcile_text = reconcile or stub_reconcile()
         args = self.make_args(count=count, **argkw)
         totals = ag_llm.zero_usage()
         picked = ag_sources.list_sources(self.data_dir)[0]
@@ -978,6 +1040,140 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
         self.assertEqual(totals["image_calls"], 1)
         self.assertEqual(scene["report"]["correction_rounds"], 0)
         self.assertEqual(scene["report"]["checker"]["failed"], [1])
+
+    # ── #1449: presentation-only repairs, requirement 8, text agreement ─────
+
+    def test_object_swap_repair_is_ignored_and_the_scene_ships(self):
+        # AG-119: the checker asked for another object ("replace the humanoid
+        # robot with a drone"). The fix-edit must not follow it; the ground
+        # truth is the scene text, so the round is skipped and the scene
+        # ships flagged instead of showing an element the text does not name.
+        edits = {"n": 0}
+
+        def edit(*a, **kw):
+            edits["n"] += 1
+            return img_bytes()
+
+        scene, failed, totals = self.run_one(
+            edit=edit,
+            check=stub_check(failed=[3], fix_prompt="Replace the plastic "
+                             "bottle with a hovering drone."))
+        self.assertIsNone(failed)
+        self.assertEqual(edits["n"], 1)          # no correction image call
+        self.assertEqual(totals["image_calls"], 1)
+        self.assertEqual(scene["report"]["correction_rounds"], 0)
+        self.assertTrue(scene["report"]["needs_review"])
+        self.assertIn("different object", scene["report"]["review"])
+        entry = ag_queue.load_state(self.data_dir)["scenes"][
+            scene["report"]["scene"]]
+        self.assertTrue(entry["needs_review"])
+        trace = self.trace_of(scene)
+        self.assertEqual(trace["corrections"],
+                         [{"round": 1, "fix_prompt": "ignored",
+                           "reason": "asks for a different object ('replace')"}])
+
+    def test_presentation_repair_still_drives_a_fix_edit(self):
+        # The guard must not block honest repairs: a scale instruction still
+        # spends its one correction round.
+        edits = {"n": 0}
+
+        def edit(*a, **kw):
+            edits["n"] += 1
+            return img_bytes(color="blue" if edits["n"] > 1 else "red")
+
+        scene, failed, totals = self.run_one(
+            edit=edit,
+            check=stub_check(failed=[3], fix_prompt="Make it smaller."))
+        self.assertIsNone(failed)
+        self.assertEqual(edits["n"], 1 + g.CORRECTION_ROUNDS)
+        self.assertEqual(totals["image_calls"], 1 + g.CORRECTION_ROUNDS)
+        self.assertFalse(scene["report"]["needs_review"])
+
+    def test_requirement_8_ships_flagged_without_a_repair(self):
+        # Requirement 8 is not repairable (the element is not impossible for
+        # the scene year); the chain ends and the scene ships with the verdict
+        # and the moderation flag. Nothing is dropped, no image is replaced.
+        scene, failed, totals = self.run_one(
+            check=stub_check(failed=[8], fix_prompt="Replace it with a "
+                             "clearly futuristic element."))
+        self.assertIsNone(failed)
+        self.assertEqual(totals["image_calls"], 1)
+        self.assertEqual(scene["report"]["correction_rounds"], 0)
+        self.assertTrue(scene["report"]["needs_review"])
+        self.assertIn("not clearly impossible", scene["report"]["review"])
+        entry = ag_queue.load_state(self.data_dir)["scenes"][
+            scene["report"]["scene"]]
+        self.assertEqual(entry["checker"]["failed"], [8])
+        self.assertTrue(entry["needs_review"])
+        self.assertEqual(self.trace_of(scene)["corrections"],
+                         [{"round": 1, "skipped": "unrepairable "
+                           "requirement 8"}])
+
+    def test_image_mismatch_rewrites_the_text_and_the_slug(self):
+        # #1449 rule 4: the checker says the image shows a different element.
+        # One text-only call rewrites anomaly, explanation and title; the id
+        # is built from the final label, so the slug follows.
+        scene, failed, totals = self.run_one(
+            check=stub_check(image_match=False, reason="shows a pod"),
+            reconcile=stub_reconcile())
+        self.assertIsNone(failed)
+        report = scene["report"]
+        self.assertTrue(report["needs_review"])
+        self.assertIn("text renamed", report["review"])
+        self.assertEqual(report["text_reconciliation"]["changed"]["anomaly"],
+                         "Plastic bottle (clear PET)")
+        # 1 image call (the draw) + the reconciliation is text-only
+        self.assertEqual(totals["image_calls"], 1)
+        entry = ag_queue.load_state(self.data_dir)["scenes"][report["scene"]]
+        self.assertEqual(entry["anomaly"], "Hovering transport pod")
+        self.assertIn("hovering-transport-pod", entry["id"])
+        self.assertEqual(entry["title"], "House with a hovering pod")
+        trace = self.trace_of(scene)
+        self.assertEqual(trace["calls"][-2]["stage"], "reconcile-text")
+        self.assertEqual(trace["text_reconciliation"]["changed"]["anomaly"],
+                         "Plastic bottle (clear PET)")
+        self.assertGreater(report["text_reconciliation"]["cost"], 0)
+
+    def test_a_matching_image_skips_the_reconciliation(self):
+        called = {"n": 0}
+
+        def reconcile(*a, **kw):
+            called["n"] += 1
+            return stub_reconcile()()
+
+        scene, failed, _ = self.run_one(
+            check=stub_check(image_match=True), reconcile=reconcile)
+        self.assertIsNone(failed)
+        self.assertEqual(called["n"], 0)
+        self.assertIsNone(scene["report"]["text_reconciliation"])
+
+    def test_the_image_call_count_stays_within_the_budget(self):
+        # #1449 rule 1: one draw, up to MECHANICAL_RETRIES replacements, at
+        # most CORRECTION_ROUNDS fix-edits. A full chain spends exactly
+        # 1 + CORRECTION_ROUNDS calls and can never exceed the budget.
+        edits = {"n": 0}
+
+        def edit(*a, **kw):
+            edits["n"] += 1
+            return img_bytes(color="blue" if edits["n"] > 1 else "red")
+
+        scene, failed, totals = self.run_one(
+            edit=edit,
+            check=stub_check(failed=[4], fix_prompt="Match the tone."))
+        self.assertIsNone(failed)
+        self.assertEqual(scene["report"]["correction_rounds"],
+                         g.CORRECTION_ROUNDS)
+        self.assertEqual(scene["report"]["image_calls"],
+                         1 + g.CORRECTION_ROUNDS)
+        self.assertLessEqual(scene["report"]["image_calls"],
+                             g.IMAGE_CALLS_PER_SCENE)
+        self.assertEqual(g.IMAGE_CALLS_PER_SCENE,
+                         1 + g.MECHANICAL_RETRIES + g.CORRECTION_ROUNDS)
+
+    def test_run_max_generations_defaults_to_the_per_scene_budget(self):
+        args = self.make_args(count=4)
+        self.assertEqual(args.max_generations,
+                         4 * g.IMAGE_CALLS_PER_SCENE)
 
     def test_correction_that_fails_the_gates_keeps_the_image(self):
         calls = {"n": 0}

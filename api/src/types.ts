@@ -53,6 +53,12 @@ export interface SceneEntry {
    * checker, and never written into the public manifest.
    */
   checker?: SceneChecker;
+  /**
+   * Moderation flag (ticket #1449): the pipeline shipped the scene without
+   * a full repair (a requirement-8 finding, or a checker repair that asked
+   * for another object). Dev-side curation metadata; never in the manifest.
+   */
+  needs_review?: boolean;
   added: string;
   shown: string | null;
   explanation?: string;

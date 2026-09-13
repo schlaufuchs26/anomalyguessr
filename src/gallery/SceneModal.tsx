@@ -169,6 +169,7 @@ export function SceneModal({
                 {scene.checker
                   ? `${checkerLabel(scene.checker)}${scene.checker.reason ? ` · ${scene.checker.reason}` : ""}`
                   : "no checker verdict recorded"}
+                {scene.needsReview ? " · needs review" : ""}
               </dd>
             </div>
             <div>

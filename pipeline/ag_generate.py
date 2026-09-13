@@ -37,21 +37,31 @@ Per scene:
 3. **Check** (`check_scene`): one vision call against the eight requirements
    (time-travel framing, subtlety, scale, tone, grain, keep-the-rest,
    identifiability, impossibility at the scene's time). The checker does not
-   vote the scene out: it returns the numbers of the requirements it fails
-   plus a repair instruction. Requirement 8 tests the element's introduction
-   year against the scene's year, so an "improbable but possible" element (an
-   e-scooter in 2017) fails.
-4. **Correct** (`fix-edit`, at most `CORRECTION_ROUNDS` = 2): a checker that
-   reports a failing requirement and a fix prompt triggers one edit built
-   from that instruction, then a check again; at most one more round. A
-   check with no findings ends the chain immediately (Evan 2026-09-13), and
-   the last fix-edit is followed by a final check for the record only, which
-   never triggers another edit.
-5. **Locate** (`locate_anomaly`): one vision call over the shipped image for
+   vote the scene out: it returns the numbers of the requirements it fails,
+   a repair instruction, and whether the image shows the element the text
+   names (`image_match`, ticket #1449). Requirement 8 tests the element's
+   introduction year against the scene's year, so an "improbable but possible"
+   element (an e-scooter in 2017) fails.
+4. **Correct** (`fix-edit`, at most `CORRECTION_ROUNDS` = 2, ticket #1449):
+   the correction repairs only how the element is rendered (scale, placement,
+   lighting, grain, blending); a checker repair that asks for another object
+   (`presentation_only_fix`) is ignored and the round skipped, so the image
+   can never show an element the scene text does not name. A failure of
+   requirement 8 ends the chain too: it is not a rendering problem, so the
+   scene ships with its verdict and a `needs_review` flag instead of being
+   edited into another object or dropped. A check with no findings ends the
+   chain immediately (Evan 2026-09-13), and the last fix-edit is followed by a
+   final check for the record only, which never triggers another edit.
+5. **Reconcile text** (`reconcile_text`, ticket #1449, only when the checker's
+   `image_match` is false): one text-only call rewrites `anomaly`,
+   `explanation` and `title` to describe the shipped image; the scene id is
+   built from the final label afterwards, so the slug follows. No image call,
+   so the budget stays deterministic; the cost is reported.
+6. **Locate** (`locate_anomaly`): one vision call over the shipped image for
    the click target (x/y/r, figure flag), with the proposal and the edit
    prompt as context. The answer is widened when the deterministic diff
    hotspot falls outside it, so a wildly wrong circle cannot ship alone.
-6. **Click-target check** (at most `CLICK_TARGET_PASSES` = 2, only when the
+7. **Click-target check** (at most `CLICK_TARGET_PASSES` = 2, only when the
    checker failed requirement 7, Identifiable; ticket #1445): the answer
    circle plus a centre crosshair is drawn onto the edited image, and the
    checker model returns the anomaly's bounding box in that image. The
@@ -66,7 +76,9 @@ lands 5 scenes as long as the mechanical steps (image call, download,
 landscape shape) work. A mechanically broken draw is replaced by another one
 (up to `MECHANICAL_RETRIES` extra image calls per scene, every attempt in the
 trace); only a source whose image call fails or whose draws all break the
-pixel gates is reported as failed, never silently skipped.
+pixel gates is reported as failed, never silently skipped. The image-call
+budget per scene is `IMAGE_CALLS_PER_SCENE` = 1 + `MECHANICAL_RETRIES` +
+`CORRECTION_ROUNDS`; the run report carries the count and the bound.
 
 Deterministic gates stay deterministic: a byte-identical re-serve is refused
 (`ag_verify.identical_output_check`), a scene that is not a localized edit is
@@ -79,12 +91,15 @@ Each scene gets a trace sidecar (`data/anomalyguessr/traces/<id>.json`, ticket
 reasoning content, usage (tokens + cost), duration and timestamp, with the
 image named but never embedded. The stages carry the round (`edit r0`,
 `check r0`, `fix-edit r1`, `check r1`, `fix-edit r2`, `check r2`,
-`coordinates`, `click-target 1`, `click-target 2`), so the panel shows the
-chain a scene went through; every mechanical retry is a row too (idea #1435
-was that a break makes the draw numbers jump). The last checker verdict
-(score, failed requirement numbers, reason) is stored with the scene as
-`checker` and in the trace, so moderation and the gallery lightbox show
-"checker 5/7, failed 3, 7" before any image is opened. Steps are flushed to
+`reconcile-text`, `coordinates`, `click-target 1`, `click-target 2`), so the
+panel shows the chain a scene went through; every mechanical retry is a row
+too (idea #1435 was that a break makes the draw numbers jump). The last checker
+verdict (score, failed requirement numbers, reason, `image_match`) is stored
+with the scene as `checker` and in the trace, so moderation and the gallery
+lightbox show "checker 5/8, failed 3, 7" before any image is opened; a scene
+that shipped without a full repair carries `needs_review` (a requirement-8
+finding, or an ignored swap repair), and the trace carries the pipeline's
+`review` reason. Steps are flushed to
 `traces/pending/<source>.json` as the pipeline runs, so a crash keeps a
 partial record; a finished scene shows the whole flow, a scene from before
 the trace existed shows none. Candidate images are not kept (only the
@@ -107,7 +122,7 @@ CLI::
         [--dry-run] [--top-up] [--env .env] [--dm-channel ID] [--model M]
         [--image-model M] [--max-attempts 2] [--max-generations N]
         [--date YYYY-MM-DD] [--out-dir DIR] [--report FILE] [--no-check]
-        [--no-preflight] [--retext]
+        [--no-preflight] [--retext] [--audit-text]
 
 The caption (title, place, description) is derived from the proposal and the
 source's structured keys, never from raw metadata: the title drops the
@@ -179,6 +194,16 @@ SCENE_ID_RE = re.compile(r"[^a-z0-9]+")
 # replaced by a new draw instead of shrinking the planned scene count.
 MECHANICAL_RETRIES = 2
 CORRECTION_ROUNDS = 2
+# The deterministic image-call budget for one scene (ticket #1449): one
+# initial draw, MECHANICAL_RETRIES replacements for mechanically broken
+# draws, and at most CORRECTION_ROUNDS fix-edits. Nothing else spends an
+# image call; the run report counts them and a test asserts the bound.
+IMAGE_CALLS_PER_SCENE = 1 + MECHANICAL_RETRIES + CORRECTION_ROUNDS
+# Requirement numbers that end the correction chain instead of driving an
+# edit: 8 ("Impossible at the scene's time") is a property of the chosen
+# element, so a fix-edit could only swap the object, which the scene text
+# must be able to name (ticket #1449).
+UNREPAIRABLE_REQUIREMENTS = (8,)
 # The click-target pass only runs when the checker failed requirement 7
 # (Identifiable; index 6 in REQUIREMENTS), the one finding that actually
 # questions whether the answer area can be found (ticket #1445). On 37
@@ -292,6 +317,19 @@ PURPOSE = ("This is an image edit for a spot-the-anachronism quiz game: the "
 REFUSAL_RETRY = ("Add the new element as a small separate object that sits "
                  "in the scene; do not modify, cover, replace or remove "
                  "anything that is already in the photograph.")
+# A fix-edit repairs how the element is rendered, never which object it is
+# (ticket #1449). These markers name a swap of the element; a checker repair
+# that carries one is ignored, because the scene text names the element and
+# the shipped image would otherwise contradict it (AG-119: the checker asked
+# for "a hovering personal drone" and the image followed, the text did not).
+OBJECT_SWAP_MARKERS = ("replace", "swap", "substitute", "instead of",
+                       "a different element", "another element",
+                       "different object", "another object",
+                       "turn it into", "change it into")
+# ...unless the "replacement" is a re-render of the same thing ("a much
+# smaller, grain-matched version"), which is a presentation repair.
+RERENDER_TERMS = ("version", "copy", "re-render", "rerender")
+
 
 # Fictional-future allowed list (ticket #1430, Evan 2026-09-13): the path
 # stays, but only for elements that are impossible in the scene's year *and*
@@ -552,12 +590,56 @@ def check_prompt(proposal: dict, scene: dict | None = None) -> str:
         "You are scoring, not voting: never reject the whole image, "
         "just say which numbered requirements it fails.")
     lines.append(
+        "Separately from the scores, say whether the image really shows the "
+        f"element named above ({proposal['anomaly']}): set \"image_match\" "
+        "to false when the added element is a different object, even a "
+        "better one.")
+    lines.append(
         'Answer as strict JSON only: {"failed": [<numbers of the '
         'requirements it violates, in rising order, [] when it meets '
         'all of them>], "reason": "<one line: the decisive reason for '
-        'the score>", "fix_prompt": "<one self-contained instruction '
-        'that would fix the failed requirements, or empty when none '
-        'failed>"}')
+        'the score>", "image_match": true|false, "fix_prompt": "<one '
+        'self-contained instruction that repairs how the element is '
+        'rendered (scale, placement, lighting, grain or blending); never '
+        'ask for a different object; empty when none failed>"}')
+    return "\n".join(lines)
+
+
+def agreement_prompt(proposal: dict, scene: dict | None = None) -> str:
+    """The text-only reconciliation prompt (ticket #1449).
+
+    The checker found that the shipped image shows a different element than
+    the scene text names. This call describes what the image actually shows
+    and rewrites the scene's ``anomaly``, ``explanation`` and ``title`` to
+    match; the pipeline derives the scene id from the final label, so the
+    slug follows.
+    """
+    lines = [
+        "You are repairing the text of one spot-the-anachronism scene because "
+        "the shipped image no longer matches it.",
+    ]
+    time_text = scene_time_text(scene)
+    if time_text:
+        lines.append(time_text)
+    lines.append(
+        f"The scene's text currently names this element: "
+        f"{proposal['anomaly']} ({proposal['placement']}). Its explanation: "
+        f"{proposal.get('explanation')}")
+    lines.append(
+        "The image you see shows a DIFFERENT element than the text names. "
+        "Look at the image and name the element that was actually added; "
+        "describe what is really there, not what the text intended.")
+    lines.append(
+        "Rewrite the scene's text to match the image. The element must stay "
+        "the one thing that does not belong to the photograph's time; if it "
+        "is not impossible for that year, say so plainly in the explanation "
+        "(a human will review the scene).")
+    lines.append(
+        'Answer as strict JSON only: {"anomaly": "<short label of the '
+        'element the image shows>", "explanation": "<one sentence: why it '
+        'cannot exist in the scene\'s year>", "title": "<short human title '
+        'of the scene, at most 8 words>", "reason": "<one line: what the '
+        'image actually shows>"}')
     return "\n".join(lines)
 
 
@@ -814,12 +896,36 @@ def check_scene(image: Path, proposal: dict, api_key: str, model: str,
     parsed = result["parsed"] or {}
     failed = failed_requirements(parsed.get("failed"))
     usable = isinstance(parsed.get("failed"), list)
+    match = parsed.get("image_match")
     return {"ok": (not failed) if usable else None,
             "score": score_from_failed(failed) if usable else None,
             "failed": failed,
+            "image_match": match if isinstance(match, bool) else None,
             "reason": ag_llm.clean_text(parsed.get("reason"), 300),
             "fix_prompt": ag_llm.clean_text(parsed.get("fix_prompt"), 600),
             "call": result}
+
+
+def reconcile_text(image: Path, proposal: dict, api_key: str, model: str,
+                   base_url: str, max_tokens: int, timeout: int,
+                   temperature: float | None, scene: dict | None = None) -> dict:
+    """Call 4b, text-only (ticket #1449): make the scene text match the image.
+
+    Runs when the checker's ``image_match`` is false. It sees the shipped
+    image and returns corrected ``anomaly``, ``explanation`` and ``title``;
+    the pipeline derives the scene id from the final label. No image is
+    generated, so the run's image-call budget is untouched; the call's own
+    cost is folded into the run totals and reported.
+    """
+    result = _run_call(agreement_prompt(proposal, scene), image, api_key,
+                       model, base_url, max_tokens, timeout, temperature)
+    parsed = result["parsed"] or {}
+    anomaly = ag_llm.clean_text(parsed.get("anomaly"), 80)
+    explanation = ag_llm.clean_text(parsed.get("explanation"), 400)
+    title = clean_caption_title(parsed.get("title"))[:80]
+    return {"anomaly": anomaly, "explanation": explanation, "title": title,
+            "reason": ag_llm.clean_text(parsed.get("reason"), 300),
+            "ok": bool(anomaly) and bool(explanation), "call": result}
 
 
 def valid_coords(raw) -> dict | None:
@@ -1273,7 +1379,8 @@ def build_credit(source: dict) -> str:
 
 
 def build_entry(source: dict, proposal: dict, answer: dict, date: str,
-                scene: dict | None = None, checker: dict | None = None) -> dict:
+                scene: dict | None = None, checker: dict | None = None,
+                review: str | None = None) -> dict:
     eid = scene_id(source["id"], proposal["anomaly"])
     st = scene if scene is not None else scene_time(source)
     year = st["display"]
@@ -1313,6 +1420,13 @@ def build_entry(source: dict, proposal: dict, answer: dict, date: str,
         out["checker"] = {"score": checker["score"],
                           "failed": list(checker.get("failed") or []),
                           "reason": checker.get("reason") or ""}
+    # A scene the pipeline could not fully repair ships with a moderation
+    # flag (ticket #1449): a requirement-8 finding (the element is not
+    # impossible) or a checker repair that asked for another object. The
+    # moderator accepts, edits or rejects; the scene is never dropped and
+    # never silently counts as clean.
+    if review:
+        out["needs_review"] = True
     return out
 
 
@@ -1390,6 +1504,75 @@ def retext_state(data_dir: Path, dry_run: bool = False) -> dict:
             "damaged": damaged, "changed": len(changed),
             "unfixable": unfixable, "dry_run": dry_run,
             "details": changed}
+
+
+def last_check_call(trace: dict) -> dict | None:
+    """The last checker call of a trace, None when it has none (ticket #1449).
+
+    Tolerates both trace generations: the current ``check r<n>`` stages and
+    the pre-#1436 ``check``/``recheck`` pair.
+    """
+    checks = [c for c in (trace.get("calls") or [])
+              if str(c.get("stage", "")).startswith("check")
+              or c.get("stage") == "recheck"]
+    return checks[-1] if checks else None
+
+
+def check_fix_prompt(call: dict) -> str:
+    """The ``fix_prompt`` a recorded checker call asked for (ticket #1449).
+
+    The trace row carries it directly since #1449; older rows only have the
+    raw answer JSON, so it is parsed from there.
+    """
+    if call.get("fix_prompt"):
+        return str(call["fix_prompt"])
+    try:
+        return str(json.loads(call.get("answer") or "{}").get("fix_prompt")
+                   or "")
+    except (TypeError, ValueError):
+        return ""
+
+
+def audit_text_image(data_dir: Path) -> dict:
+    """Scenes whose shipped text may not match their image (ticket #1449).
+
+    Cheapest-first: read each scene's trace, take its LAST checker verdict
+    and ask whether that verdict's repair named a different object than the
+    scene's ``anomaly`` text (the AG-119 class: the checker asked for another
+    element, the image followed, the text did not). A requirement-8 finding
+    is listed separately: it is the honest verdict that the element is not
+    impossible, which the pipeline now ships flagged rather than repaired.
+    """
+    state = ag_queue.load_state(data_dir)
+    scenes = state.get("scenes") or {}
+    swapped, req8, no_check = [], [], []
+    for eid, scene in scenes.items():
+        tp = trace_path(data_dir, eid)
+        trace = None
+        if tp.exists():
+            try:
+                trace = json.loads(tp.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                trace = None
+        call = last_check_call(trace) if trace else None
+        if call is None:
+            no_check.append(eid)
+            continue
+        failed = list(call.get("failed") or [])
+        fix = check_fix_prompt(call)
+        if any(n in failed for n in UNREPAIRABLE_REQUIREMENTS):
+            req8.append({"id": eid, "anomaly": scene.get("anomaly"),
+                         "failed": failed, "fix_prompt": fix})
+        usable, why = presentation_only_fix(fix)
+        if fix and not usable:
+            swapped.append({"id": eid, "anomaly": scene.get("anomaly"),
+                            "fix_prompt": fix, "reason": why})
+    return {"data": str(data_dir), "scenes": len(scenes),
+            "object_swaps": swapped, "requirement_8": req8,
+            "no_check_verdict": no_check,
+            "counts": {"object_swaps": len(swapped),
+                       "requirement_8": len(req8),
+                       "no_check_verdict": len(no_check)}}
 
 
 # ── Trace sidecar (ticket #1373) ───────────────────────────────────────────
@@ -1853,6 +2036,12 @@ def _run(args, data_dir: Path, lock) -> dict:
 
     report["duration_s"] = round(time.time() - started, 1)
     report["image_calls"] = int(totals.get("image_calls", 0))
+    # The deterministic budget (ticket #1449): every planned scene may spend
+    # at most IMAGE_CALLS_PER_SCENE image calls (one draw, MECHANICAL_RETRIES
+    # replacements, CORRECTION_ROUNDS fix-edits). A run that stays under it
+    # cannot have regenerated an image to dodge the checker.
+    report["image_budget"] = report["planned"] * IMAGE_CALLS_PER_SCENE
+    report["image_calls_per_scene_budget"] = IMAGE_CALLS_PER_SCENE
     report["model_usage"] = {k: v for k, v in totals.items()
                              if k not in ("image_calls", "image_cost")}
     report["cost_total"] = round(totals["cost"], 6)
@@ -1879,6 +2068,16 @@ def _run(args, data_dir: Path, lock) -> dict:
                                 for s in report["added"]
                                 if (s.get("checker") or {}).get("score")
                                 is not None]
+    # Ticket #1449: the scenes moderation should look at first (a
+    # requirement-8 finding or a repair the pipeline refused to render) and
+    # what the text-only reconciliation calls cost.
+    report["needs_review"] = sum(1 for s in report["added"]
+                                 if s.get("needs_review"))
+    reconciles = [s.get("text_reconciliation") for s in report["added"]
+                  if isinstance(s.get("text_reconciliation"), dict)]
+    report["text_reconciliations"] = len(reconciles)
+    report["text_reconciliation_cost"] = round(
+        sum(float(r.get("cost") or 0.0) for r in reconciles), 6)
     if report["added"]:
         report["cost_per_scene"] = round(totals["cost"] / len(report["added"]), 6)
         report["image_calls_per_scene"] = round(
@@ -2073,6 +2272,8 @@ def _check_round(image: Path, proposal: dict, scene: dict | None, round_no: int,
     record_call(data_dir, trace,
                 {"stage": f"check r{round_no}", "attempt": attempt,
                  "score": check["score"], "failed": check["failed"],
+                 "image_match": check.get("image_match"),
+                 "fix_prompt": check.get("fix_prompt") or "",
                  "reason": check["reason"],
                  **_call_trace(check["call"])})
     return check
@@ -2261,6 +2462,10 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
              scenesTotal=scene_total, **extra)
 
     previous_outputs = []
+    # The image calls this one scene spends come out of the shared run total
+    # (ticket #1449): the scene report carries the delta so a run's budget is
+    # checkable per scene, not only in aggregate.
+    image_calls_start = int(totals.get("image_calls", 0))
     # One year source only: the source's catalogue date (ticket #1430). The
     # proposal never supplies or corrects it.
     st = scene_time(source)
@@ -2338,25 +2543,87 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
         # 2026-09-13). Otherwise the checker's repair instruction drives a
         # fix-edit, at most CORRECTION_ROUNDS rounds, each followed by a
         # check; the check after the last round is a record, never a trigger.
-        check, rounds_used = None, 0
+        # Ticket #1449: a finding that the element is not impossible
+        # (requirement 8) is not repairable; the chain ends and the scene
+        # ships with the verdict, flagged for moderation instead of dropped
+        # or edited into another object.
+        check, rounds_used, review = None, 0, ""
         if not args.no_check:
             check = _check_round(final_path, proposal, st, 0, attempt, args,
                                  api_key, data_dir, trace, totals, progress)
             while (check is not None and check["failed"]
                    and check["fix_prompt"]
                    and rounds_used < CORRECTION_ROUNDS):
-                rounds_used += 1
+                round_no = rounds_used + 1
+                if any(n in check["failed"]
+                       for n in UNREPAIRABLE_REQUIREMENTS):
+                    review = ("checker: the element is not clearly impossible "
+                              "for the scene's year")
+                    trace.setdefault("corrections", []).append(
+                        {"round": round_no, "skipped": "unrepairable "
+                         "requirement " + ", ".join(
+                             str(n) for n in UNREPAIRABLE_REQUIREMENTS
+                             if n in check["failed"])})
+                    break
+                usable, why = presentation_only_fix(check["fix_prompt"])
+                if not usable:
+                    review = ("checker repair ignored: " + why)
+                    trace.setdefault("corrections", []).append(
+                        {"round": round_no, "fix_prompt": "ignored",
+                         "reason": why})
+                    break
                 fixed, _refused = _fix_edit(
-                    final_path, proposal, check, rounds_used, attempt, args,
+                    final_path, proposal, check, round_no, attempt, args,
                     api_key, source, data_dir, out_dir, trace, totals,
                     progress, previous_outputs, stats)
                 if fixed is None:
-                    rounds_used -= 1
                     break
+                rounds_used = round_no
                 final_path, hotspot = fixed["path"], fixed["hotspot"]
                 check = _check_round(final_path, proposal, st, rounds_used,
                                      attempt, args, api_key, data_dir, trace,
                                      totals, progress)
+
+        # Text follows the image (ticket #1449): when the checker says the
+        # shipped image shows a different element than the scene names, one
+        # text-only call rewrites anomaly, explanation and title; the scene
+        # id is derived from the final label afterwards. No image call.
+        reconcile = None
+        if check is not None and check.get("image_match") is False:
+            progress("reconciling")
+            start_cost = float(totals.get("cost", 0.0))
+            try:
+                rec = reconcile_text(final_path, proposal, api_key, args.model,
+                                     args.base_url, args.model_max_tokens,
+                                     args.model_timeout, args.temperature, st)
+                ag_llm.add_usage(totals, rec["call"].get("usage"))
+                record_call(data_dir, trace,
+                            {"stage": "reconcile-text", "attempt": attempt,
+                             **_call_trace(rec["call"])})
+                if rec["ok"]:
+                    before = {k: proposal.get(k) for k in (
+                        "anomaly", "explanation", "title")}
+                    proposal = {**proposal,
+                                "anomaly": rec["anomaly"],
+                                "explanation": rec["explanation"],
+                                "title": rec["title"]}
+                    reconcile = {"changed": before, "reason": rec["reason"],
+                                 "cost": round(float(totals.get("cost", 0.0))
+                                               - start_cost, 6)}
+                    review = review or ("text renamed to match the image: "
+                                        + rec["anomaly"])
+                else:
+                    reconcile = {"error": "unusable reconciliation answer",
+                                 "cost": round(float(totals.get("cost", 0.0))
+                                               - start_cost, 6)}
+                    review = review or ("image does not match the text; "
+                                        "reconciliation failed")
+            except ag_llm.LLMError as e:
+                trace.setdefault("call_errors", []).append(
+                    {"stage": "reconcile-text", "error": str(e)})
+                reconcile = {"error": str(e)}
+                review = review or ("image does not match the text; "
+                                    "reconciliation failed")
 
         progress("locating")
         loc = None
@@ -2417,7 +2684,7 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
             "rounds": rounds_used,
         }
         entry = build_entry(source, proposal, answer, date, scene=st,
-                            checker=check_summary)
+                            checker=check_summary, review=review)
         errs = ag_queue.validate_entry(entry)
         if errs:
             last_error = {"id": source["id"], "stage": "entry",
@@ -2439,6 +2706,10 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
             click["overlay"] = overlay
         click.pop("overlay_path", None)
         trace["click_target"] = click
+        if review:
+            trace["review"] = review
+        if reconcile is not None:
+            trace["text_reconciliation"] = reconcile
         write_trace(data_dir, entry["id"], trace)
         scene_report = {
             "scene": entry["id"], "source": source["id"],
@@ -2449,6 +2720,11 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
             "coord_conflict": conflict,
             "checker": check_summary,
             "correction_rounds": rounds_used,
+            "image_calls": int(totals.get("image_calls", 0))
+            - image_calls_start,
+            "needs_review": bool(entry.get("needs_review")),
+            "review": review,
+            "text_reconciliation": reconcile,
             "click_target": click,
             "mechanical_failures": failures,
         }
@@ -2471,10 +2747,37 @@ def _attempt_proposal(source_image: Path, source: dict, recent: list, args,
     return result["proposal"], result["call"], result["errors"]
 
 
+def presentation_only_fix(fix: str) -> tuple:
+    """Whether a checker repair may drive a fix-edit, and why (ticket #1449).
+
+    The fix-edit repairs how the element is rendered (scale, placement,
+    lighting, grain, blending); it must never change *which* object the
+    anomaly is. Returns ``(usable, reason)``: a repair that asks for another
+    object is not usable and the correction round is skipped instead.
+    """
+    text = str(fix or "").lower()
+    if not text.strip():
+        return False, "empty fix prompt"
+    for marker in OBJECT_SWAP_MARKERS:
+        if marker not in text:
+            continue
+        if marker == "replace" and any(t in text for t in RERENDER_TERMS):
+            continue  # "a smaller version of it" is a presentation repair
+        return False, f"asks for a different object ({marker!r})"
+    return True, "presentation repair"
+
+
 def _fix_prompt(proposal: dict, fix: str, retry: bool = False) -> str:
-    """The correction instruction; ``retry`` is the post-refusal rephrase."""
-    head = (f"Edit this photograph again: fix ONLY these problems with the "
-            f"added {proposal['anomaly']}: {fix}.")
+    """The correction instruction; ``retry`` is the post-refusal rephrase.
+
+    Ticket #1449: the head names the element and states that the fix-edit may
+    only repair its presentation, so the instruction cannot be read as leave
+    to swap in a different object.
+    """
+    head = (f"Edit this photograph again: fix ONLY how the added "
+            f"{proposal['anomaly']} is rendered (scale, placement, lighting, "
+            f"grain or blending); keep that exact element, never replace, "
+            f"remove or change which object it is. The checker's note: {fix}.")
     parts = [PURPOSE, head]
     if retry:
         parts.append(REFUSAL_RETRY)
@@ -2632,6 +2935,9 @@ def parse_args(argv=None):
                    help="repair mode: re-derive the queued scenes' captions "
                         "(title/place/description) instead of generating "
                         "(ticket #1402)")
+    p.add_argument("--audit-text", action="store_true",
+                   help="audit mode: report queued scenes whose last checker "
+                        "verdict disagrees with their text (ticket #1449)")
     p.add_argument("--count", type=int, default=10,
                    help="scenes to generate (default 10)")
     p.add_argument("--seed", type=int, default=None,
@@ -2688,8 +2994,7 @@ def parse_args(argv=None):
                    help="category pages per top-up")
     args = p.parse_args(argv)
     if not args.max_generations:
-        per_scene = 1 + MECHANICAL_RETRIES + CORRECTION_ROUNDS
-        args.max_generations = max(1, args.count * per_scene)
+        args.max_generations = max(1, args.count * IMAGE_CALLS_PER_SCENE)
     return args
 
 
@@ -2699,6 +3004,12 @@ def main(argv=None) -> int:
         data_dir = Path(args.data) if args.data \
             else ag_sources.default_data_dir()
         report = retext_state(data_dir)
+        print(json.dumps(report, indent=2))
+        return 0
+    if args.audit_text:
+        data_dir = Path(args.data) if args.data \
+            else ag_sources.default_data_dir()
+        report = audit_text_image(data_dir)
         print(json.dumps(report, indent=2))
         return 0
     report = run(args)

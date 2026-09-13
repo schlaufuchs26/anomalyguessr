@@ -368,6 +368,13 @@ body {
   color: #6ec88c;
 }
 
+/* Unrepaired checker finding (#1449): the moderator should look at this
+   scene before accepting it. */
+.td-chip-review {
+  background: rgba(230, 110, 90, 0.16);
+  color: #e66e5a;
+}
+
 .td-card-actions {
   display: flex;
   gap: 6px;

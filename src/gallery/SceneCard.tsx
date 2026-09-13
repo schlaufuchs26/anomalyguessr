@@ -132,16 +132,25 @@ export function SceneCard({
           <span className="td-chip td-chip-anomaly" title="The anomaly">
             {scene.anomaly}
           </span>
+          {scene.needsReview ? (
+            <span
+              className="td-chip td-chip-review"
+              title="The checker found a problem the pipeline could not repair; review before accepting"
+              data-testid={`td-review-${scene.id}`}
+            >
+              needs review
+            </span>
+          ) : null}
           {scene.checker ? (
             <span
               className={
-                scene.checker.score >= 7
+                scene.checker.failed.length === 0
                   ? "td-chip td-chip-checker td-checker-clean"
                   : "td-chip td-chip-checker"
               }
               title={
                 scene.checker.reason ||
-                "How many of the 7 requirements the shipped image met"
+                "How many of the 8 requirements the shipped image met"
               }
               data-testid={`td-checker-${scene.id}`}
             >
