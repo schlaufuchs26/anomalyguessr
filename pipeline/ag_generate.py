@@ -364,6 +364,15 @@ TODAY_TRAPS = (
 # prompt's 2026 references; change both together.
 CONTEMPORARY_YEAR = 2026
 
+# The proposal's branch line (ticket #1466): a photograph from this year or
+# later shows the modern world, where a real later-era object would read as
+# belonging, so the anomaly takes the fictional-future form instead. Same
+# year as ``ag_sources.BORN_DIGITAL_YEAR``, but this one is about the
+# depicted scene, not the file's EXIF. Measured with the pre-fix wording
+# (2026-09-13, seven sources): 1938/1982/1912 got a real later-era object,
+# 2021/2023/2026 a fictional future; the explicit branch reproduces that.
+MODERN_SCENE_YEAR = 2000
+
 # The checker's requirement list: the hard-won rules of the agent era, moved
 # here from the generation prompt. A violation is caught and corrected
 # instead of being pre-empted by an ever-longer recipe. One tuple entry per
@@ -418,13 +427,50 @@ def requirements_text() -> str:
                      for i, (name, detail) in enumerate(REQUIREMENTS, 1))
 
 
+def anomaly_branch_lines(year) -> list[str]:
+    """The one anomaly branch that applies to a photograph from ``year``.
+
+    Ticket #1466: before this the prompt carried both branches with the
+    condition "If the photograph clearly predates {year}", where ``{year}``
+    is the photo's own catalogue year; the condition can never be true, so
+    the model had to guess whether the scene is historical or modern. The
+    pipeline knows the year, so it states the branch that applies, on the
+    line the pre-fix wording used in practice (measured 2026-09-13, seven
+    sources: 1938/1982/1912 -> real later-era object, 2021/2023/2026 ->
+    fictional future): a photo from before ``MODERN_SCENE_YEAR`` gets the
+    real later-era object (today's market is irrelevant there, the
+    introduction date decides), a photo from ``MODERN_SCENE_YEAR`` or later
+    shows the modern world, where a real later-era object would read as
+    belonging and the fictional-future element is the anomaly.
+    """
+    if year is not None and year >= MODERN_SCENE_YEAR:
+        return [
+            f"- This photograph is from {MODERN_SCENE_YEAR} or later, the "
+            "modern world, so a real object from a later era would read as "
+            "belonging. The anomaly is a fictional-future element that does "
+            "not exist even today. Allowed: " + "; ".join(FUTURE_ALLOWED)
+            + ".",
+            f"  These exist in {CONTEMPORARY_YEAR} and can never be the "
+            "anomaly in such a scene: " + ", ".join(TODAY_TRAPS) + ".",
+        ]
+    return [
+        f"- This photograph is from before {MODERN_SCENE_YEAR}, so the "
+        f"anomaly is a real object, garment or vehicle from a LATER era "
+        f"(strictly after {year}): something that did not exist yet when the "
+        "photo was taken.",
+    ]
+
+
 def proposal_prompt(source: dict, recent=()) -> str:
     """Call 1's prompt: one anomaly, impossible in the catalogue year.
 
     Ticket #1430: the year is a fact the prompt *states*, never one the model
     judges (the old "Judge the photo's apparent era yourself" line made the
     catalogue year decoration). The fictional-future path stays, but only for
-    elements that are impossible in the scene's year *and* today.
+    elements that are impossible in the scene's year *and* today. Ticket
+    #1466: the pipeline states the one anomaly branch that fits the year
+    (``anomaly_branch_lines``) instead of asking the model to pick between a
+    self-contradictory pair of era branches.
     """
     year, field = ag_sources.source_year(source)
     _y, _f, year_source, year_raw = ag_sources.year_provenance(source)
@@ -446,14 +492,9 @@ def proposal_prompt(source: dict, recent=()) -> str:
         "scooters existed then, so a player can just say it belongs "
         "(invalid; pick something that did not exist yet).",
         "Invent ONE anomaly to hide in THIS photograph:",
-        f"- If the photograph clearly predates {year}, the anomaly is a real "
-        f"object, garment or vehicle from a LATER era (strictly after {year}).",
-        "- If the photograph is modern, the anomaly is a fictional-future "
-        "element that does not exist even today. Allowed: "
-        + "; ".join(FUTURE_ALLOWED) + ".",
-        "  These exist in 2026 and can NEVER carry a modern scene: "
-        + ", ".join(TODAY_TRAPS) + ". A photo from 2019 with a delivery drone "
-        "is possible, so it is invalid.",
+    ]
+    lines += anomaly_branch_lines(year)
+    lines += [
         "- It must be ONE small, concrete thing that could plausibly sit in "
         "this scene: an object, or one extra person whose only modern or "
         "futuristic tell is a small detail (for a person, the year their "

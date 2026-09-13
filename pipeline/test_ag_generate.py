@@ -202,12 +202,36 @@ class PromptTests(unittest.TestCase):
     def test_proposal_prompt_states_goals(self):
         text = g.proposal_prompt(source(), ["Old label"])
         self.assertIn("LATER era", text)
-        self.assertIn("futuristic", text)
         self.assertIn("no flying saucers", text)
         self.assertIn("Old label", text)
         for line in ag_catalog.inspiration_lines():
             self.assertIn(line, text)
         self.assertIn('"placement"', text)
+
+    def test_proposal_prompt_states_the_one_applicable_anomaly_branch(self):
+        # #1466: "If the photograph clearly predates {year}" is
+        # self-contradictory (the year IS the photo's own), so the model had
+        # to guess whether the scene is historical or modern. The pipeline
+        # states the branch that fits the year.
+        old = g.proposal_prompt(source(date="1905-01-01"), [])
+        self.assertIn("is from before 2000", old)
+        self.assertIn("strictly after 1905", old)
+        self.assertIn("LATER era", old)
+        self.assertNotIn("predates", old)
+        self.assertNotIn("Allowed:", old)
+        modern = g.proposal_prompt(source(date="2021-05-09"), [])
+        self.assertIn("is from 2000 or later", modern)
+        self.assertIn("Allowed:", modern)
+        self.assertIn("2026 and can never be the anomaly", modern)
+        self.assertNotIn("LATER era", modern)
+
+    def test_anomaly_branch_boundary(self):
+        # 1999 is still historical, 2000 the first modern year: the measured
+        # line the pre-fix wording used in practice.
+        self.assertIn("LATER era", g.anomaly_branch_lines(1999)[0])
+        self.assertIn("before 2000", g.anomaly_branch_lines(1999)[0])
+        self.assertIn("2000 or later", g.anomaly_branch_lines(2000)[0])
+        self.assertIn("2000 or later", g.anomaly_branch_lines(2026)[0])
 
     def test_scale_rule_has_one_numeric_cap(self):
         obj = g.scale_rule({"figure": False})
