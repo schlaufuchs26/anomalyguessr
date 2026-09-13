@@ -277,6 +277,25 @@ def is_born_digital(entry: dict) -> bool:
     return y is not None and y >= BORN_DIGITAL_YEAR
 
 
+def anchor_year(entry: dict) -> tuple[int | None, str]:
+    """The scene-year anchor from the source's structured metadata (#1403).
+
+    Returns ``(year, field)``: the year the photograph was taken, and which
+    structured value supplied it. The EXIF capture date is preferred over the
+    upload/scan stamp, so a scan's digitization date cannot masquerade as the
+    photo's year; the field name is kept for the trace. ``(None, "")`` when no
+    structured value carries a year.
+    """
+    raw = entry.get("raw") or {}
+    for field, value in (("dateTimeOriginal", raw.get("dateTimeOriginal")),
+                         ("dateTime", raw.get("dateTime")),
+                         ("date", entry.get("date"))):
+        y = year_in_metadata(value)
+        if y is not None:
+            return y, field
+    return None, ""
+
+
 def metadata_date(original: str, fallback: str) -> str:
     """Plain date string from structured metadata values (no free text).
 

@@ -47,7 +47,7 @@ def img_bytes(w=1200, h=800, color="red") -> bytes:
 
 
 def source(sid=SOURCE_ID, title="Busy market street, 1905", place="",
-           date="2013-10-24", image=None, width=1200, height=800):
+           date="1905-01-01", image=None, width=1200, height=800):
     return {
         "id": sid,
         "repository": "Wikimedia Commons",
@@ -64,14 +64,14 @@ def source(sid=SOURCE_ID, title="Busy market street, 1905", place="",
         "used": False,
         "added": "2026-09-12",
         "raw": {"categories": "Markets|Streets", "artist": "A. Photographer",
-                "dateTimeOriginal": "2013-10-24 15:02:48"},
+                "dateTimeOriginal": f"{date} 15:02:48"},
     }
 
 
 def proposal(**kw):
     p = {
         "anomaly": "Plastic bottle (clear PET)", "kind": "later-era",
-        "apparent_era": "1905", "figure": False,
+        "exists_from": "1973", "apparent_era": "1905", "figure": False,
         "placement": "on the ground at the bottom edge, half hidden behind "
                      "a crate",
         "explanation": "PET bottles only came into common use in the 1970s.",
@@ -205,12 +205,45 @@ class PromptTests(unittest.TestCase):
         self.assertIn('"failed"', text)
         self.assertNotIn('"ok"', text)
 
+    def test_proposal_prompt_anchors_the_scene_year(self):
+        text = g.proposal_prompt(source(date="2017-06-14"), [])
+        self.assertIn("2017", text)
+        self.assertIn("IMPOSSIBLE", text)
+        self.assertIn("exists_from", text)
+        # The two calibration poles: impossible valid, improbable invalid.
+        self.assertIn("plastic bottle in a 1900", text.lower())
+        self.assertIn("e-scooter in a 2017", text.lower())
+
+    def test_proposal_prompt_without_an_anchor_asks_for_the_era(self):
+        s = source(date="")
+        s["raw"].pop("dateTimeOriginal")
+        self.assertIn("apparent era yourself",
+                      g.proposal_prompt(s, []))
+
+    def test_check_prompt_carries_the_scene_year_and_the_test(self):
+        scene = {"year": 1905, "origin": "metadata", "display": "1905",
+                 "apparent": 1905, "disagreement": False, "field": "date"}
+        text = g.check_prompt(proposal(), scene)
+        self.assertIn("1905", text)
+        self.assertIn("source metadata", text)
+        self.assertIn("Impossible at the scene's time", text)
+        self.assertIn("introduction date", text)
+        # An unknown year must not make the prompt claim one.
+        self.assertNotIn("1905", g.check_prompt(
+            proposal(), {"year": None, "origin": "proposal",
+                         "display": "modern", "apparent": None,
+                         "disagreement": False, "field": ""}))
+
 
 # ── Proposal validation ────────────────────────────────────────────────────
 
 class ProposalTest(unittest.TestCase):
     def test_valid_proposal_has_no_errors(self):
         self.assertEqual(g.proposal_errors(proposal()), [])
+
+    def test_exists_from_is_required(self):
+        self.assertIn("exists_from", " ".join(
+            g.proposal_errors(proposal(exists_from="   "))))
 
     def test_missing_and_bad_fields(self):
         self.assertIn("anomaly", " ".join(g.proposal_errors({})))
@@ -223,10 +256,12 @@ class ProposalTest(unittest.TestCase):
 
     def test_normalize_caps_and_flags(self):
         p = g.normalize_proposal({"anomaly": "  Bottle \n", "figure": 1,
-                                  "placement": "a" * 900})
+                                  "placement": "a" * 900,
+                                  "exists_from": "y" * 200})
         self.assertEqual(p["anomaly"], "Bottle")
         self.assertTrue(p["figure"])
         self.assertLessEqual(len(p["placement"]), 400)
+        self.assertLessEqual(len(p["exists_from"]), 60)
 
     def test_valid_reference(self):
         self.assertTrue(g.valid_reference({"label": "x",
@@ -691,6 +726,14 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
             g.pending_trace_path(self.data_dir,
                                  data["source"]).exists())
 
+    def test_scene_time_anchor_lands_in_the_trace(self):
+        scene, _, _ = self.run_one(candidates=1)
+        data = self.trace_of(scene)
+        self.assertEqual(data["scene_time"]["year"], 1905)
+        self.assertEqual(data["scene_time"]["origin"], "metadata")
+        self.assertEqual(data["scene_time"]["field"], "dateTimeOriginal")
+        self.assertEqual(scene["report"]["scene_time"]["year"], 1905)
+
     def test_best_of_k_ships_the_highest_scoring_candidate(self):
         def edit(*a, **kw):
             color = ["red", "blue", "green"][len(drawn)]
@@ -723,7 +766,8 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
         trace = self.trace_of(scene)
         self.assertEqual([c["candidate"] for c in trace["candidates"]],
                          [1, 2, 3])
-        self.assertEqual([c["score"] for c in trace["candidates"]], [3, 7, 3])
+        self.assertEqual([c["score"] for c in trace["candidates"]],
+                         [3, g.REQUIREMENTS_TOTAL, 3])
         self.assertEqual(trace["candidates"][0]["reason"], "tone and scale")
         self.assertIn("Plastic bottle", trace["candidates"][0]["prompt"])
         self.assertTrue(trace["candidates"][1]["seed"] is not None)
@@ -1026,6 +1070,48 @@ class RunTest(TempDataMixin, unittest.TestCase):
         ag_sources.save_index(self.data_dir, index)
         picked = g.select_sources(self.data_dir, 10)
         self.assertEqual([s["id"] for s in picked], [SOURCE_ID])
+
+
+# ── Scene-time anchor (#1403) ──────────────────────────────────────────────
+
+class SceneTimeTest(unittest.TestCase):
+    def test_metadata_anchor_wins_over_the_proposal(self):
+        st = g.scene_time(source(date="2017-06-14"),
+                          proposal(apparent_era="modern (2020s)"))
+        self.assertEqual(st["year"], 2017)
+        self.assertEqual(st["display"], "2017")
+        self.assertEqual(st["origin"], "metadata")
+        self.assertTrue(st["disagreement"])
+
+    def test_anchor_prefers_the_capture_date_field(self):
+        s = source(date="1905-01-01")
+        s["raw"]["dateTimeOriginal"] = "1905-01-01 15:02:48"
+        s["raw"]["dateTime"] = "2014-09-13"
+        st = g.scene_time(s, proposal(apparent_era="1905"))
+        self.assertEqual(st["year"], 1905)
+        self.assertEqual(st["field"], "dateTimeOriginal")
+        self.assertFalse(st["disagreement"])
+
+    def test_without_an_anchor_the_proposal_is_the_year(self):
+        s = source(date="")
+        s["raw"].pop("dateTimeOriginal")
+        st = g.scene_time(s, proposal(apparent_era="c. 1905"))
+        self.assertEqual(st["year"], 1905)
+        self.assertEqual(st["display"], "1905")
+        self.assertEqual(st["origin"], "proposal")
+        self.assertFalse(st["disagreement"])
+
+    def test_a_close_anchor_is_not_flagged(self):
+        st = g.scene_time(source(date="1903-01-01"),
+                          proposal(apparent_era="1905"))
+        self.assertFalse(st["disagreement"])
+
+    def test_build_entry_shows_the_anchor(self):
+        entry = g.build_entry(source(date="2017-06-14"),
+                              proposal(apparent_era="modern (2020s)"),
+                              {"x": 0.5, "y": 0.5, "r": 0.05}, "2026-09-12")
+        self.assertEqual(entry["year"], "2017")
+        self.assertEqual(ag_queue.validate_entry(entry), [])
 
 
 # ── LLM plumbing ───────────────────────────────────────────────────────────

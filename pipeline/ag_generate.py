@@ -13,19 +13,26 @@ Per scene:
    invents ONE subtle time-travel anomaly for THIS image: a real later-era
    object for a historical photo, a fictional-future element for a modern
    one (Evan: modern photos are fine, "dann nutzen wir fictional futures").
-   It answers with label, kind, apparent era, figure flag, placement,
-   explanation and references. `ag_catalog.INSPIRATION` supplies few-shot
-   shape examples; recently used labels are passed in to avoid repeats.
+   The bar is *impossibility*, not improbability (ticket #1403): the element
+   must not exist in the scene's year. The source metadata's capture year
+   (`ag_sources.anchor_year`) is passed in as the scene's year and is the
+   bar; the model returns label, kind, the year the element exists from
+   (`exists_from`), apparent era, figure flag, placement, the impossibility
+   reason and references. `ag_catalog.INSPIRATION` supplies few-shot shape
+   examples; recently used labels are passed in to avoid repeats.
 2. **Apply** (`image_edit`): one `google/gemini-3.1-flash-image` call that
    adds the anomaly. The generation prompt keeps the hard constraints (one
    dominant placement instruction, ONE numeric scale cap with a
    same-distance anchor, keep everything else, tone match, grain, no glow);
    the long proscriptive rule list moved into the checker.
 3. **Check** (`check_scene`): one vision call per candidate against the
-   seven requirements (time-travel framing, subtlety, scale, tone, grain,
-   keep-the-rest, identifiability). The checker does not vote the scene out:
-   it returns the numbers of the requirements each candidate fails, so the
-   candidate that fails the fewest wins (best-of-k, ticket #1381).
+   eight requirements (time-travel framing, subtlety, scale, tone, grain,
+   keep-the-rest, identifiability, impossibility at the scene's time). The
+   checker does not vote the scene out: it returns the numbers of the
+   requirements each candidate fails, so the candidate that fails the
+   fewest wins (best-of-k, ticket #1381). Requirement 8 tests the element's
+   introduction year against the scene's year, so an "improbable but
+   possible" element (an e-scooter in 2017) fails.
 4. **Correct** (at most once): when the winner still fails a requirement and
    the checker supplied a fix prompt, ONE edit applies that fix. The
    post-correction check scores and records the result; it cannot veto.
@@ -57,7 +64,11 @@ the pipeline runs, so a crash keeps a partial record; a finished scene shows
 the whole flow, a scene from before the trace existed shows none. Losing
 candidate images are not kept (they live in the run's temp dir): measured,
 one candidate PNG is 1-2 MB, so keeping three per scene would cost ~50 MB a
-day for pictures nobody looks at once the scores are in the trace.
+day for pictures nobody looks at once the scores are in the trace. The
+scene-time anchor (`scene_time`: year, which metadata field supplied it, and
+whether the proposal disagreed) is in the trace too, so a wrong year can be
+reviewed later (ticket #1403). `pipeline/ag_era_audit.py` reruns the
+impossibility test over the whole queue.
 
 The run lock, the progress status file, the DM-on-failure path and the queue
 add are unchanged from #1210/#1169: the daily cron and the dashboard's
@@ -223,6 +234,14 @@ REQUIREMENTS = (
     ("Identifiable",
      "the added element must be findable as the anachronism, not so tiny or "
      "so blended that a player cannot find it."),
+    ("Impossible at the scene's time",
+     "the element must be IMPOSSIBLE, not merely unusual, in the "
+     "photograph's year (stated at the top). Its introduction must be "
+     "strictly later than that year (real later era), or it must be "
+     "explicitly futuristic, i.e. it does not exist even today. An object "
+     "that existed in that year but was only rare, or whose introduction is "
+     "the same year as the photograph, is a failure: a player can just say "
+     "it belongs."),
 )
 REQUIREMENTS_TOTAL = len(REQUIREMENTS)
 
@@ -233,22 +252,40 @@ def requirements_text() -> str:
 
 
 def proposal_prompt(source: dict, recent=()) -> str:
+    anchor, _field = ag_sources.anchor_year(source)
     lines = [
         "You are the content designer for a spot-the-anachronism game: "
         "players get a real photograph and must find the ONE thing that does "
         "not belong to its time.",
         "This photograph comes from "
-        f"{source.get('repository') or 'a public archive'}. Judge its "
-        "apparent era yourself from what you see.",
+        f"{source.get('repository') or 'a public archive'}.",
+    ]
+    if anchor is not None:
+        lines.append(
+            f"The scene's year is {anchor}, from the source metadata; that "
+            "year is the bar and your anomaly must not contradict it.")
+    else:
+        lines.append("Judge the photo's apparent era yourself from what you "
+                     "see, and use that as the bar.")
+    lines += [
+        "The ONE anomaly you invent must be IMPOSSIBLE in that year, not "
+        "merely unusual or rare.",
+        "- A clear plastic bottle in a 1900 photograph is IMPOSSIBLE: the "
+        "bottle did not exist yet, so no player can explain it away (valid).",
+        "- An e-scooter in a 2017 photograph is only unusual, not impossible: "
+        "scooters existed then, so a player can just say it belongs "
+        "(invalid; pick something that did not exist yet).",
         "Invent ONE anomaly to hide in THIS photograph:",
         "- If the photo clearly predates the present, the anomaly is a real "
-        "object, garment or vehicle from a LATER era (after the photo).",
+        "object, garment or vehicle from a LATER era (strictly after the "
+        "scene's year).",
         "- If the photo looks modern, the anomaly is a clearly futuristic "
-        "element (a fictional-future device or figure), because nothing in "
-        "the real present would read as out of place.",
+        "element that does not exist even today (a fictional-future device or "
+        "figure), because everything real already exists by then.",
         "- It must be ONE small, concrete thing that could plausibly sit in "
         "this scene: an object, or one extra person whose only modern or "
-        "futuristic tell is a small detail.",
+        "futuristic tell is a small detail (for a person, the year their "
+        "modern tell became available).",
         "- Pure fantasy is out: no flying saucers, dragons, unicorns, ghosts "
         "or magic. Everything must read as a thing from another time.",
         "- Keep it subtle: findable, but not obvious.",
@@ -263,13 +300,15 @@ def proposal_prompt(source: dict, recent=()) -> str:
                      + "; ".join(str(r) for r in recent) + ".")
     lines.append(
         'Answer as strict JSON only, no prose: {"anomaly": "<short label>", '
-        '"kind": "later-era"|"fictional-future", "apparent_era": "<the year '
+        '"kind": "later-era"|"fictional-future", "exists_from": "<the year or '
+        'era from which the element exists; for a futuristic element say '
+        '\\"not real yet, a fictional future\\">", "apparent_era": "<the year '
         'or decade that best fits the photo, or \\"modern\\">", '
         '"title": "<short human title of the scene, at most 8 words>", '
         '"figure": true|false, "placement": "<one sentence: where in THIS '
         'photo it sits, how it is partly hidden, and how large it should '
         'look next to things at the same distance>", "explanation": "<one '
-        'sentence: why it cannot belong to this photograph>", "references": '
+        'sentence: why it cannot exist in the scene\'s year>", "references": '
         '[{"label": "<source name>", "url": "https://..."}]}')
     return "\n".join(lines)
 
@@ -311,21 +350,52 @@ def coord_prompt(proposal: dict, prompt: str = "") -> str:
     return "\n".join(lines)
 
 
-def check_prompt(proposal: dict) -> str:
-    return ("You are the quality checker for a spot-the-anachronism game.\n"
-            "The image you see should be the original photograph with ONE "
-            f"element added: {proposal['anomaly']} "
-            f"({proposal['placement']}).\n"
-            "Judge it against these requirements, each one on its own:\n"
-            f"{requirements_text()}\n"
-            "You are scoring, not voting: never reject the whole image, "
-            "just say which numbered requirements it fails.\n"
-            'Answer as strict JSON only: {"failed": [<numbers of the '
-            'requirements it violates, in rising order, [] when it meets '
-            'all of them>], "reason": "<one line: the decisive reason for '
-            'the score>", "fix_prompt": "<one self-contained instruction '
-            'that would fix the failed requirements, or empty when none '
-            'failed>"}')
+def scene_time_text(scene: dict | None) -> str:
+    """The scene's year for the checker, from the anchor or the proposal.
+
+    An empty string means the year is unknown, so requirement 8 cannot be
+    tested against a concrete year (#1403).
+    """
+    if not scene or scene.get("year") is None:
+        return ""
+    if scene.get("origin") == "metadata":
+        return (f"The photograph was taken in {scene['year']} (source "
+                "metadata).")
+    return (f"No capture date is known; the proposal judges the photograph "
+            f"to be from {scene.get('display')}.")
+
+
+def check_prompt(proposal: dict, scene: dict | None = None) -> str:
+    lines = [
+        "You are the quality checker for a spot-the-anachronism game.",
+    ]
+    time_text = scene_time_text(scene)
+    if time_text:
+        lines.append(time_text)
+    lines.append(
+        "The image you see should be the original photograph with ONE "
+        f"element added: {proposal['anomaly']} ({proposal['placement']}).")
+    lines.append(
+        f"The proposal says the element exists from "
+        f"{proposal.get('exists_from') or 'an unknown year'} and claims: "
+        f"{proposal.get('explanation')}")
+    lines.append("Judge it against these requirements, each one on its own:")
+    lines.append(requirements_text())
+    lines.append(
+        "Requirement 8 uses the photograph's year stated above: check the "
+        "introduction date, not whether the element merely looks out of "
+        "place.")
+    lines.append(
+        "You are scoring, not voting: never reject the whole image, "
+        "just say which numbered requirements it fails.")
+    lines.append(
+        'Answer as strict JSON only: {"failed": [<numbers of the '
+        'requirements it violates, in rising order, [] when it meets '
+        'all of them>], "reason": "<one line: the decisive reason for '
+        'the score>", "fix_prompt": "<one self-contained instruction '
+        'that would fix the failed requirements, or empty when none '
+        'failed>"}')
+    return "\n".join(lines)
 
 
 # ── Proposal validation / references ───────────────────────────────────────
@@ -379,6 +449,9 @@ def proposal_errors(proposal) -> list:
         errs.append("anomaly label is longer than 80 characters")
     if proposal.get("kind") not in ("later-era", "fictional-future"):
         errs.append("kind must be later-era or fictional-future")
+    if not isinstance(proposal.get("exists_from"), str) or \
+            not proposal["exists_from"].strip():
+        errs.append("exists_from must be a non-empty string")
     if not isinstance(proposal.get("apparent_era"), str) or \
             not proposal["apparent_era"].strip():
         errs.append("apparent_era must be a non-empty string")
@@ -395,6 +468,7 @@ def normalize_proposal(proposal: dict) -> dict:
     """Whitespace-collapse and cap the proposal's free-text fields."""
     out = dict(proposal)
     for key, limit in (("anomaly", 80), ("apparent_era", 40),
+                       ("exists_from", 60),
                        ("placement", 400), ("explanation", 400)):
         out[key] = ag_llm.clean_text(out.get(key), limit)
     out["title"] = clean_caption_title(out.get("title"))[:80]
@@ -499,14 +573,16 @@ def score_from_failed(failed: list) -> int:
 
 def check_scene(image: Path, proposal: dict, api_key: str, model: str,
                 base_url: str, max_tokens: int, timeout: int,
-                temperature: float | None) -> dict:
+                temperature: float | None, scene: dict | None = None) -> dict:
     """Call 4: which requirements the candidate fails, and how to fix them.
 
     The score is ``REQUIREMENTS_TOTAL - len(failed)``, computed in code from
     the requirement numbers, not from a model-arithmetic field: that is the
-    comparable scale for best-of-k selection (ticket #1381).
+    comparable scale for best-of-k selection (ticket #1381). ``scene`` is the
+    ``scene_time`` anchor, so requirement 8 can test the element's
+    introduction year against the photograph's year (ticket #1403).
     """
-    prompt = check_prompt(proposal)
+    prompt = check_prompt(proposal, scene)
     result = _run_call(prompt, image, api_key, model, base_url, max_tokens,
                        timeout, temperature)
     parsed = result["parsed"] or {}
@@ -791,6 +867,35 @@ def scene_year(proposal: dict) -> str:
     return m.group(1) if m else (era or "unknown")
 
 
+def _year_int(text) -> int | None:
+    """The four-digit year in a text, or None (ticket #1403)."""
+    m = re.search(r"(?<!\d)(1[0-9]\d{2}|20\d{2})(?!\d)", str(text or ""))
+    return int(m.group(1)) if m else None
+
+
+def scene_time(source: dict, proposal: dict) -> dict:
+    """The scene's year: the metadata anchor wins, the proposal is sanity.
+
+    Ticket #1403: the impossibility test needs a real year, so the source
+    metadata's capture year (``ag_sources.anchor_year``) is the bar when it
+    exists; the proposal's ``apparent_era`` only sanity-checks it. A
+    disagreement of more than two years is flagged for the trace, and the
+    anchor still wins. Without an anchor the proposal's judgement is the
+    year, and ``year`` is None when that judgment carries no four-digit year
+    (the checker cannot test impossibility against "modern").
+    """
+    anchor, field = ag_sources.anchor_year(source)
+    apparent = _year_int(proposal.get("apparent_era"))
+    if anchor is not None:
+        return {"year": anchor, "display": str(anchor), "origin": "metadata",
+                "field": field, "apparent": apparent,
+                "disagreement": (apparent is not None
+                                 and abs(anchor - apparent) > 2)}
+    display = scene_year(proposal)
+    return {"year": apparent, "display": display, "origin": "proposal",
+            "field": "", "apparent": apparent, "disagreement": False}
+
+
 def region_phrase(answer: dict) -> str:
     x, y = answer.get("x", 0.5), answer.get("y", 0.5)
     horiz = "left" if x < 0.34 else ("right" if x > 0.66 else "center")
@@ -852,9 +957,11 @@ def build_credit(source: dict) -> str:
     return f"{artist} via {repo}" if artist else repo
 
 
-def build_entry(source: dict, proposal: dict, answer: dict, date: str) -> dict:
+def build_entry(source: dict, proposal: dict, answer: dict, date: str,
+                scene: dict | None = None) -> dict:
     eid = scene_id(source["id"], proposal["anomaly"])
-    year = scene_year(proposal)
+    st = scene if scene is not None else scene_time(source, proposal)
+    year = st["display"]
     place = scene_place(source)
     entry = ag_catalog.entry_for_label(proposal["anomaly"])
     if entry is not None:
@@ -1459,7 +1566,7 @@ def _collect_candidates(source_image: Path, prompt: str, attempt: int, args,
 
 def _score_candidates(candidates: list, proposal: dict, args, api_key: str,
                       data_dir: Path, trace: dict, totals: dict,
-                      progress) -> dict:
+                      progress, scene: dict | None = None) -> dict:
     """Check every candidate on the same rubric; return the winner.
 
     The score is the number of the seven requirements the candidate meets
@@ -1476,7 +1583,8 @@ def _score_candidates(candidates: list, proposal: dict, args, api_key: str,
         try:
             check = check_scene(cand["path"], proposal, api_key, args.model,
                                 args.base_url, args.model_max_tokens,
-                                args.model_timeout, args.temperature)
+                                args.model_timeout, args.temperature,
+                                scene=scene)
         except ag_llm.LLMError as e:
             trace.setdefault("call_errors", []).append(
                 {"stage": "check", "candidate": cand["index"],
@@ -1502,7 +1610,7 @@ def _score_candidates(candidates: list, proposal: dict, args, api_key: str,
 def _correction(source_image: Path, proposal: dict, check: dict, attempt: int,
                 args, api_key: str, source: dict, data_dir: Path,
                 out_dir: Path, trace: dict, totals: dict, progress,
-                previous_outputs: list) -> dict | None:
+                previous_outputs: list, scene: dict | None = None) -> dict | None:
     """The one allowed correction pass (ticket #1381).
 
     Applies the checker's fix prompt to the winning candidate. The result is
@@ -1540,7 +1648,8 @@ def _correction(source_image: Path, proposal: dict, check: dict, attempt: int,
     try:
         recheck = check_scene(fixed_path, proposal, api_key, args.model,
                               args.base_url, args.model_max_tokens,
-                              args.model_timeout, args.temperature)
+                              args.model_timeout, args.temperature,
+                              scene=scene)
     except ag_llm.LLMError as e:
         trace.setdefault("call_errors", []).append(
             {"stage": "recheck", "error": str(e)})
@@ -1597,6 +1706,13 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
             set_trace_error(data_dir, trace, last_error["reason"])
             continue
         prompt = edit_prompt(proposal)
+        st = scene_time(source, proposal)
+        trace["scene_time"] = st
+        if st["disagreement"]:
+            trace.setdefault("warnings", []).append(
+                "apparent_era disagrees with the metadata anchor by more "
+                f"than two years (anchor {st['year']}, proposal "
+                f"{st['display']}); the anchor is used for the test")
         candidates, failures, budget_hit = _collect_candidates(
             source_image, prompt, attempt, args, api_key, source, data_dir,
             out_dir, trace, totals, progress, previous_outputs)
@@ -1613,14 +1729,15 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
             continue
 
         winner = _score_candidates(candidates, proposal, args, api_key,
-                                   data_dir, trace, totals, progress)
+                                   data_dir, trace, totals, progress,
+                                   scene=st)
         check, hotspot = winner["check"], winner["hotspot"]
         final_path, corrected = winner["path"], False
         if not args.no_check and check is not None and check["failed"] \
                 and check["fix_prompt"]:
             fixed = _correction(source_image, proposal, check, attempt, args,
                                 api_key, source, data_dir, out_dir, trace,
-                                totals, progress, previous_outputs)
+                                totals, progress, previous_outputs, scene=st)
             if fixed is not None:
                 final_path, hotspot, corrected = (fixed["path"],
                                                   fixed["hotspot"], True)
@@ -1679,7 +1796,7 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
             {"candidate": r["candidate"], "rejected": r["rejected"]}
             for r in trace["candidates"] if r.get("rejected")]
 
-        entry = build_entry(source, proposal, answer, date)
+        entry = build_entry(source, proposal, answer, date, scene=st)
         errs = ag_queue.validate_entry(entry)
         if errs:
             last_error = {"id": source["id"], "stage": "entry",
@@ -1700,6 +1817,7 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
             "scene": entry["id"], "source": source["id"],
             "anomaly": entry["anomaly"], "kind": proposal["kind"],
             "era": entry["year"], "place": entry["place"],
+            "scene_time": st,
             "attempt": attempt, "answer": answer,
             "coord_conflict": conflict,
             "winner": winner["index"] if not corrected else "corrected",

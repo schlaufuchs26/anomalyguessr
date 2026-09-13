@@ -138,6 +138,21 @@ class BornDigitalTest(unittest.TestCase):
             {"raw": {"dateTimeOriginal": "1902"}}))
         self.assertFalse(s.is_born_digital({"raw": {}}))
 
+    def test_anchor_year_prefers_capture_then_upload_then_date(self):
+        # The EXIF capture date is the photo's year; the upload/scan stamp is
+        # only a fallback, so a scan's digitization date cannot win.
+        self.assertEqual(
+            s.anchor_year({"raw": {"dateTimeOriginal": "1902",
+                                   "dateTime": "2014-09-13"},
+                           "date": "2014-09-13"}),
+            (1902, "dateTimeOriginal"))
+        self.assertEqual(
+            s.anchor_year({"raw": {"dateTime": "1899"}, "date": "1900"}),
+            (1899, "dateTime"))
+        self.assertEqual(s.anchor_year({"date": "1907?"}), (1907, "date"))
+        self.assertEqual(s.anchor_year({"date": ""}), (None, ""))
+        self.assertEqual(s.anchor_year({"date": "1900s"}), (None, ""))
+
 
 class MetadataDateTest(unittest.TestCase):
     def test_prefers_original(self):
