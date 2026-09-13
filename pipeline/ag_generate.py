@@ -42,7 +42,10 @@ Per scene:
    a repair instruction, and whether the image shows the element the text
    names (`image_match`, ticket #1449). Requirement 8 tests the element's
    introduction year against the scene's year, so an "improbable but possible"
-   element (an e-scooter in 2017) fails.
+   element (an e-scooter in 2017) fails; its "exists in 2026" clause holds
+   only for a photograph from 2026 or later (ticket #1460), because an
+   element that exists today is still the anomaly in an older photograph
+   when it was introduced later.
 4. **Correct** (`fix-edit`, at most `CORRECTION_ROUNDS` = 2, ticket #1449):
    the correction repairs only how the element is rendered (scale, placement,
    lighting, grain, blending); a checker repair that asks for another object
@@ -352,6 +355,15 @@ TODAY_TRAPS = (
     "QR codes", "LED and solar technology", "modern clothing", "e-bikes",
 )
 
+# Requirement 8's "it exists in 2026" rule settles only a contemporary
+# photograph (#1460): a photo from 2026 or later shows today's world, so an
+# element on the market today belongs to it. In a historical photo an element
+# that exists in 2026 is still the anomaly when it was introduced later
+# (AG-119: the checker rejected a digital smartwatch on a 1911 photograph with
+# "a digital smartwatch exists in 2026"). Same literal year as the proposal
+# prompt's 2026 references; change both together.
+CONTEMPORARY_YEAR = 2026
+
 # The checker's requirement list: the hard-won rules of the agent era, moved
 # here from the generation prompt. A violation is caught and corrected
 # instead of being pre-empted by an ever-longer recipe. One tuple entry per
@@ -390,10 +402,13 @@ REQUIREMENTS = (
      "explicitly futuristic, i.e. it does not exist even today. An object "
      "that existed in that year but was only rare, or whose introduction is "
      "the same year as the photograph, is a failure: a player can just say "
-     "it belongs. Something that exists in 2026 is never an anomaly, "
-     "whatever the photograph's year: for edge cases (drones, robots, AI "
-     "devices, electronics) say why the element does not exist in 2026, and "
-     "fail it when you are not certain."),
+     "it belongs. Judge the introduction date, not today's market: an "
+     "element that exists in 2026 is still the anomaly in a photograph from "
+     "before 2026 when it was introduced later. Only for a photograph from "
+     "2026 or later is an element that exists in 2026 no anomaly at all. "
+     "For a claimed futuristic element (drones, robots, AI devices, "
+     "electronics) demand the reason it does not exist in 2026, and fail it "
+     "when you are not certain."),
 )
 REQUIREMENTS_TOTAL = len(REQUIREMENTS)
 
@@ -565,6 +580,17 @@ def scene_time_text(scene: dict | None) -> str:
             f"from {where}).")
 
 
+def is_contemporary(year) -> bool:
+    """True when a scene year is today's era (2026 or later, ticket #1460).
+
+    Requirement 8's "exists in 2026" clause only settles such a photograph:
+    there the element exists in the photograph's own year. In an older photo
+    it is still the anomaly when it was introduced later, so the checker must
+    judge the introduction date, not today's market.
+    """
+    return isinstance(year, int) and year >= CONTEMPORARY_YEAR
+
+
 def check_prompt(proposal: dict, scene: dict | None = None) -> str:
     lines = [
         "You are the quality checker for a spot-the-anachronism game.",
@@ -585,13 +611,24 @@ def check_prompt(proposal: dict, scene: dict | None = None) -> str:
         "Requirement 8 uses the photograph's year stated above: check the "
         "introduction date, not whether the element merely looks out of "
         "place.")
+    if is_contemporary((scene or {}).get("year")):
+        lines.append(
+            "This photograph is from 2026 or later, so it shows today's "
+            "world: an element that exists in 2026 belongs to the scene "
+            "here. Fail requirement 8 when the added element is on the "
+            "market today.")
+    else:
+        lines.append(
+            "For a photograph from before 2026, an element that exists in "
+            "2026 is still the anomaly when it was introduced after the "
+            "photograph's year: judge the introduction date, not today's "
+            "market.")
     if proposal.get("not_today"):
         lines.append("The proposal's reason it cannot exist in 2026: "
                      + str(proposal["not_today"]))
-    lines.append(
-        "Requirement 8 also means: an element that exists in 2026 is never "
-        "an anomaly. For drones, robots, AI devices and electronics, check "
-        "that reason: fail it when the element is on the market today.")
+        lines.append(
+            "For drones, robots, AI devices and electronics check that "
+            "reason: fail the element when it is on the market today.")
     lines.append(
         "You are scoring, not voting: never reject the whole image, "
         "just say which numbered requirements it fails.")

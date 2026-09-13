@@ -273,6 +273,44 @@ class PromptTests(unittest.TestCase):
                          "display": "modern", "apparent": None,
                          "disagreement": False, "field": ""}))
 
+    def test_requirement_8_scopes_the_2026_rule_to_contemporary_photos(self):
+        # #1460: the blanket "something that exists in 2026 is never an
+        # anomaly, whatever the photograph's year" made the checker reject a
+        # correct later-era element on a historical photo (AG-119: a digital
+        # smartwatch on a 1911 photograph, scored 7 with "failed [8]"). The
+        # rule settles only a photograph from 2026 or later; for an older
+        # photo the element's introduction date decides.
+        detail = dict(g.REQUIREMENTS)["Impossible at the scene's time"]
+        self.assertIn("introduction", detail)
+        self.assertIn("2026 or later", detail)
+        self.assertNotIn("whatever the photograph's year", detail)
+
+    def test_check_prompt_keeps_a_later_era_element_on_an_old_photo(self):
+        old = {"year": 1911, "origin": "metadata", "display": "1911",
+               "apparent": None, "disagreement": False, "field": "date"}
+        text = g.check_prompt(proposal(), old)
+        self.assertIn("For a photograph from before 2026", text)
+        self.assertNotIn("never an anomaly", text)
+        # The contemporary case is the one the old wording was written for:
+        # there the element exists in the photograph's own year.
+        modern = dict(old, year=2026)
+        modern_text = g.check_prompt(proposal(), modern)
+        self.assertIn("This photograph is from 2026 or later", modern_text)
+        self.assertNotIn("For a photograph from before 2026", modern_text)
+        # A missing year (the pool gate prevents it) must not claim one.
+        self.assertIn("For a photograph from before 2026",
+                      g.check_prompt(proposal()))
+
+    def test_contemporary_year_boundary(self):
+        # #1460: 2026 is the first contemporary year; a missing year (and a
+        # legacy non-int one) counts as historical, where the introduction
+        # date decides.
+        self.assertTrue(g.is_contemporary(g.CONTEMPORARY_YEAR))
+        self.assertTrue(g.is_contemporary(2030))
+        self.assertFalse(g.is_contemporary(2025))
+        self.assertFalse(g.is_contemporary(None))
+        self.assertFalse(g.is_contemporary("modern"))
+
     def test_edit_prompt_states_the_game_purpose(self):
         # #1439: the provider refused 14% of edits until the call said what
         # the picture is for; every edit carries the neutral preamble now.
