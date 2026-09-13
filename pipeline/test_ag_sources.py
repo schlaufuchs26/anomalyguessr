@@ -355,6 +355,176 @@ class MeasureTest(unittest.TestCase):
         self.assertEqual(rep["structured_equals_upload"], 1)
 
 
+class InceptionClaimTest(unittest.TestCase):
+    """SDC P571 parsing (#1418): the time value, not a heuristics guess."""
+
+    def test_reads_a_day_precision_claim(self):
+        st = {"P571": [{"mainsnak": {"datavalue": {
+            "value": {"time": "+2005-09-10T00:00:00Z", "precision": 11},
+            "type": "time"}}}]}
+        self.assertEqual(s.inception_year(st), (2005, 11))
+
+    def test_reads_a_year_precision_claim(self):
+        # Commons normalizes a year-only claim to a zero month/day.
+        st = {"P571": [{"mainsnak": {"datavalue": {
+            "value": {"time": "+1900-00-00T00:00:00Z", "precision": 9},
+            "type": "time"}}}]}
+        self.assertEqual(s.inception_year(st), (1900, 9))
+
+    def test_missing_claim_is_none(self):
+        self.assertEqual(s.inception_year({}), (None, None))
+        self.assertEqual(s.inception_year(None), (None, None))
+
+    def test_unusable_claims_fall_through_to_the_next(self):
+        st = {"P571": [
+            {"mainsnak": {"snaktype": "somevalue"}},
+            {"mainsnak": {"datavalue": {"value": "not a date",
+                                        "type": "string"}}},
+            {"mainsnak": {"datavalue": {
+                "value": {"time": "+2038-01-19T00:00:00Z", "precision": 11},
+                "type": "time"}}},
+        ]}
+        self.assertEqual(s.inception_year(st), (2038, 11))
+
+    def test_other_claims_are_ignored(self):
+        st = {"P275": [{"mainsnak": {"datavalue": {
+            "value": {"time": "+1900-00-00T00:00:00Z", "precision": 9},
+            "type": "time"}}}]}
+        self.assertEqual(s.inception_year(st), (None, None))
+
+    def test_circa_qualifier_marks_the_claim_approximate(self):
+        # The time value alone reads as an exact year; the uncertainty lives
+        # in the P1480 (sourcing circumstances) qualifier.
+        st = {"P571": [{"mainsnak": {"datavalue": {
+            "value": {"time": "+1900-01-01T00:00:00Z", "precision": 9},
+            "type": "time"}},
+            "qualifiers": {"P1480": [{"datavalue": {
+                "value": {"id": "Q5727902"}, "type": "wikibase-entityid"}}]}}]}
+        self.assertEqual(s.inception_year(st), (1900, 9))
+        self.assertTrue(s.inception_is_approximate(st))
+
+    def test_before_after_tolerance_marks_the_claim_approximate(self):
+        st = {"P571": [{"mainsnak": {"datavalue": {
+            "value": {"time": "+1900-00-00T00:00:00Z", "precision": 9,
+                      "before": 5, "after": 0},
+            "type": "time"}}}]}
+        self.assertTrue(s.inception_is_approximate(st))
+
+    def test_plain_claim_is_not_approximate(self):
+        st = {"P571": [{"mainsnak": {"datavalue": {
+            "value": {"time": "+2013-08-29T00:00:00Z", "precision": 11},
+            "type": "time"}}}]}
+        self.assertFalse(s.inception_is_approximate(st))
+        self.assertFalse(s.inception_is_approximate({}))
+
+
+class InceptionStatsTest(unittest.TestCase):
+    """The #1418 comparison: does P571 add anything over the EXIF year?"""
+
+    def setUp(self):
+        self.adapter = s.CommonsAdapter()
+
+    def norm(self, raw):
+        entry = self.adapter.normalize(raw)
+        self.assertIsNotNone(entry)
+        return entry
+
+    def row(self, title, raw, inception, precision=11):
+        return {"title": f"File:{title}.jpg", "inception": inception,
+                "precision": precision, "entry": self.norm(raw)}
+
+    def test_counts_matches_differences_and_rescues(self):
+        modern = commons_raw(title="Modern",
+                             date_original="2019-06-09 10:00:00")
+        # A scan: the capture date is the digitization stamp, and the claim
+        # repeats it instead of naming the historical year.
+        scan = commons_raw(title="Scan",
+                           date_original="2005-09-30 08:11:46")
+        scan["imageinfo"][0]["extmetadata"]["DateTime"] = {
+            "value": "2015-01-10 20:04:50"}
+        # Where the claim differs, it carries a photo-foreign year.
+        mismatched = commons_raw(title="Mismatch",
+                                 date_original="2013-08-29 09:00:00")
+        # No capture date, and the structured date repeats the upload stamp:
+        # the #1405 filter refuses the file, but the claim names a year.
+        rescued = commons_raw(title="Rescued", date_original="2011-10-04")
+        rescued["imageinfo"][0]["extmetadata"].pop("DateTimeOriginal")
+        rescued["imageinfo"][0]["extmetadata"]["DateTime"] = {
+            "value": "2014-09-13 00:00:00"}
+        rescued["imageinfo"][0]["timestamp"] = "2014-09-13T00:00:00Z"
+        rows = [
+            self.row("Modern", modern, 2019),
+            self.row("Scan", scan, 2005),
+            self.row("Mismatch", mismatched, 1304, precision=9),
+            self.row("Rescued", rescued, 2011),
+        ]
+        rows[0]["approximate"] = True
+        rep = s.inception_stats(rows)
+        self.assertEqual(rep["sample"], 4)
+        self.assertEqual(rep["has_p571"], 4)
+        self.assertEqual(rep["approximate"], 1)
+        self.assertEqual(rep["p571_precision"], {"9": 1, "11": 3})
+        self.assertEqual(rep["matches_exif"], 2)
+        self.assertEqual(rep["differs_from_exif"], 1)
+        self.assertEqual(rep["exif_missing"], 1)
+        self.assertEqual(rep["matches_anchor"], 2)
+        self.assertEqual(rep["matches_structured"], 2)
+        self.assertEqual(rep["matches_upload"], 0)
+        self.assertEqual(rep["filter_rejected"], 1)
+        self.assertEqual(rep["filter_rejected_with_p571"], 1)
+        self.assertEqual(rep["differences"],
+                         [{"title": "File:Mismatch.jpg", "inception": 1304,
+                           "exif": 2013, "structured": 2013, "upload": None,
+                           "anchor": 2013}])
+
+    def test_a_row_without_a_claim_only_feeds_the_filter_counts(self):
+        raw = commons_raw(title="NoClaim", date_original="2013-10-24")
+        rep = s.inception_stats([{"title": "File:NoClaim.jpg",
+                                  "inception": None, "precision": None,
+                                  "entry": self.norm(raw)}])
+        self.assertEqual(rep["has_p571"], 0)
+        self.assertEqual(rep["p571_precision"], {})
+        self.assertEqual(rep["filter_rejected"], 0)
+        self.assertEqual(rep["differences"], [])
+
+
+class InceptionBatchTest(unittest.TestCase):
+    """The adapter reads MediaInfo claims 50 titles at a time (#1418)."""
+
+    def test_chunks_titles_and_reads_both_claim_keys(self):
+        calls = []
+
+        def fake_api(params):
+            calls.append(params)
+            ents = {}
+            for i, title in enumerate(params["titles"].split("|")):
+                key = "statements" if i % 2 else "claims"
+                ents[title] = {"title": title, key: {"P571": []}}
+            return {"entities": ents}
+
+        titles = [f"File:F{i}.jpg" for i in range(60)]
+        original = s._commons_api
+        s._commons_api = fake_api
+        try:
+            claims = s.CommonsAdapter().inception_batch(titles)
+        finally:
+            s._commons_api = original
+        self.assertEqual([len(c["titles"].split("|")) for c in calls],
+                         [50, 10])
+        self.assertEqual(calls[0]["action"], "wbgetentities")
+        self.assertEqual(calls[0]["sites"], "commonswiki")
+        self.assertEqual(len(claims), 60)
+
+    def test_file_title_reads_raw_then_url(self):
+        self.assertEqual(s.file_title({"raw": {"title": "File:A.jpg"}}),
+                         "File:A.jpg")
+        self.assertEqual(
+            s.file_title({"fileUrl":
+                          "https://commons.wikimedia.org/wiki/File:Some_File.jpg"}),
+            "File:Some File.jpg")
+        self.assertEqual(s.file_title({}), "")
+
+
 class YearAuditTest(TempDirMixin, unittest.TestCase):
     def test_year_audit_flags_pool_entries_without_a_year(self):
         good = {"id": "commons-good-000000", "repository": "Wikimedia Commons",

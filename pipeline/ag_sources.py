@@ -11,12 +11,15 @@ source images and nothing else:
   the capture year (below).
 - **A single unambiguous year is required** (ticket #1405). The game's claim
   is "this could not exist in the photo's year", so the year must be a fact
-  from one structured metadata field: the EXIF/template capture date or the
+  from one structured metadata field: the capture date the file page
+  declares (``raw.dateTimeOriginal``; upload tools fill it from EXIF) or the
   catalog's structured date. A source whose metadata names no year, a range,
   a decade, a century or an uncertainty ("circa 1907") is rejected at
   sourcing; titles and descriptions are not consulted. The year and the
   field that supplied it are stored on the entry as ``year``/``year_field``
-  (``exif``/``structured``).
+  (``exif``/``structured``). Commons' SDC inception claim (P571) is not a
+  year source: measured, it only repeats that declared date
+  (#1418, ``measure-inception``).
 - **No era limit.** Any year is usable; with the current Commons pool the
   surviving years skew modern, so the game is mostly fictional-future (see
   the measurement below). The generator's first model call still judges the
@@ -41,6 +44,7 @@ Commands::
 
     ag_sources.py --data DIR top-up [--target 30] [--batch 20] [--max-calls 8]
     ag_sources.py --data DIR measure-years [--sample 200]
+    ag_sources.py --data DIR measure-inception [--sample 200]
     ag_sources.py --data DIR status
     ag_sources.py --data DIR list [--repo REPO] [--unused]
     ag_sources.py --data DIR seed --backend manual --dir PATH
@@ -324,7 +328,13 @@ def single_year(text) -> int | None:
 
 
 def exif_capture_year(entry: dict) -> int | None:
-    """The EXIF/template capture year (``raw.dateTimeOriginal``), or None."""
+    """The declared capture year (``raw.dateTimeOriginal``), or None.
+
+    CommonsMetadata's ``DateTimeOriginal``; measured source is
+    ``commons-desc-page`` on all sampled files, i.e. the date the file page
+    declares (upload tools fill it from the file's EXIF when the uploader
+    names none).
+    """
     raw = entry.get("raw") or {}
     return single_year(raw.get("dateTimeOriginal"))
 
@@ -362,6 +372,251 @@ def source_year(entry: dict) -> tuple[int | None, str]:
     if y is not None:
         return y, "structured"
     return None, ""
+
+
+# ── SDC P571 (inception): measured, not used (ticket #1418) ────────────────
+#
+# Commons' Structured Data carries an "inception" (P571) claim per file. The
+# ticket asked whether that claim is an independent structured date worth an
+# extra API call: for a scan whose declared date is the digitization stamp, a
+# real creation date would have to come from somewhere else. Evan's bar: the
+# date must be the date the photo was taken (and is shown to the player).
+#
+# Measured 2026-09-13 (``measure-inception``, plus a 500-file probe and the
+# 118 queued scenes; numbers and examples in [[anomalyguessr-sources]]):
+#
+# - 114 of 117 normalized files of a 200-file walk carry a P571 claim, all
+#   114 naming the same year as the declared date we already anchor on
+#   (``raw.dateTimeOriginal``, the description page's date field); 113 are
+#   precision 11 (day). A 500-file probe with the same logic found 338/346
+#   claims, 329 matching, 8 differing. P571 is not an independent field:
+#   where it exists it repeats that declared date.
+# - The differing claims hold a plainly wrong photo year: building/monument
+#   inception years (1304, 1431, 1927 for photos whose page date is
+#   2013-08-29, 2015-06-02) or the upload date for a scanned 1900 photograph
+#   ("Market Street and Sussex Street, Sydney": page date 1900, P571
+#   2010-02-12). Trusting it would corrupt years that are right today.
+# - On scans it carries the digitization stamp like the page date does:
+#   "Street scene in Agana (1899-1900)" is declared 2005-09-30 and claimed
+#   2005-09-30, "Parel Railway Station c 1900" 1970. It does not recover the
+#   historical year.
+# - The file's embedded EXIF is no help either: on a 100-file walk all 61
+#   files with an embedded ``DateTimeOriginal`` agree with the declared date
+#   (the page date is a copy of it for camera files), and a scan carries the
+#   digitization date there (Sydney: EXIF 2010:02:12, page 1900; Agana:
+#   scanner date in both). No combination of Commons metadata separates a
+#   scan/upload stamp from a real capture date.
+# - Of the 96 stored pool entries, 65 carry a claim, 57 of them matching the
+#   anchor and 11 marked approximate (circa qualifier or before/after
+#   tolerance). 2 are "rescued" from the #1405 filter, but both are not
+#   hard dates: the Garfield file's claim carries the circa qualifier
+#   (P1480 = Q5727902), the Heinola file's just repeats its title.
+#
+# The ticket's cost assumption was one API call per file; ``wbgetentities``
+# takes 50 titles per call, so it would be one call per 50 files. The
+# decision is about trust, not call count: a field that repeats the declared
+# date 97% of the time, is wrong where it differs, and drops the "circa"
+# qualifier on the rest cannot establish the photo's date.
+# ``source_year()`` stays unchanged (declared capture date first, structured
+# date second, never P571); ``measure-inception`` re-runs the audit if
+# Commons changes its practice.
+
+SDC_INCEPTION_PROP = "P571"
+# Wikidata time values look like "+2005-09-10T00:00:00Z" (a zero month/day
+# means the claim is only known to the year).
+_SDC_TIME_RE = re.compile(r"^[+-](\d{4})")
+
+
+def inception_year(statements) -> tuple[int | None, int | None]:
+    """(year, precision) of a file's first SDC P571 claim, or (None, None).
+
+    ``statements`` is the property map of a MediaInfo entity as
+    ``wbgetentities`` returns it (``{"P571": [claim, ...]}``). A claim
+    without a time value, or one whose time carries no four-digit year,
+    yields (None, None), so the caller sees "no usable claim". The precision
+    (9 = year, 10 = month, 11 = day) is returned for reporting.
+    """
+    claim = _inception_claim(statements)
+    if claim is None:
+        return None, None
+    value = claim["mainsnak"]["datavalue"]["value"]
+    m = _SDC_TIME_RE.match(str(value.get("time") or ""))
+    if not m:
+        return None, None
+    return int(m.group(1)), value.get("precision")
+
+
+# "circa" as a Wikidata item; Commons stores the uncertainty as a
+# ``sourcing circumstances`` (P1480) qualifier rather than in the time value.
+_SDC_CIRCA = "Q5727902"
+
+
+def _inception_claim(statements):
+    """The first P571 claim carrying a time value, or None."""
+    for claim in (statements or {}).get(SDC_INCEPTION_PROP, []) or []:
+        value = (((claim or {}).get("mainsnak") or {}).get("datavalue")
+                 or {}).get("value")
+        if isinstance(value, dict) and _SDC_TIME_RE.match(
+                str(value.get("time") or "")):
+            return claim
+    return None
+
+
+def inception_is_approximate(statements) -> bool:
+    """True when the P571 claim marks its year as uncertain (#1418).
+
+    Commons records an approximate date as a ``sourcing circumstances``
+    (P1480 = circa, Q5727902) qualifier or as a Wikidata ``before``/``after``
+    tolerance. The time value alone reads as exact, which is how a "circa
+    1900" would enter the year filter as a hard 1900 if the claim were
+    trusted; the audit reports the count so that is visible.
+    """
+    claim = _inception_claim(statements)
+    if claim is None:
+        return False
+    value = claim["mainsnak"]["datavalue"]["value"]
+    if value.get("before") or value.get("after"):
+        return True
+    for q in (claim.get("qualifiers") or {}).get("P1480", []) or []:
+        item = ((q or {}).get("datavalue") or {}).get("value") or {}
+        if isinstance(item, dict) and item.get("id") == _SDC_CIRCA:
+            return True
+    return False
+
+
+def inception_stats(rows) -> dict:
+    """The #1418 P571 comparison over sample rows (pure, so testable).
+
+    Each row is ``{"title", "inception", "precision", "approximate",
+    "entry"}``: the SDC claim of a source (None when it has none) and the
+    normalized entry. The report counts how often the claim repeats the EXIF
+    capture date, the structured date, the anchor and the upload stamp, how
+    often it names any year where the #1405 filter refuses the file, how many
+    claims are marked approximate, and lists the rows whose claim disagrees
+    with the EXIF year.
+    """
+    stats = {"sample": len(rows), "has_p571": 0, "approximate": 0,
+             "exif_missing": 0, "matches_exif": 0, "differs_from_exif": 0,
+             "matches_structured": 0, "matches_anchor": 0,
+             "matches_upload": 0, "filter_rejected": 0,
+             "filter_rejected_with_p571": 0, "differences": []}
+    precisions = Counter()
+    for row in rows:
+        entry = row.get("entry") or {}
+        exif = exif_capture_year(entry)
+        structured = single_year(entry.get("date"))
+        upload = single_year((entry.get("raw") or {}).get("uploadTimestamp"))
+        anchor = source_year(entry)[0]
+        if anchor is None:
+            stats["filter_rejected"] += 1
+        y = row.get("inception")
+        if y is None:
+            continue
+        stats["has_p571"] += 1
+        if row.get("approximate"):
+            stats["approximate"] += 1
+        if anchor is None:
+            stats["filter_rejected_with_p571"] += 1
+        precisions[str(row.get("precision"))] += 1
+        if exif is None:
+            stats["exif_missing"] += 1
+        elif y == exif:
+            stats["matches_exif"] += 1
+        else:
+            stats["differs_from_exif"] += 1
+            stats["differences"].append({
+                "title": row.get("title", ""), "inception": y,
+                "exif": exif, "structured": structured, "upload": upload,
+                "anchor": anchor})
+        if structured is not None and y == structured:
+            stats["matches_structured"] += 1
+        if anchor is not None and y == anchor:
+            stats["matches_anchor"] += 1
+        if upload is not None and y == upload:
+            stats["matches_upload"] += 1
+    stats["p571_precision"] = dict(sorted(precisions.items()))
+    return stats
+
+
+def file_title(entry: dict) -> str:
+    """The Commons ``File:`` title of a stored entry ("" when unknown).
+
+    Read from ``raw.title`` when the adapter stored it, otherwise derived
+    from the file page URL (a pool entry seeded by an older pass may only
+    carry the URL).
+    """
+    title = str((entry.get("raw") or {}).get("title") or "")
+    if title.startswith("File:"):
+        return title
+    m = re.search(r"/wiki/(File:[^?#]+)$", str(entry.get("fileUrl") or ""))
+    if m:
+        return urllib.parse.unquote(m.group(1)).replace("_", " ")
+    return ""
+
+
+def _inception_rows(adapter, titled: dict) -> list:
+    """Fetch the SDC claims of ``{title: entry}`` and pair them up.
+
+    One ``wbgetentities`` call per 50 titles; the response is keyed by the
+    API's normalized title (underscores become spaces), so the lookup
+    normalizes both sides.
+    """
+    titles = [t for t in titled if t]
+    claims = adapter.inception_batch(titles) if titles else {}
+    by_norm = {t.replace("_", " "): c for t, c in claims.items()}
+    rows = []
+    for title, entry in titled.items():
+        if not title:
+            continue
+        statements = by_norm.get(title.replace("_", " "))
+        year, precision = inception_year(statements)
+        rows.append({"title": title, "inception": year,
+                     "precision": precision,
+                     "approximate": inception_is_approximate(statements),
+                     "entry": entry})
+    return rows
+
+
+def measure_inception(data_dir: Path, sample: int = 200, batch: int = 50,
+                      from_top: bool = False, log=None) -> dict:
+    """Read-only P571 audit: a fresh walk sample + the stored pool (#1418).
+
+    Walks the Quality-images category without downloading (like
+    ``measure_years``), fetches the SDC inception claims of the surviving
+    files in batches of 50 and reports ``inception_stats`` for them; the
+    stored pool is audited with the same fetch, so the measurement can be
+    repeated after Commons changes its metadata practice.
+    """
+    say = log or (lambda *a, **k: None)
+    adapter = CommonsAdapter()
+    start = "" if from_top else (
+        _load_quality_state(data_dir).get("continue") or "")
+    cursor, raws = start, []
+    while len(raws) < sample:
+        page, cursor = adapter.quality_batch(
+            max(1, min(batch, sample - len(raws))), cursor or None)
+        raws.extend(page)
+        say(f"measure: {len(raws)}/{sample} files")
+        if not page or not cursor:
+            break
+    walk_titled = {}
+    for raw in raws:
+        try:
+            norm = adapter.normalize(raw)
+        except Exception:
+            norm = None
+        title = raw.get("title") or ""
+        if norm is not None and title:
+            walk_titled[title] = norm
+    pool_entries = load_index(data_dir)["sources"]
+    pool_titled = {}
+    for entry in pool_entries.values():
+        title = file_title(entry)
+        if title:
+            pool_titled[title] = entry
+    return {"started_at_cursor": start,
+            "walk": inception_stats(_inception_rows(adapter, walk_titled)),
+            "pool": inception_stats(_inception_rows(adapter, pool_titled))}
 
 
 # ── Born-digital signal (recorded, not enforced) ───────────────────────────
@@ -621,6 +876,29 @@ class CommonsAdapter(SourceAdapter):
         }
         data = _commons_api(params)
         return list(data.get("query", {}).get("pages", {}).values())
+
+    def inception_batch(self, titles):
+        """``{title: statements}`` for the files' SDC claims (#1418).
+
+        One ``wbgetentities`` call per 50 titles; ``props=claims|info`` is
+        what makes the response carry the file title alongside the claims
+        (``statements`` for MediaInfo entities). Reads only; the date filter
+        never uses the result.
+        """
+        out = {}
+        for i in range(0, len(titles), 50):
+            data = _commons_api({
+                "action": "wbgetentities", "format": "json",
+                "sites": "commonswiki",
+                "titles": "|".join(titles[i:i + 50]),
+                "props": "claims|info",
+            })
+            for ent in (data.get("entities") or {}).values():
+                title = ent.get("title")
+                if title:
+                    out[title] = (ent.get("statements")
+                                  or ent.get("claims") or {})
+        return out
 
     def normalize(self, raw) -> dict | None:
         ii = (raw.get("imageinfo") or [None])[0]
@@ -1353,6 +1631,15 @@ def main(argv=None) -> int:
     my.add_argument("--from-top", action="store_true",
                     help="start at the category top instead of the cursor")
 
+    mi = sub.add_parser("measure-inception",
+                        help="read-only audit of the SDC P571 claim "
+                             "(walk sample + pool, ticket #1418)")
+    mi.add_argument("--sample", type=int, default=200, help="files to sample")
+    mi.add_argument("--batch", type=int, default=50,
+                    help="category members per page")
+    mi.add_argument("--from-top", action="store_true",
+                    help="start at the category top instead of the cursor")
+
     mu = sub.add_parser("mark-used")
     mu.add_argument("ids", nargs="+")
     mnu = sub.add_parser("mark-unused")
@@ -1382,6 +1669,13 @@ def main(argv=None) -> int:
             measure_years(data_dir, sample=args.sample, batch=args.batch,
                           from_top=args.from_top,
                           log=lambda m: print(m, file=sys.stderr)),
+            indent=2))
+        return 0
+    if args.cmd == "measure-inception":
+        print(json.dumps(
+            measure_inception(data_dir, sample=args.sample, batch=args.batch,
+                              from_top=args.from_top,
+                              log=lambda m: print(m, file=sys.stderr)),
             indent=2))
         return 0
     if args.cmd == "status":
