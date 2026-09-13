@@ -13,10 +13,13 @@
 
 /** The last checker verdict the generator stored with a scene (#1436). */
 export interface SceneChecker {
-  /** Requirements met, 0..7 (computed from the failed numbers). */
+  /** Requirements met, computed from the failed numbers. */
   score: number;
-  /** Numbers (1..7) of the requirements the shipped image failed. */
+  /** Numbers of the requirements the shipped image failed. */
   failed: number[];
+  /** Rubric size the score is out of (#1476; absent on verdicts from the
+   *  older eight-requirement rubric). */
+  total?: number;
   /** The checker's one-line reason for that verdict. */
   reason: string;
 }

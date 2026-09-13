@@ -19,7 +19,12 @@ Per scene:
    or restates the era. The model returns label, kind, the year the element
    exists from (`exists_from`), for a fictional-future element the reason it
    cannot exist in 2026 (`not_today`), a figure flag, placement, the
-   impossibility reason and references. `ag_catalog.INSPIRATION` supplies
+   impossibility reason, the one glance cue that dates the element
+   (`visual_tell`, ticket #1476) and references. Since #1476 the element
+   must also be *visibly* anachronistic: the cue has to survive this
+   source's medium (grayscale, grain, resolution), so an era-marker that
+   lives in a material, a fine detail or a class difference only is out.
+   `ag_catalog.INSPIRATION` supplies
    few-shot shape examples; recently used labels are passed in to avoid
    repeats. Ticket #1473: that avoid list is enforced, not requested. Before
    any image call the proposal passes three gates (`enforce_proposal_gates`):
@@ -40,9 +45,10 @@ Per scene:
    the modify/cover wording, and, if it refuses again, treated as a
    mechanical failure while the element goes on a persisted refusal-prone
    list so the next proposal avoids it.
-3. **Check** (`check_scene`): one vision call against the eight requirements
+3. **Check** (`check_scene`): one vision call against the nine requirements
    (time-travel framing, subtlety, scale, tone, grain, keep-the-rest,
-   identifiability, impossibility at the scene's time). The checker does not
+   identifiability, impossibility at the scene's time, visible
+   anachronism). The checker does not
    vote the scene out: it returns the numbers of the requirements it fails,
    a repair instruction, and whether the image shows the element the text
    names (`image_match`, ticket #1449). Requirement 8 tests the element's
@@ -50,7 +56,10 @@ Per scene:
    element (an e-scooter in 2017) fails; its "exists in 2026" clause holds
    only for a photograph from 2026 or later (ticket #1460), because an
    element that exists today is still the anomaly in an older photograph
-   when it was introduced later.
+   when it was introduced later. Requirement 9 (ticket #1476) fails when
+   the proposal's `visual_tell` is not readable in the render: a cue lost
+   in the grain or hidden at the shipped scale fails instead of passing on
+   "the object is correct".
 4. **Correct** (`fix-edit`, at most `CORRECTION_ROUNDS` = 2, ticket #1449):
    the correction repairs only how the element is rendered (scale, placement,
    lighting, grain, blending); a checker repair that asks for another object
@@ -107,8 +116,10 @@ image named but never embedded. The stages carry the round (`edit r0`,
 panel shows the chain a scene went through; every mechanical retry is a row
 too (idea #1435 was that a break makes the draw numbers jump). The last checker
 verdict (score, failed requirement numbers, reason, `image_match`) is stored
-with the scene as `checker` and in the trace, so moderation and the gallery
-lightbox show "checker 5/8, failed 3, 7" before any image is opened; a scene
+with the scene as `checker` (plus its `total`, so a verdict from the older
+eight-requirement rubric still reads correctly) and in the trace, so
+moderation and the gallery
+lightbox show "checker 5/9, failed 3, 7" before any image is opened; a scene
 that shipped without a full repair carries `needs_review` (a requirement-8
 finding, or an ignored swap repair), and the trace carries the pipeline's
 `review` reason. Steps are flushed to
@@ -243,7 +254,10 @@ REPEAT_LABEL_LIMIT = 15
 # small to find gets one re-ask naming the problem. A repeat that survives
 # the re-ask is kept (nothing is dropped) but flagged for moderation.
 # A re-ask is a proposal call, so it never touches the image-call budget.
-PRESENTATION_REQUIREMENTS = (2, 3, 5, 7)
+# A final check that still fails a presentation requirement (subtlety, scale,
+# grain, identifiability) is a moderation-first finding; since #1476 the
+# same holds for a cue that stayed unreadable (9, "Anachronism visible").
+PRESENTATION_REQUIREMENTS = (2, 3, 5, 7, 9)
 # The variety floor a run aims for, in distinct families. The queue's
 # choose_day enforces distinct labels *and* families at ship time; this gate
 # makes the run's proposals distinct up front, so the pool has the variety
@@ -440,6 +454,13 @@ REQUIREMENTS = (
      "For a claimed futuristic element (drones, robots, AI devices, "
      "electronics) demand the reason it does not exist in 2026, and fail it "
      "when you are not certain."),
+    ("Anachronism visible",
+     "the cue that dates the added element to another era must be readable "
+     "in this image at the size it appears: a player must see that it is "
+     "wrong from the picture alone, not merely read it in the description. "
+     "A cue that is too small, blurred into the grain, or hidden so it "
+     "cannot be read is a failure, even when the object itself is the "
+     "correct one."),
 )
 REQUIREMENTS_TOTAL = len(REQUIREMENTS)
 
@@ -532,6 +553,17 @@ def proposal_prompt(source: dict, recent=(), conflict=None) -> str:
         "- Pure fantasy is out: no flying saucers, dragons, unicorns, ghosts "
         "or magic. Everything must read as a thing from another time.",
         "- Keep it subtle: findable, but not obvious.",
+        "- It must be VISIBLY anachronistic: recognizable as wrong from the "
+        "photograph alone, at the size this scene allows, in this source's "
+        "medium (grayscale, grain, resolution). If the anachronism can only "
+        "be argued in words, it does not count.",
+        "  Allowed (the anachronism is a visible shape): a modern car, an "
+        "e-scooter, a smartphone, a QR code, an LED sign, a quadcopter, a "
+        "solar panel, a plastic safety helmet with a distinctive silhouette.",
+        "  Never propose: an element whose era-marker is a material (nylon, "
+        "polyester, silicone, plastic film), a fine detail (printed text, "
+        "small logos, seams, printed patterns), or a class difference only "
+        '("a modern bicycle" against an 1890s one).',
         "Name the scene as well: one short, factual title for THIS photo "
         "(what a caption in a museum would say; no year, no file name, no "
         "archive or uploader metadata).",
@@ -553,8 +585,12 @@ def proposal_prompt(source: dict, recent=(), conflict=None) -> str:
         'era from which the element exists; for a futuristic element say '
         '\\"not real yet, a fictional future\\">", "not_today": "<for '
         'fictional-future only: why this element cannot exist in 2026; empty '
-        'string otherwise>", "title": "<short human title of the scene, at '
-        'most 8 words>", "figure": true|false, "placement_kind": '
+        'string otherwise>", "visual_tell": "<the ONE glance-visible cue '
+        'that dates this element to another era, a shape a player sees at '
+        'once; for a smartphone \\"flat dark glass rectangle with a lit '
+        'screen, no buttons\\", for a QR code \\"square of high-contrast '
+        'pixelated pattern\\">", "title": "<short human title of the scene, '
+        'at most 8 words>", "figure": true|false, "placement_kind": '
         '"standalone"|"modification", "placement": "<one sentence: '
         'where in THIS photo it sits, how it is partly hidden, and how large '
         'it should look next to things at the same distance>", "explanation": '
@@ -580,10 +616,16 @@ def edit_prompt(proposal: dict, retry: bool = False) -> str:
     Ticket #1439: every edit call carries the purpose preamble. The retry
     variant keeps it and adds the one wording change (a small separate
     object) for the case the model refused the framed first attempt.
+    Ticket #1476: the proposal's ``visual_tell`` is stated as the one cue
+    the render must show, so the model paints the thing that dates the
+    element instead of a generic object of that name.
     """
     head = (f"Edit this historical photograph: add ONE "
             f"{proposal['anomaly']}, {proposal['placement']}.")
     parts = [PURPOSE, head]
+    tell = str(proposal.get("visual_tell") or "").strip()
+    if tell:
+        parts.append(f"Make its era cue visible in the render: {tell}.")
     if retry:
         parts.append(REFUSAL_RETRY)
     parts += [scale_rule(proposal), KEEP, BLEND]
@@ -676,6 +718,12 @@ def check_prompt(proposal: dict, scene: dict | None = None) -> str:
         f"The proposal says the element exists from "
         f"{proposal.get('exists_from') or 'an unknown year'} and claims: "
         f"{proposal.get('explanation')}")
+    tell = str(proposal.get("visual_tell") or "").strip()
+    if tell:
+        lines.append(
+            "The one cue that dates this element to another era is: "
+            f"{tell}. Requirement 9 fails when that cue is not readable in "
+            "this image at the size the element appears.")
     lines.append("Judge it against these requirements, each one on its own:")
     lines.append(requirements_text())
     lines.append(
@@ -811,6 +859,13 @@ def proposal_errors(proposal) -> list:
     if not isinstance(proposal.get("exists_from"), str) or \
             not proposal["exists_from"].strip():
         errs.append("exists_from must be a non-empty string")
+    # Ticket #1476: the legibility bar is only checkable when the proposal
+    # names the cue, so a proposal without one is unusable (the pipeline
+    # cannot build requirement 9 or the edit hint from it).
+    if not isinstance(proposal.get("visual_tell"), str) or \
+            not proposal["visual_tell"].strip():
+        errs.append("visual_tell must name the one glance-visible cue that "
+                    "dates the element to another era")
     # Ticket #1430: a fictional-future element must justify why it cannot
     # exist today, because everything that exists in 2026 is possible in a
     # modern photo's year and therefore not an anomaly.
@@ -842,7 +897,7 @@ def normalize_proposal(proposal: dict) -> dict:
     """Whitespace-collapse and cap the proposal's free-text fields."""
     out = dict(proposal)
     for key, limit in (("anomaly", 80), ("exists_from", 60),
-                       ("not_today", 400),
+                       ("visual_tell", 240), ("not_today", 400),
                        ("placement", 400), ("explanation", 400)):
         out[key] = ag_llm.clean_text(out.get(key), limit)
     out["title"] = clean_caption_title(out.get("title"))[:80]
@@ -1138,7 +1193,7 @@ def failed_requirements(raw) -> list:
     """Requirement numbers the checker flagged, sorted and de-duplicated.
 
     Tolerates ints and numeric strings (models return both); drops anything
-    that is not one of the seven requirement numbers, so a hallucinated
+    that is not one of the requirement numbers, so a hallucinated
     number cannot inflate the failure count.
     """
     if not isinstance(raw, list):
@@ -1155,7 +1210,7 @@ def failed_requirements(raw) -> list:
 
 
 def score_from_failed(failed: list) -> int:
-    """The comparable score: requirements met, 0..7 (ticket #1381)."""
+    """The comparable score: requirements met (ticket #1381)."""
     return max(0, REQUIREMENTS_TOTAL - len(failed))
 
 
@@ -1180,6 +1235,7 @@ def check_scene(image: Path, proposal: dict, api_key: str, model: str,
     return {"ok": (not failed) if usable else None,
             "score": score_from_failed(failed) if usable else None,
             "failed": failed,
+            "total": REQUIREMENTS_TOTAL,
             "image_match": match if isinstance(match, bool) else None,
             "reason": ag_llm.clean_text(parsed.get("reason"), 300),
             "fix_prompt": ag_llm.clean_text(parsed.get("fix_prompt"), 600),
@@ -1693,12 +1749,15 @@ def build_entry(source: dict, proposal: dict, answer: dict, date: str,
         "sourceUrl": source.get("fileUrl", ""),
     }
     # The last checker verdict travels with the scene (ticket #1436), so
-    # moderation and the gallery lightbox can show "checker 5/7, failed 3, 7"
+    # moderation and the gallery lightbox can show "checker 5/9, failed 3, 7"
     # without opening any image. A run without the checker (--no-check, or a
-    # failed check call) stores no field.
+    # failed check call) stores no field. ``total`` names the rubric size the
+    # score is out of (ticket #1476).
     if checker is not None and checker.get("score") is not None:
         out["checker"] = {"score": checker["score"],
                           "failed": list(checker.get("failed") or []),
+                          "total": int(checker.get("total")
+                                       or len(REQUIREMENTS)),
                           "reason": checker.get("reason") or ""}
     # A scene the pipeline could not fully repair ships with a moderation
     # flag (ticket #1449): a requirement-8 finding (the element is not
@@ -2554,10 +2613,12 @@ def _check_round(image: Path, proposal: dict, scene: dict | None, round_no: int,
                  trace: dict, totals: dict, progress) -> dict | None:
     """One checker call, recorded as ``check r<round>``; None on call error.
 
-    The score is the number of the seven requirements the image meets,
+    The score is the number of requirements the image meets,
     computed in code from the requirement numbers (ticket #1381). ``scene``
     is the ``scene_time`` anchor, so requirement 8 can test the element's
-    introduction year against the photograph's year (ticket #1403).
+    introduction year against the photograph's year (ticket #1403). Each
+    row carries the ``total`` (ticket #1476), so a trace from the older
+    eight-requirement rubric still reads correctly.
     """
     progress("checking", round=round_no)
     try:
@@ -2573,6 +2634,7 @@ def _check_round(image: Path, proposal: dict, scene: dict | None, round_no: int,
     record_call(data_dir, trace,
                 {"stage": f"check r{round_no}", "attempt": attempt,
                  "score": check["score"], "failed": check["failed"],
+                 "total": check.get("total") or REQUIREMENTS_TOTAL,
                  "image_match": check.get("image_match"),
                  "fix_prompt": check.get("fix_prompt") or "",
                  "reason": check["reason"],
@@ -2937,11 +2999,13 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
             selected_round = best["round"]
             trace["score_guard"] = {
                 "shipped": best["round"], "score": best["score"],
+                "total": REQUIREMENTS_TOTAL,
                 "rejected": {"round": rounds_used, "score": rejected["score"]}}
         review = review_notes.get(selected_round, "")
         # #1473: a repeat the re-ask could not resolve, and a final check that
         # still fails a presentation requirement (subtlety, scale, grain,
-        # identifiability), are both moderation-first findings, like the
+        # identifiability, and since #1476 an unreadable era cue), are both
+        # moderation-first findings, like the
         # requirement-8 path. Nothing is dropped; the scene is flagged.
         review = review or gate_review
         if check is not None:
@@ -3047,6 +3111,11 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
             "skipped": bool(args.no_check) or check is None,
             "score": check["score"] if check else None,
             "failed": check["failed"] if check else [],
+            # The rubric size the score is out of (ticket #1476): a verdict
+            # from the older eight-requirement rubric still reads correctly
+            # in the gallery.
+            "total": (check.get("total") if check else None)
+            or REQUIREMENTS_TOTAL,
             "reason": check["reason"] if check else "",
             "rounds": rounds_used,
             # Which round's render shipped; below ``rounds`` when the score
@@ -3084,6 +3153,7 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
         scene_report = {
             "scene": entry["id"], "source": source["id"],
             "anomaly": entry["anomaly"], "kind": proposal["kind"],
+            "visual_tell": proposal.get("visual_tell"),
             "era": entry["year"], "place": entry["place"],
             "scene_time": st,
             "attempt": attempt, "answer": answer,

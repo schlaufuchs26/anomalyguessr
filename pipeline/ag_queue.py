@@ -75,10 +75,13 @@ ENTRY_KEYS = (
 
 # The last checker verdict the generator stored with a scene (ticket #1436):
 # how many of the requirements the shipped image met, which numbers it failed
-# and the checker's one-line reason. Dev-side curation metadata; the public
-# manifest strips it. Mirrors ag_generate.REQUIREMENTS_TOTAL (8 since #1403
-# added "Impossible at the scene's time").
-CHECKER_TOTAL = 8
+# and the checker's one-line reason. An entry may also carry ``total``, the
+# rubric size its score is out of; a verdict from the older rubric keeps its
+# own total (ticket #1476). Dev-side curation metadata; the public
+# manifest strips it. Mirrors ag_generate.REQUIREMENTS_TOTAL (9 since #1476
+# added "Anachronism visible", 8 since #1403 added "Impossible at the
+# scene's time").
+CHECKER_TOTAL = 9
 
 # ── Short scene handles (ticket #1413) ─────────────────────────────────────
 #
@@ -390,7 +393,11 @@ def validate_entry(e) -> list:
                 errs.append(f"source.{k} must be a non-empty string")
     # The last checker verdict (ticket #1436) is optional (a run without the
     # checker stores none), but a present one must be well formed: the score
-    # is 0..7, the failed numbers are 1..7 and the reason is a string.
+    # is within the rubric, the failed numbers are requirement numbers and
+    # the reason is a string. ``total`` is the rubric size the score is out
+    # of (ticket #1476): optional, so a verdict from the older
+    # eight-requirement rubric stays valid, and never larger than the
+    # current rubric.
     chk = e.get("checker")
     if chk is not None:
         if not _is_record(chk):
@@ -406,6 +413,12 @@ def validate_entry(e) -> list:
                     or not (1 <= n <= CHECKER_TOTAL) for n in failed):
                 errs.append(f"checker.failed must be a list of ints in "
                             f"1..{CHECKER_TOTAL}")
+            total = chk.get("total")
+            if total is not None and (not isinstance(total, int)
+                                      or isinstance(total, bool)
+                                      or not (1 <= total <= CHECKER_TOTAL)):
+                errs.append(f"checker.total must be an int in 1.."
+                            f"{CHECKER_TOTAL} when present")
             if not isinstance(chk.get("reason"), str):
                 errs.append("checker.reason must be a string")
     # Ticket #1449: a scene the pipeline could not fully repair carries a

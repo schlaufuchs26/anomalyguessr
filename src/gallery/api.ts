@@ -13,15 +13,20 @@ export interface TDComment {
 export interface SceneChecker {
   score: number;
   failed: number[];
+  /** Requirements the score is out of (ticket #1476). Absent on a verdict
+   *  from the older eight-requirement rubric, which then reads as /8. */
+  total?: number;
   reason: string;
 }
-/** "checker 5/8" plus the failed numbers, e.g. "checker 5/8 · failed 3, 7".
- *  Eight is the checker's requirement count (ag_generate.REQUIREMENTS). */
+/** "checker 5/9" plus the failed numbers, e.g. "checker 5/9 · failed 3, 7".
+ *  The denominator is the verdict's own total (ag_generate.REQUIREMENTS,
+ *  nine since #1476); a verdict stored before that carries no total and
+ *  reads as the old eight-requirement rubric. */
 export function checkerLabel(checker: SceneChecker): string {
   const failed = checker.failed.length
     ? ` · failed ${checker.failed.join(", ")}`
     : "";
-  return `checker ${checker.score}/8${failed}`;
+  return `checker ${checker.score}/${checker.total ?? 8}${failed}`;
 }
 /** Answer circle in normalized image coordinates (0..1, top-left origin):
  *  x/y center, r radius. The game scores a click against exactly this
@@ -227,10 +232,12 @@ export interface TraceStep {
   covers?: boolean | null;
   /** Click-target steps: the model's one-line reason. */
   verdict_reason?: string;
-  /** Checker stages: requirements met (0..8, 8 = all met) and the failed
-   *  numbers. */
+  /** Checker stages: requirements met, the failed numbers and the rubric
+   *  size the score is out of (#1476; absent = the old eight-requirement
+   *  rubric). */
   score?: number | null;
   failed?: number[];
+  total?: number;
   /** Checker stages: the checker's one-line reason (ticket #1446). */
   reason?: string;
   /** Mechanical-gate rejection of a draw (replaces the answer). */
@@ -246,10 +253,12 @@ export interface TraceStep {
 export interface ScoreGuard {
   /** Round whose render shipped (0 = the initial draw). */
   shipped: number;
-  /** What the checker gave that round (0..8, null when unreadable). */
+  /** What the checker gave that round (null when unreadable), and the
+   *  rubric size it is out of (#1476). */
   score: number | null;
+  total?: number;
   /** The newest round the guard passed over. */
-  rejected?: { round: number; score: number | null };
+  rejected?: { round: number; score: number | null; total?: number };
 }
 
 export interface SceneTrace {

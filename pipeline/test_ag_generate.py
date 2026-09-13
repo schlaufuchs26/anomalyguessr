@@ -87,6 +87,7 @@ def proposal(**kw):
     p = {
         "anomaly": "Plastic bottle (clear PET)", "kind": "later-era",
         "exists_from": "1973", "figure": False,
+        "visual_tell": "clear ribbed plastic body and a screw cap",
         "placement": "on the ground at the bottom edge, half hidden behind "
                      "a crate",
         "explanation": "PET bottles only came into common use in the 1970s.",
@@ -269,12 +270,39 @@ class PromptTests(unittest.TestCase):
     def test_check_prompt_lists_the_moved_rules(self):
         text = g.check_prompt(proposal())
         for needle in ("Time travel", "Subtle", "Scale", "Tone", "Grain",
-                       "unchanged", "Identifiable"):
+                       "unchanged", "Identifiable", "Anachronism visible"):
             self.assertIn(needle, text)
         self.assertIn("fix_prompt", text)
         # The checker scores, it does not vote (#1381).
         self.assertIn('"failed"', text)
         self.assertNotIn('"ok"', text)
+
+    def test_proposal_prompt_states_the_legibility_rule(self):
+        # #1476: the element must read as wrong from the picture alone; the
+        # era-marker of a material, a fine detail or a class difference is
+        # rejected up front.
+        text = g.proposal_prompt(source(date="1905-01-01"), [])
+        self.assertIn("VISIBLY anachronistic", text)
+        self.assertIn("visual_tell", text)
+        self.assertIn("nylon", text)
+        self.assertIn("printed text", text)
+        self.assertIn("a modern bicycle", text)
+
+    def test_edit_prompt_states_the_visual_tell(self):
+        # #1476: the render must show the cue that dates the element, so it
+        # is part of the one edit instruction.
+        tell = proposal()["visual_tell"]
+        self.assertIn(tell, g.edit_prompt(proposal()))
+        self.assertNotIn("Make its era cue visible",
+                         g.edit_prompt(proposal(visual_tell="")))
+
+    def test_check_prompt_states_the_visual_tell_and_requirement_9(self):
+        self.assertIn(proposal()["visual_tell"], g.check_prompt(proposal()))
+        self.assertIn("Requirement 9", g.check_prompt(proposal()))
+        # requirement 9 is the ninth entry of the rubric and a presentation
+        # finding, so a persistent one flags the scene for moderation.
+        self.assertEqual(len(g.REQUIREMENTS), 9)
+        self.assertIn(9, g.PRESENTATION_REQUIREMENTS)
 
     def test_proposal_prompt_anchors_the_scene_year(self):
         text = g.proposal_prompt(source(date="2017-06-14"), [])
@@ -444,6 +472,14 @@ class ProposalTest(unittest.TestCase):
     def test_exists_from_is_required(self):
         self.assertIn("exists_from", " ".join(
             g.proposal_errors(proposal(exists_from="   "))))
+
+    def test_visual_tell_is_required(self):
+        # #1476: the legibility bar needs the proposal's one glance cue;
+        # without it the edit hint and requirement 9 have nothing to test.
+        for bad in ("", "   ", None, 7):
+            errs = " ".join(g.proposal_errors(
+                proposal(visual_tell=bad)))
+            self.assertIn("visual_tell", errs, bad)
 
     def test_missing_and_bad_fields(self):
         self.assertIn("anomaly", " ".join(g.proposal_errors({})))
@@ -908,7 +944,7 @@ class CheckScoringTest(unittest.TestCase):
         self.assertEqual(g.failed_requirements([3, 1, 3]), [1, 3])
         self.assertEqual(g.failed_requirements(["2"]), [2])
         # out-of-range numbers and non-numbers cannot inflate the count
-        self.assertEqual(g.failed_requirements([0, 9, "x", None]), [])
+        self.assertEqual(g.failed_requirements([0, 10, "x", None]), [])
         self.assertEqual(g.failed_requirements("nope"), [])
 
     def test_check_scene_scores_from_the_failed_list(self):
@@ -1132,11 +1168,25 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
         self.assertEqual(report["correction_rounds"], 0)
         entry = ag_queue.load_state(self.data_dir)["scenes"][report["scene"]]
         self.assertEqual(entry["checker"],
-                         {"score": 5, "failed": [3, 7], "reason": "scale off"})
+                         {"score": 5, "failed": [3, 7], "total":
+                          g.REQUIREMENTS_TOTAL, "reason": "scale off"})
         trace = self.trace_of(scene)
         self.assertEqual(trace["calls"][2]["stage"], "check r0")
         self.assertEqual(trace["calls"][2]["score"], 5)
         self.assertEqual(trace["calls"][2]["failed"], [3, 7])
+        # #1476: the trace row names the rubric size, so the panel can render
+        # "checker 5/9" for a new scene and "5/8" for an old one.
+        self.assertEqual(trace["calls"][2]["total"], g.REQUIREMENTS_TOTAL)
+
+    def test_the_visual_tell_reaches_the_trace(self):
+        # #1476: the tell must be auditable; it travels in the edit
+        # instruction's prompt text, which the trace records.
+        scene, failed, _ = self.run_one()
+        self.assertIsNone(failed)
+        prompts = [c.get("prompt", "") for c in self.trace_of(scene)["calls"]]
+        self.assertTrue(any(proposal()["visual_tell"] in p for p in prompts))
+        self.assertEqual(scene["report"]["visual_tell"],
+                         proposal()["visual_tell"])
 
     def test_a_clean_check_ends_the_chain(self):
         # Evan 13.09.: "if a check identifies no issues no edit is needed".
@@ -1223,6 +1273,7 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
         self.assertEqual(entry["checker"]["failed"], [3])
         self.assertEqual(self.trace_of(scene)["score_guard"],
                          {"shipped": 0, "score": 6,
+                          "total": g.REQUIREMENTS_TOTAL,
                           "rejected": {"round": 2, "score": 4}})
 
     def test_a_better_correction_round_still_ships_the_newest_image(self):

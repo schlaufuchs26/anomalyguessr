@@ -91,8 +91,9 @@ export function TraceStepMeta({ step }: { step: TraceStep }) {
 export function TraceStepVerdict({ step }: { step: TraceStep }) {
   const bits: string[] = [];
   if (typeof step.score === "number") {
-    bits.push(`checker ${step.score}/8`);
-    if (step.score === 8) bits.push("all requirements met");
+    const total = step.total ?? 8;
+    bits.push(`checker ${step.score}/${total}`);
+    if (step.score === total) bits.push("all requirements met");
   }
   if (step.failed && step.failed.length > 0) {
     bits.push(`failed ${step.failed.join(", ")}`);
@@ -190,12 +191,12 @@ export function TraceStepItem({
  *  and what the passed-over newest round scored. Null without a guard. */
 export function scoreGuardNote(guard?: ScoreGuard): string | null {
   if (!guard) return null;
-  const score = (s: number | null | undefined) =>
-    typeof s === "number" ? `${s}/8` : "no score";
+  const score = (s: number | null | undefined, total?: number) =>
+    typeof s === "number" ? `${s}/${total ?? 8}` : "no score";
   const rejected = guard.rejected
-    ? ` over round ${guard.rejected.round} (checker ${score(guard.rejected.score)})`
+    ? ` over round ${guard.rejected.round} (checker ${score(guard.rejected.score, guard.rejected.total)})`
     : "";
-  return `score guard: shipped round ${guard.shipped} (checker ${score(guard.score)})${rejected}`;
+  return `score guard: shipped round ${guard.shipped} (checker ${score(guard.score, guard.total)})${rejected}`;
 }
 
 /** The failure notes of a whole trace: last error, gate rejections, failed
