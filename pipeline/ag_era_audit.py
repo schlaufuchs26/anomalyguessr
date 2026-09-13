@@ -33,6 +33,11 @@ a year, so a claim that disagrees with the resolver is visible.
 already shown (``shown`` is set, so its URL is live) is never pruned, only
 reported. The default is report-only.
 
+Every row also carries the human verdict (``rejected`` from
+``feedback.json``, ticket #1417): a rejected failing scene is already out of
+the ship path, so the report counts the failing rows that are still
+ship-eligible separately from the ones a moderator already removed.
+
 CLI::
 
     ag_era_audit.py [--data DIR] [--json] [--prune]
@@ -176,9 +181,19 @@ def judge(scene: dict) -> dict:
 
 
 def audit(data_dir: Path) -> dict:
-    """Report every queued scene's verdict; the failing rows are listed."""
+    """Report every queued scene's verdict; the failing rows are listed.
+
+    Each row also carries ``rejected`` (the human verdict from
+    feedback.json), so the report separates the failing scenes that are
+    still ship-eligible from the ones a moderator already took out of the
+    ship path (ticket #1417). Rejection is the game's gate: a rejected
+    failing row needs no further action.
+    """
     state = ag_queue.load_state(data_dir)
+    rejected = ag_queue.rejected_ids(data_dir)
     rows = [judge(s) for s in state["scenes"].values()]
+    for row in rows:
+        row["rejected"] = row["id"] in rejected
     verdicts = {v: 0 for v in ("impossible", "same-year", "improbable",
                                "unknown")}
     origins = {v: 0 for v in ("metadata", "display", "unknown")}
@@ -188,6 +203,9 @@ def audit(data_dir: Path) -> dict:
     failing = [r for r in rows if r["verdict"] in ("same-year", "improbable")]
     return {"total": len(rows), "verdicts": verdicts, "year_origin": origins,
             "failing": failing,
+            "failing_eligible": [r["id"] for r in failing
+                                 if not r["rejected"]],
+            "failing_rejected": [r["id"] for r in failing if r["rejected"]],
             "failing_prunable": [r["id"] for r in failing
                                  if not r["shown"] and not r["anchor_disagrees"]],
             "failing_shipped": [r["id"] for r in failing if r["shown"]],
@@ -217,9 +235,15 @@ def format_report(report: dict) -> str:
                                     report["year_origin"].items()),
     ]
     if report["failing"]:
-        lines.append(f"failing ({len(report['failing'])}):")
+        lines.append(
+            f"failing ({len(report['failing'])}): "
+            f"{len(report['failing_eligible'])} ship-eligible, "
+            f"{len(report['failing_rejected'])} already rejected "
+            "(rejection is the ship gate, so those need no action)")
         for r in sorted(report["failing"], key=lambda r: (r["year"] or 0)):
             flag = " [anchor disagrees, review]" if r["anchor_disagrees"] else ""
+            if r["rejected"]:
+                flag += " [rejected]"
             lines.append(
                 f"  {r['id']}: {r['anomaly']!r} in {r['year']}"
                 f" ({r['year_origin']}), introduced {r['intro_year']}"

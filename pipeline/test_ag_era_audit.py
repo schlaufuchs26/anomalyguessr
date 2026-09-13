@@ -4,6 +4,7 @@ No network: a temp data dir with a hand-written state file covers every
 verdict the audit reports.
 """
 
+import json
 import shutil
 import tempfile
 import unittest
@@ -69,6 +70,16 @@ class AuditTest(unittest.TestCase):
         report = audit.audit(self.data)
         self.assertEqual(report["verdicts"]["impossible"], 1)
 
+    def test_a_lidded_paper_cup_in_1910_is_impossible(self):
+        # The paper cup is old (about 1912) but its disposable lid is not:
+        # the first coffee-cup-lid patent is 1967, so the labeled artifact
+        # "paper coffee cup with lid" cannot stand in 1910 (ticket #1417).
+        self.add(scene("cup", "Paper coffee cup with lid", year="1910",
+                       date="1910",
+                       explanation="The lid is a modern artifact."))
+        self.assertEqual(audit.judge(self.state["scenes"]["cup"])["verdict"],
+                         "impossible")
+
     def test_an_object_introduced_the_same_year_fails(self):
         self.add(scene("same", "E-scooter", year="2015", date="2015-05-05"))
         self.assertEqual(audit.judge(self.state["scenes"]["same"])["verdict"],
@@ -90,6 +101,23 @@ class AuditTest(unittest.TestCase):
         self.assertEqual(row["year"], 1870)
         self.assertEqual(row["year_origin"], "display")
         self.assertEqual(row["verdict"], "impossible")
+
+    def test_rejected_failing_rows_are_not_ship_eligible(self):
+        # #1417: rejection is the ship gate, so the report separates the
+        # failing rows that can still ship from the ones a moderator already
+        # took out. The audit itself never writes feedback.json (the API
+        # owns it); this test writes the file directly.
+        self.add(scene("still-ships", "E-scooter", year="2017",
+                       date="2017-01-01"))
+        self.add(scene("rejected", "E-scooter", year="2017",
+                       date="2017-01-01"))
+        (self.data / "feedback.json").write_text(json.dumps(
+            {"version": 1, "accepted": {}, "rejected": {"rejected": "x"},
+             "comments": {}}))
+        report = audit.audit(self.data)
+        self.assertEqual(report["failing_eligible"], ["still-ships"])
+        self.assertEqual(report["failing_rejected"], ["rejected"])
+        self.assertTrue(all("rejected" in r for r in report["failing"]))
 
     def test_an_unresolvable_label_is_unknown(self):
         self.add(scene("mystery", "Quantum whatsit", year="1900"))

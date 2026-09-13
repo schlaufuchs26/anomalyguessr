@@ -667,16 +667,16 @@ class CheckScoringTest(unittest.TestCase):
 
 class GenerateOneTest(TempDataMixin, unittest.TestCase):
     def run_one(self, *, propose=None, locate=None, check=None, edit=None,
-                count=1, **argkw):
-        self.write_source()
+                count=1, src=None, **argkw):
+        self.write_source(src)
         g.propose_anomaly = propose or stub_propose()
         g.locate_anomaly = locate or stub_locate()
         g.check_scene = check or stub_check()
         g.image_edit = edit or (lambda *a, **kw: img_bytes())
         args = self.make_args(count=count, **argkw)
         totals = ag_llm.zero_usage()
-        src = ag_sources.list_sources(self.data_dir)[0]
-        scene, failed = g._generate_one(src, args, self.data_dir,
+        picked = ag_sources.list_sources(self.data_dir)[0]
+        scene, failed = g._generate_one(picked, args, self.data_dir,
                                         "2026-09-12",
                                         self._tmp / "out", [], totals,
                                         lambda *a, **kw: None)
@@ -733,6 +733,31 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
         self.assertEqual(data["scene_time"]["origin"], "metadata")
         self.assertEqual(data["scene_time"]["field"], "exif")
         self.assertEqual(scene["report"]["scene_time"]["year"], 1905)
+
+    def test_an_anchor_that_contradicts_the_photo_is_refused(self):
+        # #1417: the model reads the photo as 1905 but the metadata anchor is
+        # 2017. No Commons metadata can settle which is right (#1418), so the
+        # year, and with it the impossibility claim, cannot be established:
+        # the scene must not ship, the image calls are skipped, and the source
+        # is consumed so it is not drawn again every day.
+        edits = []
+
+        def edit(*a, **kw):
+            edits.append(1)
+            return img_bytes()
+
+        scene, failed, totals = self.run_one(
+            src=source(date="2017-06-14"),
+            propose=stub_propose(proposal(apparent_era="1905")),
+            edit=edit, candidates=1)
+        self.assertIsNone(scene)
+        self.assertEqual(failed["stage"], "anchor")
+        self.assertIn("cannot be established", failed["reason"])
+        self.assertEqual(failed["scene_time"]["year"], 2017)
+        self.assertEqual(edits, [])
+        self.assertEqual(totals.get("image_calls", 0), 0)
+        self.assertEqual(ag_queue.load_state(self.data_dir)["scenes"], {})
+        self.assertTrue(ag_sources.list_sources(self.data_dir)[0]["used"])
 
     def test_best_of_k_ships_the_highest_scoring_candidate(self):
         def edit(*a, **kw):

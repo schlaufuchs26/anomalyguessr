@@ -119,11 +119,17 @@ _OBJECTS = [
     dict(label="Paper coffee cup with lid", type="object", family="drinks",
          settings=("market", "street"), recipe="stall",
          size="a white paper takeaway coffee cup with a lid, 10-12 cm tall",
-         min_year=1910, risk="low",
-         explanation="Disposable paper cups with lids only became common "
-                     "takeaway items in the 20th century and did not exist "
-                     "when this photograph was taken.",
-         references=[{"label": "Paper cup",
+         # The lid, not the cup, is the anachronism: the paper cup is old
+         # (about 1912) but the disposable drink-through lid was patented in
+         # 1967. Anchoring the labeled artifact at the cup's year made the
+         # audit call a lidded cup in 1910 merely "same-year" (ticket #1417).
+         min_year=1967, risk="low",
+         explanation="The paper cup is old, but the disposable lid is not: "
+                     "the first coffee-cup-lid patent was filed in 1967, so a "
+                     "lidded takeaway cup cannot appear in this photograph.",
+         references=[{"label": "Coffee cup (lid patents from 1967)",
+                      "url": "https://en.wikipedia.org/wiki/Coffee_cup"},
+                     {"label": "Paper cup",
                       "url": "https://en.wikipedia.org/wiki/Paper_cup"}]),
     dict(label="Drink can (matte aluminium)", type="object", family="drinks",
          settings=("market", "street", "harbor"), recipe="ground",

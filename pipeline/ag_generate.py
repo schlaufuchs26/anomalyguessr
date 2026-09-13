@@ -67,8 +67,12 @@ one candidate PNG is 1-2 MB, so keeping three per scene would cost ~50 MB a
 day for pictures nobody looks at once the scores are in the trace. The
 scene-time anchor (`scene_time`: year, which metadata field supplied it, and
 whether the proposal disagreed) is in the trace too, so a wrong year can be
-reviewed later (ticket #1403). `pipeline/ag_era_audit.py` reruns the
-impossibility test over the whole queue.
+reviewed later (ticket #1403). A disagreement larger than two years refuses
+the scene before the image calls (ticket #1417): neither the anchor nor the
+model can be trusted there, so the year and the impossibility claim are
+unprovable, and the source is consumed so it is not drawn again every day.
+`pipeline/ag_era_audit.py` reruns the impossibility test over the whole
+queue.
 
 The run lock, the progress status file, the DM-on-failure path and the queue
 add are unchanged from #1210/#1169: the daily cron and the dashboard's
@@ -882,7 +886,9 @@ def scene_time(source: dict, proposal: dict) -> dict:
     disagreement of more than two years is flagged for the trace, and the
     anchor still wins. Without an anchor the proposal's judgement is the
     year, and ``year`` is None when that judgment carries no four-digit year
-    (the checker cannot test impossibility against "modern").
+    (the checker cannot test impossibility against "modern"). The caller
+    (``_generate_one``) refuses the scene on a disagreement: neither field is
+    provable there, so the impossibility claim has no anchor (ticket #1417).
     """
     anchor, field = ag_sources.source_year(source)
     apparent = _year_int(proposal.get("apparent_era"))
@@ -1676,10 +1682,25 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
         st = scene_time(source, proposal)
         trace["scene_time"] = st
         if st["disagreement"]:
-            trace.setdefault("warnings", []).append(
-                "apparent_era disagrees with the metadata anchor by more "
-                f"than two years (anchor {st['year']}, proposal "
-                f"{st['display']}); the anchor is used for the test")
+            # The model's read of the photo contradicts the metadata anchor by
+            # more than two years, so at most one of them is right. No Commons
+            # metadata separates a scan/upload stamp from a capture date
+            # (ticket #1418), so the photo's year, and with it the
+            # impossibility claim, cannot be established. Refuse the scene
+            # before the image calls and consume the source, so a bad anchor
+            # cannot be drawn again every day; the source-side fix stays
+            # #1419/#1430.
+            reason = (f"anchor disagrees with the apparent era by more than "
+                      f"two years (anchor {st['year']} from "
+                      f"{st['field'] or 'metadata'}, proposal "
+                      f"{st['display']}); the photo's year cannot be "
+                      "established, so no impossible anomaly can be proven")
+            last_error = {"id": source["id"], "stage": "anchor",
+                          "reason": reason, "attempt": attempt,
+                          "scene_time": st}
+            set_trace_error(data_dir, trace, reason)
+            ag_sources.mark_used(data_dir, [source["id"]], True)
+            break
         candidates, failures, budget_hit = _collect_candidates(
             source_image, prompt, attempt, args, api_key, source, data_dir,
             out_dir, trace, totals, progress, previous_outputs)
