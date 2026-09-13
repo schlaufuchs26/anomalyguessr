@@ -1430,6 +1430,30 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
         self.assertTrue(scene["report"]["needs_review"])
         self.assertIn("fails 3", scene["report"]["review"])
 
+    def test_requirement_9_missing_tell_drives_a_correction_and_flags(self):
+        # #1476: a cue that is not readable fails requirement 9, which is a
+        # presentation finding, so it drives a fix-edit; if it is still not
+        # readable after the correction rounds, the scene ships flagged for
+        # moderation instead of passing on "the object is correct".
+        edits = {"n": 0}
+
+        def edit(*a, **kw):
+            edits["n"] += 1
+            return img_bytes(color="blue" if edits["n"] > 1 else "red")
+
+        scene, failed, _ = self.run_one(
+            edit=edit,
+            check=stub_check(failed=[9], fix_prompt="Make the lit screen "
+                             "readable at this size."))
+        self.assertIsNone(failed)
+        self.assertEqual(edits["n"], 1 + g.CORRECTION_ROUNDS)
+        self.assertTrue(scene["report"]["needs_review"])
+        self.assertIn("fails 9", scene["report"]["review"])
+        entry = ag_queue.load_state(self.data_dir)["scenes"][
+            scene["report"]["scene"]]
+        self.assertEqual(entry["checker"]["failed"], [9])
+        self.assertEqual(entry["checker"]["total"], g.REQUIREMENTS_TOTAL)
+
     def test_requirement_8_ships_flagged_without_a_repair(self):
         # Requirement 8 is not repairable (the element is not impossible for
         # the scene year); the chain ends and the scene ships with the verdict
