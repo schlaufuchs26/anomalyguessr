@@ -25,8 +25,15 @@ Per scene:
 2. **Apply** (`image_edit`): one `google/gemini-3.1-flash-image` call that
    adds the anomaly. The generation prompt keeps the hard constraints (one
    dominant placement instruction, ONE numeric scale cap with a
-   same-distance anchor, keep everything else, tone match, grain, no glow);
-   the long proscriptive rule list moved into the checker.
+   same-distance anchor, keep everything else, tone match, grain, no glow)
+   and opens with a short, neutral purpose preamble (ticket #1439: this is a
+   quiz game, the photo is public-domain, the addition is fictional); the
+   long proscriptive rule list moved into the checker. A refused edit (the
+   provider returns no image) is classified from its raw response (a safety
+   block vs an empty/broken reply), retried once with a rephrase that drops
+   the modify/cover wording, and, if it refuses again, treated as a
+   mechanical failure while the element goes on a persisted refusal-prone
+   list so the next proposal avoids it.
 3. **Check** (`check_scene`): one vision call against the eight requirements
    (time-travel framing, subtlety, scale, tone, grain, keep-the-rest,
    identifiability, impossibility at the scene's time). The checker does not
@@ -187,6 +194,10 @@ REPEAT_LABEL_LIMIT = 15
 LOCK_NAME = "generate.lock"
 STATUS_NAME = "generate-status.json"
 TRACE_DIRNAME = "traces"
+# Element labels the image provider refused to edit (ticket #1439): persisted
+# so the next proposals avoid them for a while instead of re-proposing the
+# element the provider just blocked.
+REFUSED_ELEMENTS_NAME = "refused_elements.json"
 
 
 class GenerationError(RuntimeError):
@@ -206,6 +217,21 @@ class ImageCallFailed(GenerationError):
     def __init__(self, message: str, record: dict):
         super().__init__(message)
         self.record = record
+
+
+class ImageRefused(GenerationError):
+    """The provider answered but returned no image (ticket #1439).
+
+    A refusal is not the same as a mechanical failure: the classification
+    (``safety`` for a provider block, ``empty``/``broken`` for a reply that
+    simply carried no image) decides whether the element gets one framed
+    retry and is marked refusal-prone, or the draw is just replaced.
+    """
+
+    def __init__(self, detail: dict):
+        self.detail = detail or {}
+        self.kind = str(self.detail.get("kind") or "empty")
+        super().__init__(f"no images returned ({self.kind})")
 
 
 class RunLockedError(RuntimeError):
@@ -241,6 +267,23 @@ DEFAULT_FIGURE_SCALE = "roughly 8-15 percent of the image height"
 SIZE_ANCHOR = ("judge it against something at the same distance in the "
                "photo (a crate, a wheel or a person's shoe) so its "
                "perspective matches the scene")
+
+# The purpose preamble that every image-edit call now carries (ticket #1439).
+# Evan measured 12 refusals in 85 edits ("gemini seems to refuse to edit stuff
+# a lot"); one neutral sentence about the game and the public-domain source
+# states what the picture is for. No pleading and no "this is not for
+# nefarious purposes": that phrasing reads as suspicious.
+PURPOSE = ("This is an image edit for a spot-the-anachronism quiz game: the "
+           "photograph is a public-domain historical picture from a public "
+           "archive, and the small addition is a fictional element for the "
+           "puzzle; no real, identifiable person is changed or demeaned, and "
+           "the result is shown only as a game image.")
+# The one retry wording after a refusal (ticket #1439): most refused edits
+# changed an existing object, so the retry drops the modify/cover framing and
+# asks for a small separate object placed in the scene.
+REFUSAL_RETRY = ("Add the new element as a small separate object that sits "
+                 "in the scene; do not modify, cover, replace or remove "
+                 "anything that is already in the photograph.")
 
 # Fictional-future allowed list (ticket #1430, Evan 2026-09-13): the path
 # stays, but only for elements that are impossible in the scene's year *and*
@@ -348,6 +391,12 @@ def proposal_prompt(source: dict, recent=()) -> str:
         "this scene: an object, or one extra person whose only modern or "
         "futuristic tell is a small detail (for a person, the year their "
         "modern tell became available).",
+        "- Say how the element enters the scene (placement_kind): "
+        '"standalone" when it is its own object standing or lying in the '
+        'scene, "modification" when it changes an object that is already '
+        'there. A modification is welcome: describe it as adding a small '
+        'object that sits on that surface ("a small sticker that sits on '
+        'the sign"), never as modifying, covering or replacing the object.',
         "- Pure fantasy is out: no flying saucers, dragons, unicorns, ghosts "
         "or magic. Everything must read as a thing from another time.",
         "- Keep it subtle: findable, but not obvious.",
@@ -367,7 +416,8 @@ def proposal_prompt(source: dict, recent=()) -> str:
         '\\"not real yet, a fictional future\\">", "not_today": "<for '
         'fictional-future only: why this element cannot exist in 2026; empty '
         'string otherwise>", "title": "<short human title of the scene, at '
-        'most 8 words>", "figure": true|false, "placement": "<one sentence: '
+        'most 8 words>", "figure": true|false, "placement_kind": '
+        '"standalone"|"modification", "placement": "<one sentence: '
         'where in THIS photo it sits, how it is partly hidden, and how large '
         'it should look next to things at the same distance>", "explanation": '
         '"<one sentence: why it cannot exist in the scene\'s year>", '
@@ -386,10 +436,20 @@ def scale_rule(proposal: dict) -> str:
             "smaller and hide more of it behind the foreground object.")
 
 
-def edit_prompt(proposal: dict) -> str:
+def edit_prompt(proposal: dict, retry: bool = False) -> str:
+    """The image-edit instruction; ``retry`` is the post-refusal rephrase.
+
+    Ticket #1439: every edit call carries the purpose preamble. The retry
+    variant keeps it and adds the one wording change (a small separate
+    object) for the case the model refused the framed first attempt.
+    """
     head = (f"Edit this historical photograph: add ONE "
             f"{proposal['anomaly']}, {proposal['placement']}.")
-    return " ".join((head, scale_rule(proposal), KEEP, BLEND))
+    parts = [PURPOSE, head]
+    if retry:
+        parts.append(REFUSAL_RETRY)
+    parts += [scale_rule(proposal), KEEP, BLEND]
+    return " ".join(parts)
 
 
 def coord_prompt(proposal: dict, prompt: str = "") -> str:
@@ -562,6 +622,16 @@ def proposal_errors(proposal) -> list:
     return errs
 
 
+def placement_kind(proposal: dict) -> str:
+    """The proposal's placement kind, "standalone" when it is missing.
+
+    Ticket #1439: the refusal rate gets measured split by placement kind
+    (a standalone object in the scene vs a change to an existing object).
+    """
+    kind = str((proposal or {}).get("placement_kind") or "").strip().lower()
+    return kind if kind in ("standalone", "modification") else "standalone"
+
+
 def normalize_proposal(proposal: dict) -> dict:
     """Whitespace-collapse and cap the proposal's free-text fields."""
     out = dict(proposal)
@@ -571,6 +641,7 @@ def normalize_proposal(proposal: dict) -> dict:
         out[key] = ag_llm.clean_text(out.get(key), limit)
     out["title"] = clean_caption_title(out.get("title"))[:80]
     out["figure"] = bool(out.get("figure"))
+    out["placement_kind"] = placement_kind(out)
     return out
 
 
@@ -830,6 +901,48 @@ def candidate_gate(edited: Path, original: Path, dedup) -> tuple:
 
 # ── Image edit ─────────────────────────────────────────────────────────────
 
+# Finish reasons that mean the provider's own filter stopped the reply
+# (ticket #1439). Anything else that still produced no image is an empty
+# reply, not a safety block.
+REFUSAL_FINISH_REASONS = {"content_filter", "safety", "recitation",
+                          "blocked", "prohibited_content", "image_safety"}
+_SAFETY_KEYS = ("safety", "safety_ratings", "safetyRatings",
+                "content_filter", "contentFilter", "blocked", "policy",
+                "refusal")
+
+
+def refusal_detail(body: dict, choices: list) -> dict:
+    """Classify an edit that came back without an image (ticket #1439).
+
+    ``kind`` is ``safety`` when the provider's own signal says it blocked the
+    edit (a ``refusal`` field, safety metadata or a filtering finish reason),
+    ``broken`` when the response carries no choices at all, and ``empty`` for
+    a normal-looking reply that simply has no image. The raw provider bits
+    (finish reason, refusal text, safety metadata, answer text) ride along so
+    the trace and the run report can show what actually came back.
+    """
+    choice = choices[0] if choices and isinstance(choices[0], dict) else {}
+    msg = choice.get("message") if isinstance(choice.get("message"), dict) \
+        else {}
+    finish = choice.get("finish_reason") or choice.get("native_finish_reason")
+    safety = {}
+    for src in (msg, body):
+        for key in _SAFETY_KEYS:
+            if key in src and src[key]:
+                safety[key] = src[key]
+    if not choices:
+        kind = "broken"
+    elif safety or str(finish or "").lower() in REFUSAL_FINISH_REASONS:
+        kind = "safety"
+    else:
+        kind = "empty"
+    return {"kind": kind, "finish_reason": finish,
+            "native_finish_reason": choice.get("native_finish_reason"),
+            "text": ag_llm.content_of(body)[:500],
+            "refusal": str(msg.get("refusal") or "")[:500],
+            "safety": safety}
+
+
 def aspect_ratio_for(width: int, height: int) -> str:
     if not width or not height:
         return "3:2"
@@ -885,7 +998,7 @@ def image_edit(source_image: Path, prompt: str, api_key: str,
     images = (choices[0].get("message", {}).get("images") or []) if choices \
         else []
     if not images:
-        raise GenerationError("no images returned (model refusal?)")
+        raise ImageRefused(refusal_detail(body, choices))
     return ag_llm.decode_data_url(images[0]["image_url"]["url"])
 
 
@@ -1400,6 +1513,61 @@ def recent_labels(data_dir: Path, today=None,
     return out
 
 
+def refused_elements_path(data_dir: Path) -> Path:
+    return Path(data_dir) / REFUSED_ELEMENTS_NAME
+
+
+def load_refused_elements(data_dir: Path) -> dict:
+    """The persisted refusal-prone elements; {} when the file is missing.
+
+    Ticket #1439: the image provider refused edits to a few elements over and
+    over (a QR sticker 4 of 5 times, a roof panel 3 of 5). The pipeline keeps
+    the elements so the proposal avoids them for a while instead of
+    re-proposing the element the provider just blocked.
+    """
+    try:
+        data = json.loads(refused_elements_path(data_dir).read_text())
+    except (OSError, ValueError):
+        return {}
+    elements = data.get("elements") if isinstance(data, dict) else None
+    return elements if isinstance(elements, dict) else {}
+
+
+def record_refused_element(data_dir: Path, label: str, kind: str,
+                           detail: dict | None = None, now=None) -> dict:
+    """Mark one element refusal-prone and persist it (ticket #1439)."""
+    label = str(label or "").strip()
+    if not label:
+        return {}
+    now = now or datetime.datetime.now().astimezone()
+    elements = load_refused_elements(data_dir)
+    entry = dict(elements.get(label) or {})
+    entry["count"] = int(entry.get("count") or 0) + 1
+    entry["kind"] = str(kind or "empty")
+    entry["last_refused"] = now.date().isoformat()
+    if detail:
+        entry["detail"] = detail
+    elements[label] = entry
+    try:
+        _atomic_json(refused_elements_path(data_dir),
+                     {"updatedAt": now.isoformat(timespec="seconds"),
+                      "elements": elements})
+    except OSError:
+        pass  # observability only: a failed write must not fail the run
+    return elements
+
+
+def refused_labels(data_dir: Path, today=None,
+                   days: int = REPEAT_WINDOW_DAYS) -> list:
+    """Refusal-prone element labels from the recent window, newest first."""
+    day = today or datetime.date.today()
+    cutoff = (day - datetime.timedelta(days=days)).isoformat()
+    rows = [(label, e) for label, e in load_refused_elements(data_dir).items()
+            if str(e.get("last_refused") or "") >= cutoff]
+    rows.sort(key=lambda r: str(r[1].get("last_refused") or ""), reverse=True)
+    return [label for label, _ in rows][:REPEAT_LABEL_LIMIT]
+
+
 def select_sources(data_dir: Path, count: int, seed=None) -> list:
     """Up to ``count`` random unused sources that have an image on disk."""
     unused = [s for s in ag_sources.list_sources(data_dir, unused=True)
@@ -1533,6 +1701,12 @@ def _run(args, data_dir: Path, lock) -> dict:
                              "(run pipeline/ag_sources.py top-up)")
     report["planned"] = len(picked)
     recent = recent_labels(data_dir, datetime.date.fromisoformat(date))
+    # Ticket #1439: elements the provider refused keep out of the proposal
+    # pool for the repeat window, so a refusal is not re-proposed next run.
+    for label in refused_labels(data_dir, datetime.date.fromisoformat(date)):
+        if label not in recent:
+            recent.append(label)
+    stats = _blank_stats()
 
     if args.dry_run:
         report["dry_run"] = True
@@ -1540,9 +1714,9 @@ def _run(args, data_dir: Path, lock) -> dict:
             {"source": s["id"], "title": clean_title(s),
              "place": scene_place(s),
              "proposal_prompt": proposal_prompt(s, recent),
-             "edit_prompt_template": "add ONE <anomaly>, <placement>. "
-                                     + scale_rule({"figure": False}) + " "
-                                     + KEEP + " " + BLEND}
+             "edit_prompt_template": edit_prompt({"anomaly": "<anomaly>",
+                                                  "placement": "<placement>",
+                                                  "figure": False})}
             for s in picked
         ]
         report["recent_labels"] = recent
@@ -1578,7 +1752,7 @@ def _run(args, data_dir: Path, lock) -> dict:
             continue
         scene, failed = _generate_one(source, args, data_dir, date, out_dir,
                                       recent + sorted(used_prompts), totals,
-                                      emit, index, len(picked))
+                                      emit, index, len(picked), stats=stats)
         if scene is not None:
             report["added"].append(scene["report"])
             used_prompts.add(scene["label"])
@@ -1592,6 +1766,11 @@ def _run(args, data_dir: Path, lock) -> dict:
                              if k not in ("image_calls", "image_cost")}
     report["cost_total"] = round(totals["cost"], 6)
     report["image_cost_total"] = round(totals.get("image_cost", 0.0), 6)
+    # Ticket #1439: the refusal rate overall and split by element and by
+    # placement kind, with the raw provider messages of each refusal, so the
+    # framing's effect is visible without opening a trace.
+    report["refusal"] = refusal_summary(stats, totals)
+    report["refused_elements"] = load_refused_elements(data_dir)
     # The new flow's shape (ticket #1436): how many correction rounds the
     # checker asked for and what the click-target pass changed, so a run is
     # comparable without opening a trace.
@@ -1627,6 +1806,70 @@ def _run(args, data_dir: Path, lock) -> dict:
     return report
 
 
+def _blank_stats() -> dict:
+    """Run-level refusal accounting for one generation run (ticket #1439)."""
+    return {"attempts": [], "refusals": []}
+
+
+def _note_attempt(stats: dict | None, proposal: dict, refused: bool,
+                  kind: str | None = None, detail: dict | None = None,
+                  usage: dict | None = None,
+                  duration_s: float | None = None) -> None:
+    """Record one image-edit attempt for the run's refusal report."""
+    if stats is None:
+        return
+    element = str((proposal or {}).get("anomaly") or "")
+    placement = placement_kind(proposal or {})
+    stats["attempts"].append({"element": element, "placement_kind": placement,
+                              "refused": bool(refused)})
+    if refused:
+        stats["refusals"].append({
+            "element": element, "placement_kind": placement,
+            "kind": kind, "detail": detail, "usage": usage,
+            "duration_s": duration_s})
+
+
+def refusal_summary(stats: dict | None, totals: dict) -> dict:
+    """The run's refusal numbers, overall and split (ticket #1439).
+
+    ``rate`` is the share of image-edit attempts the provider refused;
+    ``by_element`` and ``by_placement_kind`` carry the same split, so the
+    hypothesis that modifications get refused more often than standalone
+    objects can be read straight off one run.
+    """
+    stats = stats or {}
+    attempts = stats.get("attempts") or []
+    refusals = stats.get("refusals") or []
+
+    def group(key):
+        out = {}
+        for a in attempts:
+            row = out.setdefault(a.get(key) or "", {"attempts": 0,
+                                                    "refusals": 0})
+            row["attempts"] += 1
+            if a.get("refused"):
+                row["refusals"] += 1
+        for row in out.values():
+            row["rate"] = (round(row["refusals"] / row["attempts"], 3)
+                           if row["attempts"] else None)
+        return out
+
+    refused_cost = sum(float((r.get("usage") or {}).get("cost") or 0.0)
+                       for r in refusals)
+    refused_seconds = sum(float(r.get("duration_s") or 0.0)
+                          for r in refusals)
+    return {
+        "attempts": len(attempts),
+        "refusals": len(refusals),
+        "rate": round(len(refusals) / len(attempts), 3) if attempts else None,
+        "by_element": group("element"),
+        "by_placement_kind": group("placement_kind"),
+        "refused_cost": round(refused_cost, 6),
+        "refused_seconds": round(refused_seconds, 1),
+        "messages": refusals,
+    }
+
+
 def image_budget_left(args, totals: dict) -> int:
     """Image calls the run may still spend (ticket #1436).
 
@@ -1638,22 +1881,26 @@ def image_budget_left(args, totals: dict) -> int:
     return max(0, int(args.max_generations) - int(totals.get("image_calls", 0)))
 
 
-def _draw_scene_image(source_image: Path, prompt: str, attempt: int, args,
-                      api_key: str, source: dict, data_dir: Path,
-                      out_dir: Path, trace: dict, totals: dict, progress,
-                      previous_outputs: list) -> tuple:
-    """The ONE image for this scene (ticket #1436).
+def _draw_scene_image(source_image: Path, prompt: str, retry_prompt: str,
+                      proposal: dict, attempt: int, args, api_key: str,
+                      source: dict, data_dir: Path, out_dir: Path, trace: dict,
+                      totals: dict, progress, previous_outputs: list,
+                      stats: dict | None = None) -> tuple:
+    """The ONE image for this scene (tickets #1436, #1439).
 
     Draws image edits until one passes the mechanical gate (landscape shape,
     byte-identical re-serve, whole-frame repaint), allowing
     ``MECHANICAL_RETRIES`` extra image calls to replace broken draws. Every
     draw lands in the trace, kept or rejected, with its reason (idea #1435:
-    a retry used to leave no row, so the draw numbers jumped). Returns
-    ``(draw|None, failure_reasons, budget_hit)`` where ``draw`` carries
-    ``path``, ``seed``, ``hotspot`` and its trace ``record``.
+    a retry used to leave no row, so the draw numbers jumped). A refused edit
+    gets one retry with the rephrased prompt first; an element the provider
+    refuses twice ends the attempt (``refused``) instead of burning more
+    draws on the same wording. Returns
+    ``(draw|None, failure_reasons, budget_hit, refused|None)`` where ``draw``
+    carries ``path``, ``seed``, ``hotspot`` and its trace ``record``.
     """
     draws_allowed = 1 + MECHANICAL_RETRIES
-    failures, draw, budget_hit = [], 0, False
+    failures, draw, budget_hit, refused = [], 0, False, None
     while draw < draws_allowed:
         if image_budget_left(args, totals) <= 0:
             # Not a draw failure: the gate reasons above stay the report's
@@ -1662,36 +1909,53 @@ def _draw_scene_image(source_image: Path, prompt: str, attempt: int, args,
             break
         draw += 1
         progress("editing", round=0, draw=draw)
-        record = {"stage": "edit r0", "attempt": attempt, "draw": draw}
-        try:
-            data, image_call = _edit(source_image, prompt, args, api_key,
-                                     source, totals)
-        except ImageCallFailed as e:
-            # The attempt spent a call without producing an image: it is a
-            # `calls` row like any other, so the retry is visible (idea #1435).
-            record.update(e.record)
-            record["error"] = str(e)
-            failures.append(str(e))
-            record_call(data_dir, trace, record)
+        attempts = _edit_attempts(source_image, prompt, retry_prompt,
+                                  proposal, args, api_key, source, totals)
+        for a in attempts[:-1]:
+            rec = a["record"]
+            _note_attempt(stats, proposal, refused=bool(a["refused"]),
+                          kind=a["refused"], detail=rec.get("provider"),
+                          usage=rec.get("usage"),
+                          duration_s=rec.get("duration_s"))
+            record_call(data_dir, trace,
+                        {"stage": "edit r0", "attempt": attempt, "draw": draw,
+                         **rec})
+        terminal = attempts[-1]
+        rec = terminal["record"]
+        _note_attempt(stats, proposal, refused=bool(terminal["refused"]),
+                      kind=terminal["refused"], detail=rec.get("provider"),
+                      usage=rec.get("usage"),
+                      duration_s=rec.get("duration_s"))
+        row = {"stage": "edit r0", "attempt": attempt, "draw": draw, **rec}
+        if terminal["data"] is None:
+            record_call(data_dir, trace, row)
+            if terminal["refused"]:
+                # Refused twice, even after the rephrase: the element is the
+                # problem, so report it (the caller marks it refusal-prone).
+                failures.append(str(rec["error"]))
+                refused = {"kind": terminal["refused"],
+                           "detail": rec.get("provider"), "draw": draw}
+                break
+            failures.append(str(rec["error"]))
             continue
         out_path = _write_bytes(
-            data, out_dir / f"{source['id']}-a{attempt}-r0-d{draw}.png")
+            terminal["data"],
+            out_dir / f"{source['id']}-a{attempt}-r0-d{draw}.png")
         reason, hotspot = candidate_gate(out_path, source_image,
                                          list(previous_outputs) or None)
         previous_outputs.append(out_path)
-        record.update(image_call)
         if reason:
-            record["rejected"] = reason
-            failures.append(reason)
+            row["rejected"] = reason
             trace.setdefault("gate_failures", []).append(
                 {"stage": "edit r0", "attempt": attempt, "draw": draw,
                  "reason": reason})
-            record_call(data_dir, trace, record)
+            failures.append(reason)
+            record_call(data_dir, trace, row)
             continue
-        record_call(data_dir, trace, record)
-        return {"path": out_path, "seed": image_call.get("seed"),
-                "hotspot": hotspot, "record": record}, failures, budget_hit
-    return None, failures, budget_hit
+        record_call(data_dir, trace, row)
+        return {"path": out_path, "seed": rec.get("seed"),
+                "hotspot": hotspot, "record": row}, failures, budget_hit, None
+    return None, failures, budget_hit, refused
 
 
 def _check_round(image: Path, proposal: dict, scene: dict | None, round_no: int,
@@ -1725,49 +1989,63 @@ def _check_round(image: Path, proposal: dict, scene: dict | None, round_no: int,
 def _fix_edit(current: Path, proposal: dict, check: dict, round_no: int,
               attempt: int, args, api_key: str, source: dict, data_dir: Path,
               out_dir: Path, trace: dict, totals: dict, progress,
-              previous_outputs: list) -> dict | None:
+              previous_outputs: list, stats: dict | None = None) -> tuple:
     """One correction round (ticket #1436): the checker's repair instruction.
 
     Edits the CURRENT image, the one that failed the check, so each round
     refines the last result instead of re-adding the anomaly from scratch.
-    Returns ``{"path", "hotspot"}`` or None when the round is skipped or its
-    output fails the mechanical gates; the image before the round then ships.
+    A refused correction gets the same one framed retry as a refused draw
+    (ticket #1439). Returns ``(result|None, refused|None)``; None means the
+    round is skipped, refused or its output fails the mechanical gates, and
+    the image before the round then ships.
     """
     if image_budget_left(args, totals) <= 0:
         trace.setdefault("corrections", []).append(
             {"round": round_no, "skipped": "generation budget"})
-        return None
-    prompt = _fix_prompt(proposal, check["fix_prompt"])
+        return None, None
+    fix_head = _fix_prompt(proposal, check["fix_prompt"])
+    retry_prompt = _fix_prompt(proposal, check["fix_prompt"], retry=True)
     progress("correcting", round=round_no)
-    record = {"stage": f"fix-edit r{round_no}", "attempt": attempt}
-    try:
-        data, fix_call = _edit(current, prompt, args, api_key, source, totals)
-    except ImageCallFailed as e:
+    attempts = _edit_attempts(current, fix_head, retry_prompt, proposal,
+                              args, api_key, source, totals)
+    for a in attempts[:-1]:
+        rec = a["record"]
+        _note_attempt(stats, proposal, refused=bool(a["refused"]),
+                      kind=a["refused"], detail=rec.get("provider"),
+                      usage=rec.get("usage"), duration_s=rec.get("duration_s"))
+        record_call(data_dir, trace,
+                    {"stage": f"fix-edit r{round_no}", "attempt": attempt,
+                     **rec})
+    terminal = attempts[-1]
+    rec = terminal["record"]
+    _note_attempt(stats, proposal, refused=bool(terminal["refused"]),
+                  kind=terminal["refused"], detail=rec.get("provider"),
+                  usage=rec.get("usage"), duration_s=rec.get("duration_s"))
+    row = {"stage": f"fix-edit r{round_no}", "attempt": attempt, **rec}
+    if terminal["data"] is None:
         # Same as a refused draw: the failed correction is a `calls` row
         # (idea #1435), not only a line in call_errors.
-        record.update(e.record)
-        record["error"] = str(e)
+        record_call(data_dir, trace, row)
         trace.setdefault("corrections", []).append(
-            {"round": round_no, "failed": str(e)})
-        record_call(data_dir, trace, record)
-        return None
+            {"round": round_no, "failed": str(rec["error"])})
+        return None, terminal["refused"]
     fixed_path = _write_bytes(
-        data, out_dir / f"{source['id']}-a{attempt}-r{round_no}-fix.png")
+        terminal["data"],
+        out_dir / f"{source['id']}-a{attempt}-r{round_no}-fix.png")
     reason, hotspot = candidate_gate(fixed_path, current,
                                      list(previous_outputs) or None)
     previous_outputs.append(fixed_path)
-    record.update(fix_call)
     if reason:
-        record["rejected"] = reason
+        row["rejected"] = reason
         trace.setdefault("corrections", []).append(
             {"round": round_no, "rejected": reason})
         trace.setdefault("gate_failures", []).append(
             {"stage": f"fix-edit r{round_no}", "attempt": attempt,
              "reason": reason})
-        record_call(data_dir, trace, record)
-        return None
-    record_call(data_dir, trace, record)
-    return {"path": fixed_path, "hotspot": hotspot}
+        record_call(data_dir, trace, row)
+        return None, None
+    record_call(data_dir, trace, row)
+    return {"path": fixed_path, "hotspot": hotspot}, None
 
 
 def _coords_differ(a: dict, b: dict, eps: float = 0.005) -> bool:
@@ -1857,7 +2135,8 @@ def _click_target_passes(image: Path, proposal: dict, answer: dict,
 
 def _generate_one(source: dict, args, data_dir: Path, date: str,
                   out_dir: Path, recent: list, totals: dict, emit,
-                  scene_index: int = 1, scene_total: int = 1) -> tuple:
+                  scene_index: int = 1, scene_total: int = 1,
+                  stats: dict | None = None) -> tuple:
     """One source through the whole flow; returns (scene|None, failure|None).
 
     Ticket #1436: a source yields exactly one scene, drawn as exactly one
@@ -1865,7 +2144,7 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
     drives up to two correction rounds plus a final click-target pass. Only a
     mechanical failure (the source image missing, the API refusing to produce
     any draw, a coordinate-less scene with no diff hotspot) is reported as
-    failed.
+    failed. ``stats`` carries the run's refusal accounting (ticket #1439).
     """
     api_key = os.environ.get("OPENROUTER_API_KEY", "")
     source_image = ag_sources.sources_dir(data_dir) / source["image"]
@@ -1914,18 +2193,39 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
             set_trace_error(data_dir, trace, last_error["reason"])
             continue
         prompt = edit_prompt(proposal)
-        draw, failures, budget_hit = _draw_scene_image(
-            source_image, prompt, attempt, args, api_key, source, data_dir,
-            out_dir, trace, totals, progress, previous_outputs)
+        retry_prompt = edit_prompt(proposal, retry=True)
+        draw, failures, budget_hit, refused = _draw_scene_image(
+            source_image, prompt, retry_prompt, proposal, attempt, args,
+            api_key, source, data_dir, out_dir, trace, totals, progress,
+            previous_outputs, stats)
         if draw is None:
-            if failures:
+            if refused is not None:
+                # Ticket #1439: the provider refused this element twice, so it
+                # is marked refusal-prone and the next proposal avoids it
+                # instead of re-proposing the same element.
+                stage, reason = "refusal", f"image edit refused ({refused['kind']})"
+                record_refused_element(data_dir, proposal.get("anomaly"),
+                                       refused["kind"],
+                                       detail=refused.get("detail"))
+                if proposal.get("anomaly"):
+                    recent.append(proposal["anomaly"])
+                last_error = {"id": source["id"], "stage": stage,
+                              "reason": reason, "attempt": attempt,
+                              "element": proposal.get("anomaly"),
+                              "refusal_kind": refused["kind"],
+                              "provider": refused.get("detail")}
+            elif failures:
                 stage, reason = "image", failures[-1]
+                last_error = {"id": source["id"], "stage": stage,
+                              "reason": reason, "attempt": attempt}
             elif budget_hit:
                 stage, reason = "budget", "generation budget"
+                last_error = {"id": source["id"], "stage": stage,
+                              "reason": reason, "attempt": attempt}
             else:
                 stage, reason = "image", "no draw passed the gates"
-            last_error = {"id": source["id"], "stage": stage,
-                          "reason": reason, "attempt": attempt}
+                last_error = {"id": source["id"], "stage": stage,
+                              "reason": reason, "attempt": attempt}
             set_trace_error(data_dir, trace, last_error["reason"])
             continue
         final_path, hotspot = draw["path"], draw["hotspot"]
@@ -1942,10 +2242,10 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
                    and check["fix_prompt"]
                    and rounds_used < CORRECTION_ROUNDS):
                 rounds_used += 1
-                fixed = _fix_edit(final_path, proposal, check, rounds_used,
-                                  attempt, args, api_key, source, data_dir,
-                                  out_dir, trace, totals, progress,
-                                  previous_outputs)
+                fixed, _refused = _fix_edit(
+                    final_path, proposal, check, rounds_used, attempt, args,
+                    api_key, source, data_dir, out_dir, trace, totals,
+                    progress, previous_outputs, stats)
                 if fixed is None:
                     rounds_used -= 1
                     break
@@ -2061,10 +2361,15 @@ def _attempt_proposal(source_image: Path, source: dict, recent: list, args,
     return result["proposal"], result["call"], result["errors"]
 
 
-def _fix_prompt(proposal: dict, fix: str) -> str:
+def _fix_prompt(proposal: dict, fix: str, retry: bool = False) -> str:
+    """The correction instruction; ``retry`` is the post-refusal rephrase."""
     head = (f"Edit this photograph again: fix ONLY these problems with the "
             f"added {proposal['anomaly']}: {fix}.")
-    return " ".join((head, scale_rule(proposal), KEEP, BLEND))
+    parts = [PURPOSE, head]
+    if retry:
+        parts.append(REFUSAL_RETRY)
+    parts += [scale_rule(proposal), KEEP, BLEND]
+    return " ".join(parts)
 
 
 def _settle_image_call(totals: dict | None, usage: dict, record: dict,
@@ -2107,11 +2412,54 @@ def _edit(source_image: Path, prompt: str, args, api_key: str, source: dict,
                                            source.get("height")),
                           args.image_size, seed=seed,
                           timeout=args.image_timeout, usage_out=usage)
+    except ImageRefused as e:
+        record["error_kind"] = e.kind
+        record["provider"] = e.detail
+        _settle_image_call(totals, usage, record, started)
+        raise ImageCallFailed(str(e), record) from e
     except GenerationError as e:
         _settle_image_call(totals, usage, record, started)
         raise ImageCallFailed(str(e), record) from e
     _settle_image_call(totals, usage, record, started)
     return data, record
+
+
+def _edit_attempts(image: Path, prompt: str, retry_prompt: str, proposal: dict,
+                   args, api_key: str, source: dict, totals: dict) -> list:
+    """One edit plus its one framed retry after a refusal (ticket #1439).
+
+    Returns a list of attempt dicts, each ``{"record", "data", "refused"}``:
+    one entry for a normal call, two when the first was refused and the
+    rephrase was tried. ``refused`` is the classification (``safety``,
+    ``empty`` or ``broken``) for a refusal and None otherwise; a mechanical
+    failure stops the list too, because a retry cannot help a transport
+    error. A refusal without budget left for the retry stays terminal.
+    """
+    plans = [(prompt, "purpose")]
+    if retry_prompt:
+        plans.append((retry_prompt, "retry"))
+    out = []
+    for text, variant in plans:
+        if out and image_budget_left(args, totals) <= 0:
+            break
+        try:
+            data, record = _edit(image, text, args, api_key, source, totals)
+        except ImageCallFailed as e:
+            record = dict(e.record)
+            record["variant"] = variant
+            record["error"] = str(e)
+            kind = e.record.get("error_kind")
+            if kind:
+                record["refusal"] = kind
+            out.append({"record": record, "data": None, "refused": kind})
+            if not kind:
+                break
+            continue
+        record = dict(record)
+        record["variant"] = variant
+        out.append({"record": record, "data": data, "refused": None})
+        break
+    return out
 
 
 def _call_trace(call: dict) -> dict:

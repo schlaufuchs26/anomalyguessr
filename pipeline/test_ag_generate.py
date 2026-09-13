@@ -264,6 +264,41 @@ class PromptTests(unittest.TestCase):
                          "display": "modern", "apparent": None,
                          "disagreement": False, "field": ""}))
 
+    def test_edit_prompt_states_the_game_purpose(self):
+        # #1439: the provider refused 14% of edits until the call said what
+        # the picture is for; every edit carries the neutral preamble now.
+        text = g.edit_prompt(proposal())
+        self.assertIn(g.PURPOSE, text)
+        self.assertIn("spot-the-anachronism quiz game", text)
+        self.assertIn("public-domain", text)
+        # No pleading: the framing is a statement, not a justification.
+        self.assertNotIn("not for nefarious", text)
+        self.assertNotIn("please", text.lower())
+
+    def test_edit_retry_drops_the_modify_wording(self):
+        default = g.edit_prompt(proposal())
+        retry = g.edit_prompt(proposal(), retry=True)
+        self.assertIn(g.PURPOSE, retry)
+        self.assertIn("small separate object", retry)
+        self.assertIn("do not modify, cover, replace or remove", retry)
+        self.assertNotEqual(default, retry)
+
+    def test_fix_prompt_carries_the_purpose_and_a_retry_variant(self):
+        text = g._fix_prompt(proposal(), "fix the tone")
+        self.assertIn(g.PURPOSE, text)
+        self.assertIn("fix the tone", text)
+        retry = g._fix_prompt(proposal(), "fix the tone", retry=True)
+        self.assertIn(g.REFUSAL_RETRY, retry)
+
+    def test_proposal_prompt_asks_for_a_placement_kind(self):
+        # #1439: the refusal rate gets split by placement kind, so the
+        # proposal names how the element enters the scene.
+        text = g.proposal_prompt(source(), [])
+        self.assertIn("placement_kind", text)
+        self.assertIn('"standalone"|"modification"', text)
+        self.assertIn("sits on that surface", text)
+        self.assertIn("never as modifying", text)
+
 
 # ── Proposal validation ────────────────────────────────────────────────────
 
@@ -292,6 +327,19 @@ class ProposalTest(unittest.TestCase):
         self.assertTrue(p["figure"])
         self.assertLessEqual(len(p["placement"]), 400)
         self.assertLessEqual(len(p["exists_from"]), 60)
+
+    def test_normalize_keeps_only_known_placement_kinds(self):
+        # #1439: a missing or junk placement_kind counts as standalone, so the
+        # rate split never grows an "unknown" bucket.
+        self.assertEqual(g.normalize_proposal(
+            proposal(placement_kind="modification"))["placement_kind"],
+            "modification")
+        self.assertEqual(g.normalize_proposal(proposal())["placement_kind"],
+                         "standalone")
+        self.assertEqual(g.normalize_proposal(
+            {"anomaly": "x", "placement_kind": "whatever"}
+        )["placement_kind"], "standalone")
+        self.assertEqual(g.placement_kind(None), "standalone")
 
     def test_valid_reference(self):
         self.assertTrue(g.valid_reference({"label": "x",
@@ -1174,6 +1222,160 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
             args.max_generations,
             2 * (1 + g.MECHANICAL_RETRIES + g.CORRECTION_ROUNDS))
 
+    def test_blocked_edit_is_classified_and_retried_with_the_rephrase(self):
+        # #1439: a provider block is not a mechanical gate failure. The first
+        # edit is refused, the framed retry (a small separate object) lands
+        # the scene, and the refusal row carries the classification and the
+        # raw provider response instead of a "rejected" gate reason.
+        prompts, calls = [], {"n": 0}
+
+        def edit(src, prompt, api_key, *a, usage_out=None, **kw):
+            prompts.append(prompt)
+            calls["n"] += 1
+            usage_out.update({"cost": 0.002})
+            if calls["n"] == 1:
+                raise g.ImageRefused({"kind": "safety",
+                                      "finish_reason": "content_filter",
+                                      "text": "I cannot help with that."})
+            return img_bytes()
+
+        scene, failed, totals = self.run_one(edit=edit)
+        self.assertIsNone(failed)
+        self.assertEqual(totals["image_calls"], 2)
+        self.assertEqual(len(prompts), 2)
+        self.assertIn(g.PURPOSE, prompts[0])
+        self.assertIn(g.REFUSAL_RETRY, prompts[1])
+        trace = self.trace_of(scene)
+        edits = [c for c in trace["calls"] if c["stage"] == "edit r0"]
+        self.assertEqual([c["variant"] for c in edits], ["purpose", "retry"])
+        self.assertEqual(edits[0]["refusal"], "safety")
+        self.assertEqual(edits[0]["provider"]["finish_reason"],
+                         "content_filter")
+        # A blocked response is recorded as a refusal, never as a candidate
+        # that failed a gate.
+        self.assertNotIn("rejected", edits[0])
+        self.assertNotIn("refusal", edits[1])
+
+    def test_refused_twice_marks_the_element_and_reports_the_scene(self):
+        # #1439: after the framed attempt AND the rephrase both refuse, the
+        # element goes on the refusal-prone list so the next proposal avoids
+        # it, and the attempt is reported as a refusal.
+        def edit(src, prompt, api_key, *a, usage_out=None, **kw):
+            usage_out.update({"cost": 0.003})
+            raise g.ImageRefused({"kind": "safety",
+                                  "finish_reason": "content_filter",
+                                  "text": "blocked"})
+
+        scene, failed, totals = self.run_one(edit=edit, max_attempts=1)
+        self.assertIsNone(scene)
+        self.assertEqual(failed["stage"], "refusal")
+        self.assertIn("refused", failed["reason"])
+        self.assertEqual(failed["refusal_kind"], "safety")
+        self.assertEqual(totals["image_calls"], 2)  # one draw plus its retry
+        elements = g.load_refused_elements(self.data_dir)
+        self.assertIn("Plastic bottle (clear PET)", elements)
+        self.assertEqual(elements["Plastic bottle (clear PET)"]["kind"],
+                         "safety")
+        self.assertEqual(g.refused_labels(self.data_dir),
+                         ["Plastic bottle (clear PET)"])
+        # The refused element is what the next proposal is told to avoid.
+        self.assertIn("Plastic bottle (clear PET)",
+                      g.proposal_prompt(source(),
+                                        g.refused_labels(self.data_dir)))
+
+
+class RefusalTest(TempDataMixin, unittest.TestCase):
+    """Ticket #1439: classification, rate split and the persisted list."""
+
+    def test_refusal_detail_classifies_a_safety_block(self):
+        body = {"choices": [{"finish_reason": "content_filter",
+                             "message": {"content": "I cannot do that."}}]}
+        detail = g.refusal_detail(body, body["choices"])
+        self.assertEqual(detail["kind"], "safety")
+        self.assertEqual(detail["finish_reason"], "content_filter")
+        self.assertIn("cannot", detail["text"])
+
+    def test_refusal_detail_uses_a_refusal_field(self):
+        body = {"choices": [{"message": {"refusal": "I won't edit this."}}]}
+        self.assertEqual(g.refusal_detail(body, body["choices"])["kind"],
+                         "safety")
+
+    def test_refusal_detail_reads_safety_metadata(self):
+        body = {"safety_ratings": [{"category": "HARM"}],
+                "choices": [{"finish_reason": "stop",
+                             "message": {"content": ""}}]}
+        detail = g.refusal_detail(body, body["choices"])
+        self.assertEqual(detail["kind"], "safety")
+        self.assertIn("safety_ratings", detail["safety"])
+
+    def test_refusal_detail_calls_an_image_less_reply_empty(self):
+        body = {"choices": [{"finish_reason": "stop",
+                             "message": {"content": "oops"}}]}
+        self.assertEqual(g.refusal_detail(body, body["choices"])["kind"],
+                         "empty")
+
+    def test_refusal_detail_calls_a_choiceless_reply_broken(self):
+        self.assertEqual(g.refusal_detail({}, [])["kind"], "broken")
+
+    def test_record_refused_element_accumulates_and_avoids(self):
+        g.record_refused_element(self.data_dir, "QR code sticker", "safety",
+                                 detail={"finish_reason": "content_filter"})
+        g.record_refused_element(self.data_dir, "QR code sticker", "safety")
+        elements = g.load_refused_elements(self.data_dir)
+        self.assertEqual(elements["QR code sticker"]["count"], 2)
+        self.assertEqual(elements["QR code sticker"]["kind"], "safety")
+        self.assertEqual(g.refused_labels(self.data_dir), ["QR code sticker"])
+        # A blank label is not recorded.
+        g.record_refused_element(self.data_dir, "  ", "safety")
+        self.assertNotIn("", g.load_refused_elements(self.data_dir))
+
+    def test_refused_labels_expire_after_the_repeat_window(self):
+        import datetime as dt
+        g.record_refused_element(self.data_dir, "Old trick", "safety",
+                                 now=dt.datetime(2026, 1, 1))
+        self.assertEqual(g.refused_labels(
+            self.data_dir, today=dt.date(2026, 9, 13)), [])
+        self.assertEqual(g.refused_labels(
+            self.data_dir, today=dt.date(2026, 1, 3)), ["Old trick"])
+
+    def test_refusal_summary_splits_by_element_and_kind(self):
+        stats = {"attempts": [
+            {"element": "QR sticker", "placement_kind": "modification",
+             "refused": True},
+            {"element": "QR sticker", "placement_kind": "modification",
+             "refused": True},
+            {"element": "Bottle", "placement_kind": "standalone",
+             "refused": False},
+        ], "refusals": [
+            {"element": "QR sticker", "placement_kind": "modification",
+             "kind": "safety", "detail": {"finish_reason": "content_filter"},
+             "usage": {"cost": 0.01}, "duration_s": 12.0},
+            {"element": "QR sticker", "placement_kind": "modification",
+             "kind": "empty", "detail": {"text": "no"},
+             "usage": {"cost": 0.01}, "duration_s": 10.0},
+        ]}
+        summary = g.refusal_summary(stats, {})
+        self.assertEqual(summary["attempts"], 3)
+        self.assertEqual(summary["refusals"], 2)
+        self.assertAlmostEqual(summary["rate"], 0.667)
+        self.assertEqual(
+            summary["by_placement_kind"]["modification"]["rate"], 1.0)
+        self.assertEqual(
+            summary["by_placement_kind"]["standalone"]["rate"], 0.0)
+        self.assertEqual(summary["by_element"]["QR sticker"]["refusals"], 2)
+        self.assertAlmostEqual(summary["refused_cost"], 0.02)
+        self.assertEqual(summary["refused_seconds"], 22.0)
+        # The raw provider messages ride in the report.
+        self.assertEqual(summary["messages"][0]["kind"], "safety")
+        self.assertEqual(
+            summary["messages"][0]["detail"]["finish_reason"],
+            "content_filter")
+
+    def test_empty_stats_report_a_null_rate(self):
+        summary = g.refusal_summary(None, {})
+        self.assertIsNone(summary["rate"])
+        self.assertEqual(summary["attempts"], 0)
+
 
 class RunTest(TempDataMixin, unittest.TestCase):
     def test_run_adds_a_scene_and_reports(self):
@@ -1199,6 +1401,38 @@ class RunTest(TempDataMixin, unittest.TestCase):
         self.assertEqual(status["planned"], 1)
         self.assertEqual(status["scenesTotal"], 1)
         self.assertGreater(status["cost"], 0)
+
+    def test_run_reports_the_refusal_rate_and_the_raw_messages(self):
+        # #1439: the run summary carries the refusal rate, split by element
+        # and placement kind, plus the raw provider messages and the list of
+        # refusal-prone elements.
+        self.write_source(src=source())
+        g.propose_anomaly = stub_propose(
+            proposal(placement_kind="modification"))
+        g.locate_anomaly = stub_locate()
+        g.check_scene = stub_check()
+
+        def edit(*a, **kw):
+            kw["usage_out"].update({"cost": 0.004})
+            raise g.ImageRefused({"kind": "safety",
+                                  "finish_reason": "content_filter",
+                                  "text": "blocked"})
+
+        g.image_edit = edit
+        report = g.run(self.make_args(count=1, max_attempts=1))
+        self.assertEqual(report["added"], [])
+        refusal = report["refusal"]
+        self.assertEqual(refusal["attempts"], 2)   # framed try + rephrase
+        self.assertEqual(refusal["refusals"], 2)
+        self.assertEqual(refusal["rate"], 1.0)
+        self.assertEqual(refusal["by_placement_kind"]["modification"]["rate"],
+                         1.0)
+        self.assertEqual(refusal["messages"][0]["kind"], "safety")
+        self.assertEqual(
+            refusal["messages"][0]["detail"]["finish_reason"],
+            "content_filter")
+        self.assertAlmostEqual(refusal["refused_cost"], 0.008)
+        self.assertIn("Plastic bottle (clear PET)", report["refused_elements"])
 
     def test_dry_run_calls_nothing(self):
         self.write_source()
