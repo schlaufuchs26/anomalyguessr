@@ -998,6 +998,29 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
         # (default 1+retries+2 per scene) in the second
         self.assertEqual(totals["image_calls"], 1 + g.MECHANICAL_RETRIES + 2)
 
+    def test_every_refused_draw_leaves_a_row_and_its_cost(self):
+        # The exact #1435 gap: when the model refuses every edit, each
+        # attempt must still be a `calls` row (and be counted), so the trace
+        # does not read as if draws vanished.
+        def edit(src, prompt, api_key, *a, usage_out=None, **kw):
+            usage_out.update({"prompt_tokens": 100, "completion_tokens": 20,
+                              "reasoning_tokens": 0, "cost": 0.002})
+            raise g.GenerationError("no images returned (model refusal?)")
+
+        scene, failed, totals = self.run_one(edit=edit)
+        self.assertIsNone(scene)
+        self.assertEqual(failed["stage"], "image")
+        self.assertEqual(totals["image_calls"], 1 + g.MECHANICAL_RETRIES + 2)
+        self.assertAlmostEqual(totals["image_cost"],
+                               0.002 * totals["image_calls"])
+        pending = g.pending_trace_path(self.data_dir, SOURCE_ID)
+        trace = json.loads(pending.read_text())
+        edits = [c for c in trace["calls"] if c["stage"] == "edit r0"]
+        self.assertEqual(len(edits), totals["image_calls"])
+        self.assertEqual([c["draw"] for c in edits], [1, 2, 3, 1, 2])
+        self.assertTrue(all("no images returned" in c["error"] for c in edits))
+        self.assertEqual(trace.get("call_errors", []), [])
+
     def test_no_check_ships_the_single_draw(self):
         def boom(*a, **kw):
             raise AssertionError("--no-check must not call the checker")
