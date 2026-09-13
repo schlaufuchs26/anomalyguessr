@@ -20,6 +20,10 @@ export interface FixtureScene {
   audit?: string;
   /** Answer circle override; null (or absent) means "no answer data" (#1209). */
   answer?: { x: number; y: number; r: number } | null;
+  /** Rejection time override (ticket #1475); null models a legacy rejection
+   *  recorded before the timestamp was written. Defaults to a fixed time on
+   *  rejected scenes. */
+  rejectedAt?: string | null;
   /** A generation trace sidecar exists (ticket #1373). */
   hasTrace?: boolean;
   /** Last checker verdict (ticket #1436). */
@@ -74,7 +78,12 @@ export function makeScene(over: Partial<FixtureScene>): {
     shown,
     state: rejected ? "rejected" : shown ? "shown" : "unshown",
     rejected,
-    rejectedAt: rejected ? "2026-09-08T08:00:00+02:00" : null,
+    rejectedAt:
+      over.rejectedAt !== undefined
+        ? over.rejectedAt
+        : rejected
+          ? "2026-09-08T08:00:00+02:00"
+          : null,
     moderation,
     comments: over.comments ?? [],
     hasTrace: over.hasTrace ?? false,

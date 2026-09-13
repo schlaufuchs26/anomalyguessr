@@ -149,6 +149,34 @@ export const FILTER_LABELS: Record<Filter, string> = {
   unmoderated: "Unmoderated",
 };
 
+/** Order the rejected view by rejection time, newest first (ticket #1475).
+ *
+ *  The API sorts its one scene list by `added` desc and serves it to every
+ *  filter (and to the game's own views), so the ordering belongs here, per
+ *  chip: only the rejected view wants moderation time. A scene whose
+ *  `rejectedAt` is missing or unparseable sorts last (legacy rejections from
+ *  before the timestamp was written), tie-broken by the API's own rule
+ *  (`added` desc, then id). */
+export function sortRejectedScenes(scenes: TDScene[]): TDScene[] {
+  const rejectedTime = (s: TDScene): number | null => {
+    if (!s.rejectedAt) return null;
+    const t = Date.parse(s.rejectedAt);
+    return Number.isNaN(t) ? null : t;
+  };
+  return [...scenes].sort((a, b) => {
+    const ta = rejectedTime(a);
+    const tb = rejectedTime(b);
+    if (ta !== null && tb !== null) {
+      if (ta !== tb) return tb - ta;
+    } else if (ta !== null) {
+      return -1;
+    } else if (tb !== null) {
+      return 1;
+    }
+    return b.added.localeCompare(a.added) || a.id.localeCompare(b.id);
+  });
+}
+
 // ── Generation traces (ticket #1373) ──────────────────────────────────────
 //
 // One JSON sidecar per scene, written by the Python pipeline as it runs

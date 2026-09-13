@@ -6,6 +6,7 @@ import {
   type Filter,
   getJSON,
   QUERY_KEY,
+  sortRejectedScenes,
   type TDList,
   type TDScene,
 } from "./api";
@@ -49,7 +50,11 @@ export function GalleryPage() {
     .filter((s): s is TDScene => s !== undefined);
 
   const filtered =
-    filter === "daily" ? daily : scenes.filter((s) => s.moderation === filter);
+    filter === "daily"
+      ? daily
+      : filter === "rejected"
+        ? sortRejectedScenes(scenes.filter((s) => s.moderation === "rejected"))
+        : scenes.filter((s) => s.moderation === "unmoderated");
 
   const counts: Record<Filter, number> = {
     daily: daily.length,

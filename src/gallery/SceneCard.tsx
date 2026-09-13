@@ -126,6 +126,14 @@ export function SceneCard({
           <span className="td-card-dates">
             added {fmtDate(scene.added)}
             {scene.shown ? ` · shown ${fmtDate(scene.shown)}` : ""}
+            {scene.rejectedAt ? (
+              <span
+                className="td-card-rejected"
+                data-testid={`td-rejected-at-${scene.id}`}
+              >
+                {` · rejected ${fmtDateTime(scene.rejectedAt)}`}
+              </span>
+            ) : null}
           </span>
         </div>
         <div className="td-card-chips">
