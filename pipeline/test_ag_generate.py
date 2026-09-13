@@ -922,6 +922,58 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
                           "coordinates", "click-target 1"])
         self.assertEqual(trace["calls"][1]["rejected"], "identical output")
 
+    def test_refused_draw_attempt_gets_its_own_trace_row(self):
+        # Idea #1435: a refused image edit ("no images returned") vanished
+        # into call_errors, so the retry looked like a jumped call number and
+        # its cost was missing from the run total. Every attempt is a
+        # `calls` row now, with draw number, seed, error and usage.
+        calls = {"n": 0}
+
+        def edit(src, prompt, api_key, *a, usage_out=None, **kw):
+            calls["n"] += 1
+            usage_out.update({"prompt_tokens": 100, "completion_tokens": 20,
+                              "reasoning_tokens": 0, "cost": 0.002})
+            if calls["n"] == 1:
+                raise g.GenerationError("no images returned (model refusal?)")
+            return img_bytes()
+
+        scene, failed, totals = self.run_one(edit=edit)
+        self.assertIsNone(failed)
+        self.assertEqual(totals["image_calls"], 2)
+        self.assertAlmostEqual(totals["image_cost"], 0.004)
+        trace = self.trace_of(scene)
+        edits = [c for c in trace["calls"] if c["stage"] == "edit r0"]
+        self.assertEqual([c["draw"] for c in edits], [1, 2])
+        self.assertIn("no images returned", edits[0]["error"])
+        self.assertIn("seed", edits[0])
+        self.assertAlmostEqual(edits[0]["usage"]["cost"], 0.002)
+        self.assertNotIn("error", edits[1])
+        # The vanished failure is gone from call_errors: it has a row now.
+        self.assertEqual(trace.get("call_errors", []), [])
+
+    def test_refused_correction_edit_gets_its_own_trace_row(self):
+        calls = {"n": 0}
+
+        def edit(src, prompt, api_key, *a, usage_out=None, **kw):
+            calls["n"] += 1
+            usage_out.update({"prompt_tokens": 50, "completion_tokens": 10,
+                              "reasoning_tokens": 0, "cost": 0.001})
+            if calls["n"] == 1:
+                return img_bytes()
+            raise g.GenerationError("no images returned (model refusal?)")
+
+        scene, failed, totals = self.run_one(
+            edit=edit, check=stub_check(failed=[4], fix_prompt="fix tone"))
+        self.assertIsNone(failed)
+        self.assertEqual(totals["image_calls"], 2)
+        trace = self.trace_of(scene)
+        fixes = [c for c in trace["calls"] if c["stage"] == "fix-edit r1"]
+        self.assertEqual(len(fixes), 1)
+        self.assertIn("no images returned", fixes[0]["error"])
+        self.assertEqual(trace["corrections"],
+                         [{"round": 1,
+                           "failed": "no images returned (model refusal?)"}])
+
     def test_non_landscape_output_is_replaced(self):
         g.deterministic_gate = lambda *a, **kw: (None, {"cx": 0.5,
                                                         "cy": 0.6})

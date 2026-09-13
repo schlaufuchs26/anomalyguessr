@@ -193,6 +193,21 @@ class GenerationError(RuntimeError):
     """A model call or a deterministic gate failed for one attempt."""
 
 
+class ImageCallFailed(GenerationError):
+    """A failed image attempt whose cost still belongs to the run (#1435).
+
+    Carries the attempt's trace record (prompt, seed, model, duration,
+    usage), so the caller writes a ``calls`` row for it instead of letting
+    the attempt vanish into ``call_errors``: a refused edit ("no images
+    returned") is billed but produces no image, and without a row the retry
+    made the draw numbers jump and the run total understate its spend.
+    """
+
+    def __init__(self, message: str, record: dict):
+        super().__init__(message)
+        self.record = record
+
+
 class RunLockedError(RuntimeError):
     """Another generation run holds the run lock (ticket #1210)."""
 
@@ -1647,23 +1662,24 @@ def _draw_scene_image(source_image: Path, prompt: str, attempt: int, args,
             break
         draw += 1
         progress("editing", round=0, draw=draw)
+        record = {"stage": "edit r0", "attempt": attempt, "draw": draw}
         try:
             data, image_call = _edit(source_image, prompt, args, api_key,
                                      source, totals)
-        except GenerationError as e:
+        except ImageCallFailed as e:
+            # The attempt spent a call without producing an image: it is a
+            # `calls` row like any other, so the retry is visible (idea #1435).
+            record.update(e.record)
+            record["error"] = str(e)
             failures.append(str(e))
-            trace.setdefault("call_errors", []).append(
-                {"stage": "edit r0", "attempt": attempt, "draw": draw,
-                 "error": str(e)})
+            record_call(data_dir, trace, record)
             continue
-        totals["image_calls"] = totals.get("image_calls", 0) + 1
         out_path = _write_bytes(
             data, out_dir / f"{source['id']}-a{attempt}-r0-d{draw}.png")
         reason, hotspot = candidate_gate(out_path, source_image,
                                          list(previous_outputs) or None)
         previous_outputs.append(out_path)
-        record = {"stage": "edit r0", "attempt": attempt, "draw": draw,
-                  **image_call}
+        record.update(image_call)
         if reason:
             record["rejected"] = reason
             failures.append(reason)
@@ -1723,31 +1739,34 @@ def _fix_edit(current: Path, proposal: dict, check: dict, round_no: int,
         return None
     prompt = _fix_prompt(proposal, check["fix_prompt"])
     progress("correcting", round=round_no)
+    record = {"stage": f"fix-edit r{round_no}", "attempt": attempt}
     try:
         data, fix_call = _edit(current, prompt, args, api_key, source, totals)
-    except GenerationError as e:
+    except ImageCallFailed as e:
+        # Same as a refused draw: the failed correction is a `calls` row
+        # (idea #1435), not only a line in call_errors.
+        record.update(e.record)
+        record["error"] = str(e)
         trace.setdefault("corrections", []).append(
             {"round": round_no, "failed": str(e)})
-        trace.setdefault("call_errors", []).append(
-            {"stage": f"fix-edit r{round_no}", "attempt": attempt,
-             "error": str(e)})
+        record_call(data_dir, trace, record)
         return None
-    totals["image_calls"] = totals.get("image_calls", 0) + 1
     fixed_path = _write_bytes(
         data, out_dir / f"{source['id']}-a{attempt}-r{round_no}-fix.png")
-    record_call(data_dir, trace,
-                {"stage": f"fix-edit r{round_no}", "attempt": attempt,
-                 **fix_call})
     reason, hotspot = candidate_gate(fixed_path, current,
                                      list(previous_outputs) or None)
     previous_outputs.append(fixed_path)
+    record.update(fix_call)
     if reason:
+        record["rejected"] = reason
         trace.setdefault("corrections", []).append(
             {"round": round_no, "rejected": reason})
         trace.setdefault("gate_failures", []).append(
             {"stage": f"fix-edit r{round_no}", "attempt": attempt,
              "reason": reason})
+        record_call(data_dir, trace, record)
         return None
+    record_call(data_dir, trace, record)
     return {"path": fixed_path, "hotspot": hotspot}
 
 
@@ -2048,33 +2067,51 @@ def _fix_prompt(proposal: dict, fix: str) -> str:
     return " ".join((head, scale_rule(proposal), KEEP, BLEND))
 
 
+def _settle_image_call(totals: dict | None, usage: dict, record: dict,
+                       started: float) -> None:
+    """Close out one image attempt: duration and its billed usage (#1435).
+
+    Runs on both outcomes. A refused edit still spent the call, so it counts
+    against the run budget (``image_calls``) and its cost is folded into the
+    totals; before, a failed attempt was invisible there and the run report
+    understated the spend.
+    """
+    record["duration_s"] = round(time.time() - started, 2)
+    if totals is None:
+        return
+    totals["image_calls"] = totals.get("image_calls", 0) + 1
+    ag_llm.add_usage(totals, usage)
+    totals["image_cost"] = (totals.get("image_cost", 0.0)
+                            + float(usage.get("cost") or 0.0))
+
+
 def _edit(source_image: Path, prompt: str, args, api_key: str, source: dict,
           totals: dict | None = None):
     """One image edit; returns (bytes, trace record).
 
-    The response's usage is folded into ``totals`` and kept in the record, so
-    the image call's own cost is measurable per candidate (ticket #1381);
-    before, only the run total carried it.
+    Counts the attempt against the run budget and folds its usage into
+    ``totals`` in both outcomes; on a failed call it raises
+    ``ImageCallFailed`` carrying the attempt's record, so the caller can put
+    it into ``calls`` instead of losing it (idea #1435).
     """
     started = time.time()
     at = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
     seed = random.randint(0, 2**31 - 1)
     usage = ag_llm.zero_usage()
-    data = image_edit(source_image, prompt, api_key, args.base_url,
-                      args.image_model,
-                      aspect_ratio_for(source.get("width"),
-                                       source.get("height")),
-                      args.image_size, seed=seed, timeout=args.image_timeout,
-                      usage_out=usage)
-    if totals is not None:
-        ag_llm.add_usage(totals, usage)
-        totals["image_cost"] = (totals.get("image_cost", 0.0)
-                                + float(usage.get("cost") or 0.0))
-    return data, {"prompt": prompt, "seed": seed,
-                  "model": args.image_model,
-                  "image": image_ref(source_image), "at": at,
-                  "usage": usage,
-                  "duration_s": round(time.time() - started, 2)}
+    record = {"prompt": prompt, "seed": seed, "model": args.image_model,
+              "image": image_ref(source_image), "at": at, "usage": usage}
+    try:
+        data = image_edit(source_image, prompt, api_key, args.base_url,
+                          args.image_model,
+                          aspect_ratio_for(source.get("width"),
+                                           source.get("height")),
+                          args.image_size, seed=seed,
+                          timeout=args.image_timeout, usage_out=usage)
+    except GenerationError as e:
+        _settle_image_call(totals, usage, record, started)
+        raise ImageCallFailed(str(e), record) from e
+    _settle_image_call(totals, usage, record, started)
+    return data, record
 
 
 def _call_trace(call: dict) -> dict:
