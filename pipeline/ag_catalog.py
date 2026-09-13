@@ -51,6 +51,8 @@ persons, or clearly futuristic technology (robots/gadgets, #1161). No UFOs,
 no fantasy creatures.
 """
 
+import re
+
 # Placement recipes (prompt phrase, hint phrase). The #1372 generator puts
 # the model's own placement sentence into the edit prompt, so these are the
 # reference wording for the wiki + the catalog's own notes.
@@ -586,6 +588,106 @@ FAMILY_ALIASES = {
     "UFO (flying saucer)": "ufo",
 }
 
+# Element vocabulary for the proposal-time gates (ticket #1473). The model
+# invents labels the fixed catalog cannot list ("Disposable plastic ballpoint
+# pen"), so a keyword table buckets the common element nouns into a variety
+# family and records the settings that element can plausibly sit in.
+# ``family_of`` uses it as a fallback, which makes the collision check catch
+# reworded repeats ("ballpoint pen" vs "Disposable plastic ballpoint pen");
+# ``settings_for_label`` feeds the setting-fit gate. Order matters where
+# keywords overlap (first family wins): "cable" is cordage, not electronics.
+FAMILY_KEYWORDS = (
+    ("person", ("street", "market", "station", "crowd"),
+     ("time traveler", "person", "man", "woman", "boy", "girl", "child",
+      "tourist", "visitor")),
+    ("robot", ("street", "market", "station", "crowd"),
+     ("robot", "droid", "android", "humanoid", "cyborg")),
+    ("vehicle", ("street", "market", "station", "harbor"),
+     ("scooter", "bicycle", "bike", "motorcycle", "car", "automobile",
+      "truck", "van", "bus", "tram", "tractor", "motor", "engine")),
+    ("drinks", ("market", "street", "station", "harbor"),
+     ("bottle", "cup", "mug", "glass", "can", "flask", "thermos",
+      "tumbler")),
+    ("packaging", ("market", "street", "station"),
+     ("wrapper", "packet", "crisp", "snack", "foil", "polystyrene",
+      "styrofoam", "carton", "tetrapak")),
+    ("plastic", ("market", "street", "harbor"),
+     ("bag", "sack", "tarpaulin", "tarp", "film", "wrap", "sheeting")),
+    ("cordage", ("harbor", "street", "market", "station"),
+     ("rope", "cord", "string", "wire", "cable", "sling", "tie", "strap",
+      "zip", "clip", "clamp", "chain")),
+    ("luggage", ("station", "street", "market"),
+     ("suitcase", "backpack", "daypack", "rucksack", "baggage", "luggage")),
+    ("clothing", ("street", "market", "crowd", "station"),
+     ("jacket", "shirt", "jeans", "shoe", "sneaker", "hoodie", "headband",
+      "wristband", "bracelet", "cap", "hat", "sunglasses")),
+    ("stationery", ("market", "street", "station", "crowd"),
+     ("ballpoint", "pen", "pencil", "marker", "biro", "crayon", "chalk",
+      "notebook", "stationery", "eraser")),
+    ("container", ("harbor", "market", "station"),
+     ("container", "crate", "cooler", "barrel", "box", "bin", "basket",
+      "tin")),
+    ("print", ("market", "street", "station"),
+     ("poster", "flyer", "barcode", "label", "sticker", "sign", "graffiti",
+      "advertisement", "leaflet")),
+    ("electric", ("street", "station", "market", "harbor"),
+     ("led", "solar", "lamp", "bulb", "light", "battery", "generator",
+      "panel", "antenna", "speaker", "charger", "powerbank")),
+    ("electronics", ("market", "street", "station", "harbor", "crowd"),
+     ("smartphone", "phone", "camera", "headphone", "earbud", "earphone",
+      "radio", "laptop", "computer", "tablet", "watch", "screen", "gopro",
+      "drone", "quadcopter", "television", "gps", "sensor")),
+)
+
+# Setting vocabulary for the setting-fit gate (ticket #1473): the words in a
+# scene's text (source title/description, the proposal's title) that mark one
+# of the catalog's settings. A word is matched as a substring of the lowered
+# text, so "Seaside ... Harbor" reads as harbor and a duel or boxing scene
+# reads as none.
+SETTING_KEYWORDS = (
+    ("harbor", ("harbor", "harbour", "port", "quay", "dock", "pier", "ship",
+                "boat", "steamship", "sea", "seaside", "coast", "waterfront",
+                "marina", "vessel", "navire", "bateau", "porto")),
+    ("station", ("station", "gare", "bahnhof", "platform", "railway",
+                 "railroad", "train", "tracks", "tram")),
+    ("market", ("market", "marketplace", "markt", "marché", "marche",
+                "bazaar", "bazar", "halle", "halles", "stall", "fair",
+                "shop", "store", "vendor")),
+    ("crowd", ("crowd", "procession", "parade", "festival", "ceremony",
+               "celebration", "demonstration", "foule", "spectators",
+               "audience")),
+    ("street", ("street", "rue", "strasse", "straße", "road", "boulevard",
+                "avenue", "square", "bridge", "alley", "sidewalk",
+                "pavement", "plaza")),
+)
+
+# Elements below this rendered height fraction (of the image height) are
+# inherently too small for a spot-the-anachronism search, whatever placement
+# they get (ticket #1473). The checker's requirement 3 states the same 2
+# percent as a floor; the proposal gate refuses such an element up front.
+MIN_ELEMENT_SCALE = 0.02
+
+# Head nouns that name an inherently tiny element even without a catalog
+# entry (ticket #1473). A pen, sticker or earbud is only findable when the
+# player already knows where it is, so the proposal is re-asked for a bigger
+# element instead of shipping a search target that cannot be searched.
+SMALL_ELEMENT_KEYWORDS = (
+    "ballpoint", "pen", "pencil", "marker", "biro", "crayon", "coin",
+    "stamp", "button", "pin", "needle", "sticker", "earbud", "usb", "sim",
+    "badge",
+)
+
+
+def _words(label) -> set:
+    """The label's lowercase words, for the keyword matches below."""
+    return set(re.findall(r"[a-z0-9]+", str(label or "").lower()))
+
+
+def _keyword_in(keyword: str, words: set) -> bool:
+    """True when every word of ``keyword`` is one of ``words``."""
+    parts = keyword.split()
+    return bool(parts) and all(p in words for p in parts)
+
 
 def family_of(label) -> str:
     """Variety bucket of an anomaly label, "" when unknown.
@@ -593,9 +695,10 @@ def family_of(label) -> str:
     Exact catalog label first, then the retired-label aliases, then two
     prefix rules that absorb the historical time-traveler labels (the label
     text changed with every prompt revision, but "Time traveler: ..." is
-    always the person family, ticket #1232). Only the backfill uses this; at
-    ship time the family is read from the scene entry, so this cannot drift
-    from the Go mirror.
+    always the person family, ticket #1232). Ticket #1473 adds a keyword
+    fallback (``FAMILY_KEYWORDS``) so a model-invented label
+    ("Disposable plastic ballpoint pen") buckets with its reworded sibling
+    ("ballpoint pen") instead of reading as a new element.
     """
     if not isinstance(label, str) or not label:
         return ""
@@ -607,4 +710,52 @@ def family_of(label) -> str:
         return "person"
     if label.startswith("Robot "):
         return "robot"
+    words = _words(label)
+    if words:
+        for family, _settings, keywords in FAMILY_KEYWORDS:
+            if any(_keyword_in(k, words) for k in keywords):
+                return family
     return ""
+
+
+def settings_for_label(label) -> tuple:
+    """The settings an element fits, () when neither catalog nor keywords know.
+
+    Exact catalog labels use their own entry's settings; otherwise the
+    family's union across catalog entries (and, for a keyword-only family,
+    the table's tuple). Used by the setting-fit gate (ticket #1473).
+    """
+    entry = entry_for_label(label)
+    if entry is not None:
+        return tuple(entry["settings"])
+    family = family_of(label)
+    if not family:
+        return ()
+    out = []
+    for e in CATALOG:
+        if e["family"] == family:
+            out += [s for s in e["settings"] if s not in out]
+    for fam, settings, _kw in FAMILY_KEYWORDS:
+        if fam == family:
+            out += [s for s in settings if s not in out]
+    return tuple(out)
+
+
+def settings_in_text(*texts) -> tuple:
+    """The settings a scene's text names, in the fixed order above."""
+    text = " ".join(str(t or "") for t in texts).lower()
+    return tuple(name for name, words in SETTING_KEYWORDS
+                 if any(w in text for w in words))
+
+
+def inherently_small(label) -> bool:
+    """True when the element is too small to be a fair search target (#1473).
+
+    A known catalog entry is judged by its own numeric scale budget
+    (``scale_max``); a model-invented label by the small-element noun list.
+    """
+    entry = entry_for_label(label)
+    if entry is not None:
+        return scale_max(entry) < MIN_ELEMENT_SCALE
+    words = _words(label)
+    return any(_keyword_in(k, words) for k in SMALL_ELEMENT_KEYWORDS)

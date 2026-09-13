@@ -231,6 +231,20 @@ CLICK_TARGET_STROKE_FRACTION = 0.004
 REPEAT_WINDOW_DAYS = 7
 REPEAT_LABEL_LIMIT = 15
 
+# Proposal-time gates (ticket #1473). The prompt's avoid list is a request;
+# these make it a rule. A proposal that repeats an element already used in
+# the run's recent window (matched by family, so a reworded label counts),
+# that cannot plausibly sit in the scene's setting, or that is inherently too
+# small to find gets one re-ask naming the problem. A repeat that survives
+# the re-ask is kept (nothing is dropped) but flagged for moderation.
+# A re-ask is a proposal call, so it never touches the image-call budget.
+PRESENTATION_REQUIREMENTS = (2, 3, 5, 7)
+# The variety floor a run aims for, in distinct families. The queue's
+# choose_day enforces distinct labels *and* families at ship time; this gate
+# makes the run's proposals distinct up front, so the pool has the variety
+# choose_day wants instead of handing it four siblings to reject.
+MIN_RUN_FAMILIES = 4
+
 # Run lock + progress status (ticket #1210). Both live in the data dir next
 # to state.json/feedback.json; they are runtime artifacts, not committed.
 LOCK_NAME = "generate.lock"
@@ -390,7 +404,10 @@ REQUIREMENTS = (
     ("Scale",
      "realistic for its position, judged against something at the same "
      "distance. A small object must stay under about 3 percent of the image "
-     "height; a person roughly 8-15 percent, never a giant."),
+     "height, but it must also be at least about 2 percent: an element "
+     "smaller than that a player can only find by already knowing where it "
+     "is, which is a failure of this requirement, not a reason to enlarge "
+     "it beyond the scene. A person roughly 8-15 percent, never a giant."),
     ("Tone",
      "exactly the photograph's tone and coloration (a grayscale photo stays "
      "grayscale); no sepia, no color cast, no filter."),
@@ -461,7 +478,7 @@ def anomaly_branch_lines(year) -> list[str]:
     ]
 
 
-def proposal_prompt(source: dict, recent=()) -> str:
+def proposal_prompt(source: dict, recent=(), conflict=None) -> str:
     """Call 1's prompt: one anomaly, impossible in the catalogue year.
 
     Ticket #1430: the year is a fact the prompt *states*, never one the model
@@ -470,7 +487,9 @@ def proposal_prompt(source: dict, recent=()) -> str:
     elements that are impossible in the scene's year *and* today. Ticket
     #1466: the pipeline states the one anomaly branch that fits the year
     (``anomaly_branch_lines``) instead of asking the model to pick between a
-    self-contradictory pair of era branches.
+    self-contradictory pair of era branches. Ticket #1473: ``conflict`` is a
+    rejected proposal's gate finding, named in the re-ask so the model knows
+    what to change.
     """
     year, field = ag_sources.source_year(source)
     _y, _f, year_source, year_raw = ag_sources.year_provenance(source)
@@ -517,6 +536,12 @@ def proposal_prompt(source: dict, recent=()) -> str:
     if recent:
         lines.append("Avoid these anomalies used by recent scenes: "
                      + "; ".join(str(r) for r in recent) + ".")
+    if conflict:
+        lines.append(
+            "Your previous proposal for this photograph was rejected: "
+            + conflict_reason(conflict)
+            + ". Propose a clearly different element that has no such "
+            "problem, for this same photograph.")
     lines.append(
         'Answer as strict JSON only, no prose: {"anomaly": "<short label>", '
         '"kind": "later-era"|"fictional-future", "exists_from": "<the year or '
@@ -821,6 +846,168 @@ def normalize_proposal(proposal: dict) -> dict:
     return out
 
 
+# ── Proposal-time gates (ticket #1473) ─────────────────────────────────────
+
+
+def element_key(label) -> str:
+    """The collision key for an anomaly label (ticket #1473).
+
+    The family when the catalog or its keyword fallback buckets the label, so
+    "ballpoint pen" and "Disposable plastic ballpoint pen" read as one
+    element; otherwise the normalized label itself, so an exact repeat still
+    counts even for an element the catalog cannot classify.
+    """
+    family = ag_catalog.family_of(label)
+    if family:
+        return family
+    return "label:" + " ".join(re.findall(r"[a-z0-9]+",
+                                          str(label or "").lower()))
+
+
+def avoid_conflict(label, avoid) -> str | None:
+    """The avoid-list entry ``label`` collides with, None when it is new."""
+    key = element_key(label)
+    if not key:
+        return None
+    for other in avoid or ():
+        if key == element_key(other):
+            return str(other)
+    return None
+
+
+def setting_conflict(proposal, source) -> dict | None:
+    """The element/setting mismatch, None when it fits or cannot be judged.
+
+    The element's settings come from the catalog (its entry, else its
+    family). The scene's setting is read from the source's own text and the
+    proposal's title/placement; a scene whose setting is not named at all is
+    not judged, so a duel or boxing photo simply carries no setting here.
+    """
+    label = str((proposal or {}).get("anomaly") or "")
+    allowed = ag_catalog.settings_for_label(label)
+    if not allowed:
+        return None
+    scene = ag_catalog.settings_in_text(
+        source.get("originalTitle"), source.get("description"),
+        proposal.get("title"), proposal.get("placement"))
+    if not scene or set(allowed) & set(scene):
+        return None
+    return {"element": label, "scene": list(scene), "allowed": list(allowed)}
+
+
+def proposal_conflicts(proposal, source, avoid) -> dict:
+    """The proposal-time gate findings (ticket #1473), {} when it clears."""
+    label = str((proposal or {}).get("anomaly") or "")
+    out = {}
+    repeat = avoid_conflict(label, avoid)
+    if repeat:
+        out["repeat"] = repeat
+    setting = setting_conflict(proposal, source)
+    if setting:
+        out["setting"] = setting
+    if ag_catalog.inherently_small(label):
+        out["small"] = label
+    return out
+
+
+def conflict_reason(conflicts: dict) -> str:
+    """One sentence naming every gate finding, for the re-ask prompt."""
+    parts = []
+    if conflicts.get("repeat"):
+        parts.append(f"it repeats \"{conflicts['repeat']}\", an element a "
+                     "recent scene already used")
+    if conflicts.get("setting"):
+        setting = conflicts["setting"]
+        parts.append(f"\"{setting['element']}\" cannot plausibly sit in this "
+                     f"scene ({', '.join(setting['scene'])})")
+    if conflicts.get("small"):
+        parts.append(f"\"{conflicts['small']}\" is too small for a player to "
+                     "find fairly in this photograph")
+    return "; ".join(parts)
+
+
+def enforce_proposal_gates(proposal, source_image, source, avoid, args,
+                           api_key, attempt, data_dir, trace, totals):
+    """Make the avoid list a rule and re-ask once on a finding (#1473).
+
+    Returns ``(proposal, info)``. ``info["findings"]`` is the first
+    proposal's gate findings, ``info["reask"]`` whether the extra call ran,
+    and ``info["repeated"]`` the label when the fresh proposal still repeats
+    an element the run (or the recent window) already used. A repeat that
+    survives is kept, never dropped; the caller flags it for moderation.
+    """
+    findings = proposal_conflicts(proposal, source, avoid)
+    info = {"findings": findings, "reask": False, "repeated": None,
+            "resolved": not findings}
+    if not findings:
+        return proposal, info
+    info["reask"] = True
+    retry, call, errors = _attempt_proposal(source_image, source, avoid, args,
+                                            api_key, conflict=findings)
+    record_call(data_dir, trace, {"stage": "proposal-retry",
+                                  "attempt": attempt, **_call_trace(call)})
+    ag_llm.add_usage(totals, call.get("usage"))
+    if errors:
+        info["reask_error"] = "; ".join(errors)
+        return proposal, info
+    after = proposal_conflicts(retry, source, avoid)
+    if after.get("repeat"):
+        info["repeated"] = str(after["repeat"])
+    info["resolved"] = not after
+    return retry, info
+
+
+def note_avoidance(stats, info) -> None:
+    """Fold one scene's proposal-gate outcome into the run's totals (#1473)."""
+    if stats is None:
+        return
+    row = stats.setdefault("avoidance", _blank_avoidance())
+    row["scenes"] += 1
+    findings = info.get("findings") or {}
+    if findings:
+        row["findings"] += 1
+    if info.get("reask"):
+        row["reasks"] += 1
+    if "repeat" in findings:
+        row["repeats"] += 1
+    if "setting" in findings:
+        row["setting_reasks"] += 1
+    if "small" in findings:
+        row["small_reasks"] += 1
+    if info.get("repeated"):
+        row["unresolved_repeats"] += 1
+
+
+def _blank_avoidance() -> dict:
+    return {"scenes": 0, "findings": 0, "reasks": 0, "repeats": 0,
+            "setting_reasks": 0, "small_reasks": 0, "unresolved_repeats": 0}
+
+
+def avoidance_summary(stats, added) -> dict:
+    """The run's avoidance numbers plus the family variety achieved (#1473).
+
+    ``distinct_labels``/``distinct_families`` describe what the run actually
+    shipped; ``min_families`` is the variety floor (``MIN_RUN_FAMILIES``, or
+    the scene count when smaller) and ``min_families_met`` says whether the
+    run reached it.
+    """
+    row = dict((stats or {}).get("avoidance") or _blank_avoidance())
+    labels = [str(s.get("anomaly") or "") for s in added]
+    labels = [label for label in labels if label]
+    families = []
+    for label in labels:
+        family = ag_catalog.family_of(label)
+        if family and family not in families:
+            families.append(family)
+    row["distinct_labels"] = len(set(labels))
+    row["distinct_families"] = len(families)
+    row["families"] = sorted(families)
+    row["min_families"] = min(len(added), MIN_RUN_FAMILIES) if added else 0
+    row["min_families_met"] = (row["distinct_families"]
+                               >= row["min_families"])
+    return row
+
+
 # ── Model calls ────────────────────────────────────────────────────────────
 
 def _chat_with_image(prompt: str, image: Path, api_key: str, model: str,
@@ -866,9 +1053,13 @@ def _run_call(prompt: str, image: Path | None, api_key: str, model: str,
 
 def propose_anomaly(image: Path, source: dict, recent, api_key: str,
                     model: str, base_url: str, max_tokens: int, timeout: int,
-                    temperature: float | None) -> dict:
-    """Call 1: the creative proposal (era judgement + anomaly + placement)."""
-    prompt = proposal_prompt(source, recent)
+                    temperature: float | None, conflict=None) -> dict:
+    """Call 1: the creative proposal (era judgement + anomaly + placement).
+
+    ``conflict`` is the gate finding of a rejected proposal (ticket #1473):
+    the re-ask names it so the model changes what the pipeline objected to.
+    """
+    prompt = proposal_prompt(source, recent, conflict)
     result = _run_call(prompt, image, api_key, model, base_url, max_tokens,
                        timeout, temperature)
     proposal = result["parsed"]
@@ -2152,6 +2343,10 @@ def _run(args, data_dir: Path, lock) -> dict:
     # framing's effect is visible without opening a trace.
     report["refusal"] = refusal_summary(stats, totals)
     report["refused_elements"] = load_refused_elements(data_dir)
+    # Ticket #1473: the proposal-gate numbers (findings, re-asks, repeats
+    # that survived) and the variety the run actually shipped, so "four
+    # ballpoint pens" is a number, not a memory.
+    report["avoidance"] = avoidance_summary(stats, report["added"])
     # The new flow's shape (ticket #1436): how many correction rounds the
     # checker asked for and what the click-target pass changed, so a run is
     # comparable without opening a trace.
@@ -2625,6 +2820,16 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
                           "answer": proposal_call.get("answer", "")[:400]}
             set_trace_error(data_dir, trace, last_error["reason"])
             continue
+        # #1473: the avoid list, the setting fit and the smallness bar are
+        # enforced here, before any image call; a finding runs one re-ask.
+        proposal, gate = enforce_proposal_gates(
+            proposal, source_image, source, recent, args, api_key, attempt,
+            data_dir, trace, totals)
+        note_avoidance(stats, gate)
+        gate_review = ""
+        if gate.get("repeated"):
+            gate_review = ("proposal still repeats an element already used "
+                           f"({gate['repeated']})")
         prompt = edit_prompt(proposal)
         retry_prompt = edit_prompt(proposal, retry=True)
         draw, failures, budget_hit, refused = _draw_scene_image(
@@ -2729,6 +2934,17 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
                 "shipped": best["round"], "score": best["score"],
                 "rejected": {"round": rounds_used, "score": rejected["score"]}}
         review = review_notes.get(selected_round, "")
+        # #1473: a repeat the re-ask could not resolve, and a final check that
+        # still fails a presentation requirement (subtlety, scale, grain,
+        # identifiability), are both moderation-first findings, like the
+        # requirement-8 path. Nothing is dropped; the scene is flagged.
+        review = review or gate_review
+        if check is not None:
+            failed = list(check.get("failed") or [])
+            presentation = [n for n in PRESENTATION_REQUIREMENTS if n in failed]
+            if presentation:
+                review = review or ("checker still fails " + ", ".join(
+                    str(n) for n in presentation))
 
         # Text follows the image (ticket #1449): when the checker says the
         # shipped image shows a different element than the scene names, one
@@ -2868,6 +3084,7 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
             "attempt": attempt, "answer": answer,
             "coord_conflict": conflict,
             "checker": check_summary,
+            "avoidance": gate,
             "correction_rounds": rounds_used,
             "image_calls": int(totals.get("image_calls", 0))
             - image_calls_start,
@@ -2881,15 +3098,16 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
     return None, last_error or {"id": source["id"], "reason": "no attempt ran"}
 
 def _attempt_proposal(source_image: Path, source: dict, recent: list, args,
-                      api_key: str):
+                      api_key: str, conflict=None):
     """Call 1 with its error handling; returns (proposal, call, errors)."""
     try:
         result = propose_anomaly(source_image, source, recent, api_key,
                                  args.model, args.base_url,
                                  args.model_max_tokens, args.model_timeout,
-                                 args.temperature)
+                                 args.temperature, conflict=conflict)
     except ag_llm.LLMError as e:
-        call = {"model": args.model, "prompt": proposal_prompt(source, recent),
+        call = {"model": args.model,
+                "prompt": proposal_prompt(source, recent, conflict),
                 "answer": "", "usage": ag_llm.zero_usage(), "error": str(e),
                 "duration_s": 0.0}
         return None, call, [str(e)]

@@ -49,7 +49,8 @@ def img_bytes(w=1200, h=800, color="red") -> bytes:
 
 def source(sid=SOURCE_ID, title="Busy market street, 1905", place="",
            date="1905-01-01", image=None, width=1200, height=800,
-           year=None, year_field="catalog"):
+           year=None, year_field="catalog", description="A busy market "
+           "street."):
     """A pooled source with a catalogue year (ticket #1430).
 
     ``date`` still fills the Commons-shaped fields the entry carries; the
@@ -71,7 +72,7 @@ def source(sid=SOURCE_ID, title="Busy market street, 1905", place="",
         "place": place,
         "license": "CC BY-SA 4.0",
         "licenseUrl": "",
-        "description": "A busy market street.",
+        "description": description,
         "image": image or f"images/{sid}.jpg",
         "width": width, "height": height,
         "mime": "image/jpeg", "quality": "quality",
@@ -207,6 +208,18 @@ class PromptTests(unittest.TestCase):
         for line in ag_catalog.inspiration_lines():
             self.assertIn(line, text)
         self.assertIn('"placement"', text)
+
+    def test_proposal_prompt_names_a_reask_conflict(self):
+        # #1473: the re-ask prompt names what the pipeline rejected.
+        text = g.proposal_prompt(
+            source(), ["Disposable plastic ballpoint pen"],
+            conflict={"repeat": "Disposable plastic ballpoint pen",
+                      "small": "Disposable plastic ballpoint pen"})
+        self.assertIn("was rejected", text)
+        self.assertIn("repeats", text)
+        self.assertIn("too small", text)
+        # without a conflict the re-ask line stays out
+        self.assertNotIn("was rejected", g.proposal_prompt(source(), []))
 
     def test_proposal_prompt_states_the_one_applicable_anomaly_branch(self):
         # #1466: "If the photograph clearly predates {year}" is
@@ -651,10 +664,10 @@ class EntryTest(unittest.TestCase):
         self.assertEqual(entry["references"], curated["references"])
 
     def test_build_entry_keeps_model_text_for_a_novel_label(self):
-        p = proposal(anomaly="Hovering drone", kind="fictional-future",
+        p = proposal(anomaly="Hovering transport pod", kind="fictional-future",
                      explanation="No such device exists yet.",
-                     references=[{"label": "Drone",
-                                  "url": "https://en.wikipedia.org/wiki/Drone"}])
+                     references=[{"label": "Pod",
+                                  "url": "https://en.wikipedia.org/wiki/Pod"}])
         entry = g.build_entry(source(), p, self.answer(), "2026-09-12")
         self.assertEqual(entry["explanation"], "No such device exists yet.")
         self.assertEqual(entry["family"], "other")
@@ -948,9 +961,66 @@ class ScoreGuardTest(unittest.TestCase):
         self.assertIsNone(g.best_scoring_round([{"round": 0, "score": None}]))
 
 
+class ProposalGateTest(unittest.TestCase):
+    """Ticket #1473: the pure helpers behind the proposal-time gates."""
+
+    def test_element_key_groups_reworded_labels(self):
+        self.assertEqual(g.element_key("ballpoint pen"),
+                         g.element_key("Disposable plastic ballpoint pen"))
+        self.assertNotEqual(g.element_key("ballpoint pen"),
+                            g.element_key("Nylon zip tie"))
+
+    def test_element_key_falls_back_to_the_normalized_label(self):
+        self.assertEqual(g.element_key("Hovering Transport Pod"),
+                         g.element_key("hovering transport pod"))
+        self.assertNotEqual(g.element_key("Hovering transport pod"),
+                            g.element_key("Hovering drone"))
+
+    def test_avoid_conflict_names_the_used_label(self):
+        used = ["Disposable plastic ballpoint pen", "Nylon zip tie"]
+        self.assertEqual(g.avoid_conflict("ballpoint pen", used),
+                         "Disposable plastic ballpoint pen")
+        self.assertIsNone(g.avoid_conflict("Plastic bottle (clear PET)", used))
+
+    def test_setting_conflict_fires_on_a_pen_in_a_harbor_scene(self):
+        src = source(title="Seaside Promenade with Harbor", description="")
+        conflict = g.setting_conflict(
+            {"anomaly": "Disposable plastic ballpoint pen"}, src)
+        self.assertEqual(conflict["scene"], ["harbor"])
+        self.assertIn("market", conflict["allowed"])
+
+    def test_setting_conflict_ignores_a_scene_without_a_known_setting(self):
+        src = source(title="Two men duelling at dawn", description="")
+        self.assertIsNone(g.setting_conflict(
+            {"anomaly": "Disposable plastic ballpoint pen"}, src))
+        # and an element the catalog cannot classify is never judged
+        self.assertIsNone(g.setting_conflict(
+            {"anomaly": "Hovering transport pod"}, src))
+
+    def test_proposal_conflicts_collects_every_finding(self):
+        findings = g.proposal_conflicts(
+            {"anomaly": "Disposable plastic ballpoint pen"},
+            source(title="Seaside Promenade with Harbor", description=""),
+            ["ballpoint pen"])
+        self.assertIn("repeat", findings)
+        self.assertIn("setting", findings)
+        self.assertIn("small", findings)
+        reason = g.conflict_reason(findings)
+        self.assertIn("repeats", reason)
+        self.assertIn("harbor", reason)
+        self.assertIn("too small", reason)
+
+    def test_a_clean_proposal_has_no_findings(self):
+        self.assertEqual(
+            g.proposal_conflicts(
+                {"anomaly": "Wheeled suitcase"},
+                source(title="Busy market street", description=""), []), {})
+
+
 class GenerateOneTest(TempDataMixin, unittest.TestCase):
     def run_one(self, *, propose=None, locate=None, check=None, edit=None,
-                click_target=None, reconcile=None, count=1, src=None, **argkw):
+                click_target=None, reconcile=None, count=1, src=None,
+                recent=None, stats=None, **argkw):
         self.write_source(src)
         g.propose_anomaly = propose or stub_propose()
         g.locate_anomaly = locate or stub_locate()
@@ -963,8 +1033,9 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
         picked = ag_sources.list_sources(self.data_dir)[0]
         scene, failed = g._generate_one(picked, args, self.data_dir,
                                         "2026-09-12",
-                                        self._tmp / "out", [], totals,
-                                        lambda *a, **kw: None)
+                                        self._tmp / "out",
+                                        list(recent or []), totals,
+                                        lambda *a, **kw: None, stats=stats)
         return scene, failed, totals
 
     def shipped_bytes(self, scene) -> bytes:
@@ -1290,7 +1361,9 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
 
     def test_presentation_repair_still_drives_a_fix_edit(self):
         # The guard must not block honest repairs: a scale instruction still
-        # spends its one correction round.
+        # spends its one correction round. #1473: if the final check still
+        # fails a presentation requirement (here 3, scale), the scene ships
+        # flagged for moderation instead of counting as clean.
         edits = {"n": 0}
 
         def edit(*a, **kw):
@@ -1303,7 +1376,8 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
         self.assertIsNone(failed)
         self.assertEqual(edits["n"], 1 + g.CORRECTION_ROUNDS)
         self.assertEqual(totals["image_calls"], 1 + g.CORRECTION_ROUNDS)
-        self.assertFalse(scene["report"]["needs_review"])
+        self.assertTrue(scene["report"]["needs_review"])
+        self.assertIn("fails 3", scene["report"]["review"])
 
     def test_requirement_8_ships_flagged_without_a_repair(self):
         # Requirement 8 is not repairable (the element is not impossible for
@@ -1759,6 +1833,121 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
                                         g.refused_labels(self.data_dir)))
 
 
+    # ── #1473: the proposal-time gates ─────────────────────────────────────
+
+    def test_a_repeated_element_triggers_one_reask(self):
+        # The avoid list named the element and the model proposed it again:
+        # one re-ask names the collision and the fresh proposal ships.
+        calls = {"n": 0}
+
+        def propose(*a, **kw):
+            calls["n"] += 1
+            p = proposal() if calls["n"] == 1 else proposal(
+                anomaly="Traffic cone (orange)", exists_from="1940",
+                explanation="Traffic cones are a 20th-century street product.",
+                references=[{"label": "Traffic cone",
+                             "url": "https://en.wikipedia.org/wiki/Traffic_"
+                                    "cone"}])
+            return {"proposal": p, "errors": [],
+                    "call": call(prompt="proposal-prompt")}
+
+        scene, failed, _ = self.run_one(
+            propose=propose, recent=["Plastic bottle (clear PET)"])
+        self.assertIsNone(failed)
+        self.assertEqual(calls["n"], 2)          # first + one re-ask
+        self.assertEqual(scene["report"]["anomaly"], "Traffic cone (orange)")
+        avoid = scene["report"]["avoidance"]
+        self.assertEqual(avoid["findings"]["repeat"],
+                         "Plastic bottle (clear PET)")
+        self.assertTrue(avoid["resolved"])
+        stages = [c["stage"] for c in self.trace_of(scene)["calls"]]
+        self.assertEqual(stages.count("proposal"), 1)
+        self.assertIn("proposal-retry", stages)
+
+    def test_a_repeat_that_survives_the_reask_is_flagged(self):
+        # The re-ask collides again: nothing is dropped, the scene ships
+        # with the moderation flag and the label is reported.
+        calls = {"n": 0}
+
+        def propose(*a, **kw):
+            calls["n"] += 1
+            return {"proposal": proposal(), "errors": [],
+                    "call": call(prompt="proposal-prompt")}
+
+        scene, failed, _ = self.run_one(
+            propose=propose, recent=["Plastic bottle (clear PET)"])
+        self.assertIsNone(failed)
+        self.assertEqual(calls["n"], 2)          # first + one re-ask, then keep
+        self.assertTrue(scene["report"]["needs_review"])
+        self.assertIn("repeats", scene["report"]["review"])
+        self.assertEqual(scene["report"]["avoidance"]["repeated"],
+                         "Plastic bottle (clear PET)")
+
+    def test_a_setting_mismatch_triggers_a_reask_naming_the_setting(self):
+        # A pen proposed for a harbor panorama: the element's settings and
+        # the scene's do not meet, so the pipeline re-asks with the scene
+        # setting named.
+        calls = {"n": 0}
+
+        def propose(*a, conflict=None, **kw):
+            calls["n"] += 1
+            p = proposal(
+                anomaly="Disposable plastic ballpoint pen",
+                explanation="Ballpoint pens did not exist in 1905.",
+                references=[{"label": "Ballpoint pen",
+                             "url": "https://en.wikipedia.org/wiki/Ballpoint_"
+                                    "pen"}]) if calls["n"] == 1 else proposal()
+            prompt = f"reask:{conflict}" if conflict else "first"
+            return {"proposal": p, "errors": [], "call": call(prompt=prompt)}
+
+        src = source(title="Seaside Promenade with Harbor", description="")
+        scene, failed, _ = self.run_one(propose=propose, src=src)
+        self.assertIsNone(failed)
+        self.assertEqual(calls["n"], 2)
+        findings = scene["report"]["avoidance"]["findings"]
+        self.assertEqual(findings["setting"]["scene"], ["harbor"])
+        retry = [c for c in self.trace_of(scene)["calls"]
+                 if c["stage"] == "proposal-retry"][0]
+        self.assertIn("harbor", retry["prompt"])
+
+    def test_a_too_small_element_triggers_a_reask(self):
+        # A pen on a market street fits the setting, but it is too small to
+        # be a fair search target, so the re-ask asks for a bigger element.
+        calls = {"n": 0}
+
+        def propose(*a, **kw):
+            calls["n"] += 1
+            p = proposal(
+                anomaly="Disposable plastic ballpoint pen",
+                explanation="Ballpoint pens did not exist in 1905.",
+                references=[{"label": "Ballpoint pen",
+                             "url": "https://en.wikipedia.org/wiki/Ballpoint_"
+                                    "pen"}]) if calls["n"] == 1 else proposal()
+            return {"proposal": p, "errors": [], "call": call()}
+
+        scene, failed, _ = self.run_one(propose=propose)
+        self.assertIsNone(failed)
+        self.assertEqual(calls["n"], 2)
+        findings = scene["report"]["avoidance"]["findings"]
+        self.assertEqual(findings["small"], "Disposable plastic ballpoint pen")
+        self.assertEqual(scene["report"]["anomaly"],
+                         "Plastic bottle (clear PET)")
+
+    def test_a_clean_proposal_spends_no_reask(self):
+        calls = {"n": 0}
+
+        def propose(*a, **kw):
+            calls["n"] += 1
+            return {"proposal": proposal(), "errors": [],
+                    "call": call(prompt="proposal-prompt")}
+
+        scene, failed, _ = self.run_one(propose=propose)
+        self.assertIsNone(failed)
+        self.assertEqual(calls["n"], 1)
+        self.assertEqual(scene["report"]["avoidance"]["findings"], {})
+        self.assertFalse(scene["report"]["avoidance"]["reask"])
+
+
 class RefusalTest(TempDataMixin, unittest.TestCase):
     """Ticket #1439: classification, rate split and the persisted list."""
 
@@ -1911,6 +2100,24 @@ class RunTest(TempDataMixin, unittest.TestCase):
             "content_filter")
         self.assertAlmostEqual(refusal["refused_cost"], 0.008)
         self.assertIn("Plastic bottle (clear PET)", report["refused_elements"])
+
+    def test_run_reports_avoidance_and_the_family_variety(self):
+        # #1473: the run carries the proposal-gate numbers and the variety it
+        # actually shipped, so "four ballpoint pens" is measurable.
+        self.write_source()
+        g.propose_anomaly = stub_propose()
+        g.locate_anomaly = stub_locate()
+        g.check_scene = stub_check()
+        g.image_edit = lambda *a, **kw: img_bytes()
+        report = g.run(self.make_args(count=1))
+        avoid = report["avoidance"]
+        self.assertEqual(avoid["findings"], 0)
+        self.assertEqual(avoid["reasks"], 0)
+        self.assertEqual(avoid["distinct_labels"], 1)
+        self.assertEqual(avoid["distinct_families"], 1)
+        self.assertEqual(avoid["families"], ["drinks"])
+        self.assertEqual(avoid["min_families"], 1)
+        self.assertTrue(avoid["min_families_met"])
 
     def test_dry_run_calls_nothing(self):
         self.write_source()

@@ -85,6 +85,44 @@ class GeneratorCompatibilityTests(unittest.TestCase):
         for e in c.CATALOG:
             self.assertEqual(c.family_of(e["label"]), e["family"])
 
+    def test_family_resolver_buckets_reworded_invented_labels(self):
+        # #1473: the model invents labels the catalog cannot list; two
+        # spellings of the same element must read as one family, or the
+        # collision check cannot catch "four ballpoint pens".
+        self.assertEqual(c.family_of("Disposable plastic ballpoint pen"),
+                         c.family_of("ballpoint pen"))
+        self.assertEqual(c.family_of("Disposable plastic ballpoint pen"),
+                         "stationery")
+        self.assertNotEqual(c.family_of("ballpoint pen"),
+                            c.family_of("Nylon zip tie"))
+
+    def test_an_unclassifiable_label_has_no_family(self):
+        self.assertEqual(c.family_of("Hovering transport pod"), "")
+
+    def test_settings_come_from_the_entry_or_the_family(self):
+        # exact catalog label: its own settings
+        self.assertEqual(c.settings_for_label("Traffic cone (orange)"),
+                         ("street", "market"))
+        # invented label: its family's settings
+        self.assertIn("market",
+                      c.settings_for_label("Disposable plastic ballpoint pen"))
+        self.assertEqual(c.settings_for_label("Hovering transport pod"), ())
+
+    def test_settings_in_text_reads_the_scene_words(self):
+        self.assertEqual(c.settings_in_text("Seaside Promenade with Harbor"),
+                         ("harbor",))
+        self.assertEqual(c.settings_in_text("Busy market street, 1905"),
+                         ("market", "street"))
+        # a duel or boxing photo names none of the catalog's settings
+        self.assertEqual(c.settings_in_text("Two men duelling at dawn"), ())
+
+    def test_inherently_small_elements_are_flagged(self):
+        # the pen failure (#1473): too small to be a fair search target
+        self.assertTrue(c.inherently_small("Disposable plastic ballpoint pen"))
+        self.assertTrue(c.inherently_small("ballpoint pen"))
+        self.assertFalse(c.inherently_small("Wheeled suitcase"))
+        self.assertFalse(c.inherently_small("Hovering transport pod"))
+
     def test_entry_lookup_is_exact_and_case_insensitive(self):
         e = next(e for e in c.CATALOG if e["type"] == "person")
         self.assertEqual(c.entry_for_label(e["label"])["label"], e["label"])
