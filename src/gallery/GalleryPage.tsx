@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import React from "react";
-import { AllPhotosOverview } from "./AllPhotosOverview";
 import {
   agUrl,
   FILTER_LABELS,
@@ -24,13 +23,12 @@ import { SceneModal } from "./SceneModal";
  *  Unmoderated keep their own chips. Read-only against the game: no live
  *  generation here.
  *  Served as its own app at /anomalyguessr/gallery/ on fuchs.science (its own
- *  entry build in this repo since ticket #1434). A hamburger in the top-right
- *  (ticket #1162) opens an all-photos overview for browsing and jumping
- *  between scenes. */
+ *  entry build in this repo since ticket #1434). The top-right hamburger and
+ *  the all-photos overview it opened (ticket #1162) are gone since ticket
+ *  #1443: the grid itself is the overview. */
 export function GalleryPage() {
   const [filter, setFilter] = React.useState<Filter>("daily");
   const [open, setOpen] = React.useState<TDScene | null>(null);
-  const [overviewOpen, setOverviewOpen] = React.useState(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: QUERY_KEY,
@@ -59,25 +57,6 @@ export function GalleryPage() {
     unmoderated: scenes.filter((s) => s.moderation === "unmoderated").length,
   };
 
-  /** Jump to a scene from the all-photos overview: open its lightbox and
-   *  scroll the main grid to its card. */
-  const selectFromOverview = (id: string) => {
-    const target = scenes.find((s) => s.id === id);
-    if (!target) return;
-    setOverviewOpen(false);
-    setOpen(target);
-    // scroll the card into view once the overview has unmounted
-    const scroll = () => {
-      const card = document.querySelector(`[data-testid="td-card-${id}"]`);
-      card?.scrollIntoView({ behavior: "smooth", block: "center" });
-    };
-    if (typeof requestAnimationFrame === "function") {
-      requestAnimationFrame(scroll);
-    } else {
-      scroll();
-    }
-  };
-
   return (
     <div className="td-page">
       <div className="td-header">
@@ -89,16 +68,6 @@ export function GalleryPage() {
             never re-added).
           </p>
         </div>
-        <button
-          type="button"
-          className="td-menu-btn"
-          onClick={() => setOverviewOpen(true)}
-          aria-label="Overview of all photos"
-          title="Overview of all photos"
-          data-testid="td-menu-btn"
-        >
-          ☰
-        </button>
       </div>
 
       <div className="td-toolbar">
@@ -165,13 +134,6 @@ export function GalleryPage() {
       )}
 
       {open ? <SceneModal scene={open} onClose={() => setOpen(null)} /> : null}
-      {overviewOpen ? (
-        <AllPhotosOverview
-          scenes={scenes}
-          onClose={() => setOverviewOpen(false)}
-          onSelect={selectFromOverview}
-        />
-      ) : null}
     </div>
   );
 }

@@ -126,58 +126,17 @@ describe("AnomalyGuessrGalleryPage", () => {
     expect(img2.src).toContain("/s1/audit");
   });
 
-  test("hamburger opens an all-photos overview of every scene (ticket #1162)", async () => {
+  test("has no all-photos overview button (ticket #1443)", async () => {
     mockList();
     renderPage();
     await waitFor(() =>
       expect(screen.getByText("Fresh Market")).toBeInTheDocument(),
     );
 
-    // no overview before opening
+    // The top-right hamburger (#1162) was a misinterpretation: the grid
+    // itself is the overview, so the button and its overlay must not return.
+    expect(screen.queryByTestId("td-menu-btn")).not.toBeInTheDocument();
     expect(screen.queryByTestId("td-overview-overlay")).not.toBeInTheDocument();
-
-    // the overview lists all five scenes incl. the rejected/unmoderated ones
-    fireEvent.click(screen.getByTestId("td-menu-btn"));
-    await waitFor(() =>
-      expect(screen.getByTestId("td-overview-overlay")).toBeInTheDocument(),
-    );
-    for (const id of ["f1", "f2", "s1", "r1", "u1"]) {
-      expect(screen.getByTestId(`td-overview-item-${id}`)).toBeInTheDocument();
-    }
-    expect(screen.getByText("All photos · 5")).toBeInTheDocument();
-    expect(screen.getByTestId("td-overview-mod-r1").textContent).toBe(
-      "Rejected",
-    );
-
-    // close via the ✕ button
-    fireEvent.click(screen.getByTestId("td-overview-close"));
-    await waitFor(() => {
-      expect(
-        screen.queryByTestId("td-overview-overlay"),
-      ).not.toBeInTheDocument();
-    });
-  });
-
-  test("hamburger overview: clicking a thumbnail opens that scene's lightbox (ticket #1162)", async () => {
-    mockList();
-    renderPage();
-    await waitFor(() =>
-      expect(screen.getByText("Fresh Market")).toBeInTheDocument(),
-    );
-
-    fireEvent.click(screen.getByTestId("td-menu-btn"));
-    await waitFor(() =>
-      expect(screen.getByTestId("td-overview-overlay")).toBeInTheDocument(),
-    );
-
-    // jump to the unmoderated scene from the overview
-    fireEvent.click(screen.getByTestId("td-overview-item-u1"));
-    await waitFor(() => {
-      expect(screen.getByTestId("td-modal-close-u1")).toBeInTheDocument();
-    });
-    // the overview is gone and the lightbox for the chosen scene is open
-    expect(screen.queryByTestId("td-overview-overlay")).not.toBeInTheDocument();
-    expect(screen.getByTestId("td-imgtab-original-u1")).toBeInTheDocument();
   });
 
   test("daily view degrades to the API list order when dailyOrder is absent", async () => {
