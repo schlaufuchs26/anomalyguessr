@@ -8,7 +8,8 @@
  * the fallbacks match the dark dev pages.
  *
  * `.td-trace` is the collapsible panel (the lightbox), `.td-trace-verdict`
- * the checker/click-target line (ticket #1446).
+ * the checker/click-target line (ticket #1446), `.td-trace-marker` the
+ * shipped/superseded badge on a correction round (ticket #1465).
  */
 /* Generation trace panel (ticket #1373): collapsible, fetched on open, one
  * block per pipeline step. The panel lives in the scene lightbox. */
@@ -109,4 +110,27 @@
   color: var(--text-secondary);
   font-size: 12px;
   margin: 2px 0 6px;
+}
+
+/* Which render shipped (ticket #1465): "shipped" on the check row of the
+ * round the score guard kept, "superseded" on the later rounds it passed
+ * over. The colours fall back for the moderation page's theme (style.css). */
+.td-trace-marker {
+  border: 1px solid var(--border, #2a2a2a);
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  margin-left: 6px;
+  padding: 1px 6px;
+  text-transform: uppercase;
+}
+
+.td-trace-marker-shipped {
+  border-color: var(--success, #27a644);
+  color: var(--success, #27a644);
+}
+
+.td-trace-marker-superseded {
+  color: var(--text-muted);
 }

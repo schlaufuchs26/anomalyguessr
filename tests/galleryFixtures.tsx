@@ -241,6 +241,48 @@ export const TRACE = {
   ],
 };
 
+/** A trace of the score guard's case (ticket #1465): a correction chain in
+ *  which round 0 scored best, so the pipeline shipped it and kept round 2's
+ *  render (checker 4) only in the trace. */
+export const TRACE_GUARDED = {
+  scene: "s1",
+  source: "commons-market-abc123",
+  date: "2026-09-13",
+  model: "deepseek/deepseek-v4.1-flash",
+  image_model: "google/gemini-2.5-flash-image",
+  recordedAt: "2026-09-13T19:50:47+02:00",
+  score_guard: { shipped: 0, score: 6, rejected: { round: 2, score: 4 } },
+  calls: [
+    { stage: "proposal", attempt: 1, model: "deepseek/deepseek-v4.1-flash" },
+    { stage: "edit r0", attempt: 1, draw: 1, image: "market.jpg" },
+    {
+      stage: "check r0",
+      attempt: 1,
+      score: 6,
+      failed: [2, 7],
+      reason: "the wristband sits on the wrong wrist",
+      image: "market-a1-r0-d1.png",
+    },
+    { stage: "fix-edit r1", attempt: 1, image: "market-a1-r0-d1.png" },
+    {
+      stage: "check r1",
+      attempt: 1,
+      score: 5,
+      failed: [2, 5, 7],
+      image: "market-a1-r1-fix.png",
+    },
+    { stage: "fix-edit r2", attempt: 1, image: "market-a1-r1-fix.png" },
+    {
+      stage: "check r2",
+      attempt: 1,
+      score: 4,
+      failed: [2, 3, 5, 6],
+      image: "market-a1-r2-fix.png",
+    },
+    { stage: "coordinates", attempt: 1, image: "market-a1-r0-d1.png" },
+  ],
+};
+
 /** Serve listBody(scenes, dailyOrder) for GET /scenes and each scene's trace
  *  for GET /traces/{id} (404 otherwise). */
 export function mockList(scenes: Scene[] = FIXTURE, dailyOrder?: string[]) {

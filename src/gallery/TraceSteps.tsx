@@ -3,6 +3,7 @@ import {
   fmtDuration,
   fmtUsage,
   type SceneTrace,
+  type ScoreGuard,
   type TraceStep,
 } from "./api";
 
@@ -39,6 +40,35 @@ export function stageLabel(step: TraceStep): string {
   const click = /^click-target (\d)$/.exec(stage);
   if (click) return `Click-target check ${click[1]}`;
   return stage;
+}
+
+/** The correction round a step belongs to (ticket #1465): "edit r0",
+ *  "check r1", "fix-edit r2" (#1436) and the legacy unnamed "edit"/"check"
+ *  (round 0) / "recheck" (round 1) stages. Null for the steps outside the
+ *  chain (proposal, coordinates, click-target, reconcile, ...). */
+export function stepRound(step: TraceStep): number | null {
+  const round = /^(?:edit|fix-edit|check) r(\d)$/.exec(step.stage);
+  if (round?.[1]) return Number(round[1]);
+  if (step.stage === "edit" || step.stage === "check") return 0;
+  if (step.stage === "recheck") return 1;
+  return null;
+}
+
+/** The chain step's shipping marker (ticket #1465), or null when it has
+ *  none. "shipped": the check row of the round whose render the score guard
+ *  kept (its image is the one on the card). "superseded": a step of a later
+ *  round, kept in the trace for moderation but not shipped. */
+export function shippedMarker(
+  step: TraceStep,
+  guard?: ScoreGuard,
+): "shipped" | "superseded" | null {
+  if (!guard) return null;
+  const round = stepRound(step);
+  if (round === null) return null;
+  if (round === guard.shipped) {
+    return step.stage.startsWith("check") ? "shipped" : null;
+  }
+  return round > guard.shipped ? "superseded" : null;
 }
 
 /** The model/attempt/tokens line of one step. */
@@ -118,16 +148,20 @@ function StepText({ label, text }: { label: string; text: string }) {
   );
 }
 
-/** One step of a trace: heading, meta, verdict and body. */
+/** One step of a trace: heading, meta, verdict and body. `guard` marks the
+ *  score guard's outcome on the chain steps (ticket #1465). */
 export function TraceStepItem({
   sceneId,
   step,
   index,
+  guard,
 }: {
   sceneId: string;
   step: TraceStep;
   index: number;
+  guard?: ScoreGuard | undefined;
 }) {
+  const marker = shippedMarker(step, guard);
   return (
     <li
       className="td-trace-step"
@@ -136,6 +170,14 @@ export function TraceStepItem({
       <h4 className="td-trace-stage">
         <span className="td-trace-index">{index + 1}</span>
         {stageLabel(step)}
+        {marker ? (
+          <span
+            className={`td-trace-marker td-trace-marker-${marker}`}
+            data-testid={`td-trace-marker-${sceneId}-${index}`}
+          >
+            {marker}
+          </span>
+        ) : null}
       </h4>
       <TraceStepMeta step={step} />
       <TraceStepVerdict step={step} />
@@ -144,11 +186,25 @@ export function TraceStepItem({
   );
 }
 
+/** The score guard's one-line summary (ticket #1465): which round shipped
+ *  and what the passed-over newest round scored. Null without a guard. */
+export function scoreGuardNote(guard?: ScoreGuard): string | null {
+  if (!guard) return null;
+  const score = (s: number | null | undefined) =>
+    typeof s === "number" ? `${s}/8` : "no score";
+  const rejected = guard.rejected
+    ? ` over round ${guard.rejected.round} (checker ${score(guard.rejected.score)})`
+    : "";
+  return `score guard: shipped round ${guard.shipped} (checker ${score(guard.score)})${rejected}`;
+}
+
 /** The failure notes of a whole trace: last error, gate rejections, failed
- *  calls. Null when the trace has none. */
+ *  calls, the score guard's kept round. Null when the trace has none. */
 export function TraceNotes({ trace }: { trace: SceneTrace }) {
   const notes: string[] = [];
   if (trace.error) notes.push(`last error: ${trace.error}`);
+  const guard = scoreGuardNote(trace.score_guard);
+  if (guard) notes.push(guard);
   for (const g of trace.gate_failures ?? [])
     notes.push(`gate rejected attempt ${g.attempt ?? "?"}: ${g.reason ?? ""}`);
   for (const c of trace.call_errors ?? [])

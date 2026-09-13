@@ -86,6 +86,7 @@ export function TracePanel({
                   sceneId={sceneId}
                   step={step}
                   index={i}
+                  guard={data.score_guard}
                 />
               ))}
             </ol>

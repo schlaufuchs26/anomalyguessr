@@ -211,6 +211,19 @@ export interface TraceStep {
   seed?: number;
 }
 
+/** The score guard's record (ticket #1461): the pipeline ships the
+ *  best-scoring render of the correction chain, not always the newest one.
+ *  Written only when that is an earlier round; the newest round it passed
+ *  over is `rejected`. */
+export interface ScoreGuard {
+  /** Round whose render shipped (0 = the initial draw). */
+  shipped: number;
+  /** What the checker gave that round (0..8, null when unreadable). */
+  score: number | null;
+  /** The newest round the guard passed over. */
+  rejected?: { round: number; score: number | null };
+}
+
 export interface SceneTrace {
   scene?: string;
   source?: string;
@@ -219,6 +232,9 @@ export interface SceneTrace {
   image_model?: string;
   recordedAt?: string;
   calls: TraceStep[];
+  /** Which round's render shipped, when it is not the last one (ticket
+   *  #1461). Absent on traces of scenes whose last round shipped. */
+  score_guard?: ScoreGuard;
   /** The last attempt's failure reason, when the scene still landed. */
   error?: string;
   gate_failures?: { attempt?: number; reason?: string }[];
