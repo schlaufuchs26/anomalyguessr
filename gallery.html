@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <base href="./" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AnomalyGuessr – Gallery</title>
+    <meta
+      name="description"
+      content="Curation gallery of the AnomalyGuessr dev instance: browse the scene pool, moderate and comment."
+    />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🦊</text></svg>"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <!-- Standalone gallery/curation page of the AnomalyGuessr dev instance,
+         served at /anomalyguessr/gallery/ (renamed from /queue/ in ticket
+         #1204; the old paths redirect). It moved here from the fuchs-core
+         dashboard in ticket #1434 and is its own entry build: `build:dev`
+         emits dist/gallery/, `bun run build` (the public Pages flavor) does
+         not build it. The API calls are origin-relative
+         (/anomalyguessr/api/...), so the page works at the sub-path
+         unchanged. -->
+    <link rel="stylesheet" href="./gallery.css" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./src/gallery/main.tsx"></script>
+  </body>
+</html>

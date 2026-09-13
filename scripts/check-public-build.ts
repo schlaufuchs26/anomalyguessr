@@ -86,13 +86,10 @@ export function assertPublicBuild(distDir: string): void {
   if (!existsSync(join(distDir, "index.html"))) {
     throw new Error(`no public build at ${distDir}: index.html is missing`);
   }
-  // The gallery is a page of the dev dashboard, never a file of this build;
-  // a dist/gallery directory would mean the split dropped it into the app.
-  if (existsSync(join(distDir, "gallery"))) {
-    throw new Error(
-      `${distDir}/gallery exists: the gallery must not ship in the public build`,
-    );
-  }
+  // The gallery is built by this repo's own `build:dev` into dist/gallery/
+  // (ticket #1434); the public build starts from a clean dist and never
+  // builds it, so there is no gallery directory to guard against here.
+
   const violations = scanPublicBuild(distDir);
   if (violations.length > 0) {
     const lines = violations.map(

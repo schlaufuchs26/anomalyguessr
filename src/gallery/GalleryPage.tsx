@@ -1,0 +1,177 @@
+import { useQuery } from "@tanstack/react-query";
+import React from "react";
+import { AllPhotosOverview } from "./AllPhotosOverview";
+import {
+  agUrl,
+  FILTER_LABELS,
+  type Filter,
+  getJSON,
+  QUERY_KEY,
+  type TDList,
+  type TDScene,
+} from "./api";
+import { SceneCard } from "./SceneCard";
+import { SceneModal } from "./SceneModal";
+
+/** AnomalyGuessr gallery management (ticket #1113; standalone dev page since
+ *  ticket #1143; renamed from the queue page in ticket #1204): browse the
+ *  scene pool, reject/restore scenes and leave per-scene feedback for the
+ *  generation pipeline. One vocabulary since ticket #1205: the moderation
+ *  verdict (Accepted/Rejected/Unmoderated); the ship state is data.
+ *  The landing view (ticket #1208) is the accepted scenes in the
+ *  pipeline's own daily pick order (the API's dailyOrder), with the leading
+ *  dailyCount cards marked as the upcoming daily set; Rejected and
+ *  Unmoderated keep their own chips. Read-only against the game: no live
+ *  generation here.
+ *  Served as its own app at /anomalyguessr/gallery/ on fuchs.science (its own
+ *  entry build in this repo since ticket #1434). A hamburger in the top-right
+ *  (ticket #1162) opens an all-photos overview for browsing and jumping
+ *  between scenes. */
+export function GalleryPage() {
+  const [filter, setFilter] = React.useState<Filter>("daily");
+  const [open, setOpen] = React.useState<TDScene | null>(null);
+  const [overviewOpen, setOverviewOpen] = React.useState(false);
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: QUERY_KEY,
+    queryFn: () => getJSON<TDList>(agUrl("scenes")),
+  });
+
+  const scenes = data?.scenes ?? [];
+  const byId = new Map(scenes.map((s) => [s.id, s]));
+  const dailyCount = data?.dailyCount ?? 5;
+  // The API owns the daily pick order (#1208); the UI only consumes it. A
+  // server predating the field (needs /restart) degrades to the API's list
+  // order over accepted scenes instead of re-deriving the rule here.
+  const dailyOrder =
+    data?.dailyOrder ??
+    scenes.filter((s) => s.moderation === "accepted").map((s) => s.id);
+  const daily = dailyOrder
+    .map((id) => byId.get(id))
+    .filter((s): s is TDScene => s !== undefined);
+
+  const filtered =
+    filter === "daily" ? daily : scenes.filter((s) => s.moderation === filter);
+
+  const counts: Record<Filter, number> = {
+    daily: daily.length,
+    rejected: scenes.filter((s) => s.moderation === "rejected").length,
+    unmoderated: scenes.filter((s) => s.moderation === "unmoderated").length,
+  };
+
+  /** Jump to a scene from the all-photos overview: open its lightbox and
+   *  scroll the main grid to its card. */
+  const selectFromOverview = (id: string) => {
+    const target = scenes.find((s) => s.id === id);
+    if (!target) return;
+    setOverviewOpen(false);
+    setOpen(target);
+    // scroll the card into view once the overview has unmounted
+    const scroll = () => {
+      const card = document.querySelector(`[data-testid="td-card-${id}"]`);
+      card?.scrollIntoView({ behavior: "smooth", block: "center" });
+    };
+    if (typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(scroll);
+    } else {
+      scroll();
+    }
+  };
+
+  return (
+    <div className="td-page">
+      <div className="td-header">
+        <div>
+          <h2>AnomalyGuessr gallery</h2>
+          <p className="td-subtitle">
+            Scene pool behind the daily AnomalyGuessr quiz; rejected scenes +
+            comments are read by the generation pipeline (never shown again,
+            never re-added).
+          </p>
+        </div>
+        <button
+          type="button"
+          className="td-menu-btn"
+          onClick={() => setOverviewOpen(true)}
+          aria-label="Overview of all photos"
+          title="Overview of all photos"
+          data-testid="td-menu-btn"
+        >
+          ☰
+        </button>
+      </div>
+
+      <div className="td-toolbar">
+        {(["daily", "rejected", "unmoderated"] as const).map((f) => (
+          <button
+            key={f}
+            type="button"
+            className={`td-filter${filter === f ? " active" : ""}`}
+            onClick={() => setFilter(f)}
+            data-testid={`td-filter-${f}`}
+          >
+            {FILTER_LABELS[f]}({counts[f]})
+          </button>
+        ))}
+      </div>
+
+      {error ? (
+        <div className="loading td-error">Failed to load: {String(error)}</div>
+      ) : null}
+      {isLoading || !data ? (
+        <div className="loading">Loading...</div>
+      ) : filter === "daily" ? (
+        daily.length === 0 ? (
+          <div className="td-empty">
+            No accepted scenes yet; moderate scenes to fill the daily.
+          </div>
+        ) : (
+          <>
+            <section className="td-section">
+              <h3 className="td-section-title">Upcoming daily</h3>
+              <div className="td-grid">
+                {daily.slice(0, dailyCount).map((s, i) => (
+                  <SceneCard
+                    key={s.id}
+                    scene={s}
+                    onShow={setOpen}
+                    dailyRank={i + 1}
+                  />
+                ))}
+              </div>
+            </section>
+            {daily.length > dailyCount ? (
+              <section className="td-section">
+                <h3 className="td-section-title">
+                  Back catalogue · least recently shown first
+                </h3>
+                <div className="td-grid">
+                  {daily.slice(dailyCount).map((s) => (
+                    <SceneCard key={s.id} scene={s} onShow={setOpen} />
+                  ))}
+                </div>
+              </section>
+            ) : null}
+          </>
+        )
+      ) : filtered.length === 0 ? (
+        <div className="td-empty">No scenes in this view.</div>
+      ) : (
+        <div className="td-grid">
+          {filtered.map((s) => (
+            <SceneCard key={s.id} scene={s} onShow={setOpen} />
+          ))}
+        </div>
+      )}
+
+      {open ? <SceneModal scene={open} onClose={() => setOpen(null)} /> : null}
+      {overviewOpen ? (
+        <AllPhotosOverview
+          scenes={scenes}
+          onClose={() => setOverviewOpen(false)}
+          onSelect={selectFromOverview}
+        />
+      ) : null}
+    </div>
+  );
+}

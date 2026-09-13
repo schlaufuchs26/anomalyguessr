@@ -1,0 +1,927 @@
+/* AnomalyGuessr gallery/curation app (ticket #1434).
+ *
+ * The gallery lived in the fuchs-core dashboard until ticket #1434; it moved
+ * here with its own entry build (`gallery.html`), served at
+ * /anomalyguessr/gallery/ on the dev instance. The page keeps the dashboard's
+ * dark theme, so the theme variables, `.container`, `.loading` and the modal
+ * primitives are carried over below; everything after that is gallery UI
+ * (scene grid, cards, moderation, overview, trace panel, handle chip).
+ */
+:root {
+  --bg-deep: #08090a;
+  --bg-panel: #0f1011;
+  --bg-surface: #191a1b;
+  --bg-elevated: #222326;
+  --text-primary: #f7f8f8;
+  --text-secondary: #d0d6e0;
+  --text-muted: #8a8f98;
+  --text-subtle: #62666d;
+  --accent: #5e6ad2;
+  --accent-bright: #7170ff;
+  --accent-hover: #828fff;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --success: #27a644;
+  --radius: 8px;
+  --radius-sm: 6px;
+  --font: "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--bg-deep);
+  color: var(--text-secondary);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+.container {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 48px 24px;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-subtle);
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 24px;
+}
+
+.modal {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 720px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.2),
+    0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.modal-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modal-close {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  padding: 4px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: var(--font);
+  transition:
+    border-color 0.15s,
+    color 0.15s;
+  flex-shrink: 0;
+}
+
+.modal-close:hover {
+  border-color: var(--accent-bright);
+  color: var(--text-primary);
+}
+
+.modal-body {
+  overflow-y: auto;
+  padding: 16px 20px;
+  flex: 1;
+}
+
+/* AnomalyGuessr gallery-management page (ticket #1113) */
+
+.td-page {
+  margin-bottom: 32px;
+}
+
+.td-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 8px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.td-header h2 {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.td-subtitle {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin: 6px 0 0;
+  max-width: 640px;
+  line-height: 1.5;
+}
+
+.td-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0 18px;
+}
+
+.td-filter {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-family: var(--font);
+  padding: 5px 12px;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    color 0.15s,
+    background 0.15s;
+}
+
+.td-filter:hover {
+  border-color: var(--accent-bright);
+}
+
+.td-filter.active {
+  background: rgba(94, 106, 210, 0.16);
+  border-color: var(--accent-bright);
+  color: var(--text-primary);
+}
+
+.td-empty {
+  color: var(--text-muted);
+  font-size: 14px;
+  padding: 48px 0;
+  text-align: center;
+}
+
+.td-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+/* ── card ── */
+.td-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.15s;
+}
+
+.td-card:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.td-card.td-state-rejected {
+  opacity: 0.72;
+  border-color: rgba(229, 85, 85, 0.45);
+}
+
+.td-card-image {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: var(--bg-deep);
+  cursor: zoom-in;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.td-card-image img {
+  display: block;
+  width: 100%;
+  height: 190px;
+  object-fit: contain;
+}
+
+.td-card-body {
+  padding: 12px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.td-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.td-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.td-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+}
+
+/* Moderation verdict badges (#1163); the only badge vocabulary on a card
+   since #1205. */
+.td-mod-accepted {
+  background: rgba(39, 166, 68, 0.14);
+  color: var(--success);
+}
+
+.td-mod-rejected {
+  background: rgba(229, 85, 85, 0.14);
+  color: #e55;
+}
+
+/* Daily view (#1208): section heading + per-card position marker. */
+.td-section {
+  margin-bottom: 28px;
+}
+
+.td-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin: 0 0 12px;
+}
+
+.td-card-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.td-daily-rank {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  background: rgba(94, 106, 210, 0.16);
+  color: var(--accent-bright);
+}
+
+.td-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.td-card-dates {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.td-card-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.td-chip {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  background: rgba(94, 106, 210, 0.12);
+  color: var(--accent-bright);
+}
+
+.td-chip-anomaly {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+}
+
+.td-card-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.td-reject,
+.td-restore {
+  font-family: var(--font);
+  font-size: 12px;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.04);
+  transition:
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.td-reject:hover:not(:disabled) {
+  border-color: #e55;
+  color: #e88;
+}
+
+.td-restore:hover:not(:disabled) {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.td-reject:disabled,
+.td-restore:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ── comments ── */
+.td-comments {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 130px;
+  overflow-y: auto;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 8px;
+}
+
+.td-comment {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+}
+
+.td-comment-text {
+  color: var(--text-secondary);
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.td-comment-date {
+  color: var(--text-subtle);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.td-comment-form {
+  display: flex;
+  gap: 6px;
+}
+
+.td-comment-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 12px;
+  padding: 6px 8px;
+}
+
+.td-comment-input:focus {
+  outline: none;
+  border-color: var(--accent-bright);
+}
+
+.td-comment-submit {
+  font-family: var(--font);
+  font-size: 12px;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: rgba(94, 106, 210, 0.16);
+  color: var(--accent-bright);
+  cursor: pointer;
+}
+
+.td-comment-submit:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.td-error {
+  color: #e88;
+  font-size: 12px;
+  margin: 0;
+}
+
+/* ── modal ── */
+.td-modal-overlay {
+  align-items: flex-start;
+  overflow-y: auto;
+}
+
+.td-modal {
+  max-width: 860px;
+  width: 100%;
+}
+
+.td-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.td-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Tab strip + the answer-overlay toggle on one line (#1209). */
+.td-tabs-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.td-answer-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.td-answer-toggle input {
+  accent-color: #ff5a5a;
+  cursor: pointer;
+}
+
+.td-answer-toggle input:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+/* Right side of the tab row: the click-area toggle and the scene handle chip
+   (ticket #1433), so the handle stays visible while the image is judged. */
+.td-view-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.td-tab {
+  font-family: var(--font);
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.td-tab.active {
+  background: rgba(94, 106, 210, 0.16);
+  border-color: var(--accent-bright);
+  color: var(--text-primary);
+}
+
+.td-figure {
+  margin: 0;
+  background: var(--bg-deep);
+  border-radius: var(--radius);
+  overflow: hidden;
+  text-align: center;
+  /* The figure is a flex item of .td-modal-body (column). Its own
+     overflow:hidden (rounded corners) resets min-height to 0, so the
+     default flex-shrink would squeeze the figure to fit the body and
+     clip the image's bottom with no way to scroll to it (ticket #1129).
+     Keep it at content height and let .modal-body scroll instead. */
+  flex-shrink: 0;
+}
+
+/* Shrink-wraps the rendered image so the answer overlay's percentages are
+   relative to the image content box (ticket #1209). The image itself is
+   sized by its own aspect ratio here instead of object-fit: contain, which
+   would letterbox the content inside a larger element box and make the
+   overlay drift. */
+.td-img-wrap {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  line-height: 0;
+}
+
+.td-figure img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: 62vh;
+}
+
+/* The answer click area (ticket #1209): a ring at the exact scored region.
+   box-sizing is border-box globally, so the ring's outer edge sits on the
+   boundary the game's hit test uses. Decorative overlay only. */
+.td-answer-overlay {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid rgba(255, 90, 90, 0.95);
+  border-radius: 50%;
+  background: rgba(255, 90, 90, 0.12);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.6),
+    0 0 10px rgba(255, 90, 90, 0.45);
+  pointer-events: none;
+}
+
+.td-figure figcaption {
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border-subtle);
+  text-align: left;
+}
+
+.td-details {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 14px;
+  margin: 0;
+  font-size: 12px;
+}
+
+.td-details dt {
+  color: var(--text-muted);
+}
+
+.td-details dd {
+  color: var(--text-secondary);
+  margin: 0;
+  word-break: break-word;
+}
+
+.td-details a {
+  color: var(--accent-bright);
+}
+
+.td-detail-wide {
+  grid-column: 1 / -1;
+}
+
+.td-detail-wide dd {
+  line-height: 1.5;
+}
+
+/* AnomalyGuessr gallery app shell (ticket #1143; renamed from the queue app
+ * in ticket #1204): top bar of the standalone gallery page at
+ * /anomalyguessr/gallery/. The scene grid itself is styled by the
+ * gallery-management rules above; this covers the shell and the panels built
+ * on top of it (overview, trace, handle chip). The .agq-* class names keep
+ * their old prefix (internal churn, not worth a rename). */
+
+.agq-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 24px;
+  padding: 16px 0 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.agq-brand {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.agq-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.agq-link {
+  color: var(--accent-bright);
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.agq-link:hover {
+  text-decoration: underline;
+}
+
+.agq-current {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+/* AnomalyGuessr gallery-page chrome: hamburger button (top-right, ticket
+ * #1162) opening the all-photos overview, and the overview's full-screen
+ * thumbnail grid. Scoped to the gallery app's pages only. */
+
+.td-menu-btn {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 20px;
+  line-height: 1;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    border-color 0.15s,
+    color 0.15s,
+    background 0.15s;
+}
+
+.td-menu-btn:hover {
+  border-color: var(--accent-bright);
+  color: var(--text-primary);
+}
+
+/* all-photos overview (ticket #1162): full-screen overlay with a thumbnail
+   grid of every queue scene; click a thumbnail to jump to that scene. */
+.td-overview-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  background: rgba(0, 0, 0, 0.78);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.td-overview {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 1100px;
+  display: flex;
+  flex-direction: column;
+}
+
+.td-overview-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.td-overview-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.td-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+  padding: 18px;
+  max-height: 75vh;
+  overflow-y: auto;
+}
+
+.td-overview-item {
+  position: relative;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  transition: border-color 0.15s;
+}
+
+.td-overview-item:hover {
+  border-color: var(--accent-bright);
+}
+
+.td-overview-item img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  display: block;
+  background: #000;
+}
+
+.td-overview-title2 {
+  padding: 6px 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.td-overview-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 999px;
+}
+
+/* Generation trace panel (ticket #1373): collapsible, fetched on open, one
+ * block per pipeline step. The panel lives in the scene lightbox. */
+.td-trace {
+  border-top: 1px solid var(--border, #2a2a2a);
+  margin-top: 14px;
+  padding-top: 10px;
+}
+
+.td-trace-toggle {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 0;
+}
+
+.td-trace-toggle:disabled {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.td-trace-empty,
+.td-trace-head,
+.td-trace-image {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin: 8px 0 0;
+}
+
+.td-trace-steps {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+}
+
+.td-trace-step {
+  border-left: 2px solid var(--border, #2a2a2a);
+  margin: 0 0 12px;
+  padding: 0 0 0 10px;
+}
+
+.td-trace-stage {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin: 0;
+}
+
+.td-trace-index {
+  color: var(--text-muted);
+  display: inline-block;
+  margin-right: 6px;
+}
+
+.td-trace-meta {
+  color: var(--text-muted);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  margin: 2px 0 6px;
+}
+
+.td-trace-label {
+  color: var(--text-muted);
+  font-size: 11px;
+  margin: 6px 0 2px;
+}
+
+.td-trace-text {
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  margin: 0;
+  max-height: 180px;
+  overflow: auto;
+  padding: 6px 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.td-trace-error,
+.td-trace-notes {
+  color: var(--warn, #e0a050);
+  font-size: 12px;
+}
+
+.td-trace-notes {
+  margin: 8px 0 0;
+  padding-left: 16px;
+}
+
+/* Short scene handle chip (ticket #1413): click-to-copy. Legible on the dark
+   page since ticket #1433: a solid background and a visible border instead of
+   `opacity: .75` + a `currentColor` border, which dimmed text and border alike
+   (the chip inherited the UA button colour, black on near-black). Contrast is
+   pinned in tests/galleryStyle.test.ts; the numbers in the comment there come
+   from the theme: text #f7f8f8 on #222326, border #8a8f98 on #222326. */
+.td-handle {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0.25em 0.55em;
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--text-muted);
+  border-radius: 0.6em;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.td-handle:hover {
+  border-color: var(--accent-bright);
+}
+
+.td-handle.copied {
+  border-color: var(--success);
+}

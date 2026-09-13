@@ -21,11 +21,12 @@ Play it: <https://schlaufuchs26.github.io/anomalyguessr/>
 
 ```sh
 bun install
-bun index.html     # dev server (HMR, serves index.html + frontend.tsx)
-bun run build      # public Pages site into dist/ (minified React bundle + scenes/)
-bun run build:dev  # dev-instance dist/ (same, plus the dev-only surfaces)
-bun run checks     # format + tsc + biome + knip + tests
-bun run test:e2e   # browser layout smoke tests (Playwright, needs a browser)
+bun index.html        # dev server (HMR, serves index.html + frontend.tsx)
+bun run build         # public Pages site into dist/ (minified React bundle + scenes/)
+bun run build:dev     # dev-instance dist/ (same, plus the dev-only surfaces + dist/gallery/)
+bun run build:gallery # only the curation gallery into dist/gallery/
+bun run checks        # format + tsc + biome + knip + tests
+bun run test:e2e      # browser layout smoke tests (Playwright, needs a browser)
 ```
 
 ### Public build vs dev build
@@ -40,15 +41,21 @@ build time.
 - `bun run build` (alias `build:pages`, what the deploy workflow runs)
   defines `NODE_ENV=production`, so the dev-only surfaces are compiled out of
   the bundle, and then runs `scripts/check-public-build.ts`, which fails when
-  a marker only dev code emits survives in `dist/`.
-- `bun run build:dev` defines `NODE_ENV=development` and keeps them; the dev
-  clone is built with it (`scripts/deploy-frontends.sh` in the fuchs repo).
+  a marker only dev code emits survives in `dist/`. It builds the game only.
+- `bun run build:dev` defines `NODE_ENV=development` and keeps them, and it
+  also builds the curation gallery into `dist/gallery/` (ticket #1434); the
+  dev clone is built with it (`scripts/deploy-frontends.sh` in the fuchs
+  repo).
 - `bun index.html` (the dev server) and `bun test` run outside production,
   so they exercise the dev surfaces too.
 
 A public build must expose only the frontpage and the daily/quiz path. The
-gallery page itself lives in the fuchs dashboard (`dashboard/`), served under
-`/anomalyguessr/gallery/` on the dev host; this repo never builds it.
+gallery/curation page (ticket #1434, moved here from the fuchs dashboard) is
+a separate entry, `gallery.html` + `src/gallery/`, served under
+`/anomalyguessr/gallery/` on the dev host; `bun run build:gallery` emits
+`dist/gallery/` and only `build:dev` runs it. It has its own stylesheet,
+`gallery.css`, which carries the dashboard's dark theme it was written for.
+The page talks to the API at `/anomalyguessr/api/`, so it needs the dev host.
 
 `test:e2e` runs real Chromium at a short laptop viewport (1280x757) against
 the dev server: it guesses a scene and asserts the HUD stays a bounded
@@ -63,6 +70,7 @@ the default `/home/exedev/.nix-profile/bin/chromium` when it exists.
 | Path | What it is |
 |------|------------|
 | repo root | the React frontend (`frontend.tsx`, `src/`, `scenes/`, `tests/`, `e2e/`) |
+| `src/gallery/` | the curation/moderation gallery app (tickets #1434, #1143), its own entry (`gallery.html` + `gallery.css`) |
 | `api/` | the TypeScript/Bun HTTP service behind `/anomalyguessr/api/` (manifest, scenes, moderation, on-demand generation); its own package with its own `bun.lock` |
 | `pipeline/` | the Python content pipeline (`ag_generate.py` and friends) plus its `unittest` suites |
 | `data/` | runtime data the pipeline and the API share: `state.json`, `feedback.json`, image caches |

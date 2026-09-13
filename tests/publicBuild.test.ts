@@ -76,13 +76,6 @@ describe("public build scanner (#1374)", () => {
     expect(scanPublicBuild(dist)).toEqual([]);
   });
 
-  test("a dist/gallery directory fails the build", () => {
-    const dist = makeDist({});
-    mkdirSync(join(dist, "gallery"));
-    writeFileSync(join(dist, "gallery", "index.html"), "<!doctype html>");
-    expect(() => assertPublicBuild(dist)).toThrow(/gallery/);
-  });
-
   test("a missing dist fails instead of passing silently", () => {
     expect(() =>
       assertPublicBuild(join(tmpdir(), "ag-does-not-exist")),
