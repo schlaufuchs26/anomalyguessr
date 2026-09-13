@@ -14,11 +14,6 @@ function validScene(): Record<string, unknown> {
     anomaly: "Plastic bottle",
     description: "A market from 1900 with stalls and fruit.",
     answer: { x: 0.3, y: 0.6, r: 0.04 },
-    hints: [
-      "on a wagon",
-      "on the left",
-      "between the crates: a plastic bottle",
-    ],
   };
 }
 
@@ -72,13 +67,15 @@ describe("parseManifest", () => {
     ).toThrow(/answer/);
   });
 
-  test("rejects wrong hint counts", () => {
-    expect(() => parseManifest(validManifest({ hints: ["a", "b"] }))).toThrow(
-      /hints/,
+  test("tolerates and ignores a legacy hints field (#1407)", () => {
+    // Scenes stored before #1407 still carry hints; the parser accepts the
+    // field, ignores it, and is equally happy when it is absent.
+    expect(
+      parseManifest(validManifest({ hints: ["a", "b", "c"] })).scenes[0],
+    ).not.toHaveProperty("hints");
+    expect(parseManifest(validManifest()).scenes[0]).not.toHaveProperty(
+      "hints",
     );
-    expect(() =>
-      parseManifest(validManifest({ hints: ["a", "b", ""] })),
-    ).toThrow(/hints/);
   });
 
   test("accepts an absent place: a source may carry none (#1378)", () => {

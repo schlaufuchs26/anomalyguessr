@@ -61,7 +61,6 @@ const MANIFEST = {
         { label: "Plastic", url: "https://example.org/plastic" },
       ],
       answer: { x: 0.5, y: 0.5, r: 0.05 },
-      hints: ["It lies on the ground.", "Left half.", "A modern chip bag."],
     },
   ],
 };

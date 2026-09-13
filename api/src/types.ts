@@ -25,7 +25,12 @@ export interface SceneEntry {
   family?: string;
   description: string;
   answer: { x: number; y: number; r: number };
-  hints: string[];
+  /**
+   * Legacy progressive hints. Removed from the game in ticket #1407; stored
+   * scenes may still carry the field, so it stays readable and is ignored
+   * (never rendered into a manifest).
+   */
+  hints?: string[];
   added: string;
   shown: string | null;
   explanation?: string;

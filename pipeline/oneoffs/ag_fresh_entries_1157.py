@@ -75,11 +75,6 @@ SCENES = [
         "explanation": "Modern athletic sneakers (with visible swoosh-style branding and thick soles) only became common in the 1960s, so they cannot appear in a 1907 photograph.",
         "references": [{"label": "Sneakers", "url": "https://en.wikipedia.org/wiki/Sneakers"}],
         "answer": {"x": 0.647, "y": 0.532, "r": 0.10},
-        "hints": [
-            "He stands mid-ground among the crowd, not at the edges of the photo.",
-            "Right of the center, around halfway down the picture.",
-            "The young man in robes right of the center: look at his feet, he wears modern athletic sneakers.",
-        ],
     },
     {
         "id": "curb-market-time-traveler",
@@ -87,11 +82,6 @@ SCENES = [
         "explanation": "Modern sneakers with a distinct white swoosh logo are a later-20th-century design; they could not be worn on Broad Street ca. 1905.",
         "references": [{"label": "Nike, Inc.", "url": "https://en.wikipedia.org/wiki/Nike,_Inc."}],
         "answer": {"x": 0.152, "y": 0.554, "r": 0.10},
-        "hints": [
-            "He stands at the edge of the crowd, on the steps by the building on the left.",
-            "Far left side of the photo, about halfway down.",
-            "The man on the steps at the far left, in the dark suit: he wears modern sneakers with a white swoosh.",
-        ],
     },
     {
         "id": "westlake-market-coffee-cup",
@@ -99,11 +89,6 @@ SCENES = [
         "explanation": "Disposable paper coffee cups with plastic lids only became everyday items in the mid-20th century; they cannot lie at a Seattle market stall in 1910.",
         "references": [{"label": "Disposable cup", "url": "https://en.wikipedia.org/wiki/Disposable_cup"}],
         "answer": {"x": 0.42, "y": 0.80, "r": 0.06},
-        "hints": [
-            "It sits on the ground at the front edge of the market stall.",
-            "Lower middle of the photo, near the bottom edge.",
-            "On the ground left of the stall's front corner: a small paper coffee cup with a lid.",
-        ],
     },
     {
         "id": "helsinki-herring-bottle",
@@ -111,11 +96,6 @@ SCENES = [
         "explanation": "PET plastic bottles only entered common use in the 1970s; a bottle cannot lie on the Helsinki market square in 1941.",
         "references": [{"label": "Plastic bottle", "url": "https://en.wikipedia.org/wiki/Plastic_bottle"}],
         "answer": {"x": 0.359, "y": 0.635, "r": 0.06},
-        "hints": [
-            "It lies on the open paved ground in the foreground, away from the crowd.",
-            "Left of the center, in the lower half of the photo.",
-            "On the pavement left of the centre, near the cart wheel: a small plastic bottle.",
-        ],
     },
     {
         "id": "wallabout-market-bottle",
@@ -123,11 +103,6 @@ SCENES = [
         "explanation": "PET plastic bottles only became common in the 1970s; one cannot lie between the market vehicles of the Wallabout Market ca. 1900-1920.",
         "references": [{"label": "Plastic bottle", "url": "https://en.wikipedia.org/wiki/Plastic_bottle"}],
         "answer": {"x": 0.4955, "y": 0.8125, "r": 0.06},
-        "hints": [
-            "It lies on the ground between the market vehicles.",
-            "Center of the photo, lower area between the carts.",
-            "Between the cart wheels near the center: a small crushed plastic bottle.",
-        ],
     },
 ]
 
@@ -164,7 +139,6 @@ def main() -> int:
             "references": sc["references"],
             "description": src["description"],
             "answer": sc["answer"],
-            "hints": sc["hints"],
         }
         (out / f"{sc['id']}.entry.json").write_text(json.dumps(entry, indent=2) + "\n")
         print(f"wrote {sc['id']}.entry.json")

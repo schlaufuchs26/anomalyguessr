@@ -32,11 +32,6 @@
         "y": 0.532,
         "r": 0.1
       },
-      "hints": [
-        "He stands mid-ground among the crowd, not at the edges of the photo.",
-        "Right of the center, around halfway down the picture.",
-        "The young man in robes right of the center: look at his feet, he wears modern athletic sneakers."
-      ],
       "added": "2026-09-10",
       "shown": "2026-09-11",
       "image": "scenes/cairo-citadel-time-traveler.jpg",
@@ -54,11 +49,6 @@
         "y": 0.7895,
         "r": 0.1272
       },
-      "hints": [
-        "Scan the whole photograph; something small is out of place on the ground near a bench or seat, partly hidden.",
-        "It is a small modern object in the lower right of the frame.",
-        "A Modern daypack is on the ground near a bench or seat, partly hidden, in the lower right."
-      ],
       "explanation": "Lightweight nylon daypacks with zips are a later-20th-century product, not yet in use here.",
       "references": [
         {
@@ -94,11 +84,6 @@
         "y": 0.6435,
         "r": 0.15
       },
-      "hints": [
-        "Look closely; something in this photograph is not from this world or this century.",
-        "Check the in the middle of the crowd, half behind other people: there is technology that did not exist yet.",
-        "The clearly futuristic humanoid robot in the middle of the crowd, half behind other people, in the middle center: sleek metallic limbs and an exposed mechanical head, with an otherwise era-appropriate silhouette."
-      ],
       "explanation": "This is a robot from a fictional future, so it could not exist when this photograph was taken.",
       "references": [
         {
@@ -138,11 +123,6 @@
         "y": 0.3675,
         "r": 0.1208
       },
-      "hints": [
-        "Look closely; something in this photograph is not from this world or this century.",
-        "Check the in the middle of the crowd, half behind other people: there is technology that did not exist yet.",
-        "The clearly futuristic humanoid robot in the middle of the crowd, half behind other people, in the middle right: sleek metallic limbs and an exposed mechanical head, with an otherwise era-appropriate silhouette."
-      ],
       "explanation": "This is a robot from a fictional future, so it could not exist when this photograph was taken.",
       "references": [
         {
@@ -182,11 +162,6 @@
         "y": 0.7197,
         "r": 0.05
       },
-      "hints": [
-        "Scan the whole photograph; something small is out of place in the background, leaning against a wall or post.",
-        "It is a small modern object in the lower center of the frame.",
-        "A Modern advertising poster is in the background, leaning against a wall or post, in the lower center."
-      ],
       "explanation": "Offset-printed advertising posters with modern typography belong to a later era than this photo.",
       "references": [
         {

@@ -896,38 +896,6 @@ def scene_time(source: dict, proposal: dict) -> dict:
             "field": "", "apparent": apparent, "disagreement": False}
 
 
-def region_phrase(answer: dict) -> str:
-    x, y = answer.get("x", 0.5), answer.get("y", 0.5)
-    horiz = "left" if x < 0.34 else ("right" if x > 0.66 else "center")
-    vert = "upper" if y < 0.34 else ("lower" if y > 0.66 else "middle")
-    if horiz == "center":
-        return f"{vert} center"
-    return f"{vert} {horiz}"
-
-
-def article(label: str) -> str:
-    return "An" if label[:1].upper() in ("A", "E", "I", "O", "U") else "A"
-
-
-def build_hints(proposal: dict, answer: dict) -> list:
-    region = region_phrase(answer)
-    where = ag_llm.clean_text(proposal.get("placement"), 120)
-    label = proposal["anomaly"]
-    if proposal.get("figure"):
-        return [
-            "Look at the people in the scene; one of them does not belong.",
-            f"Check the {region} of the frame: a figure there is out of "
-            "time.",
-            f"{article(label)} {label} is in the {region}. {where}",
-        ]
-    return [
-        "Scan the whole photograph; a small thing here does not belong to "
-        "its time.",
-        f"It sits in the {region} of the frame and is partly hidden.",
-        f"{article(label)} {label} is in the {region}. {where}",
-    ]
-
-
 def caption_description(title: str, place: str, repository: str) -> str:
     """One clean caption line from the scene's own fields (ticket #1402).
 
@@ -984,7 +952,6 @@ def build_entry(source: dict, proposal: dict, answer: dict, date: str,
         "anomaly": proposal["anomaly"],
         "family": family,
         "answer": answer,
-        "hints": build_hints(proposal, answer),
         "explanation": explanation,
         "references": refs,
         "source": source_block,

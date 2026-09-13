@@ -3,7 +3,7 @@
  * the old DOM-level tests that drove the vanilla game.ts singleton: the app is
  * rendered with @testing-library/react, the manifest fetch is stubbed, and the
  * flows run through the rendered UI (guess -> reveal -> compare -> next -> end
- * screen, hints, moderation).
+ * screen, misses, moderation).
  *
  * Layout: happy-dom has no layout engine, so the photo's box is stubbed via
  * getBoundingClientRect; without it the click-to-guess math has no frame to map
@@ -463,35 +463,49 @@ describe("back to the frontpage (#1220)", () => {
   });
 });
 
-describe("hints", () => {
-  test("reveal the three progressive hints and then disable", async () => {
-    await renderGame();
-    const hint = screen.getByRole("button", { name: "💡 Show hint" });
+describe("miss penalty and bearing cue (#1407)", () => {
+  test("a miss keeps the scene open, shows one bearing cue, and a hit clears it", async () => {
+    const container = await renderGame();
+    // (0.2, 0.2) is outside Scene A's answer circle at (0.5, 0.5, r=0.05)
+    clickPhoto(container, 0.2, 0.2);
+    // the scene is not resolved: no verdict HUD and no navigation yet
+    expect(screen.queryByText("Timeline secured!")).not.toBeInTheDocument();
+    expect(screen.queryByText("Miss.")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Next →" })).toBeNull();
 
-    fireEvent.click(hint);
-    expect(
-      screen.getByText("Hint 1/3: Attached to a person."),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "💡 Show hint (1/3)" }),
-    ).toBeInTheDocument();
+    const cues = container.querySelectorAll(".marker.cue");
+    expect(cues).toHaveLength(1);
+    // the arrow points from the click toward the anomaly: south-east here
+    const arrow = cues[0]?.querySelector<HTMLElement>(".cue-arrow");
+    expect(arrow?.style.transform).toBe(`rotate(${Math.PI / 4}rad)`);
+    expect(cues[0]?.textContent).toContain("−10");
 
-    fireEvent.click(hint);
-    fireEvent.click(hint);
-    expect(
-      screen.getByText("Hint 3/3: In the sky: a drone."),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "💡 No hints left" }),
-    ).toBeDisabled();
+    // a second miss replaces the cue instead of stacking into a heat map
+    clickPhoto(container, 0.8, 0.5);
+    expect(container.querySelectorAll(".marker.cue")).toHaveLength(1);
+
+    // the hit resolves the scene and removes the cue (80 points after two
+    // misses is the "warm" band, so the headline is the close one)
+    clickPhoto(container, 0.5, 0.5);
+    expect(screen.getByText("Close!")).toBeInTheDocument();
+    expect(container.querySelectorAll(".marker.cue")).toHaveLength(0);
   });
 
-  test("a hint lowers the score of a perfect hit (0.85 multiplier)", async () => {
+  test("a hit after two misses scores 100 minus the flat penalty", async () => {
     const container = await renderGame();
-    fireEvent.click(screen.getByRole("button", { name: "💡 Show hint" }));
+    clickPhoto(container, 0.2, 0.2);
+    clickPhoto(container, 0.8, 0.5);
     clickPhoto(container, 0.5, 0.5);
-    expect(screen.getByText(/85 points/)).toBeInTheDocument();
-    expect(screen.getByText(/1 hint used/)).toBeInTheDocument();
+    expect(screen.getByText(/80 points/)).toBeInTheDocument();
+    expect(screen.getByText(/2 misses/)).toBeInTheDocument();
+  });
+
+  test("a first-try hit is 100 with no cue and no penalty", async () => {
+    const container = await renderGame();
+    clickPhoto(container, 0.5, 0.5);
+    expect(screen.getByText(/100 points/)).toBeInTheDocument();
+    expect(screen.getByText(/no misses/)).toBeInTheDocument();
+    expect(container.querySelector(".marker.cue")).toBeNull();
   });
 });
 
@@ -556,9 +570,9 @@ describe("guess, reveal and compare", () => {
     clickPhoto(container, 0.5, 0.5);
     expect(screen.getByText("Timeline secured!")).toBeInTheDocument();
     expect(screen.getByText(/100 points/)).toBeInTheDocument();
-    expect(screen.getByText(/no hints/)).toBeInTheDocument();
+    expect(screen.getByText(/no misses/)).toBeInTheDocument();
     expect(
-      screen.getByText(/Exact spot: In the sky: a drone\./),
+      screen.getByText(/Its spot is circled on the photo/),
     ).toBeInTheDocument();
     // the why-reveal carries the checkable reference link
     expect(
@@ -585,35 +599,34 @@ describe("guess, reveal and compare", () => {
     expect(container.querySelectorAll(".marker.click")).toHaveLength(1);
   });
 
-  test("a miss keeps the edited photo; compare toggles the original manually", async () => {
+  test("a miss keeps the edited photo and offers no compare until a hit", async () => {
     const container = await renderGame();
 
     clickPhoto(container, 0.95, 0.95);
-    expect(screen.getByText("Miss.")).toBeInTheDocument();
+    // the miss is not a resolution: no verdict and no compare control
+    expect(screen.queryByText("Miss.")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "📷 Show original" }),
+    ).toBeNull();
     const orig = originalLayer(container);
     expect(orig.classList.contains("reveal")).toBe(false);
     expect(orig.classList.contains("show")).toBe(false);
 
+    // the hit resolves the scene, then compare toggles the original manually
+    clickPhoto(container, 0.5, 0.5);
+    expect(screen.getByText("Timeline secured!")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "📷 Show original" }));
     expect(originalLayer(container).classList.contains("show")).toBe(true);
-    expect(
-      screen.getByRole("button", { name: "🖼️ Edited image" }),
-    ).toBeInTheDocument();
-
     fireEvent.click(screen.getByRole("button", { name: "🖼️ Edited image" }));
     expect(originalLayer(container).classList.contains("show")).toBe(false);
-    expect(
-      screen.getByRole("button", { name: "📷 Show original" }),
-    ).toBeInTheDocument();
   });
 
-  test("a warm click (near miss) does not reveal the original", async () => {
+  test("a near miss gives a cue instead of a warm verdict", async () => {
     const container = await renderGame();
-    clickPhoto(container, 0.7, 0.5); // distance 0.2: warm, outside the circle
-    expect(screen.getByText("Close!")).toBeInTheDocument();
-    const orig = originalLayer(container);
-    expect(orig.classList.contains("reveal")).toBe(false);
-    expect(orig.classList.contains("show")).toBe(false);
+    clickPhoto(container, 0.7, 0.5); // distance 0.2: outside the circle
+    expect(screen.queryByText("Close!")).not.toBeInTheDocument();
+    expect(container.querySelectorAll(".marker.cue")).toHaveLength(1);
+    expect(originalLayer(container).classList.contains("reveal")).toBe(false);
   });
 
   test("focus moves to next after a guess (keyboard play)", async () => {
@@ -707,7 +720,7 @@ describe("reload guard (#1225)", () => {
     await act(async () => {});
     expect(unloadWarns()).toBe(true);
 
-    clickPhoto(container, 0.95, 0.95);
+    clickPhoto(container, 0.2, 0.8);
     fireEvent.click(screen.getByRole("button", { name: "Results →" }));
     await act(async () => {});
     expect(screen.getByText("Mission complete")).toBeInTheDocument();
@@ -757,7 +770,7 @@ describe("run flow", () => {
     expect(screen.getByText("Scene B")).toBeInTheDocument();
     expect(screen.getByText("2 / 2")).toBeInTheDocument();
 
-    clickPhoto(container, 0.95, 0.95); // 0 points on scene B
+    clickPhoto(container, 0.2, 0.8); // hit scene B's answer: 100 points
     fireEvent.click(screen.getByRole("button", { name: "Results →" }));
 
     expect(screen.getByText("Mission complete")).toBeInTheDocument();
@@ -765,10 +778,10 @@ describe("run flow", () => {
       screen.getByText("Daily quiz · September 10, 2026"),
     ).toBeInTheDocument();
     expect(screen.getByText("1. Scene A · 100 pts")).toBeInTheDocument();
-    expect(screen.getByText("2. Scene B · 0 pts")).toBeInTheDocument();
+    expect(screen.getByText("2. Scene B · 100 pts")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "100 of 200 points (avg 50) across 2 scenes. The timeline holds, for now.",
+        "200 of 200 points (avg 100) across 2 scenes. The timeline holds, for now.",
       ),
     ).toBeInTheDocument();
   });
@@ -777,7 +790,7 @@ describe("run flow", () => {
     const container = await renderGame();
     clickPhoto(container, 0.5, 0.5);
     fireEvent.click(screen.getByRole("button", { name: "Next →" }));
-    clickPhoto(container, 0.95, 0.95);
+    clickPhoto(container, 0.2, 0.8);
     fireEvent.click(screen.getByRole("button", { name: "Results →" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Play again" }));
@@ -855,9 +868,6 @@ describe("photo interactions", () => {
 
     fireEvent.doubleClick(overlay(container), { clientX: 400, clientY: 300 });
     expect(screen.queryByText("Timeline secured!")).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "💡 Show hint" }),
-    ).toBeInTheDocument();
     expect(container.querySelector("#photo")?.style.transform).toMatch(
       /scale\(3\)/,
     );
@@ -984,7 +994,7 @@ describe("empty moderation queue (#1202)", () => {
     // no game shell: no progress counter, no photo stage, no dead controls
     expect(screen.queryByText(/\d+ \/ \d+/)).not.toBeInTheDocument();
     expect(container.querySelector(".stage")).toBeNull();
-    expect(screen.queryByRole("button", { name: /Show hint/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /hint/i })).toBeNull();
   });
 
   test("a queue serialized as null counts as empty too", async () => {

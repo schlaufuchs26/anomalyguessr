@@ -305,6 +305,45 @@ main {
     inset 0 0 0 1px #00000080;
 }
 
+/*
+ * Miss cue (ticket #1407): one arrow at the clicked point, rotated toward the
+ * anomaly, plus a flat −10 tick. It fades on its own and the next miss
+ * replaces it; it never accumulates into a heat map.
+ */
+.marker.cue {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-shadow: 0 0 4px #000;
+  animation: cue-fade 2.6s ease-out forwards;
+}
+
+.marker.cue .cue-arrow {
+  display: inline-block;
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+@keyframes cue-fade {
+  0%,
+  70% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marker.cue {
+    animation: none;
+  }
+}
+
 /* hud below photo */
 .hud {
   margin-top: 0.9rem;
@@ -339,12 +378,6 @@ main {
 .btn:disabled {
   opacity: 0.5;
   cursor: default;
-}
-
-.hint-text {
-  color: var(--ink-dim);
-  min-height: 1.5em;
-  margin: 0.5rem 0 0;
 }
 
 .result {
@@ -492,7 +525,7 @@ main {
  * Laptop viewport layout: everything must fit without vertical scrolling
  * (ticket #1104). On screens with enough width and height, the game turns
  * into a two-pane layout: photo on the left (sized to the remaining height
- * by game.ts via layout.ts) and meta/hint/result/buttons in a fixed rail on
+ * by game.ts via layout.ts) and meta/result/buttons in a fixed rail on
  * the right. The page body locks to the viewport so nothing scrolls.
  */
 @media (min-width: 900px) and (min-height: 560px) {

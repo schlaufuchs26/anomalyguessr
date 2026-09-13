@@ -20,15 +20,15 @@ export interface GuessResult {
   verdict: Verdict;
 }
 
-/** Score a click against a scene's answer circle, honoring hints used. */
+/** Score a click against a scene's answer circle; misses cost MISS_PENALTY. */
 export function resolveGuess(
   scene: Scene,
   x: number,
   y: number,
-  hintsUsed: number,
+  misses: number,
 ): GuessResult {
   const distance = clickDistance({ x, y }, scene.answer);
-  const score = scoreFor(distance, scene.answer.r, hintsUsed);
+  const score = scoreFor(distance, scene.answer.r, misses);
   return {
     x,
     y,

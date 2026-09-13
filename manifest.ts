@@ -57,8 +57,6 @@ export interface Scene {
   description: string;
   /** Normalized answer position (0..1, top-left origin) and hit radius. */
   answer: { x: number; y: number; r: number };
-  /** Progressive hints, coarse to precise. The last one names the object. */
-  hints: [string, string, string];
 }
 
 export interface Manifest {
@@ -122,14 +120,8 @@ function parseScene(
   if (nx < 0 || nx > 1 || ny < 0 || ny > 1)
     fail(where, "answer x/y must be in [0,1]");
   if (!(nr > 0 && nr <= 0.5)) fail(where, "answer r must be in (0, 0.5]");
-  const hints = raw.hints;
-  if (
-    !Array.isArray(hints) ||
-    hints.length !== 3 ||
-    hints.some((h) => typeof h !== "string" || h.trim() === "")
-  ) {
-    fail(where, "hints must be an array of exactly 3 non-empty strings");
-  }
+  // A legacy `hints` field is tolerated and ignored: scenes stored before
+  // ticket #1407 still carry it, and the game no longer uses it.
   const explanation = raw.explanation;
   if (
     explanation !== undefined &&
@@ -164,7 +156,6 @@ function parseScene(
     anomaly: reqString(raw.anomaly, where, "anomaly"),
     description: reqString(raw.description, where, "description"),
     answer: { x: nx, y: ny, r: nr },
-    hints: [hints[0] as string, hints[1] as string, hints[2] as string],
     ...(explanation !== undefined ? { explanation } : {}),
     ...(references !== undefined
       ? {

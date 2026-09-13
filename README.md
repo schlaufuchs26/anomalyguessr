@@ -7,8 +7,9 @@ futuristic technology brought from a fictional future (e.g. a robot time
 traveler). Click the spot where something doesn't belong; score
 by distance to the true position. After the guess the game reveals WHY the
 anomaly could not have been in the original photo, with a checkable
-reference link for every factual claim. Progressive hints are the safety
-net for the hard rounds. Everyone gets the same 5 scenes on a given day
+reference link for every factual claim. A click that misses
+costs points and shows only the bearing toward the anomaly, so hard rounds
+reward looping in on the spot. Everyone gets the same 5 scenes on a given day
 (deterministic date-seeded selection).
 
 Conceit: the time-travel protection squad has detected anomalies and you, the
@@ -109,9 +110,11 @@ GitHub Pages deploys `dist/` on every push to `main`.
 - Zoom & pan to inspect fine detail: mouse wheel zooms toward the cursor,
   double-click zooms in (double-click again resets), drag pans when zoomed,
   touch pinch works on mobile.
-- `💡 Show hint` reveals the next of three progressive hints
-  (what it's attached to → which half → exact spot + object name). Each hint
-  used scales the score by 0.85 / 0.7 / 0.55.
+- A click outside the anomaly's answer radius is a **miss**: it costs
+  `10` points and shows a short-lived arrow at the clicked point pointing
+  toward the anomaly (plus a `−10` tick). The scene stays open, so the score
+  is `max(0, 100 − 10 × misses)` on the hit; a first-try hit still scores 100.
+  Only the bearing is revealed, never the distance or the spot.
 - A short context paragraph under the title describes what the photo shows
   and its historical background (place, year, period).
 - The planted anomalies are varied and context-fitting (a coffee cup on a
@@ -163,11 +166,6 @@ Each scene entry:
   "anomaly": "Digital watch",
   "description": "The Butcher's Bazaar in Jammu, photographed between c. 1875 and c. 1940: a market street with small shops and stalls on both sides (catalogue description of the USC Digital Library).",
   "answer": { "x": 0.11, "y": 0.62, "r": 0.03 },
-  "hints": [
-    "A person wears it on their body.",
-    "Left half, lower area.",
-    "On the wrist of the man in light clothing on the left: a digital watch."
-  ]
 }
 ```
 

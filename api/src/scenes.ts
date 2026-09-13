@@ -23,7 +23,6 @@ export interface ApiScene {
   anomaly: string;
   description: string;
   answer: { x: number; y: number; r: number };
-  hints: string[];
   added: string;
   shown: string | null;
   state: "unshown" | "shown" | "rejected";
@@ -69,7 +68,6 @@ export interface ManifestScene {
   references?: { label: string; url: string }[];
   description: string;
   answer: { x: number; y: number; r: number };
-  hints: string[];
   image: string;
   original: string;
 }
@@ -174,7 +172,6 @@ export function sceneToApi(
     anomaly: e.anomaly,
     description: e.description,
     answer: e.answer,
-    hints: e.hints,
     added: e.added,
     shown: e.shown,
     state: rejected ? "rejected" : e.shown != null ? "shown" : "unshown",
@@ -230,7 +227,6 @@ export function renderManifestScene(e: SceneEntry): ManifestScene {
     ...(e.references !== undefined ? { references: e.references } : {}),
     description: e.description,
     answer: e.answer,
-    hints: e.hints,
     image: imageUrl("image", e.id),
     original: imageUrl("original", e.id),
   };

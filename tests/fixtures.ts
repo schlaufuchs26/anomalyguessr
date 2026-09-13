@@ -39,6 +39,5 @@ export function makeScene(opts: SceneOptions): Scene {
       { label: "History of drones", url: "https://example.org/drones" },
     ],
     answer: { x: opts.x, y: opts.y, r: opts.r },
-    hints: ["Attached to a person.", "Right half.", "In the sky: a drone."],
   };
 }

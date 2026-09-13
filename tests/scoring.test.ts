@@ -1,9 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import {
   baseScore,
+  bearingTo,
   clickDistance,
-  HINT_MULTIPLIERS,
   isHit,
+  MISS_PENALTY,
   scoreFor,
   verdictFor,
 } from "../scoring";
@@ -43,26 +44,40 @@ describe("baseScore", () => {
   });
 });
 
-describe("scoreFor", () => {
-  test("perfect hit within radius ignores distance", () => {
+describe("scoreFor (#1407 miss penalty)", () => {
+  test("a first-try hit is exactly 100", () => {
     expect(scoreFor(0.01, 0.04, 0)).toBe(100);
     expect(scoreFor(0.04, 0.04, 0)).toBe(100);
   });
 
-  test("hint multipliers reduce the score", () => {
-    const noHints = scoreFor(0.2, 0.04, 0);
-    const oneHint = scoreFor(0.2, 0.04, 1);
-    const mult = HINT_MULTIPLIERS[1];
-    expect(oneHint).toBe(Math.round(noHints * (mult ?? 1)));
-    expect(oneHint).toBeLessThan(noHints);
+  test("each miss subtracts the flat penalty", () => {
+    expect(scoreFor(0.01, 0.04, 1)).toBe(100 - MISS_PENALTY);
+    expect(scoreFor(0.01, 0.04, 3)).toBe(100 - 3 * MISS_PENALTY);
   });
 
-  test("hintsUsed beyond the list clamps to the last multiplier", () => {
-    expect(scoreFor(0.2, 0.04, 7)).toBe(scoreFor(0.2, 0.04, 3));
+  test("the score never drops below zero", () => {
+    expect(scoreFor(0.01, 0.04, 50)).toBe(0);
+    expect(scoreFor(1.2, 0.04, 100)).toBe(0);
   });
 
-  test("never negative", () => {
-    expect(scoreFor(2, 0.04, 3)).toBe(0);
+  test("outside the radius the base is the distance score minus the penalty", () => {
+    // distance 0.3 -> base 50; two misses cost 20
+    expect(scoreFor(0.3, 0.04, 2)).toBe(30);
+  });
+});
+
+describe("bearingTo (#1407 miss cue)", () => {
+  test("east is 0, south is +pi/2 (screen coordinates)", () => {
+    expect(bearingTo({ x: 0.5, y: 0.5 }, { x: 0.8, y: 0.5 })).toBeCloseTo(0);
+    expect(bearingTo({ x: 0.5, y: 0.5 }, { x: 0.5, y: 0.9 })).toBeCloseTo(
+      Math.PI / 2,
+    );
+  });
+
+  test("north-west is -3/4 pi", () => {
+    expect(bearingTo({ x: 0.5, y: 0.5 }, { x: 0.2, y: 0.2 })).toBeCloseTo(
+      -Math.PI * 0.75,
+    );
   });
 });
 

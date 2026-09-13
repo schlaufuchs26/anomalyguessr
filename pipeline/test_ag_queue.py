@@ -50,7 +50,6 @@ def valid_entry(eid="s1"):
                         "url": "https://en.wikipedia.org/wiki/Plastic_bottle"}],
         "description": "A market in Testville in 1900 (catalogue text).",
         "answer": {"x": 0.3, "y": 0.6, "r": 0.05},
-        "hints": ["on a wagon", "on the left", "between the crates: a bottle"],
     }
 
 
@@ -133,10 +132,12 @@ class ValidateTest(unittest.TestCase):
         self.assertTrue(any("answer.x" in x for x in errs))
         self.assertTrue(any("answer.r" in x for x in errs))
 
-    def test_requires_three_hints(self):
+    def test_ignores_a_legacy_hints_field(self):
+        # Hints were removed in #1407; stored scenes still carry the field
+        # and validation must not reject them (tolerate + ignore).
         e = valid_entry()
-        e["hints"] = ["a", "b"]
-        self.assertTrue(any("hints" in x for x in q.validate_entry(e)))
+        e["hints"] = ["a", "b", "c"]
+        self.assertEqual(q.validate_entry(e), [])
 
     def test_accepts_an_empty_place(self):
         # "" is the honest shape when the source keys carry no place, so the
@@ -245,6 +246,18 @@ class WriteManifestTest(unittest.TestCase):
         scenes = json.loads(
             (repo / "scenes" / "manifest.json").read_text())["scenes"]
         self.assertEqual(scenes[0]["place"], "")
+
+    def test_stored_hints_do_not_leak_into_the_manifest(self):
+        # Ticket #1407: the manifest must not carry hints even when a stored
+        # scene still has the legacy field.
+        tmp = Path(tempfile.mkdtemp(prefix="agq_manifest_"))
+        repo = make_repo(tmp)
+        stored = valid_entry("stored")
+        stored["hints"] = ["a", "b", "c"]
+        q.write_manifest(repo, "2026-09-12", [stored])
+        scenes = json.loads(
+            (repo / "scenes" / "manifest.json").read_text())["scenes"]
+        self.assertNotIn("hints", scenes[0])
 
 
 class ChooseDayTest(unittest.TestCase):

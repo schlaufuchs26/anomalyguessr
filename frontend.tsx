@@ -2,6 +2,7 @@ import { type RefObject, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { DAILY_COUNT, dateFromKey, dateLabel, pickDaily } from "./daily";
 import { type Manifest, parseManifest, type Scene } from "./manifest";
+import { bearingTo, MISS_PENALTY } from "./scoring";
 import {
   loadDailyManifest,
   loadLiveManifest,
@@ -13,7 +14,7 @@ import { resolveGuess } from "./src/guess";
 import { isDeliberateNavigation } from "./src/leaveGuard";
 import { ModerationEmpty } from "./src/ModerationEmpty";
 import { PhotoStage } from "./src/PhotoStage";
-import type { PhotoHit, PhotoMarker } from "./src/photoInteractions";
+import type { MissCue, PhotoHit, PhotoMarker } from "./src/photoInteractions";
 import {
   appBase,
   effectiveMode,
@@ -76,7 +77,6 @@ interface GuessView {
   score: number;
   penalty: string;
   anomaly: string;
-  spot: string;
   explanation: string;
   references: { label: string; url: string }[];
 }
@@ -97,14 +97,10 @@ function buildGuessView(
   scene: Scene,
   score: number,
   verdict: GuessView["verdict"],
-  hintsUsed: number,
+  misses: number,
 ): GuessView {
   const penalty =
-    hintsUsed === 0
-      ? "no hints"
-      : hintsUsed === 1
-        ? "1 hint used"
-        : `${hintsUsed} hints used`;
+    misses === 0 ? "no misses" : misses === 1 ? "1 miss" : `${misses} misses`;
   return {
     verdict,
     headline: VERDICT_COPY[verdict].headline,
@@ -112,7 +108,6 @@ function buildGuessView(
     score,
     penalty,
     anomaly: scene.anomaly,
-    spot: scene.hints[2],
     explanation: scene.explanation ?? "",
     references: scene.references ?? [],
   };
@@ -153,7 +148,8 @@ export function App() {
   const [devMode, setDevMode] = useState(false);
   const [queue, setQueue] = useState<Scene[]>([]);
   const [index, setIndex] = useState(0);
-  const [hintsUsed, setHintsUsed] = useState(0);
+  const [misses, setMisses] = useState(0);
+  const [cue, setCue] = useState<MissCue | null>(null);
   const [scores, setScores] = useState<number[]>([]);
   const [answered, setAnswered] = useState(false);
   const [guess, setGuess] = useState<GuessView | null>(null);
@@ -259,7 +255,8 @@ export function App() {
     setModeration(on);
     setQueue(scenes);
     setIndex(0);
-    setHintsUsed(0);
+    setMisses(0);
+    setCue(null);
     setScores([]);
     setAnswered(false);
     setGuess(null);
@@ -402,7 +399,8 @@ export function App() {
 
   /** Reset every piece of per-scene state (guess, markers, reveal, mod box). */
   const resetSceneState = () => {
-    setHintsUsed(0);
+    setMisses(0);
+    setCue(null);
     setAnswered(false);
     setGuess(null);
     setMarkers([]);
@@ -437,12 +435,28 @@ export function App() {
 
   const onGuess = (hit: PhotoHit) => {
     if (!scene || answered) return;
-    const result = resolveGuess(scene, hit.x, hit.y, hintsUsed);
+    const result = resolveGuess(scene, hit.x, hit.y, misses);
+    // A miss keeps the scene open (ticket #1407): the player pays the flat
+    // penalty and gets a bearing cue, then tries again. The answer stays
+    // hidden until a hit.
+    if (!result.hit) {
+      const next = misses + 1;
+      setMisses(next);
+      setCue({
+        x: hit.x,
+        y: hit.y,
+        angle: bearingTo({ x: hit.x, y: hit.y }, scene.answer),
+        n: next,
+      });
+      setAnnounce(`Miss. −${MISS_PENALTY} points.`);
+      return;
+    }
+    setCue(null);
     const nextScores = [...scores];
     nextScores[index] = result.score;
     setScores(nextScores);
     setAnswered(true);
-    setGuess(buildGuessView(scene, result.score, result.verdict, hintsUsed));
+    setGuess(buildGuessView(scene, result.score, result.verdict, misses));
     setMarkers([
       { type: "click", x: result.x, y: result.y },
       {
@@ -458,16 +472,14 @@ export function App() {
     // now when the bytes are there. A completed image without dimensions is a
     // failed (or empty) source that will never fire anything, so say so
     // instead of waiting forever.
-    if (result.hit) {
-      setOriginalView(true);
-      const img = originalImgRef.current;
-      if (img?.complete && img.naturalWidth > 0) {
-        startOriginalReveal();
-      } else if (img?.complete) {
-        failOriginalReveal();
-      } else {
-        setRevealPending(true);
-      }
+    setOriginalView(true);
+    const img = originalImgRef.current;
+    if (img?.complete && img.naturalWidth > 0) {
+      startOriginalReveal();
+    } else if (img?.complete) {
+      failOriginalReveal();
+    } else {
+      setRevealPending(true);
     }
   };
 
@@ -499,11 +511,6 @@ export function App() {
     resetSceneState();
   };
 
-  const onHint = () => {
-    if (!scene || answered || hintsUsed >= 3) return;
-    setHintsUsed(hintsUsed + 1);
-  };
-
   const next = () => {
     if (index >= queue.length - 1) {
       setStatus("end");
@@ -522,12 +529,6 @@ export function App() {
     if (manifest?.version === 2 && manifest.date)
       return dateLabel(dateFromKey(manifest.date));
     return dateLabel(day);
-  };
-
-  const hintLabel = (): string => {
-    if (hintsUsed >= 3) return "💡 No hints left";
-    if (hintsUsed === 0) return "💡 Show hint";
-    return `💡 Show hint (${hintsUsed}/3)`;
   };
 
   /**
@@ -684,6 +685,7 @@ export function App() {
           showOriginal={showOriginal}
           correcting={correcting}
           markers={markers}
+          cue={cue}
           onGuess={onGuess}
           onUndoGuess={undoGuess}
           onOriginalLoaded={onOriginalLoaded}
@@ -693,22 +695,6 @@ export function App() {
           {announce}
         </p>
         <div className="hud">
-          <div id="hint-box" className="hint-box" aria-live="polite">
-            <button
-              id="hint-btn"
-              className="btn"
-              type="button"
-              disabled={hintsUsed >= 3}
-              onClick={onHint}
-            >
-              {hintLabel()}
-            </button>
-            <p id="hint-text" className="hint-text">
-              {hintsUsed > 0 && scene
-                ? `Hint ${hintsUsed}/3: ${scene.hints[hintsUsed - 1]}`
-                : ""}
-            </p>
-          </div>
           <div
             id="result"
             className={`result${guess ? ` ${guess.verdict}` : ""}`}
@@ -722,8 +708,8 @@ export function App() {
                 </p>
                 <p>{guess.note}</p>
                 <p>
-                  🔍 The anomaly was: <strong>{guess.anomaly}</strong>. Exact
-                  spot: {guess.spot}
+                  🔍 The anomaly was: <strong>{guess.anomaly}</strong>. Its spot
+                  is circled on the photo.
                 </p>
               </>
             ) : null}

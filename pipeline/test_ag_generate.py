@@ -388,7 +388,7 @@ class EntryTest(unittest.TestCase):
         self.assertEqual(ag_queue.validate_entry(entry), [])
         self.assertEqual(entry["year"], "1905")
         self.assertEqual(entry["place"], "Berlin")
-        self.assertEqual(len(entry["hints"]), 3)
+        self.assertNotIn("hints", entry)
         self.assertEqual(entry["family"], "drinks")
 
     def test_build_entry_leaves_an_unknown_place_empty(self):

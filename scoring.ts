@@ -24,22 +24,36 @@ export function baseScore(distance: number): number {
   return Math.max(0, Math.round(100 * (1 - distance / 0.6)));
 }
 
-/** Score multipliers after using 0..3 hints. */
-export const HINT_MULTIPLIERS = [1, 0.85, 0.7, 0.55] as const;
+/**
+ * Flat point cost of a miss (ticket #1407). A miss is a click outside the
+ * answer radius; the player keeps the scene and gets a bearing cue, so the
+ * penalty is what makes extra attempts costly. Flat and not
+ * distance-weighted: the far click already gets the direction cue as
+ * information, and one variable keeps the rule explainable.
+ */
+export const MISS_PENALTY = 10;
 
 /**
- * Final score for a click: perfect hits (within the answer radius) score 100
- * before the hint multiplier; everything else is distance-based.
+ * Final score of one scene: the base score of the resolving click (100 inside
+ * the answer radius, distance-based otherwise) minus MISS_PENALTY per miss,
+ * floored at 0. A first-try hit is exactly 100.
  */
 export function scoreFor(
   distance: number,
   radius: number,
-  hintsUsed: number,
+  misses: number,
 ): number {
   const base = distance <= radius ? 100 : baseScore(distance);
-  const multiplier =
-    HINT_MULTIPLIERS[Math.min(hintsUsed, HINT_MULTIPLIERS.length - 1)] ?? 1;
-  return Math.max(0, Math.round(base * multiplier));
+  return Math.max(0, Math.round(base - MISS_PENALTY * misses));
+}
+
+/**
+ * Bearing from `from` toward `to` in radians, for the miss cue's arrow
+ * (ticket #1407). Screen coordinates (y grows downward), so 0 points east
+ * and positive angles turn clockwise; a CSS `rotate(<angle>rad)` matches.
+ */
+export function bearingTo(from: Point, to: Point): number {
+  return Math.atan2(to.y - from.y, to.x - from.x);
 }
 
 export type Verdict = "saved" | "warm" | "miss";

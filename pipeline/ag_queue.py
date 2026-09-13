@@ -70,7 +70,7 @@ SOURCE_KEYS = (
 ENTRY_KEYS = (
     "id", "title", "place", "year", "credit", "sourceUrl", "source",
     "anomaly", "family", "explanation", "references", "description",
-    "answer", "hints",
+    "answer",
 )
 
 # ── Caption text quality (ticket #1402) ────────────────────────────────────
@@ -262,10 +262,6 @@ def validate_entry(e) -> list:
         r = ans.get("r")
         if not isinstance(r, (int, float)) or not (0 < r <= 0.5):
             errs.append("answer.r must be in (0, 0.5]")
-    hints = e.get("hints")
-    if (not isinstance(hints, list) or len(hints) != 3
-            or any(not isinstance(h, str) or not h.strip() for h in hints)):
-        errs.append("hints must be exactly 3 non-empty strings")
     src = e.get("source")
     if not _is_record(src):
         errs.append("source must be an object (provenance is required)")
@@ -615,6 +611,9 @@ def write_manifest(repo: Path, date: str, scenes: list) -> None:
         # family is queue-side variety metadata (ticket #1232): the game's
         # manifest.ts has no use for it, so it does not leak into the manifest.
         out.pop("family", None)
+        # Hints were removed in ticket #1407; stored scenes may still carry
+        # the field, and the manifest must not.
+        out.pop("hints", None)
         out_scenes.append(out)
     manifest = {"version": 2, "date": date, "scenes": out_scenes}
     scenes_dir = repo / "scenes"

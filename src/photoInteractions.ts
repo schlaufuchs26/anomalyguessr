@@ -15,6 +15,20 @@ export interface PhotoMarker {
   r?: number;
 }
 
+/**
+ * The bearing cue shown after a miss (ticket #1407): a single arrow at the
+ * clicked point, rotated toward the anomaly. `n` is a per-miss nonce so the
+ * cue restarts its fade even on a repeat click; only the latest cue is kept,
+ * so the cue never accumulates into a heat map.
+ */
+export interface MissCue {
+  x: number;
+  y: number;
+  /** Bearing in radians (0 = east, clockwise in screen coordinates). */
+  angle: number;
+  n: number;
+}
+
 interface PhotoInteractionDeps {
   photoRef: () => HTMLDivElement | null;
   baseRef: () => HTMLImageElement | null;

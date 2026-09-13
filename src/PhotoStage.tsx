@@ -1,8 +1,10 @@
 import type { RefObject } from "react";
 import { useEffect, useRef, useState } from "react";
 import type { ViewState } from "../layout";
+import { MISS_PENALTY } from "../scoring";
 import {
   createPhotoInteractions,
+  type MissCue,
   type PhotoHit,
   type PhotoMarker,
 } from "./photoInteractions";
@@ -24,6 +26,8 @@ export interface PhotoStageProps {
   correcting: boolean;
   /** Markers for the resolved guess (click position + answer circle). */
   markers: PhotoMarker[];
+  /** The latest miss's bearing cue; null when none is showing. */
+  cue: MissCue | null;
   onGuess: (hit: PhotoHit) => void;
   /** Double-click on an answered photo: undo the guess, then zoom in. */
   onUndoGuess: () => void;
@@ -118,7 +122,7 @@ export function PhotoStage(props: PhotoStageProps) {
         />
         {/* biome-ignore lint/a11y/useKeyWithClickEvents: the photo is a click map
             (as in the vanilla game); a keyboard cursor on an image would be a
-            new feature, not a port. Hints and navigation stay real buttons. */}
+            new feature, not a port. Navigation stays real buttons. */}
         <div
           ref={overlayRef}
           id="overlay"
@@ -176,6 +180,25 @@ export function PhotoStage(props: PhotoStageProps) {
               }}
             />
           ))}
+          {props.cue ? (
+            <div
+              key={`cue-${props.cue.n}`}
+              className="marker cue"
+              style={{
+                left: `${props.cue.x * 100}%`,
+                top: `${props.cue.y * 100}%`,
+              }}
+            >
+              <span
+                className="cue-arrow"
+                style={{ transform: `rotate(${props.cue.angle}rad)` }}
+                aria-hidden="true"
+              >
+                ➤
+              </span>
+              <span className="cue-tick">{`−${MISS_PENALTY}`}</span>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
