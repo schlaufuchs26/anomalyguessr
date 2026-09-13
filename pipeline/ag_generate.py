@@ -69,7 +69,15 @@ CLI::
         [--dry-run] [--top-up] [--env .env] [--dm-channel ID] [--model M]
         [--image-model M] [--max-attempts 2] [--max-generations N]
         [--date YYYY-MM-DD] [--out-dir DIR] [--report FILE] [--no-check]
-        [--no-preflight]
+        [--no-preflight] [--retext]
+
+The caption (title, place, description) is derived from the proposal and the
+source's structured keys, never from raw metadata: the title drops the
+uploader's timestamps and years, a coordinate pair is no place, and the era
+lives in its own field instead of a "circa <year>" glued into the
+description (ticket #1402). ``--retext`` re-derives the captions of the
+scenes already in the queue, the repair path for the scenes the old builder
+damaged.
 
 Exit code 0 = ran (a scene that only breaks mechanically can still be
 missing; the JSON report lists what failed); 1 = no scene was added or a
@@ -244,6 +252,9 @@ def proposal_prompt(source: dict, recent=()) -> str:
         "- Pure fantasy is out: no flying saucers, dragons, unicorns, ghosts "
         "or magic. Everything must read as a thing from another time.",
         "- Keep it subtle: findable, but not obvious.",
+        "Name the scene as well: one short, factual title for THIS photo "
+        "(what a caption in a museum would say; no year, no file name, no "
+        "archive or uploader metadata).",
         "Style examples (do not copy them; they only show the shape):",
     ]
     lines += [f"- {line}" for line in ag_catalog.inspiration_lines()]
@@ -254,6 +265,7 @@ def proposal_prompt(source: dict, recent=()) -> str:
         'Answer as strict JSON only, no prose: {"anomaly": "<short label>", '
         '"kind": "later-era"|"fictional-future", "apparent_era": "<the year '
         'or decade that best fits the photo, or \\"modern\\">", '
+        '"title": "<short human title of the scene, at most 8 words>", '
         '"figure": true|false, "placement": "<one sentence: where in THIS '
         'photo it sits, how it is partly hidden, and how large it should '
         'look next to things at the same distance>", "explanation": "<one '
@@ -351,7 +363,12 @@ def resolve_references(proposal: dict, source: dict) -> tuple:
 
 
 def proposal_errors(proposal) -> list:
-    """Why a proposal cannot be rendered into a scene, [] when it can."""
+    """Why a proposal cannot be rendered into a scene, [] when it can.
+
+    The scene title is optional: when the model leaves it out (or sends
+    something that is not a string), the cleaned Commons name is the
+    fallback, so a missing title must not cost an attempt (ticket #1402).
+    """
     errs = []
     if not isinstance(proposal, dict):
         return ["proposal is not a JSON object"]
@@ -380,6 +397,7 @@ def normalize_proposal(proposal: dict) -> dict:
     for key, limit in (("anomaly", 80), ("apparent_era", 40),
                        ("placement", 400), ("explanation", 400)):
         out[key] = ag_llm.clean_text(out.get(key), limit)
+    out["title"] = clean_caption_title(out.get("title"))[:80]
     out["figure"] = bool(out.get("figure"))
     return out
 
@@ -663,18 +681,96 @@ def strip_html(s: str) -> str:
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", s or "")).strip()
 
 
-def clean_title(source: dict) -> str:
-    t = strip_html(str(source.get("originalTitle") or ""))
+# ── Caption text (ticket #1402) ────────────────────────────────────────────
+#
+# The Commons object name is uploader metadata, not a scene title: it carries
+# the artist's bracketed year ("(2017)"), the uploader's duplicate stamp
+# ("2025-08-25 02"), Wikidata bookkeeping ("label QS:Len,\"…\"") and archive
+# suffixes. All of it leaked into the reported scene's caption, together with
+# a coordinate pair as the place and a second "circa 2010" in the
+# description, so one screen showed three years. These cleaners strip the
+# noise; ag_queue.caption_problems refuses an entry that still carries it.
+
+# A trailing upload stamp in either shape ("2025-08-25 02", "20210223").
+_UPLOAD_STAMP_RE = re.compile(
+    r"\b\d{4}-\d{2}-\d{2}(?:[ T]\d{1,2}(?::\d{2}(?::\d{2})?)?)?\b"
+    r"|\b(?:19|20)\d{6}\b")
+# An era glued to the title: "(2017)", "(c. 1905)", "(1890-1900)", "c 1900".
+_PAREN_YEAR_RE = re.compile(
+    r"\s*\(\s*(?:c\.?|ca\.?|circa\s+)?(?:\d{3,4}s?|\d{3,4}\s*[-–]\s*\d{3,4})"
+    r"\s*\)")
+_ERA_PREFIX_YEAR_RE = re.compile(
+    r"\b(?:c\.?|ca\.?|circa|about|around)\s+"
+    r"(?:\d{3,4}s?|\d{3,4}\s*[-–]\s*\d{3,4})\b", re.I)
+_YEAR_RE = re.compile(r"(?<!\d)(?:1[0-9]\d{2}|20\d{2})(?:s\b)?(?!\d)")
+# Wikidata glue in an ObjectName: "… title QS:P1476,it:\"Mercato di
+# Firenze\" label QS:Lit,\"…\" label QS:Len,\"Market of Florence\"". The
+# label block names the file in other languages and always closes the name,
+# so it and everything after it goes.
+_QS_TAIL_RE = re.compile(r"\s*\b(?:label|title|description)\s+QS:.*$",
+                         re.I | re.S)
+_QS_ID_RE = re.compile(r"\s*\bQS:[^\s,]*")
+# Archive/gallery bookkeeping suffixes: " - DPLA - <hash>", " - Flickr - …".
+_ARCHIVE_SUFFIX_RE = re.compile(
+    r"\s*-\s*(?:DPLA|LOC|NARA|Flickr)\s*-\s*.+$", re.I)
+
+
+def _balance_quotes(t: str) -> str:
+    """No half quote survives: a wrapping pair goes, an odd one is dropped.
+
+    The old cleaner stripped quotes at the string's ends, which is exactly
+    how the reported title lost the opening quote of the artwork's name and
+    kept its closing one.
+    """
+    t = t.strip()
+    if t.count('"') == 2 and t.startswith('"') and t.endswith('"'):
+        t = t[1:-1]
+    while t.count('"') % 2:
+        i = t.find('"')
+        t = t[:i] + " " + t[i + 1:]
+    return t
+
+
+def clean_caption_title(text) -> str:
+    """The scene title from a raw name; "" when nothing readable is left."""
+    t = strip_html(str(text or ""))
     t = re.sub(r"^File:", "", t).strip()
     t = re.sub(r"\.(jpe?g|png|gif|webp|tiff?)$", "", t, flags=re.I)
     t = t.replace("_", " ")
-    # Drop archive/gallery bookkeeping suffixes (" - DPLA - <hash>",
-    # " - <32 hex>", " - <long id>") that carry no scene information.
-    t = re.sub(r"\s*-\s*(?:DPLA|LOC|NARA)\s*-\s*[0-9A-Za-z_-]{8,}\s*$", "",
-               t, flags=re.I)
+    t = _QS_TAIL_RE.sub("", t)
+    t = _QS_ID_RE.sub(" ", t)
+    t = _UPLOAD_STAMP_RE.sub(" ", t)
+    t = _PAREN_YEAR_RE.sub(" ", t)
+    t = _ERA_PREFIX_YEAR_RE.sub(" ", t)
+    # Any remaining four-digit year, including a decade ("1900s"): the era
+    # has its own field and must not be a second year in the caption.
+    t = _YEAR_RE.sub(" ", t)
+    t = _ARCHIVE_SUFFIX_RE.sub("", t)
     t = re.sub(r"\s*-\s*[0-9a-f]{16,}\s*$", "", t, flags=re.I)
     t = re.sub(r"\s*-\s*\d{6,}\s*$", "", t)
-    return re.sub(r"\s+", " ", t).strip(' "') or "Photograph"
+    t = _balance_quotes(t)
+    # Separators left dangling by the removals.
+    t = re.sub(r"\s*[,;]\s*\)", ")", t)
+    t = re.sub(r"\(\s*\)|\[\s*\]", "", t)
+    t = re.sub(r"\s+([,;·|])", r"\1", t)
+    t = re.sub(r"\s*,\s*(?:,\s*)+", ", ", t)
+    t = re.sub(r"\s*[,;·|]\s*$", "", t)
+    t = re.sub(r"\s+", " ", t).strip(" ,;:-–")
+    return t
+
+
+def clean_title(source: dict) -> str:
+    """The scene title shown when the proposal names none."""
+    return clean_caption_title(source.get("originalTitle")) or "Photograph"
+
+
+def scene_title(source: dict, proposal: dict) -> str:
+    """The displayed title: the proposal's short human title, cleaned.
+
+    The proposal call sees the photo, so it can name the scene; the Commons
+    object name is only the fallback (ticket #1402).
+    """
+    return clean_caption_title(proposal.get("title")) or clean_title(source)
 
 
 def scene_place(source: dict) -> str:
@@ -682,9 +778,10 @@ def scene_place(source: dict) -> str:
 
     An empty string is the honest shape for "the keys say nothing": a
     placeholder like the old "Unidentified location" reads as a fact and had
-    to be hidden again by every reader (tickets #1372, #1378).
+    to be hidden again by every reader (tickets #1372, #1378). A coordinate
+    pair is dropped the same way instead of reading as a place (#1402).
     """
-    return str(source.get("place") or "").strip()
+    return ag_queue.clean_place(source.get("place"))
 
 
 def scene_year(proposal: dict) -> str:
@@ -726,16 +823,26 @@ def build_hints(proposal: dict, answer: dict) -> list:
     ]
 
 
-def build_description(source: dict, year: str, place: str) -> str:
-    title = clean_title(source)
+def caption_description(title: str, place: str, repository: str) -> str:
+    """One clean caption line from the scene's own fields (ticket #1402).
+
+    The era is deliberately absent: it has its own field and the frontend
+    renders it next to the place, so gluing "circa <year>" in here showed a
+    second year. Parts are joined with "·", not run together with commas,
+    and a part that already sits in the title is dropped.
+    """
     bits = [title.rstrip(".")]
-    if place and place.lower() not in title.lower():
+    head = place.split(",")[0].strip().lower()
+    if place and head and head not in title.lower():
         bits.append(place)
-    if year and year not in title and year != "unknown":
-        bits.append(f"circa {year}")
-    repo = source.get("repository") or "an archive"
-    bits.append(f"from the {repo} catalogue")
-    return ", ".join(bits) + "."
+    if repository and repository.lower() not in title.lower():
+        bits.append(repository)
+    return " · ".join(b for b in bits if b) + "."
+
+
+def build_description(source: dict, title: str, place: str) -> str:
+    return caption_description(title, place,
+                               source.get("repository") or "an archive")
 
 
 def build_credit(source: dict) -> str:
@@ -757,15 +864,16 @@ def build_entry(source: dict, proposal: dict, answer: dict, date: str) -> dict:
         explanation = proposal["explanation"]
         refs, _ = resolve_references(proposal, source)
     family = ag_catalog.family_of(proposal["anomaly"]) or "other"
+    title = scene_title(source, proposal)
     source_block = {k: source.get(k, "") for k in (
         "repository", "fileUrl", "originalTitle", "date", "place", "license",
         "description")}
     return {
         "id": eid,
-        "title": clean_title(source),
+        "title": title,
         "place": place,
         "year": year,
-        "description": build_description(source, year, place),
+        "description": build_description(source, title, place),
         "anomaly": proposal["anomaly"],
         "family": family,
         "answer": answer,
@@ -776,6 +884,82 @@ def build_entry(source: dict, proposal: dict, answer: dict, date: str) -> dict:
         "credit": build_credit(source),
         "sourceUrl": source.get("fileUrl", ""),
     }
+
+
+# ── Caption repair path (ticket #1402) ─────────────────────────────────────
+
+
+def retext_entry(scene: dict) -> tuple:
+    """Re-derive the damaged parts of one queued scene's caption.
+
+    Returns ``(fixed entry, changed keys)``. A clean scene comes back
+    untouched: the repair must not overwrite a narrative description (many
+    older queued scenes carry one) just because it could be rebuilt. The era
+    field is left alone too; an era range like "1880-1900" is one displayed
+    era, not the metadata leak the ticket reported. The title cleanup starts
+    from the entry's own title, so a model-written title survives a repair
+    run, with the raw Commons name as the fallback.
+    """
+    if not isinstance(scene, dict):
+        return scene, []
+    if not ag_queue.caption_problems(scene):
+        return dict(scene), []
+    out = dict(scene)
+    source = (scene.get("source")
+              if isinstance(scene.get("source"), dict) else {})
+    changed = []
+    title = clean_caption_title(scene.get("title")) or clean_title(source)
+    if title != scene.get("title"):
+        out["title"] = title
+        changed.append("title")
+    place = ag_queue.clean_place(scene.get("place"))
+    if place != scene.get("place"):
+        out["place"] = place
+        changed.append("place")
+    # The old builder glued title, place, era and repository into one comma
+    # run. When the description is what still leaks, it is re-derived from
+    # the fixed parts; a clean caption never reaches this point.
+    if ag_queue.caption_problems(out):
+        description = build_description(source, out["title"], out["place"])
+        if description != out.get("description"):
+            out["description"] = description
+            changed.append("description")
+    return out, changed
+
+
+def retext_state(data_dir: Path, dry_run: bool = False) -> dict:
+    """Rewrite the damaged captions of the queued scenes (#1402 repair path).
+
+    Counts what the reported bug left behind and re-derives each caption,
+    the same way ``write_manifest`` re-normalises old places at ship time
+    (#1378). A scene whose caption still has a problem after the rewrite is
+    listed as unfixable instead of being written silently.
+    """
+    state = ag_queue.load_state(data_dir)
+    scenes = state.get("scenes") or {}
+    changed, unfixable = [], []
+    damaged = 0
+    for eid, scene in scenes.items():
+        if not ag_queue.caption_problems(scene):
+            continue
+        damaged += 1
+        fixed, keys = retext_entry(scene)
+        problems = ag_queue.caption_problems(fixed)
+        if problems:
+            unfixable.append({"id": eid, "problems": problems})
+        if not keys:
+            continue
+        changed.append({"id": eid, "changed": keys,
+                        "before": {k: scene.get(k) for k in keys},
+                        "after": {k: fixed[k] for k in keys}})
+        if not dry_run:
+            scene.update(fixed)
+    if changed and not dry_run:
+        ag_queue.save_state(data_dir, state)
+    return {"data": str(data_dir), "scenes": len(scenes),
+            "damaged": damaged, "changed": len(changed),
+            "unfixable": unfixable, "dry_run": dry_run,
+            "details": changed}
 
 
 # ── Trace sidecar (ticket #1373) ───────────────────────────────────────────
@@ -1635,6 +1819,10 @@ def parse_args(argv=None):
         description="AnomalyGuessr generator, four-step LLM flow (#1372).")
     p.add_argument("--data", default=None,
                    help="data dir (default: repo data/anomalyguessr)")
+    p.add_argument("--retext", action="store_true",
+                   help="repair mode: re-derive the queued scenes' captions "
+                        "(title/place/description) instead of generating "
+                        "(ticket #1402)")
     p.add_argument("--count", type=int, default=10,
                    help="scenes to generate (default 10)")
     p.add_argument("--seed", type=int, default=None,
@@ -1701,6 +1889,12 @@ def parse_args(argv=None):
 
 def main(argv=None) -> int:
     args = parse_args(argv)
+    if args.retext:
+        data_dir = Path(args.data) if args.data \
+            else ag_sources.default_data_dir()
+        report = retext_state(data_dir)
+        print(json.dumps(report, indent=2))
+        return 0
     report = run(args)
     text = json.dumps(report, indent=2)
     print(text)

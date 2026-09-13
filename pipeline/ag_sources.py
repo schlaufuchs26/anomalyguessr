@@ -300,9 +300,10 @@ def metadata_date(original: str, fallback: str) -> str:
 
 # ── Place from structured keys (coordinates / categories) ──────────────────
 
-# Commons location categories: "1900 in Hagåtña, Guam", "India in the
-# 1900s", "Historical images of Boulevard des Capucines".
-_CAT_YEAR_IN_RE = re.compile(r"^\d{3,4}\s+in\s+(.+)$")
+# Commons location categories: "1900 in Hagåtña, Guam", "August 2025 in
+# Toronto", "India in the 1900s", "Historical images of Boulevard des
+# Capucines".
+_CAT_YEAR_IN_RE = re.compile(r"^(?:\w+\s+)?\d{3,4}\s+in\s+(.+)$")
 _CAT_IN_THE_RE = re.compile(r"^(.+?)\s+in the \d{3,4}s$")
 _CAT_HIST_RE = re.compile(r"^Historical images of (.+)$")
 # Categories that look place-like but are not: upload provenance,
@@ -344,23 +345,6 @@ def place_from_categories(categories) -> str:
     return ""
 
 
-def _format_latlon(lat, lon) -> str:
-    try:
-        return f"{float(lat):.4f}, {float(lon):.4f}"
-    except (TypeError, ValueError):
-        return ""
-
-
-def place_from_coordinates(coords) -> str:
-    """GPS coordinates as an honest place ("52.5159, 13.3793"), or ""."""
-    if not coords:
-        return ""
-    c = coords[0] if isinstance(coords, list) else coords
-    if not isinstance(c, dict):
-        return ""
-    return _format_latlon(c.get("lat"), c.get("lon"))
-
-
 def _gps_raw(coords):
     """The CameraLocation dict kept in ``raw`` (or None)."""
     if not coords:
@@ -371,16 +355,15 @@ def _gps_raw(coords):
     return {"lat": c.get("lat"), "lon": c.get("lon"), "type": c.get("type")}
 
 
-def extract_place(categories="", gps=None) -> str:
+def extract_place(categories="") -> str:
     """Place from the source's structured keys, "" when there is none.
 
-    Coordinates first (exact), then a Commons location category. No free-text
-    parsing (ticket #1372): a title-based place label is what shipped the
-    wrong location, and the source could not back it up.
+    A Commons location category, never a coordinate pair: raw coordinates
+    read as a place in the caption but name nothing, so they stay provenance
+    in ``raw.gps`` (ticket #1402). No free-text parsing (ticket #1372): a
+    title-based place label is what shipped the wrong location, and the
+    source could not back it up.
     """
-    p = place_from_coordinates(gps)
-    if p:
-        return p
     return place_from_categories(categories)
 
 
@@ -538,7 +521,7 @@ class CommonsAdapter(SourceAdapter):
             "fileUrl": ii.get("descriptionurl") or _commons_file_page(raw.get("title", "")),
             "originalTitle": title,
             "date": metadata_date(g("DateTimeOriginal"), g("DateTime")),
-            "place": extract_place(categories=categories, gps=gps),
+            "place": extract_place(categories),
             "license": license_text,
             "licenseUrl": g("LicenseUrl"),
             "description": description,

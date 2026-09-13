@@ -151,6 +151,77 @@ class ValidateTest(unittest.TestCase):
         e["place"] = "Unidentified location"
         self.assertTrue(any("place" in x for x in q.validate_entry(e)))
 
+    def test_refuses_a_caption_with_source_metadata(self):
+        # Ticket #1402: the reported leak must not reach the queue.
+        e = valid_entry()
+        e["title"] = ('Access to Justice" by John Atkin (2017), Toronto, '
+                      'Ontario, 2025-08-25 02')
+        e["place"] = "43.6527, -79.3851"
+        errs = q.validate_entry(e)
+        self.assertTrue(any("unbalanced" in x for x in errs))
+        self.assertTrue(any("coordinate" in x for x in errs))
+        self.assertTrue(any("timestamp" in x for x in errs))
+        self.assertTrue(any("year" in x for x in errs))
+
+
+class CaptionQualityTest(unittest.TestCase):
+    """The caption guard (ticket #1402): no raw metadata in the scene text."""
+
+    def test_clean_entry_has_no_problems(self):
+        self.assertEqual(q.caption_problems(valid_entry()), [])
+
+    def test_flags_an_upload_timestamp(self):
+        e = valid_entry()
+        e["title"] = "Scene, 2025-08-25 02"
+        self.assertTrue(any("timestamp" in p for p in q.caption_problems(e)))
+
+    def test_flags_an_unbalanced_quote(self):
+        e = valid_entry()
+        e["title"] = 'Access to Justice" by John Atkin'
+        self.assertTrue(any("quote" in p for p in q.caption_problems(e)))
+
+    def test_flags_a_coordinate_place(self):
+        e = valid_entry()
+        e["place"] = "43.6527, -79.3851"
+        self.assertTrue(any("coordinate" in p for p in q.caption_problems(e)))
+
+    def test_flags_two_years_in_the_title(self):
+        e = valid_entry()
+        e["title"] = "Market in 1907 (published 1908)"
+        self.assertTrue(any("more than one year" in p
+                            for p in q.caption_problems(e)))
+
+    def test_a_narrative_description_may_name_years(self):
+        # The description is prose; only the metadata fields are year-checked
+        # (ticket #1402).
+        e = valid_entry()
+        e["description"] = "A market rebuilt in 1907 after a fire in 1903."
+        self.assertEqual(q.caption_problems(e), [])
+
+    def test_flags_a_coordinate_pair_in_the_description(self):
+        e = valid_entry()
+        e["description"] = "A market, 43.6527, -79.3851, circa 1900."
+        self.assertTrue(any("coordinate" in p for p in q.caption_problems(e)))
+
+    def test_flags_a_caption_year_the_era_does_not_cover(self):
+        e = valid_entry()
+        e["title"] = "Market in Testville, 1907"
+        e["description"] = "A market in Testville."
+        problems = q.caption_problems(e)
+        self.assertTrue(any("contradicts the era" in p for p in problems))
+
+    def test_an_era_range_is_one_displayed_era(self):
+        # "1880-1900" is one era, not a leaked second year.
+        e = valid_entry()
+        e["year"] = "1880-1900"
+        e["description"] = "A market in Testville."
+        self.assertEqual(q.caption_problems(e), [])
+
+    def test_clean_place_drops_coordinates(self):
+        self.assertEqual(q.clean_place("43.6527, -79.3851"), "")
+        self.assertEqual(q.clean_place("Testville"), "Testville")
+        self.assertEqual(q.clean_place("Unidentified location"), "")
+
 
 class WriteManifestTest(unittest.TestCase):
     def test_a_legacy_placeholder_ships_as_an_empty_place(self):
@@ -164,6 +235,16 @@ class WriteManifestTest(unittest.TestCase):
         scenes = json.loads(
             (repo / "scenes" / "manifest.json").read_text())["scenes"]
         self.assertEqual([s["place"] for s in scenes], ["", "Testville"])
+
+    def test_a_coordinate_place_ships_as_an_empty_place(self):
+        tmp = Path(tempfile.mkdtemp(prefix="agq_manifest_"))
+        repo = make_repo(tmp)
+        legacy = valid_entry("coords")
+        legacy["place"] = "43.6527, -79.3851"
+        q.write_manifest(repo, "2026-09-12", [legacy])
+        scenes = json.loads(
+            (repo / "scenes" / "manifest.json").read_text())["scenes"]
+        self.assertEqual(scenes[0]["place"], "")
 
 
 class ChooseDayTest(unittest.TestCase):

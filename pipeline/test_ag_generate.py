@@ -383,12 +383,149 @@ class EntryTest(unittest.TestCase):
         s = source(title="Street scene - DPLA - 1234567890abcdef.jpg")
         self.assertEqual(g.clean_title(s), "Street scene")
 
+    def test_clean_title_strips_the_reported_metadata(self):
+        # The live scene #1402: artist year, upload stamp, a quote that only
+        # balanced through the old strip(' "') hack.
+        s = source(title='Access to Justice" by John Atkin (2017), McMurtry '
+                         'Gardens of Justice, Toronto, Ontario, 2025-08-25 02')
+        self.assertEqual(
+            g.clean_title(s),
+            "Access to Justice by John Atkin, McMurtry Gardens of Justice, "
+            "Toronto, Ontario")
+
+    def test_clean_title_strips_wikidata_bookkeeping(self):
+        s = source(title='Cabbage market label QS:Len,"Cabbage market"')
+        self.assertEqual(g.clean_title(s), "Cabbage market")
+
+    def test_clean_title_leaves_no_year_or_half_quote(self):
+        s = source(title='"Bekleben verboten"-Schild auf Kasten Hof '
+                         '20210223 DSC8005')
+        self.assertEqual(g.clean_title(s),
+                         '"Bekleben verboten"-Schild auf Kasten Hof DSC8005')
+        s = source(title="Market Place, Reading, 17 June 1907")
+        self.assertEqual(g.clean_title(s), "Market Place, Reading, 17 June")
+
+    def test_clean_title_strips_flickr_suffix_and_decade(self):
+        s = source(title="Stand still, it's candid camera - Flickr - "
+                         "National Library of Ireland on The Commons")
+        self.assertEqual(g.clean_title(s), "Stand still, it's candid camera")
+        self.assertEqual(
+            g.clean_title(source(title="Oulu Market Place 1900s")),
+            "Oulu Market Place")
+
+    def test_clean_title_falls_back_to_photograph(self):
+        self.assertEqual(g.clean_title({"originalTitle": "1905"}), "Photograph")
+
+    def test_scene_title_prefers_the_proposal(self):
+        entry = g.build_entry(source(place="Berlin"),
+                              proposal(title="Sculpture garden in Toronto"),
+                              self.answer(), "2026-09-12")
+        self.assertEqual(entry["title"], "Sculpture garden in Toronto")
+
+    def test_scene_title_falls_back_to_the_cleaned_source_name(self):
+        entry = g.build_entry(source(title="Busy market street, 1905"),
+                              proposal(), self.answer(), "2026-09-12")
+        self.assertEqual(entry["title"], "Busy market street")
+
     def test_description_omits_an_unknown_place(self):
         entry = g.build_entry(source(), proposal(), self.answer(),
                               "2026-09-12")
-        self.assertEqual(
-            entry["description"],
-            "Busy market street, 1905, from the Wikimedia Commons catalogue.")
+        self.assertEqual(entry["description"],
+                         "Busy market street · Wikimedia Commons.")
+
+    def test_description_has_one_era_and_no_run_on(self):
+        # The era lives in its own field; the caption must not repeat it, and
+        # the parts are separated instead of glued with commas.
+        entry = g.build_entry(source(place="Berlin"), proposal(),
+                              self.answer(), "2026-09-12")
+        self.assertEqual(entry["year"], "1905")
+        self.assertEqual(entry["description"],
+                         "Busy market street · Berlin · Wikimedia Commons.")
+        self.assertNotIn("1905", entry["description"])
+
+    def test_description_drops_a_place_already_in_the_title(self):
+        entry = g.build_entry(source(title="Market day in Berlin"),
+                              proposal(title="Market day in Berlin"),
+                              self.answer(), "2026-09-12")
+        self.assertEqual(entry["description"],
+                         "Market day in Berlin · Wikimedia Commons.")
+
+    def test_reported_scene_renders_clean(self):
+        # The whole reported case end to end: no timestamp, no coordinate
+        # place, no second year, balanced quotes.
+        src = source(
+            title='Access to Justice" by John Atkin (2017), McMurtry Gardens '
+                  'of Justice, Toronto, Ontario, 2025-08-25 02',
+            place="43.6527, -79.3851")
+        entry = g.build_entry(src, proposal(), self.answer(), "2026-09-12")
+        entry["year"] = "2010"  # the proposal's judgement for that scene
+        self.assertEqual(entry["place"], "")
+        self.assertEqual(ag_queue.caption_problems(entry), [])
+        self.assertEqual(ag_queue.validate_entry(entry), [])
+
+
+class RetextTest(TempDataMixin, unittest.TestCase):
+    """The #1402 repair path over the queue (ag_generate.py --retext)."""
+
+    def answer(self):
+        return {"x": 0.5, "y": 0.6, "r": 0.08}
+
+    def damaged(self):
+        """A scene as the pre-#1402 builder wrote it (the live state shape)."""
+        scene = g.build_entry(source(), proposal(), self.answer(),
+                              "2026-09-12")
+        raw_title = ('Access to Justice" by John Atkin (2017), McMurtry '
+                     'Gardens of Justice, Toronto, Ontario, 2025-08-25 02')
+        scene["title"] = raw_title
+        scene["place"] = "43.6527, -79.3851"
+        scene["description"] = (raw_title + ", 43.6527, -79.3851, circa "
+                                "2010, from the Wikimedia Commons catalogue.")
+        scene["year"] = "2010"
+        return scene
+
+    def save(self, scenes):
+        ag_queue.save_state(self.data_dir,
+                            {"version": 1, "last_shipped": None,
+                             "scenes": scenes})
+
+    def test_retext_entry_fixes_a_damaged_caption(self):
+        scene = self.damaged()
+        fixed, changed = g.retext_entry(scene)
+        self.assertEqual(sorted(changed),
+                         ["description", "place", "title"])
+        self.assertEqual(fixed["place"], "")
+        self.assertEqual(fixed["year"], "2010")
+        self.assertEqual(fixed["description"],
+                         "Access to Justice by John Atkin, McMurtry Gardens "
+                         "of Justice, Toronto, Ontario · Wikimedia Commons.")
+        self.assertEqual(ag_queue.caption_problems(fixed), [])
+
+    def test_retext_state_rewrites_and_counts(self):
+        clean = g.build_entry(source(), proposal(), self.answer(),
+                              "2026-09-12")
+        self.save({"damaged": self.damaged(), "clean": clean})
+        report = g.retext_state(self.data_dir)
+        self.assertEqual(report["scenes"], 2)
+        self.assertEqual(report["changed"], 1)
+        self.assertEqual(report["unfixable"], [])
+        state = ag_queue.load_state(self.data_dir)
+        self.assertEqual(state["scenes"]["damaged"]["place"], "")
+        self.assertEqual(state["scenes"]["clean"], clean)
+
+    def test_retext_state_dry_run_writes_nothing(self):
+        self.save({"damaged": self.damaged()})
+        report = g.retext_state(self.data_dir, dry_run=True)
+        self.assertEqual(report["changed"], 1)
+        self.assertTrue(report["dry_run"])
+        state = ag_queue.load_state(self.data_dir)
+        self.assertIn("43.6527", state["scenes"]["damaged"]["place"])
+
+    def test_retext_keeps_a_model_title(self):
+        scene = g.build_entry(source(), proposal(title="Market day"),
+                              self.answer(), "2026-09-12")
+        self.save({"s": scene})
+        report = g.retext_state(self.data_dir)
+        self.assertEqual(report["changed"], 0)
 
 
 # ── Trace sidecar ──────────────────────────────────────────────────────────

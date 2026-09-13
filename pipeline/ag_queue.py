@@ -73,11 +73,68 @@ ENTRY_KEYS = (
     "answer", "hints",
 )
 
+# ── Caption text quality (ticket #1402) ────────────────────────────────────
+#
+# The caption is the title plus the place, the era and the description. The
+# reported scene glued raw source metadata into them: the uploader's EXIF
+# stamp in the title, a coordinate pair where a place belongs, and three
+# different years on one screen. The pipeline's cleaners remove that; these
+# checks refuse an entry that still carries it, so the class cannot ship
+# again.
+CAPTION_TEXT_KEYS = ("title", "place", "description")
+# Title and place are derived from source metadata; the description is prose
+# (the generator's caption, or a catalogue narrative that may name several
+# historical years), so only the metadata fields are checked for years.
+CAPTION_META_KEYS = ("title", "place")
+CAPTION_TIMESTAMP_RE = re.compile(r"\d{4}-\d{2}-\d{2} \d{2}")
+CAPTION_YEAR_RE = re.compile(r"(?<!\d)(?:1[0-9]\d{2}|20\d{2})(?!\d)")
+CAPTION_COORD_RE = re.compile(r"-?\d{1,3}\.\d+\s*,\s*-?\d{1,3}\.\d+")
+
+
+def caption_text(e: dict, keys=CAPTION_TEXT_KEYS) -> str:
+    """The caption's text fields, joined for a pattern check."""
+    return " · ".join(str(e.get(k) or "") for k in keys).strip()
+
+
+def caption_problems(e: dict) -> list:
+    """Source metadata leaked into a scene's caption; [] when clean (#1402).
+
+    The era field is checked against the metadata fields, not folded into
+    them: an era range like "1890-1900" is one displayed era and stays
+    legal, while a title year the era does not cover is the leak the
+    reported scene showed ("(2017)" next to "circa 2010").
+    """
+    if not _is_record(e):
+        return []
+    problems = []
+    text = caption_text(e)
+    if CAPTION_TIMESTAMP_RE.search(text):
+        problems.append("caption carries an upload timestamp (YYYY-MM-DD HH)")
+    for key in CAPTION_TEXT_KEYS:
+        value = e.get(key)
+        if isinstance(value, str) and value.count('"') % 2:
+            problems.append(f"{key} has an unbalanced double quote")
+        if CAPTION_COORD_RE.search(str(value or "")):
+            problems.append(f"{key} carries a coordinate pair, not a place "
+                            f"name")
+    years = set(CAPTION_YEAR_RE.findall(caption_text(e, CAPTION_META_KEYS)))
+    if len(years) > 1:
+        problems.append("title or place shows more than one year: "
+                        + ", ".join(sorted(years)))
+    era_years = set(CAPTION_YEAR_RE.findall(str(e.get("year") or "")))
+    if years and era_years and years != era_years:
+        problems.append("title or place year " + ", ".join(sorted(years))
+                        + " contradicts the era field "
+                        + ", ".join(sorted(era_years)))
+    return problems
+
 
 def clean_place(value) -> str:
-    """The place to show, with the legacy placeholder treated as none."""
-    text = value if isinstance(value, str) else ""
-    return "" if text.strip() == LEGACY_PLACEHOLDER else text
+    """The place to show: the legacy placeholder and coordinates are none."""
+    text = (value if isinstance(value, str) else "").strip()
+    if text == LEGACY_PLACEHOLDER or CAPTION_COORD_RE.search(text):
+        return ""
+    return text
 
 
 def default_data_dir() -> Path:
@@ -224,6 +281,10 @@ def validate_entry(e) -> list:
             v = src.get(k)
             if not isinstance(v, str) or not v.strip():
                 errs.append(f"source.{k} must be a non-empty string")
+    # Raw source metadata in the caption is what ticket #1402 fixed; a scene
+    # with an upload stamp, an unbalanced quote, coordinates as its place or
+    # a second year must not reach the queue at all.
+    errs += caption_problems(e)
     return errs
 
 
@@ -546,7 +607,8 @@ def write_manifest(repo: Path, date: str, scenes: list) -> None:
         out = dict(s)
         # Queue entries from before #1372 may still carry the fact-shaped
         # "Unidentified location" placeholder; the game only ever sees the
-        # honest empty string (ticket #1378).
+        # honest empty string (ticket #1378). A coordinate pair is dropped
+        # the same way (ticket #1402): it names no place.
         out["place"] = clean_place(out.get("place"))
         out["image"] = f"scenes/{eid}.jpg"
         out["original"] = f"scenes/{eid}-original.jpg"

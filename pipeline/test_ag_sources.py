@@ -154,20 +154,28 @@ class MetadataDateTest(unittest.TestCase):
 
 
 class PlaceTest(unittest.TestCase):
-    def test_coordinates_first(self):
+    def test_coordinates_are_not_a_place(self):
+        # Ticket #1402: the raw GPS pair read as a place in the caption but
+        # names nothing, so it stays provenance in raw.gps only.
         coords = [{"lat": 52.5159, "lon": 13.3793}]
-        self.assertEqual(s.extract_place(categories="1900 in Berlin", gps=coords),
-                         "52.5159, 13.3793")
+        self.assertEqual(s.extract_place(categories="1900 in Berlin"), "Berlin")
+        self.assertEqual(s.extract_place(categories=""), "")
+        self.assertEqual(
+            s.CommonsAdapter().normalize(commons_raw(coords=coords))["place"],
+            "")
 
     def test_category_fallback(self):
         self.assertEqual(s.extract_place(categories="1900 in Hagåtña, Guam"),
                          "Hagåtña, Guam")
         self.assertEqual(s.extract_place(categories="Historical images of Paris"),
                          "Paris")
+        # "August 2025 in Toronto": the month-prefixed location category.
+        self.assertEqual(s.extract_place(categories="August 2025 in Toronto"),
+                         "Toronto")
 
     def test_no_free_text_parsing(self):
         # A place mentioned only in a title is NOT used (the #1338 bug).
-        self.assertEqual(s.extract_place(categories="", gps=None), "")
+        self.assertEqual(s.extract_place(categories=""), "")
 
     def test_denied_categories(self):
         self.assertEqual(s.extract_place(categories="Unidentified locations in India"), "")
@@ -190,10 +198,11 @@ class CommonsNormalizeTest(unittest.TestCase):
         self.assertEqual(n["raw"]["dateTimeOriginal"],
                          "2013-10-24 15:02:48")
 
-    def test_place_from_coordinates(self):
+    def test_coordinates_stay_provenance_not_place(self):
         n = self.adapter.normalize(commons_raw(
             coords=[{"lat": 1.5, "lon": 2.5, "type": "camera"}]))
-        self.assertEqual(n["place"], "1.5000, 2.5000")
+        self.assertEqual(n["place"], "")
+        self.assertEqual(n["raw"]["gps"]["lat"], 1.5)
 
     def test_rejects_portrait_small_license_mime(self):
         self.assertIsNone(self.adapter.normalize(
