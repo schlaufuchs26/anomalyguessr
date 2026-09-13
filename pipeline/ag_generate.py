@@ -21,7 +21,12 @@ Per scene:
    cannot exist in 2026 (`not_today`), a figure flag, placement, the
    impossibility reason and references. `ag_catalog.INSPIRATION` supplies
    few-shot shape examples; recently used labels are passed in to avoid
-   repeats.
+   repeats. Ticket #1473: that avoid list is enforced, not requested. Before
+   any image call the proposal passes three gates (`enforce_proposal_gates`):
+   a repeat (matched by element family, so a reworded label counts), an
+   element that cannot sit in the scene's setting, or an element inherently
+   too small to find. A finding spends one more proposal call naming the
+   problem; a repeat that survives is kept and flagged for moderation.
 2. **Apply** (`image_edit`): one `google/gemini-2.5-flash-image` call that (#1447:
    measured 42% cheaper and 24% faster than gemini-3.1-flash-image on six sources)
    adds the anomaly. The generation prompt keeps the hard constraints (one
