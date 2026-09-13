@@ -52,7 +52,10 @@ Per scene:
    scene ships with its verdict and a `needs_review` flag instead of being
    edited into another object or dropped. A check with no findings ends the
    chain immediately (Evan 2026-09-13), and the last fix-edit is followed by a
-   final check for the record only, which never triggers another edit.
+   final check for the record only, which never triggers another edit. Every
+   scored round is a candidate and the best-scoring one wins the scene
+   (ticket #1461): a correction that lowered the checker's score does not
+   ship, and a tie keeps the earlier render.
 5. **Reconcile text** (`reconcile_text`, ticket #1449, only when the checker's
    `image_match` is false): one text-only call rewrites `anomaly`,
    `explanation` and `title` to describe the shipped image; the scene id is
@@ -103,8 +106,10 @@ finding, or an ignored swap repair), and the trace carries the pipeline's
 `review` reason. Steps are flushed to
 `traces/pending/<source>.json` as the pipeline runs, so a crash keeps a
 partial record; a finished scene shows the whole flow, a scene from before
-the trace existed shows none. Candidate images are not kept (only the
-shipped image and the last click-target overlay live on). The scene-time
+the trace existed shows none. Only the shipped image and the last
+click-target overlay are copied on; the other rounds' renders stay in the
+run's out-dir, and a `score_guard` trace entry names the round that was
+rejected for scoring lower (ticket #1461). The scene-time
 entry (`scene_time`: the catalogue year, its provenance class, the repository
 field and its raw value) is in the trace too, so a moderator can check the
 date without opening the repository page (tickets #1403, #1430). A source
@@ -1519,6 +1524,22 @@ def last_check_call(trace: dict) -> dict | None:
     return checks[-1] if checks else None
 
 
+def shipped_check_call(trace: dict) -> dict | None:
+    """The checker call whose render the scene shipped (ticket #1461).
+
+    The score guard can ship an earlier round than the last one, so a reader
+    that judges the shipped image must use that round's verdict; without a
+    guard record (or a matching call row) the last check call is the one.
+    """
+    shipped = (trace.get("score_guard") or {}).get("shipped")
+    if shipped is not None:
+        stage = f"check r{shipped}"
+        for c in (trace.get("calls") or []):
+            if c.get("stage") == stage:
+                return c
+    return last_check_call(trace)
+
+
 def check_fix_prompt(call: dict) -> str:
     """The ``fix_prompt`` a recorded checker call asked for (ticket #1449).
 
@@ -1537,8 +1558,9 @@ def check_fix_prompt(call: dict) -> str:
 def audit_text_image(data_dir: Path) -> dict:
     """Scenes whose shipped text may not match their image (ticket #1449).
 
-    Cheapest-first: read each scene's trace, take its LAST checker verdict
-    and ask whether that verdict's repair named a different object than the
+    Cheapest-first: read each scene's trace, take the checker verdict of the
+    round whose image shipped (ticket #1461) and ask whether that verdict's
+    repair named a different object than the
     scene's ``anomaly`` text (the AG-119 class: the checker asked for another
     element, the image followed, the text did not). A requirement-8 finding
     is listed separately: it is the honest verdict that the element is not
@@ -1555,7 +1577,7 @@ def audit_text_image(data_dir: Path) -> dict:
                 trace = json.loads(tp.read_text(encoding="utf-8"))
             except (OSError, ValueError):
                 trace = None
-        call = last_check_call(trace) if trace else None
+        call = shipped_check_call(trace) if trace else None
         if call is None:
             no_check.append(eid)
             continue
@@ -2280,6 +2302,29 @@ def _check_round(image: Path, proposal: dict, scene: dict | None, round_no: int,
     return check
 
 
+def round_candidate(round_no: int, path: Path, hotspot,
+                    check: dict | None) -> dict:
+    """One round's render with its verdict, as the score guard sees it."""
+    return {"round": round_no, "path": path, "hotspot": hotspot,
+            "check": check,
+            "score": check.get("score") if check else None}
+
+
+def best_scoring_round(rounds: list) -> dict | None:
+    """The best-scoring round, earliest on a tie (ticket #1461).
+
+    A correction round can lower the checker's score (3 of 8 scenes in the
+    #1444 run, 6→4), so the chain keeps every round's render and ships the one
+    the checker scored highest instead of always the newest. A round whose
+    check call carried no score cannot win it; ties keep the earlier round,
+    because an edit that moved no requirement is not worth shipping.
+    """
+    scored = [r for r in rounds if isinstance(r.get("score"), int)]
+    if not scored:
+        return None
+    return max(scored, key=lambda r: (r["score"], -r["round"]))
+
+
 def _fix_edit(current: Path, proposal: dict, check: dict, round_no: int,
               attempt: int, args, api_key: str, source: dict, data_dir: Path,
               out_dir: Path, trace: dict, totals: dict, progress,
@@ -2548,10 +2593,14 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
         # (requirement 8) is not repairable; the chain ends and the scene
         # ships with the verdict, flagged for moderation instead of dropped
         # or edited into another object.
+        # Ticket #1461: every scored round is a candidate, and the best one
+        # wins the scene; a correction that lowered the score does not ship.
         check, rounds_used, review = None, 0, ""
+        rounds, review_notes = [], {}
         if not args.no_check:
             check = _check_round(final_path, proposal, st, 0, attempt, args,
                                  api_key, data_dir, trace, totals, progress)
+            rounds.append(round_candidate(0, final_path, hotspot, check))
             while (check is not None and check["failed"]
                    and check["fix_prompt"]
                    and rounds_used < CORRECTION_ROUNDS):
@@ -2560,18 +2609,20 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
                        for n in UNREPAIRABLE_REQUIREMENTS):
                     review = ("checker: the element is not clearly impossible "
                               "for the scene's year")
+                    review_notes[rounds_used] = review
                     trace.setdefault("corrections", []).append(
                         {"round": round_no, "skipped": "unrepairable "
                          "requirement " + ", ".join(
                              str(n) for n in UNREPAIRABLE_REQUIREMENTS
-                             if n in check["failed"])})
+                             if n in check["failed"]), "review": review})
                     break
                 usable, why = presentation_only_fix(check["fix_prompt"])
                 if not usable:
                     review = ("checker repair ignored: " + why)
+                    review_notes[rounds_used] = review
                     trace.setdefault("corrections", []).append(
                         {"round": round_no, "fix_prompt": "ignored",
-                         "reason": why})
+                         "reason": why, "review": review})
                     break
                 fixed, _refused = _fix_edit(
                     final_path, proposal, check, round_no, attempt, args,
@@ -2584,6 +2635,22 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
                 check = _check_round(final_path, proposal, st, rounds_used,
                                      attempt, args, api_key, data_dir, trace,
                                      totals, progress)
+                rounds.append(round_candidate(rounds_used, final_path,
+                                              hotspot, check))
+        best = best_scoring_round(rounds)
+        selected_round = rounds_used
+        if best is not None and best["round"] != rounds_used:
+            # The guard: ship the best-scoring render, not the newest one.
+            # The later rounds stay in the trace, so the rejected attempt is
+            # still visible to moderation.
+            rejected = rounds[-1]
+            final_path = best["path"]
+            hotspot, check = best["hotspot"], best["check"]
+            selected_round = best["round"]
+            trace["score_guard"] = {
+                "shipped": best["round"], "score": best["score"],
+                "rejected": {"round": rounds_used, "score": rejected["score"]}}
+        review = review_notes.get(selected_round, "")
 
         # Text follows the image (ticket #1449): when the checker says the
         # shipped image shows a different element than the scene names, one
@@ -2683,6 +2750,9 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
             "failed": check["failed"] if check else [],
             "reason": check["reason"] if check else "",
             "rounds": rounds_used,
+            # Which round's render shipped; below ``rounds`` when the score
+            # guard kept an earlier, better-scoring round (ticket #1461).
+            "selected_round": selected_round,
         }
         entry = build_entry(source, proposal, answer, date, scene=st,
                             checker=check_summary, review=review)

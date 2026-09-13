@@ -801,6 +801,24 @@ class TraceTest(TempDataMixin, unittest.TestCase):
                                          today=__import__("datetime").date(
                                              2026, 9, 12)), ["Bottle"])
 
+    def test_shipped_check_call_follows_the_score_guard(self):
+        # #1461: the audit must judge the verdict of the round that shipped,
+        # not the last check call of a discarded correction round.
+        calls = [{"stage": "proposal"}, {"stage": "check r0", "failed": [8]},
+                 {"stage": "check r1", "failed": [3]}]
+        guarded = {"calls": calls,
+                   "score_guard": {"shipped": 0, "score": 7,
+                                   "rejected": {"round": 1, "score": 6}}}
+        self.assertEqual(g.shipped_check_call(guarded)["failed"], [8])
+        # no guard record: the last check call describes the shipped image
+        self.assertEqual(g.shipped_check_call({"calls": calls})["failed"], [3])
+        # a guard record whose round has no call row falls back too
+        self.assertEqual(
+            g.shipped_check_call({"calls": calls,
+                                  "score_guard": {"shipped": 2}})["failed"],
+            [3])
+        self.assertIsNone(g.shipped_check_call({"calls": [{"stage": "edit"}]}))
+
 
 # ── Run loop ───────────────────────────────────────────────────────────────
 
@@ -848,6 +866,26 @@ class CheckScoringTest(unittest.TestCase):
         self.assertIsNone(check["ok"])
 
 
+class ScoreGuardTest(unittest.TestCase):
+    """The best-round selection behind the score guard (ticket #1461)."""
+
+    def test_the_highest_score_wins(self):
+        rounds = [{"round": 0, "score": 6}, {"round": 1, "score": 7}]
+        self.assertEqual(g.best_scoring_round(rounds)["round"], 1)
+
+    def test_a_tie_keeps_the_earlier_round(self):
+        rounds = [{"round": 0, "score": 6}, {"round": 1, "score": 6}]
+        self.assertEqual(g.best_scoring_round(rounds)["round"], 0)
+
+    def test_an_unscored_round_cannot_win(self):
+        rounds = [{"round": 0, "score": None}, {"round": 1, "score": 5}]
+        self.assertEqual(g.best_scoring_round(rounds)["round"], 1)
+
+    def test_no_scored_round_selects_nothing(self):
+        self.assertIsNone(g.best_scoring_round([]))
+        self.assertIsNone(g.best_scoring_round([{"round": 0, "score": None}]))
+
+
 class GenerateOneTest(TempDataMixin, unittest.TestCase):
     def run_one(self, *, propose=None, locate=None, check=None, edit=None,
                 click_target=None, reconcile=None, count=1, src=None, **argkw):
@@ -870,6 +908,9 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
     def shipped_bytes(self, scene) -> bytes:
         eid = scene["report"]["scene"]
         return (self.data_dir / "library" / eid / f"{eid}.jpg").read_bytes()
+
+    def out_bytes(self, name: str) -> bytes:
+        return (self._tmp / "out" / name).read_bytes()
 
     def trace_of(self, scene) -> dict:
         return json.loads(g.trace_path(self.data_dir,
@@ -1007,6 +1048,117 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
                           "check r1", "fix-edit r2", "check r2", "coordinates",
                           "click-target 1"])
 
+    # ── #1461: the score guard keeps the best-scoring round ─────────────────
+
+    def test_a_worse_correction_round_ships_the_better_image(self):
+        # #1444 measured the correction round lowering the checker's score on
+        # 3 of 8 scenes (6→4); the newest render shipped anyway. The chain
+        # still runs its rounds, but the best-scoring one wins the scene.
+        edits = {"n": 0}
+
+        def edit(*a, **kw):
+            edits["n"] += 1
+            return img_bytes(color="blue" if edits["n"] > 1 else "red")
+
+        checks = {"n": 0}
+
+        def check(*a, **kw):
+            checks["n"] += 1
+            if checks["n"] == 1:
+                return {"ok": False, "score": 6, "failed": [3],
+                        "reason": "scale off", "fix_prompt": "make it smaller",
+                        "call": call()}
+            return {"ok": False, "score": 4, "failed": [3, 5],
+                    "reason": "tone off", "fix_prompt": "match the tone",
+                    "call": call()}
+
+        scene, failed, totals = self.run_one(edit=edit, check=check)
+        self.assertIsNone(failed)
+        self.assertEqual(edits["n"], 3)    # the chain still spends its rounds
+        self.assertEqual(checks["n"], 3)
+        report = scene["report"]
+        self.assertEqual(report["correction_rounds"], 2)
+        self.assertEqual(report["checker"]["rounds"], 2)
+        self.assertEqual(report["checker"]["score"], 6)   # the better verdict
+        self.assertEqual(report["checker"]["failed"], [3])
+        self.assertEqual(report["checker"]["selected_round"], 0)
+        # the round-0 render is what landed in the library
+        self.assertEqual(self.shipped_bytes(scene),
+                         self.out_bytes(f"{SOURCE_ID}-a1-r0-d1.png"))
+        entry = ag_queue.load_state(self.data_dir)["scenes"][report["scene"]]
+        self.assertEqual(entry["checker"]["score"], 6)
+        self.assertEqual(entry["checker"]["failed"], [3])
+        self.assertEqual(self.trace_of(scene)["score_guard"],
+                         {"shipped": 0, "score": 6,
+                          "rejected": {"round": 2, "score": 4}})
+
+    def test_a_better_correction_round_still_ships_the_newest_image(self):
+        checks = {"n": 0}
+
+        def check(*a, **kw):
+            checks["n"] += 1
+            if checks["n"] == 1:
+                return {"ok": False, "score": 5, "failed": [3],
+                        "reason": "scale off", "fix_prompt": "make it smaller",
+                        "call": call()}
+            return {"ok": True, "score": g.REQUIREMENTS_TOTAL, "failed": [],
+                    "reason": "fixed", "fix_prompt": "", "call": call()}
+
+        scene, failed, _ = self.run_one(check=check)
+        self.assertIsNone(failed)
+        report = scene["report"]
+        self.assertEqual(report["correction_rounds"], 1)
+        self.assertEqual(report["checker"]["score"], g.REQUIREMENTS_TOTAL)
+        self.assertEqual(report["checker"]["selected_round"], 1)
+        self.assertEqual(self.shipped_bytes(scene),
+                         self.out_bytes(f"{SOURCE_ID}-a1-r1-fix.png"))
+        # no guard kicked in, so the trace carries no selection record
+        self.assertNotIn("score_guard", self.trace_of(scene))
+
+    def test_a_tie_keeps_the_earlier_round(self):
+        # Same score, so the older render wins: an extra edit that moved no
+        # requirement is not worth shipping.
+        checks = {"n": 0}
+
+        def check(*a, **kw):
+            checks["n"] += 1
+            if checks["n"] == 1:
+                return {"ok": False, "score": 5, "failed": [3],
+                        "reason": "scale off", "fix_prompt": "make it smaller",
+                        "call": call()}
+            return {"ok": False, "score": 5, "failed": [5],
+                    "reason": "tone off", "fix_prompt": "match the tone",
+                    "call": call()}
+
+        scene, failed, _ = self.run_one(check=check)
+        self.assertIsNone(failed)
+        self.assertEqual(scene["report"]["correction_rounds"], 2)
+        self.assertEqual(scene["report"]["checker"]["selected_round"], 0)
+        self.assertEqual(scene["report"]["checker"]["failed"], [3])
+        self.assertEqual(self.shipped_bytes(scene),
+                         self.out_bytes(f"{SOURCE_ID}-a1-r0-d1.png"))
+
+    def test_an_unscored_round_cannot_beat_a_scored_one(self):
+        # A check call that returns no usable verdict (score None) must not
+        # displace the last image the checker actually scored.
+        checks = {"n": 0}
+
+        def check(*a, **kw):
+            checks["n"] += 1
+            if checks["n"] == 1:
+                return {"ok": False, "score": 6, "failed": [3],
+                        "reason": "scale off", "fix_prompt": "make it smaller",
+                        "call": call()}
+            return {"ok": None, "score": None, "failed": [3],
+                    "reason": "no verdict", "fix_prompt": "", "call": call()}
+
+        scene, failed, _ = self.run_one(check=check)
+        self.assertIsNone(failed)
+        self.assertEqual(scene["report"]["checker"]["score"], 6)
+        self.assertEqual(scene["report"]["checker"]["selected_round"], 0)
+        self.assertEqual(self.shipped_bytes(scene),
+                         self.out_bytes(f"{SOURCE_ID}-a1-r0-d1.png"))
+
     def test_one_clean_round_stops_before_the_second(self):
         edits = {"n": 0}
 
@@ -1070,7 +1222,9 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
         trace = self.trace_of(scene)
         self.assertEqual(trace["corrections"],
                          [{"round": 1, "fix_prompt": "ignored",
-                           "reason": "asks for a different object ('replace')"}])
+                           "reason": "asks for a different object ('replace')",
+                           "review": scene["report"]["review"]}])
+        self.assertIn("different object", trace["corrections"][0]["review"])
 
     def test_presentation_repair_still_drives_a_fix_edit(self):
         # The guard must not block honest repairs: a scale instruction still
@@ -1107,7 +1261,9 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
         self.assertTrue(entry["needs_review"])
         self.assertEqual(self.trace_of(scene)["corrections"],
                          [{"round": 1, "skipped": "unrepairable "
-                           "requirement 8"}])
+                           "requirement 8",
+                           "review": "checker: the element is not clearly "
+                           "impossible for the scene's year"}])
 
     def test_image_mismatch_rewrites_the_text_and_the_slug(self):
         # #1449 rule 4: the checker says the image shows a different element.

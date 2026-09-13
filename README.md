@@ -93,8 +93,9 @@ command walks the category from a persisted cursor. **Generation**
 a four-step model flow: a `deepseek-v4.1-flash` vision call proposes a
 subtle time-travel anomaly for that photo, a `gemini-2.5-flash-image` call
 applies it, another vision call returns the click target, and a final vision
-call checks the scene against the requirements list (one correction edit is
-allowed). Each scene gets a trace sidecar under `data/anomalyguessr/traces/`
+call checks the scene against the requirements list (up to two correction
+edits; the best-scoring round's image ships). Each scene gets a trace sidecar
+under `data/anomalyguessr/traces/`
 with the full prompt and answer of the calls that decided its content.
 
 ## Stack
