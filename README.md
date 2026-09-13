@@ -91,7 +91,7 @@ only (license, quality rating, MIME/format, pixel size); its `top-up`
 command walks the category from a persisted cursor. **Generation**
 (`pipeline/ag_generate.py`) turns one pooled photo into one queued scene with
 a four-step model flow: a `deepseek-v4.1-flash` vision call proposes a
-subtle time-travel anomaly for that photo, a `gemini-3.1-flash-image` call
+subtle time-travel anomaly for that photo, a `gemini-2.5-flash-image` call
 applies it, another vision call returns the click target, and a final vision
 call checks the scene against the requirements list (one correction edit is
 allowed). Each scene gets a trace sidecar under `data/anomalyguessr/traces/`

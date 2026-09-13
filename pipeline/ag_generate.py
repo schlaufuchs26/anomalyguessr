@@ -22,7 +22,8 @@ Per scene:
    impossibility reason and references. `ag_catalog.INSPIRATION` supplies
    few-shot shape examples; recently used labels are passed in to avoid
    repeats.
-2. **Apply** (`image_edit`): one `google/gemini-3.1-flash-image` call that
+2. **Apply** (`image_edit`): one `google/gemini-2.5-flash-image` call that (#1447:
+   measured 42% cheaper and 24% faster than gemini-3.1-flash-image on six sources)
    adds the anomaly. The generation prompt keeps the hard constraints (one
    dominant placement instruction, ONE numeric scale cap with a
    same-distance anchor, keep everything else, tone match, grain, no glow)
@@ -169,7 +170,7 @@ import ag_verify  # noqa: E402
 # The three text/vision calls (proposal, coordinates, check) share one cheap
 # multimodal model; the image edit is the expensive call.
 MODEL = "deepseek/deepseek-v4.1-flash"
-IMAGE_MODEL = "google/gemini-3.1-flash-image"
+IMAGE_MODEL = "google/gemini-2.5-flash-image"
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 DEFAULT_IMAGE_SIZE = "1K"
 DEFAULT_MODEL_MAX_TOKENS = 900
