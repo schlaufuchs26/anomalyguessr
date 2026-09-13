@@ -7,6 +7,8 @@ import {
   type FeedbackFile,
   imageUrl,
   type Moderation,
+  SCENE_HANDLE_RE,
+  SCENE_ID_RE,
   type SceneEntry,
   type StateFile,
 } from "./types.ts";
@@ -14,6 +16,9 @@ import {
 /** API representation of one queue scene (matches the old TDScene shape). */
 export interface ApiScene {
   id: string;
+  /** Short, speakable handle ("AG-137", ticket #1413); absent on legacy
+   *  entries the backfill has not reached yet. */
+  shortId?: string;
   title: string;
   place: string;
   year: string;
@@ -57,6 +62,10 @@ export interface SceneList {
 /** A manifest scene as the game's manifest.ts parses it (v2 shape). */
 export interface ManifestScene {
   id: string;
+  /** Short handle (ticket #1413); the game ignores it, the dev surfaces show
+   *  it. Never written into the public Pages manifest (ag_queue.write_manifest
+   *  strips it). */
+  shortId?: string;
   title: string;
   place: string;
   year: string;
@@ -109,7 +118,7 @@ export function listScenes(
 ): SceneList {
   const scenes: ApiScene[] = [];
   for (const e of Object.values(st.scenes)) {
-    if (!/^[a-z0-9][a-z0-9-]*$/.test(e.id)) continue;
+    if (!SCENE_ID_RE.test(e.id)) continue;
     scenes.push(sceneToApi(e, fb, e.id, hasAudit, hasTrace));
   }
   scenes.sort(
@@ -181,9 +190,36 @@ export function sceneToApi(
     hasTrace: hasTrace(id),
     images,
   };
+  if (e.shortId !== undefined) out.shortId = e.shortId;
   if (e.source !== undefined) out.source = e.source;
   if (rejectedAt !== undefined) out.rejectedAt = rejectedAt;
   return out;
+}
+
+/**
+ * Resolve a user-facing scene reference: the canonical long id, or the short
+ * handle ("AG-137") a human reads off a gallery card (ticket #1413). Returns
+ * the scene's id + entry, or null when the reference names nothing.
+ *
+ * The long id is tried first and unchanged: it stays the canonical key for
+ * URLs, filenames and trace sidecars. Handle matching is case-insensitive so
+ * a hand-typed "ag-137" resolves.
+ */
+export function findScene(
+  st: StateFile,
+  handle: string,
+): { id: string; entry: SceneEntry } | null {
+  const h = (handle ?? "").trim();
+  if (SCENE_ID_RE.test(h)) {
+    const e = st.scenes[h];
+    if (e !== undefined) return { id: h, entry: e };
+  }
+  if (!SCENE_HANDLE_RE.test(h)) return null;
+  const wanted = h.toUpperCase();
+  for (const e of Object.values(st.scenes)) {
+    if ((e.shortId ?? "").toUpperCase() === wanted) return { id: e.id, entry: e };
+  }
+  return null;
 }
 
 /** The audit crop path for a scene, for existence probes + serving. */
@@ -216,6 +252,7 @@ export function libraryImagePath(
 export function renderManifestScene(e: SceneEntry): ManifestScene {
   return {
     id: e.id,
+    ...(e.shortId !== undefined ? { shortId: e.shortId } : {}),
     title: e.title,
     place: e.place,
     year: e.year,
@@ -270,7 +307,7 @@ export function manifestLive(st: StateFile, fb: FeedbackFile): ManifestScene[] {
   const live: SceneEntry[] = [];
   if (st.last_shipped) {
     for (const e of Object.values(st.scenes)) {
-      if (!/^[a-z0-9][a-z0-9-]*$/.test(e.id)) continue;
+      if (!SCENE_ID_RE.test(e.id)) continue;
       if ((e.shown ?? "") !== st.last_shipped) continue;
       if (e.id in fb.rejected) continue;
       live.push(e);
@@ -349,7 +386,7 @@ export function manifestScenes(
     unmoderated: [],
   };
   for (const e of Object.values(st.scenes)) {
-    if (!/^[a-z0-9][a-z0-9-]*$/.test(e.id)) continue;
+    if (!SCENE_ID_RE.test(e.id)) continue;
     if (e.id in fb.rejected) continue;
     if (e.source == null) continue; // legacy entry: cannot be a v2 scene
     const accepted = e.id in fb.accepted;

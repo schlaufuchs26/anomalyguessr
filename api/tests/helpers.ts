@@ -137,6 +137,7 @@ export async function makeEnv(
     scenes: {
       "alpha-market": {
         ...scene("alpha-market", "2026-09-07", "2026-09-07"),
+        shortId: "AG-1",
         title: "Old Market",
         place: "Alpha",
         credit: "PD",
@@ -148,6 +149,7 @@ export async function makeEnv(
       },
       "beta-street": {
         ...scene("beta-street", "2026-09-08", null),
+        shortId: "AG-2",
         title: "Beta Street",
         place: "Beta",
         anomaly: "Digital watch",

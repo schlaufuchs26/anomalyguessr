@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { handle } from "../src/routes.ts";
-import type { Manifest, SceneList } from "../src/scenes.ts";
+import type { ApiScene, Manifest, SceneList } from "../src/scenes.ts";
 import type { Moderation } from "../src/types.ts";
 import { makeEnv, scene, writeState } from "./helpers.ts";
 
@@ -56,6 +56,8 @@ describe("manifest", () => {
       "/anomalyguessr/api/scenes/beta-street/original",
     );
     expect(beta?.source).toBeTruthy();
+    // #1413: the served manifest carries the short handle too
+    expect(beta?.shortId).toBe("AG-2");
   });
 
   test("scopes restrict groups + invalid scope 400", async () => {
@@ -129,6 +131,8 @@ describe("scenes list", () => {
     });
     const alpha = body.scenes.find((s) => s.id === "alpha-market");
     expect(alpha?.state).toBe("shown");
+    // #1413: the list every dev surface reads carries the short handle
+    expect(alpha?.shortId).toBe("AG-1");
     expect(alpha?.images.edited).toBe(
       "/anomalyguessr/api/scenes/alpha-market/image",
     );
@@ -194,6 +198,65 @@ describe("generation traces", () => {
       "traces/Alpha_Market", // fails the slug rule
     ]) {
       const res = await handle(env, "GET", rest, req("GET", apiUrl(rest)));
+      expect(res.status).toBe(404);
+    }
+  });
+});
+
+describe("short scene handles (#1413)", () => {
+  test("the trace endpoint resolves a handle to the canonical sidecar", async () => {
+    const { env } = await makeEnv();
+    for (const ref of ["AG-1", "ag-1"]) {
+      const res = await handle(env, "GET", `traces/${ref}`, req("GET", "x"));
+      expect(res.status).toBe(200);
+      const body = await json<{ calls: unknown[] }>(res);
+      expect(body.calls.length).toBe(2);
+    }
+  });
+
+  test("GET /scenes/{handle} returns the scene with its handle", async () => {
+    const { env } = await makeEnv();
+    const byHandle = await handle(env, "GET", "scenes/AG-2", req("GET", "x"));
+    expect(byHandle.status).toBe(200);
+    const beta = await json<ApiScene>(byHandle);
+    expect(beta.id).toBe("beta-street");
+    expect(beta.shortId).toBe("AG-2");
+    expect(beta.hasTrace).toBe(false);
+    // the canonical long id keeps working unchanged
+    const byId = await handle(env, "GET", "scenes/beta-street", req("GET", "x"));
+    expect((await json<ApiScene>(byId)).id).toBe("beta-street");
+  });
+
+  test("moderation via the handle is stored under the canonical id", async () => {
+    const { env, dir } = await makeEnv();
+    const res = await handle(
+      env,
+      "POST",
+      "scenes/AG-2/moderate",
+      req("POST", "x", { action: "accept" }),
+    );
+    expect(res.status).toBe(200);
+    expect(await json<ModerateResponse>(res)).toEqual({
+      id: "beta-street",
+      moderation: "accepted",
+    });
+    const fb = JSON.parse(
+      await readFile(path.join(dir, "feedback.json"), "utf8"),
+    ) as { accepted: Record<string, string> };
+    expect(Object.keys(fb.accepted)).toEqual(["beta-street"]);
+  });
+
+  test("an unknown handle fails cleanly everywhere", async () => {
+    const { env } = await makeEnv();
+    const cases = [
+      ["GET", "traces/AG-99"],
+      ["GET", "scenes/AG-99"],
+      ["GET", "scenes/AG-99/image"],
+      ["POST", "scenes/AG-99/moderate"],
+      ["POST", "scenes/AG-99/reject"],
+    ] as const;
+    for (const [method, rest] of cases) {
+      const res = await handle(env, method, rest, req(method, "x"));
       expect(res.status).toBe(404);
     }
   });

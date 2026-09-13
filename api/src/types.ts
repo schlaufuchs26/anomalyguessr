@@ -14,6 +14,12 @@
 /** One queue scene as stored in state.json (a manifest scene minus image paths, plus added/shown). */
 export interface SceneEntry {
   id: string;
+  /**
+   * Short, speakable handle ("AG-137", ticket #1413): assigned by the
+   * pipeline's ag_queue.py at queue-add time and never renumbered. The long
+   * `id` stays the canonical key for files, URLs and trace sidecars.
+   */
+  shortId?: string;
   title: string;
   place: string;
   year: string;
@@ -46,6 +52,11 @@ export interface StateFile {
    * manifestLive falls back to an (added, id) order then.
    */
   last_shipped_ids?: string[];
+  /**
+   * High-water mark of the short-handle serials (ticket #1413), written by
+   * ag_queue.py; the API only reads it.
+   */
+  next_short?: number;
   scenes: Record<string, SceneEntry>;
 }
 
@@ -68,6 +79,11 @@ export type Moderation = "accepted" | "rejected" | "unmoderated";
 
 /** The scene-id slug rule (same as ag_queue.py + the old Go handler). */
 export const SCENE_ID_RE = /^[a-z0-9][a-z0-9-]*$/;
+/**
+ * The short-handle rule (ticket #1413), mirroring ag_queue.SHORT_ID_RE.
+ * Case-insensitive: a hand-typed "ag-137" resolves to the same scene.
+ */
+export const SCENE_HANDLE_RE = /^AG-\d{1,6}$/i;
 export const MAX_COMMENT = 2000;
 export const AUDIT_CROP = "hotspot-crop.png";
 

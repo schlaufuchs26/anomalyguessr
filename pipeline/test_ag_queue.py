@@ -164,6 +164,17 @@ class ValidateTest(unittest.TestCase):
         self.assertTrue(any("timestamp" in x for x in errs))
         self.assertTrue(any("year" in x for x in errs))
 
+    def test_a_short_handle_is_optional_but_well_formed(self):
+        # Ticket #1413: the generator does not assign the handle (state_add
+        # does), so an entry without one stays valid; a malformed one does
+        # not.
+        e = valid_entry()
+        self.assertEqual(q.validate_entry(e), [])
+        e["shortId"] = "AG-137"
+        self.assertEqual(q.validate_entry(e), [])
+        e["shortId"] = "137"
+        self.assertTrue(any("shortId" in x for x in q.validate_entry(e)))
+
 
 class CaptionQualityTest(unittest.TestCase):
     """The caption guard (ticket #1402): no raw metadata in the scene text."""
@@ -258,6 +269,18 @@ class WriteManifestTest(unittest.TestCase):
         scenes = json.loads(
             (repo / "scenes" / "manifest.json").read_text())["scenes"]
         self.assertNotIn("hints", scenes[0])
+
+    def test_the_short_handle_does_not_leak_into_the_manifest(self):
+        # Ticket #1413: the handle is an internal curation alias; the public
+        # Pages manifest (this one) stays without it.
+        tmp = Path(tempfile.mkdtemp(prefix="agq_manifest_"))
+        repo = make_repo(tmp)
+        stored = valid_entry("stored")
+        stored["shortId"] = "AG-7"
+        q.write_manifest(repo, "2026-09-12", [stored])
+        scenes = json.loads(
+            (repo / "scenes" / "manifest.json").read_text())["scenes"]
+        self.assertNotIn("shortId", scenes[0])
 
 
 class ChooseDayTest(unittest.TestCase):
@@ -1131,6 +1154,95 @@ class RecentAnomaliesTest(unittest.TestCase):
         self.assertLess(out.index("Drink can"),
                         out.index("Plastic bottle"))
         self.assertIn("a3: Time traveler: man with modern sneakers", out)
+
+
+class ShortIdTest(unittest.TestCase):
+    """Short scene handles (ticket #1413): a stable, speakable serial."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="agq_short_"))
+        self.data = self.tmp / "data"
+        self.ed = self.tmp / "ed.jpg"
+        self.orig = self.tmp / "orig.jpg"
+        make_img(self.ed)
+        make_img(self.orig)
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _add(self, eid, added="2026-09-08"):
+        return q.state_add(self.data, valid_entry(eid), self.ed, self.orig,
+                           added)
+
+    def _raw_state(self, *pairs):
+        """A state with bare scene records (id, added), for the migration."""
+        return {"version": 1, "last_shipped": None,
+                "scenes": {eid: {"id": eid, "added": added}
+                           for eid, added in pairs}}
+
+    def test_add_stores_a_handle_and_advances_the_high_water_mark(self):
+        first = self._add("s1")
+        second = self._add("s2")
+        self.assertEqual(first["shortId"], "AG-1")
+        self.assertEqual(second["shortId"], "AG-2")
+        state = q.load_state(self.data)
+        self.assertEqual(state["next_short"], 3)
+
+    def test_handles_are_unique_and_stable_across_runs(self):
+        self._add("s1")
+        self._add("s2")
+        state = q.load_state(self.data)
+        # Re-running the assignment (what a deploy does) changes nothing.
+        before = {eid: s["shortId"] for eid, s in state["scenes"].items()}
+        res = q.assign_short_ids(state)
+        self.assertEqual(res["assigned"], 0)
+        self.assertEqual(res["duplicates"], [])
+        after = {eid: s["shortId"] for eid, s in state["scenes"].items()}
+        self.assertEqual(before, after)
+
+    def test_backfill_numbers_the_existing_scenes_oldest_first(self):
+        # The deterministic order is (added, id): two scenes share a date and
+        # the id breaks the tie, so the mapping is reproducible.
+        state = self._raw_state(("b", "2026-09-01"), ("a", "2026-09-01"),
+                                ("c", "2026-08-30"))
+        res = q.assign_short_ids(state)
+        self.assertEqual(res["assigned"], 3)
+        self.assertEqual(state["scenes"]["c"]["shortId"], "AG-1")
+        self.assertEqual(state["scenes"]["a"]["shortId"], "AG-2")
+        self.assertEqual(state["scenes"]["b"]["shortId"], "AG-3")
+        self.assertEqual(state["next_short"], 4)
+
+    def test_a_removed_scene_does_not_release_its_number(self):
+        st1 = self._add("s1")
+        st2 = self._add("s2")
+        q.remove_scenes(self.data, [st1["id"]], drop_images=False)
+        third = self._add("s3")
+        # s1's AG-1 stays retired: the new scene continues the serial.
+        self.assertEqual(third["shortId"], "AG-3")
+        self.assertNotEqual(third["shortId"], st2["shortId"])
+
+    def test_the_counter_self_heals_upward(self):
+        state = self._raw_state(("a", "2026-09-01"))
+        state["scenes"]["a"]["shortId"] = "AG-9"
+        state["next_short"] = 2  # stale/damaged counter
+        res = q.assign_short_ids(state)
+        self.assertEqual(res["assigned"], 0)
+        self.assertEqual(res["next"], 10)
+
+    def test_find_resolves_the_long_id_and_the_short_handle(self):
+        scene = self._add("s1")
+        state = q.load_state(self.data)
+        self.assertEqual(q.find_scene(state, "s1")["id"], "s1")
+        self.assertEqual(q.find_scene(state, scene["shortId"])["id"], "s1")
+        # A hand-typed lower-case handle resolves too.
+        self.assertEqual(q.find_scene(state, "ag-1")["id"], "s1")
+
+    def test_find_returns_none_for_an_unknown_handle(self):
+        self._add("s1")
+        state = q.load_state(self.data)
+        self.assertIsNone(q.find_scene(state, "AG-99"))
+        self.assertIsNone(q.find_scene(state, "nope"))
+        self.assertIsNone(q.find_scene(state, ""))
 
 
 if __name__ == "__main__":

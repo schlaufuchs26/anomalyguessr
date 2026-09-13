@@ -70,8 +70,24 @@ SOURCE_KEYS = (
 ENTRY_KEYS = (
     "id", "title", "place", "year", "credit", "sourceUrl", "source",
     "anomaly", "family", "explanation", "references", "description",
-    "answer",
+    "answer", "shortId",
 )
+
+# ── Short scene handles (ticket #1413) ─────────────────────────────────────
+#
+# A scene's canonical id is long (source slug + hash + anomaly label, e.g.
+# "commons-tripoli-boats-...-01bd65-modern-outboard-motor"): right for
+# filenames, URLs and trace sidecars, useless in conversation. Each scene
+# additionally carries a short handle "AG-<n>", a monotonic serial that is
+# easy to say ("look at AG-137") and sorts naturally. The serial is atomic:
+# the number comes from the state's ``next_short`` high-water mark, never
+# from a scene's position, so removing a scene neither renumbers its
+# neighbours nor frees its number for reuse. The one-time backfill numbers
+# the existing scenes oldest-first ((added, id), the queue's canonical
+# order), which makes the mapping deterministic and reproducible.
+SHORT_ID_PREFIX = "AG-"
+SHORT_ID_RE = re.compile(r"^AG-(\d{1,6})$")
+SHORT_ID_MAX = 999999
 
 # ── Caption text quality (ticket #1402) ────────────────────────────────────
 #
@@ -211,6 +227,89 @@ def _is_record(v) -> bool:
     return isinstance(v, dict)
 
 
+def short_id_number(value) -> int | None:
+    """The serial behind a handle ("AG-137" -> 137); None for anything else.
+
+    Accepts lower case ("ag-137") so a hand-typed handle resolves.
+    """
+    if not isinstance(value, str):
+        return None
+    m = SHORT_ID_RE.match(value.strip().upper())
+    return int(m.group(1)) if m else None
+
+
+def short_id_handle(n: int) -> str:
+    return f"{SHORT_ID_PREFIX}{n}"
+
+
+def next_short_number(state: dict) -> int:
+    """The next free serial: the stored high-water mark, at least one past
+    every handle in use (a damaged counter self-heals upward)."""
+    high = state.get("next_short")
+    n = high if isinstance(high, int) and high >= 1 else 1
+    for scene in state["scenes"].values():
+        used = short_id_number(scene.get("shortId"))
+        if used is not None and used >= n:
+            n = used + 1
+    return n
+
+
+def short_id_duplicates(state: dict) -> list:
+    """Handles used by more than one scene; [] when the mapping is unique."""
+    seen, dups = set(), set()
+    for scene in state["scenes"].values():
+        handle = scene.get("shortId")
+        if not isinstance(handle, str) or not handle.strip():
+            continue
+        if handle in seen:
+            dups.add(handle)
+        seen.add(handle)
+    return sorted(dups)
+
+
+def assign_short_ids(state: dict) -> dict:
+    """Fill in a short handle on every scene that lacks one (ticket #1413).
+
+    Missing handles are assigned oldest-first ((added, id)), the queue's
+    canonical order, so the one-time backfill is deterministic and
+    reproducible; new scenes take the next serial after the high-water mark.
+    Idempotent: a scene that already has a handle is never renumbered.
+
+    Returns ``{"assigned": n, "next": N, "duplicates": [...]}``. Duplicates
+    are reported, never silently accepted (two scenes sharing a handle would
+    make the handle ambiguous).
+    """
+    nxt = next_short_number(state)
+    missing = [s for s in state["scenes"].values()
+               if short_id_number(s.get("shortId")) is None]
+    missing.sort(key=lambda s: (str(s.get("added") or ""),
+                                str(s.get("id") or "")))
+    for scene in missing:
+        scene["shortId"] = short_id_handle(nxt)
+        nxt += 1
+    state["next_short"] = nxt
+    return {"assigned": len(missing), "next": nxt,
+            "duplicates": short_id_duplicates(state)}
+
+
+def find_scene(state: dict, handle: str) -> dict | None:
+    """The scene a long id or a short handle names; None when unknown.
+
+    The long id stays canonical (filenames, URLs, trace sidecars); the short
+    handle is the human-facing alias (ticket #1413). Case-insensitive.
+    """
+    h = (handle or "").strip()
+    if h in state["scenes"]:
+        return state["scenes"][h]
+    h = h.upper()
+    if short_id_number(h) is None:
+        return None
+    for scene in state["scenes"].values():
+        if str(scene.get("shortId") or "").upper() == h:
+            return scene
+    return None
+
+
 def validate_entry(e) -> list:
     """Return a list of human-readable errors (empty = valid)."""
     errs = []
@@ -220,6 +319,11 @@ def validate_entry(e) -> list:
         r"^[a-z0-9][a-z0-9-]*$", e["id"],
     ):
         errs.append("id must be a lowercase slug (a-z0-9-)")
+    # The short handle is assigned by state_add, not by the generator, so it
+    # is optional here; a present one must still be well formed (ticket
+    # #1413).
+    if e.get("shortId") is not None and short_id_number(e["shortId"]) is None:
+        errs.append('shortId must look like "AG-137" when present')
     for k in ("title", "year", "credit", "sourceUrl", "anomaly",
               "description"):
         if not isinstance(e.get(k), str) or not e[k].strip():
@@ -363,6 +467,13 @@ def state_add(data_dir: Path, entry: dict, edited: Path, original: Path,
     scene["added"] = date
     scene["shown"] = None
     state["scenes"][eid] = scene
+    # Every stored scene carries a short handle (ticket #1413); assigning the
+    # whole state here also numbers entries that predate the field, so the
+    # first add after a deploy doubles as the backfill.
+    assigned = assign_short_ids(state)
+    if assigned["duplicates"]:
+        raise ValueError("duplicate short ids: "
+                         + ", ".join(assigned["duplicates"]))
     save_state(data_dir, state)
     return scene
 
@@ -403,6 +514,7 @@ def state_init(data_dir: Path, repo: Path, date: str) -> int:
         scene["shown"] = date
         state["scenes"][eid] = scene
         added += 1
+    assign_short_ids(state)  # legacy scenes get their handle too (#1413)
     save_state(data_dir, state)
     return added
 
@@ -614,6 +726,10 @@ def write_manifest(repo: Path, date: str, scenes: list) -> None:
         # Hints were removed in ticket #1407; stored scenes may still carry
         # the field, and the manifest must not.
         out.pop("hints", None)
+        # The short handle (ticket #1413) is an internal curation alias the
+        # gallery reads from the API list. The public Pages manifest does not
+        # need it, so it is stripped from the shipped set.
+        out.pop("shortId", None)
         out_scenes.append(out)
     manifest = {"version": 2, "date": date, "scenes": out_scenes}
     scenes_dir = repo / "scenes"
@@ -813,7 +929,8 @@ def cmd_status(data_dir: Path) -> int:
         print("recent anomalies (newest first):")
         for s in rec:
             status = "shown" if s.get("shown") else "unshown"
-            print(f"  {s.get('added', '?')} {s['id']}: "
+            handle = s.get("shortId") or "AG-?"
+            print(f"  {handle} {s.get('added', '?')} {s['id']}: "
                   f"{s.get('anomaly', '?')} ({status})")
     return 0
 
@@ -824,6 +941,21 @@ def cmd_added_today(data_dir: Path, date: str) -> int:
              if s.get("added") == date]
     print("\n".join(today))
     print(f"added on {date}: {len(today)}")
+    return 0
+
+
+def cmd_assign_short_ids(data_dir: Path) -> int:
+    """One-time backfill (ticket #1413): number scenes, oldest added first."""
+    state = load_state(data_dir)
+    res = assign_short_ids(state)
+    if res["assigned"]:
+        save_state(data_dir, state)
+    print(f"assigned {res['assigned']} short id(s); "
+          f"next {SHORT_ID_PREFIX}{res['next']}")
+    if res["duplicates"]:
+        print("duplicate handles: " + ", ".join(res["duplicates"]),
+              file=sys.stderr)
+        return 1
     return 0
 
 
@@ -859,6 +991,10 @@ def main(argv: list) -> int:
     sub.add_parser("backfill-family",
                    help="one-time #1232 migration: fill the family field on "
                         "existing scene entries from the catalog")
+
+    sub.add_parser("assign-short-ids",
+                   help="one-time #1413 migration: give every scene an "
+                        "AG-<n> handle (existing scenes oldest added first)")
 
     p_rm = sub.add_parser("remove",
                           help="delete scenes from the state (repair path, "
@@ -908,6 +1044,8 @@ def main(argv: list) -> int:
                       + ", ".join(res["unknown"]), file=sys.stderr)
                 return 1
             return 0
+        if args.cmd == "assign-short-ids":
+            return cmd_assign_short_ids(data_dir)
         if args.cmd == "ship":
             ids = [i.strip() for i in args.ids.split(",") if i.strip()] \
                 if args.ids else None

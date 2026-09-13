@@ -8,16 +8,18 @@ import {
 } from "./generate.ts";
 import {
   auditCropPath,
+  findScene,
   isScope,
   libraryImagePath,
   listScenes,
   liveDate,
   localDate,
   manifestScenes,
+  sceneToApi,
   tracePath,
 } from "./scenes.ts";
-import { type Store, sceneExists } from "./store.ts";
-import { MAX_COMMENT, type Moderation, SCENE_ID_RE } from "./types.ts";
+import type { Store } from "./store.ts";
+import { MAX_COMMENT, type Moderation } from "./types.ts";
 
 export interface Env {
   store: Store;
@@ -59,10 +61,17 @@ const IMAGE_TYPES: Record<"image" | "original" | "audit", string> = {
   audit: "image/png",
 };
 
-/** True when `id` is a safe slug naming a scene that exists in state.json. */
-async function knownScene(store: Store, id: string): Promise<boolean> {
-  if (!SCENE_ID_RE.test(id)) return false;
-  return sceneExists(await store.state(), id);
+/**
+ * The canonical (long) id a scene reference names, or null when the reference
+ * names nothing. Accepts the canonical id and the short handle ("AG-137",
+ * ticket #1413), so every scene route resolves what a human typed.
+ */
+async function resolveSceneId(
+  store: Store,
+  ref: string,
+): Promise<string | null> {
+  const hit = findScene(await store.state(), ref);
+  return hit === null ? null : hit.id;
 }
 
 /**
@@ -161,10 +170,12 @@ export async function handle(
 
   // GET /traces/{id}: the scene's generation trace sidecar (ticket #1373).
   // The trace is publishable text (no keys, no host paths) and served only
-  // by file existence; the list payload stays small via hasTrace.
+  // by file existence; the list payload stays small via hasTrace. `id` may
+  // be the short handle (ticket #1413): the sidecar is keyed by the
+  // canonical long id, so the handle resolves to it first.
   if (method === "GET" && segs.length === 2 && segs[0] === "traces") {
-    const id = segs[1] ?? "";
-    if (!SCENE_ID_RE.test(id)) return notFound();
+    const id = await resolveSceneId(store, segs[1] ?? "");
+    if (id === null) return notFound();
     let raw: string;
     try {
       raw = await readFile(tracePath(dataDir, id), "utf8");
@@ -178,14 +189,32 @@ export async function handle(
     }
   }
 
+  // GET /scenes/{id}: one scene by long id or short handle (ticket #1413),
+  // the API side of the lookup. Same shape as one entry of GET /scenes.
+  if (method === "GET" && segs.length === 2 && segs[0] === "scenes") {
+    const st = await store.state();
+    const hit = findScene(st, segs[1] ?? "");
+    if (hit === null) return notFound();
+    const fb = await store.feedback();
+    return json(
+      sceneToApi(
+        hit.entry,
+        fb,
+        hit.id,
+        (sid) => pathExists(auditCropPath(dataDir, sid)),
+        (sid) => pathExists(tracePath(dataDir, sid)),
+      ),
+    );
+  }
+
   // GET /scenes/{id}/image|original|audit
   if (method === "GET" && segs.length === 3 && segs[0] === "scenes") {
-    const id = segs[1] ?? "";
     const kind = segs[2] ?? "";
     if (kind !== "image" && kind !== "original" && kind !== "audit") {
       return notFound();
     }
-    if (!(await knownScene(store, id))) return notFound();
+    const id = await resolveSceneId(store, segs[1] ?? "");
+    if (id === null) return notFound();
     let p: string;
     if (kind === "audit") p = auditCropPath(dataDir, id);
     else p = libraryImagePath(dataDir, id, kind);
@@ -207,8 +236,8 @@ export async function handle(
     segs[0] === "scenes" &&
     segs[2] === "moderate"
   ) {
-    const id = segs[1] ?? "";
-    if (!(await knownScene(store, id))) return notFound();
+    const id = await resolveSceneId(store, segs[1] ?? "");
+    if (id === null) return notFound();
     let body: { action?: string; feedback?: string };
     try {
       body = (await req.json()) as { action?: string; feedback?: string };
@@ -250,8 +279,8 @@ export async function handle(
     segs[0] === "scenes" &&
     segs[2] === "comments"
   ) {
-    const id = segs[1] ?? "";
-    if (!(await knownScene(store, id))) return notFound();
+    const id = await resolveSceneId(store, segs[1] ?? "");
+    if (id === null) return notFound();
     let body: { text?: string };
     try {
       body = (await req.json()) as { text?: string };
@@ -274,10 +303,10 @@ export async function handle(
 
   // POST /scenes/{id}/reject | /restore (and the moderate endpoint above)
   if (method === "POST" && segs.length === 3 && segs[0] === "scenes") {
-    const id = segs[1] ?? "";
     const action = segs[2] ?? "";
     if (action !== "reject" && action !== "restore") return notFound();
-    if (!(await knownScene(store, id))) return notFound();
+    const id = await resolveSceneId(store, segs[1] ?? "");
+    if (id === null) return notFound();
     const fb = await store.feedback();
     if (action === "reject") {
       if (!(id in fb.rejected)) fb.rejected[id] = new Date().toISOString();
