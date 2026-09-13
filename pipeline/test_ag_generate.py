@@ -47,13 +47,26 @@ def img_bytes(w=1200, h=800, color="red") -> bytes:
 
 
 def source(sid=SOURCE_ID, title="Busy market street, 1905", place="",
-           date="1905-01-01", image=None, width=1200, height=800):
+           date="1905-01-01", image=None, width=1200, height=800,
+           year=None, year_field="catalog"):
+    """A pooled source with a catalogue year (ticket #1430).
+
+    ``date`` still fills the Commons-shaped fields the entry carries; the
+    year itself comes from the explicit provenance fields, like every pool
+    entry since #1430.
+    """
+    if year is None:
+        year = int(date[:4]) if date[:4].isdigit() else None
     return {
         "id": sid,
         "repository": "Wikimedia Commons",
         "fileUrl": f"https://commons.wikimedia.org/wiki/File:{sid}.jpg",
         "originalTitle": title,
         "date": date,
+        "year": year,
+        "year_field": year_field if year is not None else "",
+        "year_source": "dc:date",
+        "year_raw": date[:4],
         "place": place,
         "license": "CC BY-SA 4.0",
         "licenseUrl": "",
@@ -71,7 +84,7 @@ def source(sid=SOURCE_ID, title="Busy market street, 1905", place="",
 def proposal(**kw):
     p = {
         "anomaly": "Plastic bottle (clear PET)", "kind": "later-era",
-        "exists_from": "1973", "apparent_era": "1905", "figure": False,
+        "exists_from": "1973", "figure": False,
         "placement": "on the ground at the bottom edge, half hidden behind "
                      "a crate",
         "explanation": "PET bottles only came into common use in the 1970s.",
@@ -214,18 +227,23 @@ class PromptTests(unittest.TestCase):
         self.assertIn("plastic bottle in a 1900", text.lower())
         self.assertIn("e-scooter in a 2017", text.lower())
 
-    def test_proposal_prompt_without_an_anchor_asks_for_the_era(self):
-        s = source(date="")
-        s["raw"].pop("dateTimeOriginal")
-        self.assertIn("apparent era yourself",
-                      g.proposal_prompt(s, []))
+    def test_proposal_prompt_states_the_year_and_forbids_era_judgement(self):
+        # #1430: the year is a fact from the catalogue record, never the
+        # model's read of the photo ("Judge its apparent era yourself" is the
+        # line that made the catalogue year decoration).
+        text = g.proposal_prompt(source(date="1905-01-01"), [])
+        self.assertIn("taken in 1905", text)
+        self.assertIn("catalogue date (dc:date: 1905)", text)
+        self.assertIn("Do not judge or restate the era", text)
+        self.assertNotIn("apparent_era", text)
+        self.assertNotIn("apparent era", text)
 
     def test_check_prompt_carries_the_scene_year_and_the_test(self):
         scene = {"year": 1905, "origin": "metadata", "display": "1905",
                  "apparent": 1905, "disagreement": False, "field": "date"}
         text = g.check_prompt(proposal(), scene)
         self.assertIn("1905", text)
-        self.assertIn("source metadata", text)
+        self.assertIn("catalogue year", text)
         self.assertIn("Impossible at the scene's time", text)
         self.assertIn("introduction date", text)
         # An unknown year must not make the prompt claim one.
@@ -369,13 +387,6 @@ class EntryTest(unittest.TestCase):
     def test_scene_id_shape(self):
         eid = g.scene_id(SOURCE_ID, "Plastic bottle (clear PET)")
         self.assertTrue(eid.endswith("-abc123-plastic-bottle-clear-pet"))
-
-    def test_scene_year_extracts_a_year(self):
-        self.assertEqual(g.scene_year({"apparent_era": "c. 1905"}), "1905")
-        self.assertEqual(g.scene_year({"apparent_era": "modern (2020s)"}),
-                         "2020")
-        self.assertEqual(g.scene_year({"apparent_era": "modern"}), "modern")
-        self.assertEqual(g.scene_year({"apparent_era": ""}), "unknown")
 
     def test_scene_place_is_empty_when_the_keys_carry_none(self):
         self.assertEqual(g.scene_place({"place": "Berlin"}), "Berlin")
@@ -726,20 +737,20 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
             g.pending_trace_path(self.data_dir,
                                  data["source"]).exists())
 
-    def test_scene_time_anchor_lands_in_the_trace(self):
+    def test_scene_time_catalogue_provenance_lands_in_the_trace(self):
         scene, _, _ = self.run_one(candidates=1)
         data = self.trace_of(scene)
         self.assertEqual(data["scene_time"]["year"], 1905)
-        self.assertEqual(data["scene_time"]["origin"], "metadata")
-        self.assertEqual(data["scene_time"]["field"], "exif")
+        self.assertEqual(data["scene_time"]["origin"], "catalog")
+        self.assertEqual(data["scene_time"]["field"], "catalog")
+        self.assertEqual(data["scene_time"]["source"], "dc:date")
+        self.assertEqual(data["scene_time"]["raw"], "1905")
         self.assertEqual(scene["report"]["scene_time"]["year"], 1905)
 
-    def test_an_anchor_that_contradicts_the_photo_is_refused(self):
-        # #1417: the model reads the photo as 1905 but the metadata anchor is
-        # 2017. No Commons metadata can settle which is right (#1418), so the
-        # year, and with it the impossibility claim, cannot be established:
-        # the scene must not ship, the image calls are skipped, and the source
-        # is consumed so it is not drawn again every day.
+    def test_a_source_without_a_catalogue_year_is_refused(self):
+        # #1430: there is no model fallback for a missing year. The scene must
+        # not ship, the model calls are skipped, and the source is consumed so
+        # it is not drawn again every day.
         edits = []
 
         def edit(*a, **kw):
@@ -747,13 +758,12 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
             return img_bytes()
 
         scene, failed, totals = self.run_one(
-            src=source(date="2017-06-14"),
-            propose=stub_propose(proposal(apparent_era="1905")),
+            src=source(date=""), propose=stub_propose(proposal()),
             edit=edit, candidates=1)
         self.assertIsNone(scene)
-        self.assertEqual(failed["stage"], "anchor")
-        self.assertIn("cannot be established", failed["reason"])
-        self.assertEqual(failed["scene_time"]["year"], 2017)
+        self.assertEqual(failed["stage"], "year")
+        self.assertIn("no catalogue year", failed["reason"])
+        self.assertIsNone(failed["scene_time"]["year"])
         self.assertEqual(edits, [])
         self.assertEqual(totals.get("image_calls", 0), 0)
         self.assertEqual(ag_queue.load_state(self.data_dir)["scenes"], {})
@@ -1100,40 +1110,29 @@ class RunTest(TempDataMixin, unittest.TestCase):
 # ── Scene-time anchor (#1403) ──────────────────────────────────────────────
 
 class SceneTimeTest(unittest.TestCase):
-    def test_metadata_anchor_wins_over_the_proposal(self):
-        st = g.scene_time(source(date="2017-06-14"),
-                          proposal(apparent_era="modern (2020s)"))
+    def test_year_comes_from_the_catalogue_date(self):
+        st = g.scene_time(source(date="2017-06-14"))
         self.assertEqual(st["year"], 2017)
         self.assertEqual(st["display"], "2017")
-        self.assertEqual(st["origin"], "metadata")
-        self.assertTrue(st["disagreement"])
+        self.assertEqual(st["origin"], "catalog")
+        self.assertEqual(st["field"], "catalog")
+        self.assertEqual(st["source"], "dc:date")
+        self.assertEqual(st["raw"], "2017")
 
-    def test_anchor_prefers_the_capture_date_field(self):
-        s = source(date="1905-01-01")
-        s["raw"]["dateTimeOriginal"] = "1905-01-01 15:02:48"
-        s["raw"]["dateTime"] = "2014-09-13"
-        st = g.scene_time(s, proposal(apparent_era="1905"))
+    def test_a_file_page_year_is_reported_as_such(self):
+        # #1430: a Commons file-page date is still read, but the pool gate
+        # refuses it; the trace shows the class so a moderator can see it.
+        st = g.scene_time(source(date="1905-01-01", year_field="exif"))
         self.assertEqual(st["year"], 1905)
         self.assertEqual(st["field"], "exif")
-        self.assertFalse(st["disagreement"])
 
-    def test_without_an_anchor_the_proposal_is_the_year(self):
-        s = source(date="")
-        s["raw"].pop("dateTimeOriginal")
-        st = g.scene_time(s, proposal(apparent_era="c. 1905"))
-        self.assertEqual(st["year"], 1905)
-        self.assertEqual(st["display"], "1905")
-        self.assertEqual(st["origin"], "proposal")
-        self.assertFalse(st["disagreement"])
+    def test_without_a_catalogue_year_there_is_no_year(self):
+        st = g.scene_time(source(date=""))
+        self.assertIsNone(st["year"])
+        self.assertEqual(st["display"], "")
 
-    def test_a_close_anchor_is_not_flagged(self):
-        st = g.scene_time(source(date="1903-01-01"),
-                          proposal(apparent_era="1905"))
-        self.assertFalse(st["disagreement"])
-
-    def test_build_entry_shows_the_anchor(self):
-        entry = g.build_entry(source(date="2017-06-14"),
-                              proposal(apparent_era="modern (2020s)"),
+    def test_build_entry_shows_the_catalogue_year(self):
+        entry = g.build_entry(source(date="2017-06-14"), proposal(),
                               {"x": 0.5, "y": 0.5, "r": 0.05}, "2026-09-12")
         self.assertEqual(entry["year"], "2017")
         self.assertEqual(ag_queue.validate_entry(entry), [])

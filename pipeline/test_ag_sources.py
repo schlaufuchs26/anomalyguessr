@@ -107,7 +107,8 @@ class KeyFilterTest(unittest.TestCase):
 
     def test_entry_reject_reason(self):
         good = {"license": "CC0", "mime": "image/jpeg", "width": 2000,
-                "height": 1500, "date": "2013-10-24"}
+                "height": 1500, "year": 1900, "year_field": "catalog",
+                "year_source": "dc:date", "year_raw": "1900"}
         self.assertEqual(s.entry_reject_reason(good), "")
         self.assertEqual(
             s.entry_reject_reason({**good, "license": "All rights reserved"}),
@@ -119,9 +120,15 @@ class KeyFilterTest(unittest.TestCase):
                                              "height": 2000}))
         # #1405: a source without a single unambiguous year is inadmissible.
         self.assertIn("year",
-                      s.entry_reject_reason({**good, "date": "circa 1900"}))
-        self.assertIn("year",
-                      s.entry_reject_reason({**good, "date": ""}))
+                      s.entry_reject_reason({**good, "year": None,
+                                             "year_field": ""}))
+        # #1430: the year must be a catalogue date. Commons' file-page
+        # declared capture date ("exif"/"structured") is not one: measured, it
+        # cannot be told apart from a scan/upload stamp (#1418).
+        self.assertIn("catalog",
+                      s.entry_reject_reason({**good, "year_field": "exif"}))
+        self.assertIn("catalog",
+                      s.entry_reject_reason({**good, "year_field": "structured"}))
 
 
 class BornDigitalTest(unittest.TestCase):
@@ -571,35 +578,186 @@ class StubCommons(s.CommonsAdapter):
         return chunk, nxt
 
 
+class StubCatalogAdapter(s.SourceAdapter):
+    """Adapter returning one catalog-year entry verbatim (no network)."""
+
+    repo = "Stub"
+    repo_tag = "stub"
+
+    def __init__(self, norm=None):
+        self.norm = norm
+
+    def normalize(self, raw):
+        return self.norm
+
+    def download_url(self, raw):
+        return "https://example.org/img.jpg"
+
+
+def catalog_entry(**over):
+    entry = {"license": "Public domain", "mime": "image/jpeg",
+             "width": 2000, "height": 1500, "year": 1910,
+             "year_field": "catalog", "year_source": "dc:date",
+             "year_raw": "1910"}
+    entry.update(over)
+    return entry
+
+
 class SelectCandidatesTest(unittest.TestCase):
-    def test_filters_quality_and_counts_born_digital(self):
+    def test_commons_candidates_fail_the_catalog_year_gate(self):
+        # #1430: Commons' file-page declared capture date is not a catalogue
+        # date, so the pool gate refuses every Commons candidate.
+        res = s.select_candidates([commons_raw()], s.CommonsAdapter())
+        self.assertEqual(len(res["pairs"]), 0)
+        self.assertEqual(res["year_rejected"], 1)
+
+    def test_catalog_candidate_survives(self):
+        adapter = StubCatalogAdapter(catalog_entry())
+        res = s.select_candidates([{"id": "x"}], adapter)
+        self.assertEqual(res["pairs"], [({"id": "x"}, catalog_entry())])
+
+    def test_quality_filter_counts_before_the_year_gate(self):
         adapter = s.CommonsAdapter()
         raws = [commons_raw(title="Good", assessments="quality"),
                 commons_raw(title="Bad", assessments="featured|potd")]
         res = s.select_candidates(raws, adapter)
-        self.assertEqual(len(res["pairs"]), 1)
         self.assertEqual(res["quality_rejected"], 1)
-        self.assertEqual(res["born_digital"], 1)
+        self.assertEqual(res["year_rejected"], 1)
 
     def test_exclude_born_digital_flag(self):
-        adapter = s.CommonsAdapter()
+        adapter = StubCatalogAdapter(catalog_entry(
+            raw={"dateTimeOriginal": "2019-06-09"}))
         old = s.EXCLUDE_BORN_DIGITAL
         s.EXCLUDE_BORN_DIGITAL = True
         try:
-            res = s.select_candidates([commons_raw()], adapter)
+            res = s.select_candidates([{"id": "x"}], adapter)
             self.assertEqual(len(res["pairs"]), 0)
             self.assertEqual(res["born_digital"], 1)
         finally:
             s.EXCLUDE_BORN_DIGITAL = old
 
 
+class GallicaTest(unittest.TestCase):
+    SRU = """<srw:searchRetrieveResponse xmlns:srw="http://www.loc.gov/zing/srw/"
+      xmlns:oai_dc="http://www.openarchives.org/OAI/2.0/oai_dc/"
+      xmlns:dc="http://purl.org/dc/elements/1.1/">
+      <srw:numberOfRecords>2</srw:numberOfRecords>
+      <srw:records>
+        <srw:record><srw:recordData><oai_dc:dc>
+          <dc:title>Rue Saint-Louis en l'Ile : [photographie] / E. Atget</dc:title>
+          <dc:date>1906-1907</dc:date>
+          <dc:identifier>https://gallica.bnf.fr/ark:/12148/btv1b10516422n</dc:identifier>
+          <dc:rights>domaine public</dc:rights>
+          <dc:rights>public domain</dc:rights>
+        </oai_dc:dc></srw:recordData></srw:record>
+        <srw:record><srw:recordData><oai_dc:dc>
+          <dc:title>Aveugles [de guerre] aux Quinze-Vingts</dc:title>
+          <dc:date>1916</dc:date>
+          <dc:identifier>https://gallica.bnf.fr/ark:/12148/btv1b6945669k</dc:identifier>
+          <dc:rights>domaine public</dc:rights>
+        </oai_dc:dc></srw:recordData></srw:record>
+      </srw:records>
+    </srw:searchRetrieveResponse>"""
+
+    def test_parse_sru_records(self):
+        recs = s.parse_gallica_records(self.SRU)
+        self.assertEqual(len(recs), 2)
+        self.assertEqual(recs[0]["ark"], "btv1b10516422n")
+        self.assertEqual(recs[0]["dates"], ["1906-1907"])
+        self.assertEqual(recs[1]["dates"], ["1916"])
+        self.assertIn("public domain", recs[0]["rights"])
+
+    def test_catalog_year_rejects_ranges_and_disagreement(self):
+        self.assertEqual(s.gallica_catalog_year(["1916"]), (1916, "1916"))
+        # A range is not a year; two disagreeing dates are not either.
+        self.assertEqual(s.gallica_catalog_year(["1906-1907"]), (None, ""))
+        self.assertEqual(s.gallica_catalog_year(["1910", "1912"]), (None, ""))
+        self.assertEqual(s.gallica_catalog_year([]), (None, ""))
+        # Two dates that name the same year are one year.
+        self.assertEqual(s.gallica_catalog_year(["1910", "1910-05"]),
+                         (1910, "1910"))
+
+    def test_normalize_requires_public_domain_and_year(self):
+        adapter = s.GallicaAdapter()
+        raw = {"title": "Rue", "dates": ["1916"], "rights": ["domaine public"],
+               "ark": "btv1b6945669k", "width": 3000, "height": 2000}
+        entry = adapter.normalize(raw)
+        self.assertEqual(entry["year"], 1916)
+        self.assertEqual(entry["year_field"], "catalog")
+        self.assertEqual(entry["year_source"], "dc:date")
+        self.assertEqual(entry["year_raw"], "1916")
+        self.assertEqual(entry["license"], "Public domain")
+        # The stored size is the served (capped) copy, not the 3000 px original.
+        self.assertEqual(entry["width"], s.GALLICA_IMAGE_WIDTH)
+        self.assertLess(entry["height"], 2000)
+        self.assertIsNone(adapter.normalize({**raw, "rights": ["in copyright"]}))
+        self.assertIsNone(adapter.normalize({**raw, "width": 800,
+                                             "height": 600}))
+        self.assertIsNone(adapter.normalize({**raw, "ark": ""}))
+        # A range or circa value has no single year; the entry carries none
+        # and the pool's year gate refuses it.
+        ranged = adapter.normalize({**raw, "dates": ["1906-1907"]})
+        self.assertIsNone(ranged["year"])
+        self.assertEqual(ranged["year_raw"], "1906-1907")
+        self.assertIn("year", s.entry_reject_reason(ranged))
+
+    def test_image_url_caps_the_width(self):
+        self.assertEqual(s.gallica_image_url("abc", 8000),
+                         f"{s.GALLICA_IIIF}/abc/f1/full/2000,/0/native.jpg")
+        self.assertEqual(s.gallica_image_url("abc", 900),
+                         f"{s.GALLICA_IIIF}/abc/f1/full/900,/0/native.jpg")
+        self.assertIn("/full/full/", s.gallica_image_url("abc", 0))
+
+    def test_walk_advances_through_the_query_list(self):
+        adapter = s.GallicaAdapter()
+        seen = []
+
+        def fake_sru(query, limit, start):
+            seen.append((query, start))
+            if "presse" in query:
+                return [{"ark": f"a{i}", "dates": ["1910"]} for i in range(limit)], 100
+            return [], 0
+
+        adapter._sru = fake_sru
+        s.gallica_size = lambda ark: (2000, 1500)  # no network
+        try:
+            raws, cursor = adapter.walk_batch(2, None)
+            self.assertEqual(len(raws), 2)
+            self.assertEqual(cursor, {"query": 0, "start": 3})
+        finally:
+            pass
+
+
+class StubGallica(s.GallicaAdapter):
+    """A GallicaAdapter whose walk comes from memory (no network)."""
+
+    pages = []
+    calls = 0
+
+    def walk_batch(self, limit, cursor=None):
+        StubGallica.calls += 1
+        start = int((cursor or {}).get("start") or 1) - 1
+        chunk = self.pages[start:start + limit]
+        nxt = {"query": 0, "start": start + limit + 1} \
+            if start + len(chunk) < len(self.pages) else None
+        return chunk, nxt
+
+
+def gallica_raw(tag=0, dates=("1910",), rights=("domaine public",), width=3000,
+                height=2000):
+    return {"title": f"Rue {tag} : [photographie de presse] / [Agence Rol]",
+            "dates": list(dates), "rights": list(rights), "creator": "",
+            "description": "", "ark": "btv1b" + str(tag).lower(), "query": "q",
+            "width": width, "height": height}
+
+
 class TopUpTest(TempDirMixin, unittest.TestCase):
     def setUp(self):
         super().setUp()
-        self._old_cls = s.CommonsAdapter
-        StubCommons.calls = 0
-        StubCommons.pages = [stub_raw(f"Photo {i}") for i in range(6)]
-        s.CommonsAdapter = StubCommons
+        self._old_cls = s.ADAPTERS["gallica"]
+        StubGallica.calls = 0
+        StubGallica.pages = [gallica_raw(i) for i in range(6)]
+        s.ADAPTERS["gallica"] = StubGallica
         # Downloads write a placeholder file instead of hitting the network.
         self._old_fetch = s._fetch_and_save
         s._fetch_and_save = lambda url, target: (
@@ -607,15 +765,21 @@ class TopUpTest(TempDirMixin, unittest.TestCase):
             target.write_bytes(b"img"), 3)[-1]
 
     def tearDown(self):
-        s.CommonsAdapter = self._old_cls
+        s.ADAPTERS["gallica"] = self._old_cls
         s._fetch_and_save = self._old_fetch
         super().tearDown()
 
-    def test_walks_category_and_reaches_target(self):
+    def test_walks_source_and_reaches_target(self):
         rep = s.top_up(self.data_dir, target=4, batch=2, max_calls=5)
+        self.assertEqual(rep["source"], "gallica")
         self.assertEqual(rep["stopped"], "target reached")
         self.assertEqual(rep["after"]["unused"], 4)
-        self.assertEqual(rep["examples"], ["Photo 0", "Photo 1", "Photo 2"])
+        self.assertEqual(rep["examples"], ["Rue 0 : [photographie de presse] "
+                                           "/ [Agence Rol]",
+                                           "Rue 1 : [photographie de presse] "
+                                           "/ [Agence Rol]",
+                                           "Rue 2 : [photographie de presse] "
+                                           "/ [Agence Rol]"])
         self.assertTrue(rep["added"] >= 4)
 
     def test_resumes_from_persisted_cursor(self):
@@ -626,39 +790,49 @@ class TopUpTest(TempDirMixin, unittest.TestCase):
         # The second run continues at page 2; nothing is duplicated.
         self.assertEqual(rep["skipped"], 0)
         self.assertEqual(rep["after"]["total"],
-                         len(StubCommons.pages))
+                         len(StubGallica.pages))
 
     def test_reports_cursor_and_stops_when_exhausted(self):
         rep = s.top_up(self.data_dir, target=99, batch=2, max_calls=10)
-        self.assertEqual(rep["stopped"], "category exhausted")
-        self.assertEqual(rep["shortfall"], 99 - len(StubCommons.pages))
-        state = s._load_quality_state(self.data_dir)
-        self.assertEqual(state.get("continue"), "")
+        self.assertEqual(rep["stopped"], "source exhausted")
+        self.assertEqual(rep["shortfall"], 99 - len(StubGallica.pages))
+        self.assertIsNone(s._load_walk_state(self.data_dir, "gallica"))
 
     def test_healthy_pool_short_circuits(self):
         s.top_up(self.data_dir, target=1, batch=2, max_calls=1)
-        calls = StubCommons.calls
+        calls = StubGallica.calls
         rep = s.top_up(self.data_dir, target=1, batch=2, max_calls=1)
         self.assertEqual(rep["stopped"], "pool healthy")
-        self.assertEqual(StubCommons.calls, calls)
+        self.assertEqual(StubGallica.calls, calls)
 
     def test_rejected_counted_not_downloaded(self):
-        StubCommons.pages = [stub_raw("Portrait") , stub_raw("Small")]
-        for raw in StubCommons.pages:
-            raw["imageinfo"][0]["height"] = 4000  # portrait, rejected
+        StubGallica.pages = [gallica_raw("Portrait", width=2000, height=4000),
+                             gallica_raw("Small", width=800, height=600)]
         rep = s.top_up(self.data_dir, target=5, batch=2, max_calls=2)
         self.assertEqual(rep["added"], 0)
         self.assertEqual(rep["rejected"], 2)
         self.assertEqual(rep["downloaded"], 0)
 
     def test_year_rejected_counted_separately(self):
-        StubCommons.pages = [stub_raw("Dated"), stub_raw("Undated")]
-        StubCommons.pages[1]["imageinfo"][0]["extmetadata"][
-            "DateTimeOriginal"] = {"value": "circa 1900"}
+        StubGallica.pages = [gallica_raw("Dated"),
+                             gallica_raw("Range", dates=("circa 1900",))]
         rep = s.top_up(self.data_dir, target=5, batch=2, max_calls=2)
         self.assertEqual(rep["added"], 1)
         self.assertEqual(rep["year_rejected"], 1)
         self.assertEqual(rep["downloaded"], 1)
+
+    def test_non_catalog_source_adds_nothing(self):
+        # #1430: the gate refuses a file-page date, so a Commons walk reports
+        # every candidate as year-rejected instead of filling the pool.
+        s.ADAPTERS["commons"] = StubCommons
+        StubCommons.pages = [stub_raw(f"Photo {i}") for i in range(2)]
+        try:
+            rep = s.top_up(self.data_dir, target=5, batch=2, max_calls=1,
+                           source="commons")
+        finally:
+            del s.ADAPTERS["commons"]
+        self.assertEqual(rep["added"], 0)
+        self.assertEqual(rep["year_rejected"], 2)
 
 
 class ManualSeedTest(TempDirMixin, unittest.TestCase):
@@ -669,6 +843,8 @@ class ManualSeedTest(TempDirMixin, unittest.TestCase):
         (src / s.MANUAL_META).write_text(json.dumps({
             "photo.jpg": {"license": "CC0", "originalTitle": "Old photo",
                           "date": "1900-01-20", "width": 1200, "height": 800,
+                          "year": 1900, "year_field": "catalog",
+                          "year_source": "catalogue",
                           "repository": "Manual"}}))
         res = s.seed_backend(self.data_dir, "manual", "", 10, "2026-09-12",
                              {"directory": src})
@@ -677,8 +853,24 @@ class ManualSeedTest(TempDirMixin, unittest.TestCase):
         self.assertEqual(res["year_rejected"], 0)
         entry = s.list_sources(self.data_dir)[0]
         self.assertEqual(entry["year"], 1900)
-        self.assertEqual(entry["year_field"], "structured")
+        self.assertEqual(entry["year_field"], "catalog")
+        self.assertEqual(entry["year_source"], "catalogue")
         self.assertEqual(s.entry_reject_reason(entry), "")
+
+    def test_manual_import_with_a_file_page_date_is_rejected(self):
+        # #1430: an import that only has a file-page date (no catalogue
+        # assertion) does not pass the pool's year gate.
+        src = self._tmp / "manual3"
+        src.mkdir()
+        (src / "photo.jpg").write_bytes(b"img")
+        (src / s.MANUAL_META).write_text(json.dumps({
+            "photo.jpg": {"license": "CC0", "originalTitle": "Old photo",
+                          "date": "1900-01-20", "width": 1200, "height": 800,
+                          "repository": "Manual"}}))
+        res = s.seed_backend(self.data_dir, "manual", "", 10, "2026-09-12",
+                             {"directory": src})
+        self.assertEqual(res["added"], 0)
+        self.assertEqual(res["year_rejected"], 1)
 
     def test_manual_import_without_a_year_is_rejected(self):
         # #1405: a manual photo with no single unambiguous year never enters

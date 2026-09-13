@@ -9,17 +9,19 @@ queued scene.
 Per scene:
 
 1. **Propose** (`propose_anomaly`): one `deepseek/deepseek-v4.1-flash` vision
-   call over the source photo. The model judges the photo's apparent era and
-   invents ONE subtle time-travel anomaly for THIS image: a real later-era
-   object for a historical photo, a fictional-future element for a modern
-   one (Evan: modern photos are fine, "dann nutzen wir fictional futures").
-   The bar is *impossibility*, not improbability (ticket #1403): the element
-   must not exist in the scene's year. The source metadata's capture year
-   (`ag_sources.source_year`) is passed in as the scene's year and is the
-   bar; the model returns label, kind, the year the element exists from
-   (`exists_from`), apparent era, figure flag, placement, the impossibility
-   reason and references. `ag_catalog.INSPIRATION` supplies few-shot shape
-   examples; recently used labels are passed in to avoid repeats.
+   call over the source photo. The model invents ONE subtle time-travel
+   anomaly for THIS image: a real later-era object for a historical photo, a
+   fictional-future element for a modern one (Evan: modern photos are fine,
+   "dann nutzen wir fictional futures"). The bar is *impossibility*, not
+   improbability (ticket #1403): the element must not exist in the scene's
+   year. The year is a FACT from the source's catalogue record, stated in the
+   prompt with its field and raw value (ticket #1430); the model never judges
+   or restates the era. The model returns label, kind, the year the element
+   exists from (`exists_from`), for a fictional-future element the reason it
+   cannot exist in 2026 (`not_today`), a figure flag, placement, the
+   impossibility reason and references. `ag_catalog.INSPIRATION` supplies
+   few-shot shape examples; recently used labels are passed in to avoid
+   repeats.
 2. **Apply** (`image_edit`): one `google/gemini-3.1-flash-image` call that
    adds the anomaly. The generation prompt keeps the hard constraints (one
    dominant placement instruction, ONE numeric scale cap with a
@@ -65,14 +67,13 @@ the whole flow, a scene from before the trace existed shows none. Losing
 candidate images are not kept (they live in the run's temp dir): measured,
 one candidate PNG is 1-2 MB, so keeping three per scene would cost ~50 MB a
 day for pictures nobody looks at once the scores are in the trace. The
-scene-time anchor (`scene_time`: year, which metadata field supplied it, and
-whether the proposal disagreed) is in the trace too, so a wrong year can be
-reviewed later (ticket #1403). A disagreement larger than two years refuses
-the scene before the image calls (ticket #1417): neither the anchor nor the
-model can be trusted there, so the year and the impossibility claim are
-unprovable, and the source is consumed so it is not drawn again every day.
-`pipeline/ag_era_audit.py` reruns the impossibility test over the whole
-queue.
+scene-time entry (`scene_time`: the catalogue year, its provenance class, the
+repository field and its raw value) is in the trace too, so a moderator can
+check the date without opening the repository page (tickets #1403, #1430). A
+source without a catalogue year is refused before the model calls and
+consumed, so it is not drawn again every day; the pool gate already keeps
+such sources out. `pipeline/ag_era_audit.py` reruns the impossibility test
+over the whole queue.
 
 The run lock, the progress status file, the DM-on-failure path and the queue
 add are unchanged from #1210/#1169: the daily cron and the dashboard's
@@ -207,6 +208,21 @@ SIZE_ANCHOR = ("judge it against something at the same distance in the "
                "photo (a crate, a wheel or a person's shoe) so its "
                "perspective matches the scene")
 
+# Fictional-future allowed list (ticket #1430, Evan 2026-09-13): the path
+# stays, but only for elements that are impossible in the scene's year *and*
+# today. Everything on the second list exists in 2026, so it can never carry
+# a modern scene however futuristic it looks.
+FUTURE_ALLOWED = (
+    "a spacecraft, or an unmistakably alien being or artefact",
+    "a humanoid robot in everyday life (only one that cannot exist in 2026; "
+    "household and industrial robots already do)",
+    "a device you can argue coherently does not exist in 2026",
+)
+TODAY_TRAPS = (
+    "delivery drones and quadcopters", "e-scooters", "smartphones and tablets",
+    "QR codes", "LED and solar technology", "modern clothing", "e-bikes",
+)
+
 # The checker's requirement list: the hard-won rules of the agent era, moved
 # here from the generation prompt. A violation is caught and corrected
 # instead of being pre-empted by an ever-longer recipe. One tuple entry per
@@ -245,7 +261,10 @@ REQUIREMENTS = (
      "explicitly futuristic, i.e. it does not exist even today. An object "
      "that existed in that year but was only rare, or whose introduction is "
      "the same year as the photograph, is a failure: a player can just say "
-     "it belongs."),
+     "it belongs. Something that exists in 2026 is never an anomaly, "
+     "whatever the photograph's year: for edge cases (drones, robots, AI "
+     "devices, electronics) say why the element does not exist in 2026, and "
+     "fail it when you are not certain."),
 )
 REQUIREMENTS_TOTAL = len(REQUIREMENTS)
 
@@ -256,36 +275,41 @@ def requirements_text() -> str:
 
 
 def proposal_prompt(source: dict, recent=()) -> str:
-    anchor, _field = ag_sources.source_year(source)
+    """Call 1's prompt: one anomaly, impossible in the catalogue year.
+
+    Ticket #1430: the year is a fact the prompt *states*, never one the model
+    judges (the old "Judge the photo's apparent era yourself" line made the
+    catalogue year decoration). The fictional-future path stays, but only for
+    elements that are impossible in the scene's year *and* today.
+    """
+    year, field = ag_sources.source_year(source)
+    _y, _f, year_source, year_raw = ag_sources.year_provenance(source)
+    where = year_source or field or "the item's catalogue record"
     lines = [
         "You are the content designer for a spot-the-anachronism game: "
         "players get a real photograph and must find the ONE thing that does "
         "not belong to its time.",
         "This photograph comes from "
         f"{source.get('repository') or 'a public archive'}.",
-    ]
-    if anchor is not None:
-        lines.append(
-            f"The scene's year is {anchor}, from the source metadata; that "
-            "year is the bar and your anomaly must not contradict it.")
-    else:
-        lines.append("Judge the photo's apparent era yourself from what you "
-                     "see, and use that as the bar.")
-    lines += [
-        "The ONE anomaly you invent must be IMPOSSIBLE in that year, not "
-        "merely unusual or rare.",
+        f"This photograph was taken in {year}. The year is a fact from the "
+        f"item's catalogue date ({where}: {year_raw or year}). Do not judge "
+        "or restate the era.",
+        f"The ONE anomaly you invent must be IMPOSSIBLE in {year}, not merely "
+        "unusual or rare.",
         "- A clear plastic bottle in a 1900 photograph is IMPOSSIBLE: the "
         "bottle did not exist yet, so no player can explain it away (valid).",
         "- An e-scooter in a 2017 photograph is only unusual, not impossible: "
         "scooters existed then, so a player can just say it belongs "
         "(invalid; pick something that did not exist yet).",
         "Invent ONE anomaly to hide in THIS photograph:",
-        "- If the photo clearly predates the present, the anomaly is a real "
-        "object, garment or vehicle from a LATER era (strictly after the "
-        "scene's year).",
-        "- If the photo looks modern, the anomaly is a clearly futuristic "
-        "element that does not exist even today (a fictional-future device or "
-        "figure), because everything real already exists by then.",
+        f"- If the photograph clearly predates {year}, the anomaly is a real "
+        f"object, garment or vehicle from a LATER era (strictly after {year}).",
+        "- If the photograph is modern, the anomaly is a fictional-future "
+        "element that does not exist even today. Allowed: "
+        + "; ".join(FUTURE_ALLOWED) + ".",
+        "  These exist in 2026 and can NEVER carry a modern scene: "
+        + ", ".join(TODAY_TRAPS) + ". A photo from 2019 with a delivery drone "
+        "is possible, so it is invalid.",
         "- It must be ONE small, concrete thing that could plausibly sit in "
         "this scene: an object, or one extra person whose only modern or "
         "futuristic tell is a small detail (for a person, the year their "
@@ -306,14 +330,14 @@ def proposal_prompt(source: dict, recent=()) -> str:
         'Answer as strict JSON only, no prose: {"anomaly": "<short label>", '
         '"kind": "later-era"|"fictional-future", "exists_from": "<the year or '
         'era from which the element exists; for a futuristic element say '
-        '\\"not real yet, a fictional future\\">", "apparent_era": "<the year '
-        'or decade that best fits the photo, or \\"modern\\">", '
-        '"title": "<short human title of the scene, at most 8 words>", '
-        '"figure": true|false, "placement": "<one sentence: where in THIS '
-        'photo it sits, how it is partly hidden, and how large it should '
-        'look next to things at the same distance>", "explanation": "<one '
-        'sentence: why it cannot exist in the scene\'s year>", "references": '
-        '[{"label": "<source name>", "url": "https://..."}]}')
+        '\\"not real yet, a fictional future\\">", "not_today": "<for '
+        'fictional-future only: why this element cannot exist in 2026; empty '
+        'string otherwise>", "title": "<short human title of the scene, at '
+        'most 8 words>", "figure": true|false, "placement": "<one sentence: '
+        'where in THIS photo it sits, how it is partly hidden, and how large '
+        'it should look next to things at the same distance>", "explanation": '
+        '"<one sentence: why it cannot exist in the scene\'s year>", '
+        '"references": [{"label": "<source name>", "url": "https://..."}]}')
     return "\n".join(lines)
 
 
@@ -355,18 +379,17 @@ def coord_prompt(proposal: dict, prompt: str = "") -> str:
 
 
 def scene_time_text(scene: dict | None) -> str:
-    """The scene's year for the checker, from the anchor or the proposal.
+    """The scene's year for the checker, from the catalogue fact.
 
-    An empty string means the year is unknown, so requirement 8 cannot be
-    tested against a concrete year (#1403).
+    Ticket #1430: there is exactly one year source (the repository
+    catalogue), so this never falls back to a model judgement. An empty
+    string means no year, which the pool gate prevents.
     """
     if not scene or scene.get("year") is None:
         return ""
-    if scene.get("origin") == "metadata":
-        return (f"The photograph was taken in {scene['year']} (source "
-                "metadata).")
-    return (f"No capture date is known; the proposal judges the photograph "
-            f"to be from {scene.get('display')}.")
+    where = scene.get("source") or scene.get("field") or "the item's catalogue"
+    return (f"The photograph was taken in {scene['year']} (catalogue year, "
+            f"from {where}).")
 
 
 def check_prompt(proposal: dict, scene: dict | None = None) -> str:
@@ -389,6 +412,13 @@ def check_prompt(proposal: dict, scene: dict | None = None) -> str:
         "Requirement 8 uses the photograph's year stated above: check the "
         "introduction date, not whether the element merely looks out of "
         "place.")
+    if proposal.get("not_today"):
+        lines.append("The proposal's reason it cannot exist in 2026: "
+                     + str(proposal["not_today"]))
+    lines.append(
+        "Requirement 8 also means: an element that exists in 2026 is never "
+        "an anomaly. For drones, robots, AI devices and electronics, check "
+        "that reason: fail it when the element is on the market today.")
     lines.append(
         "You are scoring, not voting: never reject the whole image, "
         "just say which numbered requirements it fails.")
@@ -456,9 +486,14 @@ def proposal_errors(proposal) -> list:
     if not isinstance(proposal.get("exists_from"), str) or \
             not proposal["exists_from"].strip():
         errs.append("exists_from must be a non-empty string")
-    if not isinstance(proposal.get("apparent_era"), str) or \
-            not proposal["apparent_era"].strip():
-        errs.append("apparent_era must be a non-empty string")
+    # Ticket #1430: a fictional-future element must justify why it cannot
+    # exist today, because everything that exists in 2026 is possible in a
+    # modern photo's year and therefore not an anomaly.
+    if proposal.get("kind") == "fictional-future" and (
+            not isinstance(proposal.get("not_today"), str)
+            or not proposal["not_today"].strip()):
+        errs.append("not_today must say why the element cannot exist in "
+                    "2026 (required for kind=fictional-future)")
     if not isinstance(proposal.get("placement"), str) or \
             not proposal["placement"].strip():
         errs.append("placement must be a non-empty string")
@@ -471,8 +506,8 @@ def proposal_errors(proposal) -> list:
 def normalize_proposal(proposal: dict) -> dict:
     """Whitespace-collapse and cap the proposal's free-text fields."""
     out = dict(proposal)
-    for key, limit in (("anomaly", 80), ("apparent_era", 40),
-                       ("exists_from", 60),
+    for key, limit in (("anomaly", 80), ("exists_from", 60),
+                       ("not_today", 400),
                        ("placement", 400), ("explanation", 400)):
         out[key] = ag_llm.clean_text(out.get(key), limit)
     out["title"] = clean_caption_title(out.get("title"))[:80]
@@ -864,42 +899,27 @@ def scene_place(source: dict) -> str:
     return ag_queue.clean_place(source.get("place"))
 
 
-def scene_year(proposal: dict) -> str:
-    """The displayed era: the proposal call's judgement (ticket #1372)."""
-    era = ag_llm.clean_text(proposal.get("apparent_era"), 40)
-    m = re.search(r"(?<!\d)(1[0-9]\d{2}|20\d{2})(?!\d)", era)
-    return m.group(1) if m else (era or "unknown")
-
-
 def _year_int(text) -> int | None:
     """The four-digit year in a text, or None (ticket #1403)."""
     m = re.search(r"(?<!\d)(1[0-9]\d{2}|20\d{2})(?!\d)", str(text or ""))
     return int(m.group(1)) if m else None
 
 
-def scene_time(source: dict, proposal: dict) -> dict:
-    """The scene's year: the metadata anchor wins, the proposal is sanity.
+def scene_time(source: dict) -> dict:
+    """The scene's year: the source's catalogue date, nothing else (#1430).
 
-    Ticket #1403: the impossibility test needs a real year, so the source
-    metadata's capture year (``ag_sources.source_year``) is the bar when it
-    exists; the proposal's ``apparent_era`` only sanity-checks it. A
-    disagreement of more than two years is flagged for the trace, and the
-    anchor still wins. Without an anchor the proposal's judgement is the
-    year, and ``year`` is None when that judgment carries no four-digit year
-    (the checker cannot test impossibility against "modern"). The caller
-    (``_generate_one``) refuses the scene on a disagreement: neither field is
-    provable there, so the impossibility claim has no anchor (ticket #1417).
+    Returns the year plus its provenance for the trace: the class
+    (``catalog``), the repository field and its raw value, so a moderator can
+    check the date without opening the repository page. ``year`` is None only
+    for a source that slipped past the pool gate; the caller refuses it
+    (``_generate_one``), so no model judgement can stand in.
     """
-    anchor, field = ag_sources.source_year(source)
-    apparent = _year_int(proposal.get("apparent_era"))
-    if anchor is not None:
-        return {"year": anchor, "display": str(anchor), "origin": "metadata",
-                "field": field, "apparent": apparent,
-                "disagreement": (apparent is not None
-                                 and abs(anchor - apparent) > 2)}
-    display = scene_year(proposal)
-    return {"year": apparent, "display": display, "origin": "proposal",
-            "field": "", "apparent": apparent, "disagreement": False}
+    year, field, source_field, raw = ag_sources.year_provenance(source)
+    if year is None:
+        return {"year": None, "display": "", "origin": "", "field": field,
+                "source": source_field, "raw": raw}
+    return {"year": year, "display": str(year), "origin": "catalog",
+            "field": field, "source": source_field, "raw": raw}
 
 
 def caption_description(title: str, place: str, repository: str) -> str:
@@ -934,7 +954,7 @@ def build_credit(source: dict) -> str:
 def build_entry(source: dict, proposal: dict, answer: dict, date: str,
                 scene: dict | None = None) -> dict:
     eid = scene_id(source["id"], proposal["anomaly"])
-    st = scene if scene is not None else scene_time(source, proposal)
+    st = scene if scene is not None else scene_time(source)
     year = st["display"]
     place = scene_place(source)
     entry = ag_catalog.entry_for_label(proposal["anomaly"])
@@ -1659,12 +1679,28 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
              scenesTotal=scene_total, **extra)
 
     previous_outputs = []
+    # One year source only: the source's catalogue date (ticket #1430). The
+    # proposal never supplies or corrects it.
+    st = scene_time(source)
     trace = {"source": source["id"], "date": date, "model": args.model,
              "image_model": args.image_model, "candidates": [],
+             "scene_time": st,
              "candidate_policy": {"candidates": args.candidates,
                                   "mechanical_retries": MECHANICAL_RETRIES,
                                   "correction_passes": 1}}
     last_error = None
+    if st["year"] is None:
+        # The pool gate refuses such a source; refusing here too keeps a
+        # stale index entry from producing a scene whose year no one can
+        # prove. The source is consumed so it is not drawn every day.
+        reason = ("source has no catalogue year (provenance field "
+                  f"{st['field'] or 'unknown'}); no impossible anomaly can "
+                  "be proven")
+        last_error = {"id": source["id"], "stage": "year", "reason": reason,
+                      "scene_time": st}
+        set_trace_error(data_dir, trace, reason)
+        ag_sources.mark_used(data_dir, [source["id"]], True)
+        return None, last_error
     for attempt in range(1, args.max_attempts + 1):
         progress("proposing")
         proposal, proposal_call, errors = _attempt_proposal(
@@ -1679,28 +1715,6 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
             set_trace_error(data_dir, trace, last_error["reason"])
             continue
         prompt = edit_prompt(proposal)
-        st = scene_time(source, proposal)
-        trace["scene_time"] = st
-        if st["disagreement"]:
-            # The model's read of the photo contradicts the metadata anchor by
-            # more than two years, so at most one of them is right. No Commons
-            # metadata separates a scan/upload stamp from a capture date
-            # (ticket #1418), so the photo's year, and with it the
-            # impossibility claim, cannot be established. Refuse the scene
-            # before the image calls and consume the source, so a bad anchor
-            # cannot be drawn again every day; the source-side fix stays
-            # #1419/#1430.
-            reason = (f"anchor disagrees with the apparent era by more than "
-                      f"two years (anchor {st['year']} from "
-                      f"{st['field'] or 'metadata'}, proposal "
-                      f"{st['display']}); the photo's year cannot be "
-                      "established, so no impossible anomaly can be proven")
-            last_error = {"id": source["id"], "stage": "anchor",
-                          "reason": reason, "attempt": attempt,
-                          "scene_time": st}
-            set_trace_error(data_dir, trace, reason)
-            ag_sources.mark_used(data_dir, [source["id"]], True)
-            break
         candidates, failures, budget_hit = _collect_candidates(
             source_image, prompt, attempt, args, api_key, source, data_dir,
             out_dir, trace, totals, progress, previous_outputs)

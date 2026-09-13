@@ -1,50 +1,49 @@
 #!/usr/bin/env python3
-"""AnomalyGuessr source dataset: Commons "Quality images" pool (ticket #1372).
+"""AnomalyGuessr source dataset: pools with a catalogue-asserted item date.
 
-Rebuilt from the query-driven #1170 dataset. Evan's spec (2026-09-12):
-sourcing and generation are two separate problems. Sourcing should get good
-source images and nothing else:
+Rebuilt from the query-driven #1170 dataset, then re-pointed in ticket #1430
+(Evan, 2026-09-13: "we need a dataset which unambiguously establishes the date
+the photo depicts with no room for error"):
 
-- **Wikimedia Commons only for now**, as a consistent baseline.
+- **The year is a catalogue fact, never a model judgement.** A source enters
+  the pool only when the repository's own catalogue names exactly one
+  four-digit year for the item (``year_field == "catalog"``). The measurement
+  behind the source choice, including the collections that are unreachable
+  from this host, is in ``pipeline/ag_dates_audit.py``.
+- **Default source: Gallica (BnF)**. The ticket's named collections (LOC,
+  DDB/Bundesarchiv, Deutsche Fotothek, Nationaal Archief, Smithsonian, NYPL,
+  Europeana) are blocked from this box (Cloudflare 403, API keys, robots.txt);
+  Gallica's SRU catalogue is reachable and its ``dc:date`` is the BnF's
+  statement about the item, not a scan or upload stamp. Commons "Quality
+  images" stays as an adapter and a diagnostic (``measure-years``,
+  ``measure-inception``), but its file-page declared date ("exif"/
+  "structured") fails the catalog gate, so it no longer fills the pool.
 - **No string heuristics.** Candidates are filtered on structured keys only:
-  license, quality rating, MIME/format, pixel dimensions, file size, and
-  the capture year (below).
+  license, pixel dimensions, file size, and the catalogue year (below).
 - **A single unambiguous year is required** (ticket #1405). The game's claim
-  is "this could not exist in the photo's year", so the year must be a fact
-  from one structured metadata field: the capture date the file page
-  declares (``raw.dateTimeOriginal``; upload tools fill it from EXIF) or the
-  catalog's structured date. A source whose metadata names no year, a range,
-  a decade, a century or an uncertainty ("circa 1907") is rejected at
-  sourcing; titles and descriptions are not consulted. The year and the
-  field that supplied it are stored on the entry as ``year``/``year_field``
-  (``exif``/``structured``). Commons' SDC inception claim (P571) is not a
-  year source: measured, it only repeats that declared date
-  (#1418, ``measure-inception``).
-- **No era limit.** Any year is usable; with the current Commons pool the
-  surviving years skew modern, so the game is mostly fictional-future (see
-  the measurement below). The generator's first model call still judges the
-  apparent era as a sanity check.
-- **"Quality images" only**, enumerated from the Commons assessment category
-  until the pool runs out. `used` marks a consumed source, so "running out"
-  is real.
+  is "this could not exist in the photo's year", so the year must be one
+  fact: a range, decade, century or uncertainty ("circa 1907") is refused.
+  Titles and descriptions are never parsed for it.
+- **No era limit.** Any year is usable; the generator gets the year as a
+  fact and never judges the era itself (#1430).
 
 What this module owns: the pool itself (the index + downloaded images), the
-key filters, the used flag, and the category walk that fills the pool. It
-does NOT generate scenes; that is `pipeline/ag_generate.py`.
+key filters, the used flag, and the walk that fills the pool. It does NOT
+generate scenes; that is `pipeline/ag_generate.py`.
 
 Layout (mirrors ``data/anomalyguessr/``; gitignored via the repo's ``data/``
 rule, backed up by scripts/backup.sh)::
 
     data/anomalyguessr/sources/
       index.json                 # {version, sources: {id: SourceEntry},
-                                 #  topup: {quality: {continue: ...}}}
+                                 #  topup: {<source>: {cursor: ...}}}
       images/<id>.<ext>          # downloaded source photos
 
 Commands::
 
-    ag_sources.py --data DIR top-up [--target 30] [--batch 20] [--max-calls 8]
-    ag_sources.py --data DIR measure-years [--sample 200]
-    ag_sources.py --data DIR measure-inception [--sample 200]
+    ag_sources.py --data DIR top-up [--source gallica] [--target 30]
+    ag_sources.py --data DIR measure-years [--sample 200]      # Commons
+    ag_sources.py --data DIR measure-inception [--sample 200]  # Commons
     ag_sources.py --data DIR status
     ag_sources.py --data DIR list [--repo REPO] [--unused]
     ag_sources.py --data DIR seed --backend manual --dir PATH
@@ -52,27 +51,24 @@ Commands::
     ag_sources.py --data DIR mark-used ID [ID...]
     ag_sources.py --data DIR mark-unused ID [ID...]
 
-``top-up`` is the repeatable way to fill the pool: it walks
-``Category:Quality images`` from a persisted ``cmcontinue`` cursor, keeps the
-files that pass the key filters, downloads them and merges them by
-deterministic id (never duplicating an entry, never resetting ``used``). The
-daily generator calls it before picking sources.
+``top-up`` is the repeatable way to fill the pool: it walks the source's
+catalogue from a persisted paging token, keeps the files that pass the key
+filters, downloads them and merges them by deterministic id (never
+duplicating an entry, never resetting ``used``). The daily generator calls it
+before picking sources.
 
 The **born-digital signal** (a file whose EXIF capture date is modern) is
 recorded on every entry as ``born_digital``; it is NOT a rejection. Evan's
 call (2026-09-12): modern photos are fine, the anomaly then becomes a
-fictional-future element. Measured on the first 200 Quality images:
-198/200 carry a modern ``DateTimeOriginal``, so treating the signal as a
-filter would empty the pool. ``EXCLUDE_BORN_DIGITAL`` flips that to a
-rejection if it is ever wanted.
+fictional-future element. It is a Commons concept; Gallica items carry none.
 
-``measure-years`` is the read-only audit for the year filter: it walks a
-fresh slice of the Quality-images category without downloading and reports
-survival, the exif-vs-structured split, the decade histogram and the
+``measure-years`` is the read-only audit for the Commons year filter: it
+walks a fresh slice of the Quality-images category without downloading and
+reports survival, the exif-vs-structured split, the decade histogram and the
 upload-stamp share, then audits the current pool with the same rule.
 
 Pure logic lives in module functions so tests can import them; only the
-Commons adapter dials the live API and those tests are gated behind
+adapters dial a live API and those tests are gated behind
 ``AG_SOURCES_NETWORK=1`` (engineering-practices.md ticket #1084).
 """
 
@@ -97,7 +93,7 @@ INDEX_VERSION = 1
 CORE_KEYS = (
     "id", "repository", "fileUrl", "originalTitle", "date", "place",
     "license", "licenseUrl", "description", "image", "width", "height",
-    "used", "year", "year_field",
+    "used", "year", "year_field", "year_source", "year_raw",
 )
 
 # Allowlisted license families. PD + CC0 are unambiguously reusable; CC BY /
@@ -141,6 +137,12 @@ QUALITY_CATEGORY = "Category:Quality images"
 DEFAULT_TOPUP_TARGET = 30
 DEFAULT_TOPUP_BATCH = 20
 DEFAULT_TOPUP_CALLS = 8
+# The default source since ticket #1430: Gallica is the only reachable
+# collection whose per-item date is a catalogue fact. Commons ("Quality
+# images") is no longer walked by default: its declared capture date cannot be
+# told apart from a scan/upload stamp (#1418), so it fails the pool's catalog
+# year gate. ``--source commons`` still runs the walk (diagnostics, tests).
+DEFAULT_TOPUP_SOURCE = "gallica"
 
 UA = "AnomalyGuessr-source-import/1.0 (contact: hugo@fuchs.science)"
 COMMONS_API = "https://commons.wikimedia.org/w/api.php"
@@ -243,7 +245,11 @@ def entry_reject_reason(entry: dict) -> str:
     """Why a pool entry fails the key filters, "" when it passes.
 
     Re-runnable on stored entries, so ``prune`` can self-heal the pool with
-    the same rule that guards ingestion.
+    the same rule that guards ingestion. Since ticket #1430 the year must be
+    a *catalog* date (``year_field == "catalog"``): Commons' file-page
+    declared capture date ("exif"/"structured") cannot be told apart from a
+    scan or upload stamp (#1418), and the generator no longer reads the
+    apparent era to catch a wrong one.
     """
     if not license_ok(str(entry.get("license") or "")):
         return "license"
@@ -252,9 +258,11 @@ def entry_reject_reason(entry: dict) -> str:
         return f"format ({mime})"
     if not dimensions_ok(entry.get("width"), entry.get("height")):
         return f"orientation/size ({entry.get('width')}x{entry.get('height')})"
-    year, _field = source_year(entry)
+    year, field = source_year(entry)
     if year is None:
         return "year (no single unambiguous year in the source metadata)"
+    if field not in CATALOG_YEAR_FIELDS:
+        return f"year (not a catalog date: {field or 'unknown'} field)"
     return ""
 
 
@@ -357,21 +365,62 @@ def structured_year(entry: dict) -> int | None:
 
 
 def source_year(entry: dict) -> tuple[int | None, str]:
-    """The year a source's metadata names, and which field supplied it.
+    """The year a source's metadata names, and its provenance class.
 
-    ``(year, "exif")`` when the capture date (``dateTimeOriginal``) names a
-    single year, ``(year, "structured")`` when the catalog's structured date
-    does. ``(None, "")`` when neither does: such a source is not admissible
-    (ticket #1405). The upload/file date (``dateTime``) is deliberately not a
-    source: a scan's digitization date is not the photo's year.
+    ``(year, "catalog")`` when the repository's catalogue asserts the item's
+    date (the #1430 adapters), ``(year, "exif")``/``(year, "structured")``
+    for Commons' file-page declared capture date, ``(None, "")`` when nothing
+    names exactly one year. The upload/file date (``dateTime``) is
+    deliberately not a source: a scan's digitization date is not the photo's
+    year.
     """
+    year, field, _source, _raw = year_provenance(entry)
+    return year, field
+
+
+# Year provenance (ticket #1430). ``year_field`` names the class the year
+# came from: "catalog" is a date the repository's own catalogue asserts about
+# the item (what the new adapters store), "exif"/"structured" is Commons'
+# file-page declared capture date. Measured (#1418), the declared date cannot
+# be told apart from a scan or upload stamp, so only catalog years are
+# admissible for the pool (``entry_reject_reason``); the model no longer
+# reads the apparent era, so a wrong year would otherwise ship unchallenged.
+CATALOG_YEAR_FIELDS = ("catalog",)
+
+
+def file_page_year(entry: dict) -> tuple[int | None, str, str, str]:
+    """Commons' declared capture date as ``(year, field, source, raw)``.
+
+    ``(None, "", "", "")`` when neither the declared capture date
+    (``raw.dateTimeOriginal``) nor the structured date names exactly one year.
+    """
+    raw = entry.get("raw") or {}
     y = exif_capture_year(entry)
     if y is not None:
-        return y, "exif"
+        return y, "exif", "extmetadata.DateTimeOriginal", \
+            str(raw.get("dateTimeOriginal") or "")
     y = structured_year(entry)
     if y is not None:
-        return y, "structured"
-    return None, ""
+        return y, "structured", "date", str(entry.get("date") or "")
+    return None, "", "", ""
+
+
+def year_provenance(entry: dict) -> tuple[int | None, str, str, str]:
+    """``(year, field, source field, raw value)`` for one source entry.
+
+    ``field`` is the provenance class (``catalog`` | ``exif`` |
+    ``structured``), ``source`` the repository field the value came from and
+    ``raw`` the value itself, so the generation trace can show a moderator
+    where the year came from without opening the repository page (ticket
+    #1430 part 5). An entry written before these fields existed falls back to
+    Commons' file-page derivation.
+    """
+    if entry.get("year_field"):
+        year = entry.get("year")
+        return (year if isinstance(year, int) else None,
+                str(entry["year_field"]), str(entry.get("year_source") or ""),
+                str(entry.get("year_raw") or ""))
+    return file_page_year(entry)
 
 
 # ── SDC P571 (inception): measured, not used (ticket #1418) ────────────────
@@ -840,6 +889,8 @@ class CommonsAdapter(SourceAdapter):
 
     repo = "Wikimedia Commons"
     repo_tag = "commons"
+    # Only this adapter requires the Commons assessment rating.
+    requires_quality = True
 
     def quality_batch(self, limit: int, cursor: str | None = None):
         """One page of Quality images + imageinfo; returns (raws, cursor).
@@ -865,6 +916,10 @@ class CommonsAdapter(SourceAdapter):
         for i in range(0, len(titles), 50):
             raws.extend(self._imageinfo(titles[i:i + 50]))
         return raws, next_cursor
+
+    def walk_batch(self, limit: int, cursor=None) -> tuple:
+        """``quality_batch`` under the generic top-up walk name."""
+        return self.quality_batch(limit, cursor)
 
     def _imageinfo(self, titles):
         params = {
@@ -955,7 +1010,8 @@ class CommonsAdapter(SourceAdapter):
                 "restrictions": g("Restrictions"),
             },
         }
-        norm["year"], norm["year_field"] = source_year(norm)
+        norm["year"], norm["year_field"], norm["year_source"], norm["year_raw"] = \
+            file_page_year(norm)
         return norm
 
     def download_url(self, raw) -> str:
@@ -976,6 +1032,241 @@ def _commons_file_page(title: str) -> str:
     if not title:
         return ""
     return "https://commons.wikimedia.org/wiki/" + urllib.parse.quote(title.replace(" ", "_"))
+
+
+# ── Gallica (BnF) adapter (ticket #1430) ───────────────────────────────────
+#
+# The #1430 measurement (pipeline/ag_dates_audit.py) found Gallica the only
+# reachable collection this host can query whose per-item date is a catalogue
+# fact: the ticket's named collections are blocked from here (LOC: Cloudflare
+# 403; DDB/Smithsonian/Europeana: API key; NYPL: token; Deutsche Fotothek:
+# robots.txt disallows crawling; Nationaal Archief: 403). Gallica answers an
+# SRU/Dublin-Core interface, and ``dc:date`` is the date the BnF catalogue
+# assigns to the item: not a scan or upload stamp, so it needs no apparent-era
+# cross-check from the model. Public domain only, and the year must be one
+# unambiguous four-digit year (``single_year``), so the pool gate is the same
+# rule as everywhere else plus the catalog provenance.
+
+GALLICA_SRU = "https://gallica.bnf.fr/SRU"
+GALLICA_ARK = "https://gallica.bnf.fr/ark:/12148"
+GALLICA_IIIF = "https://gallica.bnf.fr/iiif/ark:/12148"
+# The served copy is capped: originals run to 8000 px, and every model call
+# sends the image base64-encoded, so a full-size download would be both slow
+# and expensive for no gain (the pool only requires >= 1000 px).
+GALLICA_IMAGE_WIDTH = 2000
+GALLICA_RIGHTS_URL = "https://gallica.bnf.fr/html/und/droits-dutilisation"
+GALLICA_PUBLIC_DOMAIN = ("domaine public", "public domain")
+
+# The walk queries. Gallica's result sets are large; the paging position
+# lives in index.json under ``topup.gallica`` ({"query": i, "start": n}), so
+# a top-up resumes where it stopped. Press photographs first: they are
+# landscape scene pictures (streets, markets, events) with a dated catalogue
+# entry, which is exactly what the game needs.
+GALLICA_WALK_QUERIES = (
+    'dc.type all "image" and dc.rights all "domaine public" and '
+    'gallica all "photographie de presse"',
+    'dc.type all "image" and dc.rights all "domaine public" and '
+    'gallica all "photographie" and dc.subject all "Paris"',
+    'dc.type all "image" and dc.rights all "domaine public" and '
+    'gallica all "photographie" and dc.subject all "guerre"',
+)
+
+_GALLICA_ARK_RE = re.compile(r"ark:/12148/([a-z0-9]+)")
+_GALLICA_TAG_RE = re.compile(r"<dc:(\w+)>(.*?)</dc:\1>", re.S)
+
+
+def parse_gallica_records(xml: str) -> list:
+    """SRU ``searchRetrieve`` XML -> raw records (pure, ticket #1430).
+
+    One record per ``<srw:record>``: ``{title, dates, rights, creator, ark}``.
+    ``dates`` keeps every ``dc:date`` in order, ``rights`` every
+    ``dc:rights``; the ARK is read from the first
+    ``dc:identifier`` that carries ``ark:/12148/...``. Malformed or
+    identifier-less records still come back (with ``ark: ""``) so the caller's
+    filters decide, not the parser.
+    """
+    out = []
+    for rec in re.findall(r"<srw:record>(.*?)</srw:record>", xml, re.S):
+        fields = {}
+        for tag, value in _GALLICA_TAG_RE.findall(rec):
+            fields.setdefault(tag, []).append(_strip_html(value))
+        ark = ""
+        for ident in fields.get("identifier", []):
+            m = _GALLICA_ARK_RE.search(ident)
+            if m:
+                ark = m.group(1)
+                break
+        out.append({"title": (fields.get("title") or [""])[0],
+                    "dates": fields.get("date", []),
+                    "rights": fields.get("rights", []),
+                    "creator": (fields.get("creator") or [""])[0],
+                    "description": " ".join(fields.get("description", [])),
+                    "ark": ark})
+    return out
+
+
+def gallica_served_size(width, height) -> tuple:
+    """The pixel size of the copy the IIIF service will serve (capped)."""
+    try:
+        w, h = int(width or 0), int(height or 0)
+    except (TypeError, ValueError):
+        return 0, 0
+    if w <= 0 or h <= 0:
+        return 0, 0
+    if w <= GALLICA_IMAGE_WIDTH:
+        return w, h
+    scale = GALLICA_IMAGE_WIDTH / w
+    return GALLICA_IMAGE_WIDTH, max(1, int(round(h * scale)))
+
+
+def gallica_image_url(ark: str, width=None) -> str:
+    """The IIIF URL for an item's first page, capped at ``width``."""
+    try:
+        w = int(width or 0)
+    except (TypeError, ValueError):
+        w = 0
+    size = f"{min(w, GALLICA_IMAGE_WIDTH)}," if 0 < w <= GALLICA_IMAGE_WIDTH \
+        else (f"{GALLICA_IMAGE_WIDTH}," if w else "full")
+    return f"{GALLICA_IIIF}/{ark}/f1/full/{size}/0/native.jpg"
+
+
+def gallica_catalog_year(dates) -> tuple:
+    """``(year, raw)`` when the catalogue dates name exactly one year.
+
+    ``(None, "")`` for an empty list, a range/decade/circa value (rejected by
+    ``single_year``) or two dates that disagree: in each case the item has no
+    single year, and the pool gate refuses it.
+    """
+    years = {}
+    for value in dates or []:
+        y = single_year(value)
+        if y is not None:
+            years.setdefault(y, str(value))
+    if len(years) != 1:
+        return None, ""
+    return next(iter(years)), years[next(iter(years))]
+
+
+class GallicaAdapter(SourceAdapter):
+    """Bibliothèque nationale de France, Gallica (ticket #1430).
+
+    The item date comes from Gallica's own catalogue (``dc:date``) and is
+    stored as a catalog fact; the generator never lets the model override it.
+    Public domain only, landscape and >= 1000 px, image via the IIIF service.
+    """
+
+    repo = "Bibliothèque nationale de France (Gallica)"
+    repo_tag = "gallica"
+
+    def search(self, query: str, limit: int, offset: int = 0):
+        recs, _total = self._sru(query, limit, offset + 1)
+        return recs
+
+    @staticmethod
+    def _sru(query: str, limit: int, start: int) -> tuple:
+        params = {"operation": "searchRetrieve", "version": "1.2",
+                  "query": query, "maximumRecords": str(max(1, int(limit))),
+                  "startRecord": str(max(1, int(start)))}
+        body = _get_bytes(GALLICA_SRU + "?" + urllib.parse.urlencode(params))
+        text = body.decode("utf-8", "replace")
+        m = re.search(r"<srw:numberOfRecords>(\d+)", text)
+        total = int(m.group(1)) if m else 0
+        return parse_gallica_records(text), total
+
+    def walk_batch(self, limit: int, cursor=None) -> tuple:
+        """One page of walk candidates with dimensions; (raws, next_cursor).
+
+        ``cursor`` is ``{"query": i, "start": n}`` (None starts at the top).
+        A query whose ``start`` passes its ``numberOfRecords`` moves the walk
+        to the next query; when the last query is exhausted the returned
+        cursor is None and the walk restarts on the next run. Dimensions come
+        from the IIIF ``info.json`` of each record's first page, one call per
+        candidate, because the cover page is what the game will show.
+        """
+        state = dict(cursor or {})
+        qi, start = int(state.get("query") or 0), int(state.get("start") or 1)
+        raws = []
+        while len(raws) < limit and qi < len(GALLICA_WALK_QUERIES):
+            query = GALLICA_WALK_QUERIES[qi]
+            recs, total = self._sru(query, limit - len(raws), start)
+            if not recs:
+                qi, start = qi + 1, 1
+                continue
+            start += len(recs)
+            for rec in recs:
+                rec["query"] = query
+                rec["width"], rec["height"] = gallica_size(rec.get("ark") or "")
+                raws.append(rec)
+            if start > total:
+                qi, start = qi + 1, 1
+        next_cursor = {"query": qi, "start": start} \
+            if qi < len(GALLICA_WALK_QUERIES) else None
+        return raws, next_cursor
+
+    def normalize(self, raw) -> dict | None:
+        ark = str(raw.get("ark") or "")
+        if not ark:
+            return None
+        rights = " ".join(str(r) for r in (raw.get("rights") or []))
+        if not any(p in rights.lower() for p in GALLICA_PUBLIC_DOMAIN):
+            return None
+        # A range/decade/circa value leaves ``year`` None; the entry is still
+        # returned so the pool's year gate (``entry_reject_reason``) reports
+        # it as a year rejection rather than an adapter rejection.
+        year, date_raw = gallica_catalog_year(raw.get("dates"))
+        width, height = gallica_served_size(raw.get("width"), raw.get("height"))
+        if not dimensions_ok(width, height):
+            return None
+        title = _strip_html(raw.get("title") or "") or f"Gallica {ark}"
+        return {
+            "repository": self.repo,
+            "fileUrl": f"{GALLICA_ARK}/{ark}",
+            "originalTitle": title,
+            "date": date_raw or (raw.get("dates") or [""])[0],
+            "place": "",
+            "license": "Public domain",
+            "licenseUrl": GALLICA_RIGHTS_URL,
+            "description": _strip_html(raw.get("description") or ""),
+            "width": width,
+            "height": height,
+            "mime": "image/jpeg",
+            "year": year,
+            "year_field": "catalog" if year is not None else "",
+            "year_source": "dc:date",
+            "year_raw": date_raw or (raw.get("dates") or [""])[0],
+            "raw": {
+                "ark": ark,
+                "title": raw.get("title"),
+                "dates": list(raw.get("dates") or []),
+                "rights": list(raw.get("rights") or []),
+                "creator": raw.get("creator"),
+                "query": raw.get("query"),
+                "sourceWidth": raw.get("width"),
+                "sourceHeight": raw.get("height"),
+            },
+        }
+
+    def download_url(self, raw) -> str:
+        return gallica_image_url(str(raw.get("ark") or ""), raw.get("width"))
+
+
+def gallica_size(ark: str) -> tuple:
+    """``(width, height)`` of a Gallica item's first page, (0, 0) on error.
+
+    The IIIF ``info.json`` is the repository's own statement of the image
+    size; a candidate whose info call fails is unusable, not a crash.
+    """
+    if not ark:
+        return 0, 0
+    try:
+        body = _get_bytes(f"{GALLICA_IIIF}/{ark}/f1/info.json")
+        info = json.loads(body.decode("utf-8", "replace"))
+    except (urllib.error.URLError, ValueError):
+        return 0, 0
+    try:
+        return int(info.get("width") or 0), int(info.get("height") or 0)
+    except (TypeError, ValueError):
+        return 0, 0
 
 
 # ── Library of Congress adapter (query/manual escape hatch) ────────────────
@@ -1033,7 +1324,8 @@ class LocAdapter(SourceAdapter):
                 "subjects": raw.get("subject"),
             },
         }
-        norm["year"], norm["year_field"] = source_year(norm)
+        norm["year"], norm["year_field"], norm["year_source"], norm["year_raw"] = \
+            file_page_year(norm)
         return norm
 
     def download_url(self, raw) -> str:
@@ -1090,7 +1382,18 @@ class ManualAdapter(SourceAdapter):
             "height": int(m.get("height") or 0),
             "raw": {k: v for k, v in m.items() if k not in ("license",)},
         }
-        norm["year"], norm["year_field"] = source_year(norm)
+        norm["year"], norm["year_field"], norm["year_source"], norm["year_raw"] = \
+            file_page_year(norm)
+        # A hand-curated import can assert a catalogue date ("year_field":
+        # "catalog", "year_source": "<field>", "year_raw": "<value>"); without
+        # that assertion it stays a file-page date and the #1430 gate refuses
+        # it, exactly like an API import.
+        if m.get("year_field"):
+            norm["year_field"] = str(m["year_field"])
+            norm["year_source"] = str(m.get("year_source") or "")
+            norm["year_raw"] = str(m.get("year_raw") or norm.get("date") or "")
+            if isinstance(m.get("year"), int):
+                norm["year"] = m["year"]
         return norm
 
     def download_url(self, raw) -> str:
@@ -1101,6 +1404,7 @@ class ManualAdapter(SourceAdapter):
 
 ADAPTERS = {
     "commons": CommonsAdapter,
+    "gallica": GallicaAdapter,
     "loc": LocAdapter,
     "manual": ManualAdapter,
 }
@@ -1170,7 +1474,8 @@ def add_sources(data_dir: Path, entries: list, date: str,
 # Metadata fields a refresh may overwrite; identity + bookkeeping stay.
 _REFRESH_KEYS = ("repository", "fileUrl", "originalTitle", "date", "place",
                  "license", "licenseUrl", "description", "width", "height",
-                 "mime", "quality", "raw", "year", "year_field")
+                 "mime", "quality", "raw", "year", "year_field", "year_source",
+                 "year_raw")
 
 
 def _refresh_entry(existing: dict, new: dict) -> bool:
@@ -1286,7 +1591,7 @@ def seed_backend(data_dir: Path, backend: str, query: str, limit: int,
         if norm is None:
             rejected += 1
             continue
-        if source_year(norm)[0] is None:
+        if entry_reject_reason(norm):
             year_rejected += 1
             continue
         pairs.append((raw, norm))
@@ -1366,14 +1671,32 @@ TOPUP_STATE_KEY = "topup"
 
 
 def _load_quality_state(data_dir: Path) -> dict:
-    state = (load_index(data_dir).get(TOPUP_STATE_KEY) or {})
-    return dict(state.get("quality") or {})
+    """The Commons walk cursor as ``{"continue": token}`` (diagnostics only)."""
+    return {"continue": _load_walk_state(data_dir, "commons") or ""}
 
 
 def _save_quality_state(data_dir: Path, state: dict) -> None:
+    _save_walk_state(data_dir, "commons", (state or {}).get("continue") or None)
+
+
+def _load_walk_state(data_dir: Path, source: str):
+    """The persisted paging token of one source's top-up walk, or None.
+
+    The token is opaque to the caller: a ``cmcontinue`` string for Commons, a
+    ``{"query", "start"}`` dict for Gallica. It lives in ``index.json`` under
+    ``topup.<source>.cursor`` so the pool and its paging travel together in
+    backups (ticket #1174).
+    """
+    state = (load_index(data_dir).get(TOPUP_STATE_KEY) or {})
+    return (state.get(source) or {}).get("cursor")
+
+
+def _save_walk_state(data_dir: Path, source: str, cursor) -> None:
     index = load_index(data_dir)
     topup = dict(index.get(TOPUP_STATE_KEY) or {})
-    topup["quality"] = state
+    entry = dict(topup.get(source) or {})
+    entry["cursor"] = cursor
+    topup[source] = entry
     index[TOPUP_STATE_KEY] = topup
     save_index(data_dir, index)
 
@@ -1384,9 +1707,10 @@ def select_candidates(raws, adapter) -> dict:
     Returns {pairs, rejected, quality_rejected, year_rejected, born_digital}
     where ``pairs`` are the (raw, norm) tuples ready to download. ``rejected``
     counts candidates the adapter itself refuses (license/format/size);
-    ``year_rejected`` counts those that pass everything else but name no
-    single unambiguous year (#1405). The born-digital signal is counted, not
-    (by default) a rejection.
+    ``year_rejected`` counts those that pass everything else but fail the
+    pool's year gate (``entry_reject_reason``: no single unambiguous year, or
+    a year that is not a catalogue date; ticket #1430). The born-digital
+    signal is counted, not (by default) a rejection.
     """
     pairs, rejected, quality_rejected, year_rejected, born_digital = \
         [], 0, 0, 0, 0
@@ -1399,11 +1723,15 @@ def select_candidates(raws, adapter) -> dict:
         if norm is None:
             rejected += 1
             continue
-        if isinstance(adapter, CommonsAdapter) and not quality_ok(norm):
+        if getattr(adapter, "requires_quality", False) and not quality_ok(norm):
             quality_rejected += 1
             continue
-        if source_year(norm)[0] is None:
-            year_rejected += 1
+        reason = entry_reject_reason(norm)
+        if reason:
+            if reason.startswith("year"):
+                year_rejected += 1
+            else:
+                rejected += 1
             continue
         if is_born_digital(norm):
             born_digital += 1
@@ -1418,13 +1746,17 @@ def select_candidates(raws, adapter) -> dict:
 
 def top_up(data_dir: Path, target: int = DEFAULT_TOPUP_TARGET,
            batch: int = DEFAULT_TOPUP_BATCH, date: str | None = None,
-           max_calls: int = DEFAULT_TOPUP_CALLS, log=None) -> dict:
-    """Grow the pool from Commons "Quality images" until ``target`` unused.
+           max_calls: int = DEFAULT_TOPUP_CALLS, log=None,
+           source: str = DEFAULT_TOPUP_SOURCE) -> dict:
+    """Grow the pool from ``source`` until ``target`` unused sources exist.
 
-    Repeatable and idempotent: each call resumes at the persisted category
-    cursor, merging is by deterministic id, and ``used`` is never reset.
-    Stops early when the pool is healthy, when the category is exhausted, or
-    after ``max_calls`` pages. Returns a JSON-able report.
+    The default source is Gallica (ticket #1430): the only reachable
+    collection whose per-item date is a catalogue fact, so the pool gate can
+    require a catalog year. Repeatable and idempotent: each call resumes at
+    the persisted paging token, merging is by deterministic id, and ``used``
+    is never reset. Stops early when the pool is healthy, when the source's
+    walk is exhausted, or after ``max_calls`` pages. Returns a JSON-able
+    report.
     """
     say = log or (lambda *a, **k: None)
     date = date or _date_today()
@@ -1432,25 +1764,31 @@ def top_up(data_dir: Path, target: int = DEFAULT_TOPUP_TARGET,
     if pruned["removed"]:
         say(f"top-up: pruned {len(pruned['removed'])} entries failing the key filters")
     before = status(data_dir)
-    report = {"target": target, "before": before, "added": 0, "skipped": 0,
-              "refreshed": 0, "rejected": 0, "quality_rejected": 0,
-              "year_rejected": 0, "born_digital": 0, "downloaded": 0,
-              "calls": 0, "pruned": pruned["removed"], "errors": [],
-              "failed": [], "examples": [], "stopped": ""}
+    report = {"source": source, "target": target, "before": before, "added": 0,
+              "skipped": 0, "refreshed": 0, "rejected": 0,
+              "quality_rejected": 0, "year_rejected": 0, "born_digital": 0,
+              "downloaded": 0, "calls": 0, "pruned": pruned["removed"],
+              "errors": [], "failed": [], "examples": [], "stopped": ""}
     if before["unused"] >= target:
         report["stopped"] = "pool healthy"
         report["after"] = before
         report["shortfall"] = 0
         return report
 
-    adapter = CommonsAdapter()
-    cursor = _load_quality_state(data_dir).get("continue") or ""
+    adapter = get_adapter(source)
+    if not hasattr(adapter, "walk_batch"):
+        report["errors"].append(f"backend {source!r} has no walk")
+        report["after"] = before
+        report["shortfall"] = max(0, target - before["unused"])
+        report["stopped"] = "unsupported source"
+        return report
+    cursor = _load_walk_state(data_dir, source)
     for _ in range(max_calls):
         if status(data_dir)["unused"] >= target:
             report["stopped"] = "target reached"
             break
         try:
-            raws, next_cursor = adapter.quality_batch(batch, cursor or None)
+            raws, cursor = adapter.walk_batch(batch, cursor)
         except Exception as e:  # noqa: BLE001 - a dead page must not stop the run
             report["errors"].append(str(e))
             break
@@ -1466,10 +1804,9 @@ def top_up(data_dir: Path, target: int = DEFAULT_TOPUP_TARGET,
             report["failed"] += res.get("failed", [])
             for _, norm in sel["pairs"][:max(0, 3 - len(report["examples"]))]:
                 report["examples"].append(norm.get("originalTitle", ""))
-        cursor = next_cursor
-        _save_quality_state(data_dir, {"continue": cursor})
+        _save_walk_state(data_dir, source, cursor)
         if not cursor:
-            report["stopped"] = "category exhausted"
+            report["stopped"] = "source exhausted"
             break
     else:
         report["stopped"] = "max calls reached"
@@ -1614,13 +1951,15 @@ def main(argv=None) -> int:
     ls.add_argument("--repo", default=None)
     ls.add_argument("--unused", action="store_true")
 
-    tu = sub.add_parser("top-up", help="walk Commons Quality images into the pool")
+    tu = sub.add_parser("top-up", help="walk a source collection into the pool")
     tu.add_argument("--target", type=int, default=DEFAULT_TOPUP_TARGET,
                     help="unused sources to aim for")
     tu.add_argument("--batch", type=int, default=DEFAULT_TOPUP_BATCH,
-                    help="category members per page")
+                    help="candidates per page")
     tu.add_argument("--max-calls", type=int, default=DEFAULT_TOPUP_CALLS,
-                    help="category pages per run")
+                    help="pages per run")
+    tu.add_argument("--source", default=DEFAULT_TOPUP_SOURCE,
+                    help=f"collection to walk (default {DEFAULT_TOPUP_SOURCE})")
     tu.add_argument("--date", default=None)
 
     my = sub.add_parser("measure-years",
@@ -1660,7 +1999,7 @@ def main(argv=None) -> int:
         return 0
     if args.cmd == "top-up":
         rep = top_up(data_dir, target=args.target, batch=args.batch, date=date,
-                     max_calls=args.max_calls,
+                     max_calls=args.max_calls, source=args.source,
                      log=lambda m: print(m, file=sys.stderr))
         print(json.dumps(rep, indent=2))
         return 0
