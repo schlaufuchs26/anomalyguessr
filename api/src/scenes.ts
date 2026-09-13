@@ -9,8 +9,8 @@ import {
   type Moderation,
   SCENE_HANDLE_RE,
   SCENE_ID_RE,
-  type SceneEntry,
   type SceneChecker,
+  type SceneEntry,
   type StateFile,
 } from "./types.ts";
 
@@ -221,7 +221,8 @@ export function findScene(
   if (!SCENE_HANDLE_RE.test(h)) return null;
   const wanted = h.toUpperCase();
   for (const e of Object.values(st.scenes)) {
-    if ((e.shortId ?? "").toUpperCase() === wanted) return { id: e.id, entry: e };
+    if ((e.shortId ?? "").toUpperCase() === wanted)
+      return { id: e.id, entry: e };
   }
   return null;
 }

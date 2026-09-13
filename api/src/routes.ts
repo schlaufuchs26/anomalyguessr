@@ -6,6 +6,7 @@ import {
   MANUAL_GENERATE_COUNT,
   MAX_GENERATE_COUNT,
 } from "./generate.ts";
+import { PENDING_REF_RE, pendingTracePath } from "./pending.ts";
 import {
   auditCropPath,
   findScene,
@@ -173,12 +174,24 @@ export async function handle(
   // by file existence; the list payload stays small via hasTrace. `id` may
   // be the short handle (ticket #1413): the sidecar is keyed by the
   // canonical long id, so the handle resolves to it first.
+  //
+  // A ref that names no scene is tried as the in-flight trace's slug
+  // (ticket #1446): the live view polls GET /generate for step metadata and
+  // fetches the text of an opened step from here while the run is still
+  // writing traces/pending/<slug>.json.
   if (method === "GET" && segs.length === 2 && segs[0] === "traces") {
-    const id = await resolveSceneId(store, segs[1] ?? "");
-    if (id === null) return notFound();
+    const ref = segs[1] ?? "";
+    const id = await resolveSceneId(store, ref);
+    const file =
+      id !== null
+        ? tracePath(dataDir, id)
+        : PENDING_REF_RE.test(ref)
+          ? pendingTracePath(dataDir, ref)
+          : null;
+    if (file === null) return notFound();
     let raw: string;
     try {
-      raw = await readFile(tracePath(dataDir, id), "utf8");
+      raw = await readFile(file, "utf8");
     } catch {
       return notFound();
     }

@@ -9,6 +9,14 @@
   --link: #7fa7c9;
   --danger: #cf5c4a;
   --ok: #6fae6f;
+  /* Aliases for the shared trace.css (ticket #1446): the trace step markup
+     is the gallery's (gallery.css theme names), and the moderation queue's
+     live view renders it in this page, so the names resolve here too. */
+  --text-muted: var(--ink-dim);
+  --text-secondary: var(--ink);
+  --border: var(--line);
+  --warn: var(--accent);
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
 
 * {
@@ -681,4 +689,58 @@ main {
 .moderate-status {
   font-size: 0.85em;
   margin: 0.3em 0 0;
+}
+
+/* Live generation trace in the empty moderation queue (ticket #1446). The
+ * steps themselves come from the shared trace.css; this is the wrapper, the
+ * live/finished/failed badge and the scrolling list. */
+.live-trace {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 0 auto 1rem;
+  max-width: 720px;
+  padding: 0.6rem 0.8rem;
+  text-align: left;
+}
+
+.live-trace-head {
+  align-items: center;
+  display: flex;
+  gap: 0.5em;
+  margin: 0;
+}
+
+.live-trace-badge {
+  border-radius: 999px;
+  font-size: 0.7em;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 0.15em 0.6em;
+  text-transform: uppercase;
+}
+
+.live-trace-badge-live {
+  background: var(--ok);
+  color: #10170f;
+}
+
+.live-trace-badge-finished {
+  background: var(--line);
+  color: var(--ink);
+}
+
+.live-trace-badge-failed {
+  background: var(--danger);
+  color: #1a0d0a;
+}
+
+.live-trace-waiting {
+  color: var(--ink-dim);
+  font-size: 0.85em;
+  margin: 0 0 1rem;
+}
+
+.live-trace-steps {
+  max-height: 320px;
+  overflow-y: auto;
 }

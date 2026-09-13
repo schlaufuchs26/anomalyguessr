@@ -2,6 +2,7 @@ import { closeSync, existsSync, openSync } from "node:fs";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { pendingTracePath, pendingTraceSlug } from "./pending.ts";
 import type { Store } from "./store.ts";
 import type { FeedbackFile, StateFile } from "./types.ts";
 
@@ -52,6 +53,11 @@ export interface GenerateStatusFile {
   round?: number;
   /** Which mechanical retry of the current round is being drawn, 1-based. */
   draw?: number;
+  /** Click-target pass the pipeline is in (#1446), 1-based. */
+  clickPass?: number;
+  /** Long id of the last scene that landed (#1446); the finished trace
+   *  sidecar is keyed by it. */
+  sceneId?: string;
   /** Running cost in USD (all calls so far). */
   cost?: number;
   elapsedS?: number;
@@ -59,6 +65,79 @@ export interface GenerateStatusFile {
   finishedAt?: string;
   updatedAt?: string;
   error?: string;
+}
+
+/** One step of the in-flight trace, as the live poll payload carries it
+ *  (ticket #1446): the pipeline's trace step minus the large text fields,
+ *  which the live view fetches from GET /traces/{ref} when a step opens. */
+export interface LiveTraceStep {
+  stage: string;
+  [key: string]: unknown;
+}
+
+/** The running scene's trace as GET /generate reports it (#1446). */
+export interface LiveTrace {
+  /** Pending-file slug: GET /traces/{ref} serves this trace's full text. */
+  ref: string;
+  /** Steps in order; prompt/answer/reasoning are stripped. */
+  steps: LiveTraceStep[];
+  /** The trace's own note on the current attempt's failure, when any. */
+  error?: string;
+}
+
+/** Trace fields that stay out of the poll payload: they are the large text
+ *  (proposals, checker answers, reasoning) and only the opened step needs
+ *  them. */
+const TRACE_TEXT_FIELDS = new Set(["prompt", "answer", "reasoning"]);
+
+/** The metadata view of one trace step: text fields dropped. */
+export function stripStepText(step: Record<string, unknown>): LiveTraceStep {
+  const out: LiveTraceStep = {
+    stage: typeof step.stage === "string" ? step.stage : "",
+  };
+  for (const [key, value] of Object.entries(step)) {
+    if (!TRACE_TEXT_FIELDS.has(key)) out[key] = value;
+  }
+  return out;
+}
+
+/**
+ * The pending trace of the source the run is working on, or undefined when
+ * no source is active (idle, or after the final status write dropped the
+ * field). A missing or unparseable pending file is an empty step list, not
+ * an error: the run has started but its first step has not landed yet.
+ */
+export async function loadLiveTrace(
+  dataDir: string,
+  source: string | undefined,
+): Promise<LiveTrace | undefined> {
+  if (!source) return undefined;
+  const ref = pendingTraceSlug(source);
+  let raw: string;
+  try {
+    raw = await readFile(pendingTracePath(dataDir, ref), "utf8");
+  } catch {
+    return { ref, steps: [] };
+  }
+  try {
+    const trace = JSON.parse(raw) as { calls?: unknown; error?: unknown };
+    const calls = Array.isArray(trace.calls) ? trace.calls : [];
+    const steps = calls
+      .filter(
+        (call): call is Record<string, unknown> =>
+          typeof call === "object" && call !== null,
+      )
+      .map(stripStepText);
+    return {
+      ref,
+      steps,
+      ...(typeof trace.error === "string" && trace.error !== ""
+        ? { error: trace.error }
+        : {}),
+    };
+  } catch {
+    return { ref, steps: [] };
+  }
 }
 
 /**
@@ -89,8 +168,16 @@ export interface GenerateStatus {
   round: number;
   /** Mechanical retry of the current round being drawn, 1-based. */
   draw: number;
+  /** Click-target pass of the current scene (#1446), 1-based. */
+  clickPass: number;
+  /** Long id of the last scene that landed (#1446): with it the live view
+   *  can open the finished trace sidecar. */
+  sceneId: string | undefined;
   /** Running cost in USD as the generator reports it. */
   cost: number;
+  /** The running scene's trace steps, metadata only (#1446); undefined when
+   *  no scene is being worked on. */
+  liveTrace: LiveTrace | undefined;
   startedAt: string | undefined;
   finishedAt: string | undefined;
   error: string | undefined;
@@ -190,7 +277,10 @@ export class Generator {
       scenesTotal: file.scenesTotal ?? 0,
       round: file.round ?? 0,
       draw: file.draw ?? 0,
+      clickPass: file.clickPass ?? 0,
+      sceneId: file.sceneId,
       cost: file.cost ?? 0,
+      liveTrace: await loadLiveTrace(dir, file.scene),
       startedAt: file.startedAt,
       finishedAt: file.finishedAt,
       error,

@@ -1,0 +1,112 @@
+/* Generation trace rendering (ticket #1373, shared since ticket #1446).
+ *
+ * The gallery's scene lightbox and the moderation queue's live "Generating"
+ * view render the same steps (src/gallery/TraceSteps.tsx), so the rules live
+ * here and both entries link this file: gallery.html links gallery.css +
+ * trace.css, index.html links style.css + trace.css. The theme variables
+ * (--text-muted, --border, --warn) come from the page's own stylesheet, so
+ * the fallbacks match the dark dev pages.
+ *
+ * `.td-trace` is the collapsible panel (the lightbox), `.td-trace-verdict`
+ * the checker/click-target line (ticket #1446).
+ */
+/* Generation trace panel (ticket #1373): collapsible, fetched on open, one
+ * block per pipeline step. The panel lives in the scene lightbox. */
+.td-trace {
+  border-top: 1px solid var(--border, #2a2a2a);
+  margin-top: 14px;
+  padding-top: 10px;
+}
+
+.td-trace-toggle {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 0;
+}
+
+.td-trace-toggle:disabled {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.td-trace-empty,
+.td-trace-head,
+.td-trace-image {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin: 8px 0 0;
+}
+
+.td-trace-steps {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+}
+
+.td-trace-step {
+  border-left: 2px solid var(--border, #2a2a2a);
+  margin: 0 0 12px;
+  padding: 0 0 0 10px;
+}
+
+.td-trace-stage {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin: 0;
+}
+
+.td-trace-index {
+  color: var(--text-muted);
+  display: inline-block;
+  margin-right: 6px;
+}
+
+.td-trace-meta {
+  color: var(--text-muted);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  margin: 2px 0 6px;
+}
+
+.td-trace-label {
+  color: var(--text-muted);
+  font-size: 11px;
+  margin: 6px 0 2px;
+}
+
+.td-trace-text {
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  margin: 0;
+  max-height: 180px;
+  overflow: auto;
+  padding: 6px 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.td-trace-error,
+.td-trace-notes {
+  color: var(--warn, #e0a050);
+  font-size: 12px;
+}
+
+.td-trace-notes {
+  margin: 8px 0 0;
+  padding-left: 16px;
+}
+
+.td-trace-verdict {
+  color: var(--text-secondary);
+  font-size: 12px;
+  margin: 2px 0 6px;
+}

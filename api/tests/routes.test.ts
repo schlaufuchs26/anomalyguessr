@@ -223,7 +223,12 @@ describe("short scene handles (#1413)", () => {
     expect(beta.shortId).toBe("AG-2");
     expect(beta.hasTrace).toBe(false);
     // the canonical long id keeps working unchanged
-    const byId = await handle(env, "GET", "scenes/beta-street", req("GET", "x"));
+    const byId = await handle(
+      env,
+      "GET",
+      "scenes/beta-street",
+      req("GET", "x"),
+    );
     expect((await json<ApiScene>(byId)).id).toBe("beta-street");
   });
 

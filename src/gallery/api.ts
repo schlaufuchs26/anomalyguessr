@@ -8,7 +8,8 @@ export interface TDComment {
   createdAt: string;
 }
 /** The last checker verdict stored with a scene (ticket #1436): requirements
- *  met (0..7), the failed requirement numbers and the checker's reason. */
+ *  met (0..8, 8 = all met), the failed requirement numbers and the checker's
+ *  reason. */
 export interface SceneChecker {
   score: number;
   failed: number[];
@@ -195,9 +196,12 @@ export interface TraceStep {
   covers?: boolean | null;
   /** Click-target steps: the model's one-line reason. */
   verdict_reason?: string;
-  /** Checker stages: requirements met (0..7) and the failed numbers. */
+  /** Checker stages: requirements met (0..8, 8 = all met) and the failed
+   *  numbers. */
   score?: number | null;
   failed?: number[];
+  /** Checker stages: the checker's one-line reason (ticket #1446). */
+  reason?: string;
   /** Mechanical-gate rejection of a draw (replaces the answer). */
   rejected?: string;
   /** Image-edit steps: the seed used for the draw. */

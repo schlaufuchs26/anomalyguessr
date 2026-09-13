@@ -1,4 +1,5 @@
 import type { Manifest } from "../manifest";
+import type { TraceStep } from "./gallery/api";
 
 /**
  * Single place where the frontend talks to the AnomalyGuessr backend.
@@ -111,6 +112,21 @@ export async function postModeration(
 /** Dev queue generation, on demand (ticket #1210). */
 const GENERATE_URL = "/anomalyguessr/api/generate";
 
+/**
+ * The trace of the scene a run is working on (ticket #1446), as the poll of
+ * GET /generate carries it: step metadata only. The large text fields
+ * (prompt/answer/reasoning) are not part of this payload; opening a step
+ * fetches them from `/anomalyguessr/api/traces/{ref}`.
+ */
+export interface LiveTrace {
+  /** The in-flight trace's slug; `/traces/{ref}` serves its full text. */
+  ref: string;
+  /** Steps in order (see TraceStep; the text fields are absent). */
+  steps: TraceStep[];
+  /** The pipeline's own note on the current attempt's failure, when any. */
+  error?: string;
+}
+
 /** Status of the dev generator: buffer depth + the last/current run. */
 export interface GenerateStatus {
   state: "idle" | "running" | "done" | "error";
@@ -133,13 +149,42 @@ export interface GenerateStatus {
   round?: number;
   /** Mechanical retry of the current round being drawn, 1-based. */
   draw?: number;
+  /** Click-target pass of the current scene (#1446), 1-based. */
+  clickPass?: number;
+  /** Long id of the last scene that landed (#1446); its finished trace
+   *  sidecar is the one the live view opens after the run. */
+  sceneId?: string;
   /** Running cost in USD as the generator reports it. */
   cost?: number;
+  /** The running scene's trace steps (#1446); absent when none is active. */
+  liveTrace?: LiveTrace;
   error?: string;
 }
 
 function num(v: unknown): number {
   return typeof v === "number" && Number.isFinite(v) ? v : 0;
+}
+
+/** An object counts as a trace step when it names a stage. */
+function isStep(v: unknown): v is TraceStep {
+  return (
+    typeof v === "object" &&
+    v !== null &&
+    typeof (v as { stage?: unknown }).stage === "string"
+  );
+}
+
+/** Parse the poll's live trace; anything malformed drops to no live trace. */
+function parseLiveTrace(raw: unknown): LiveTrace | undefined {
+  if (typeof raw !== "object" || raw === null) return undefined;
+  const r = raw as Record<string, unknown>;
+  if (typeof r.ref !== "string" || r.ref === "") return undefined;
+  const steps = Array.isArray(r.steps) ? r.steps.filter(isStep) : [];
+  return {
+    ref: r.ref,
+    steps,
+    ...(typeof r.error === "string" && r.error ? { error: r.error } : {}),
+  };
 }
 
 /** Normalize the API payload; unknown states/values degrade to idle/0. */
@@ -149,6 +194,7 @@ function parseGenerateStatus(raw: unknown): GenerateStatus {
     r.state === "running" || r.state === "done" || r.state === "error"
       ? r.state
       : "idle";
+  const liveTrace = parseLiveTrace(r.liveTrace);
   return {
     state,
     running: r.running === true || state === "running",
@@ -164,7 +210,12 @@ function parseGenerateStatus(raw: unknown): GenerateStatus {
     scenesTotal: num(r.scenesTotal),
     round: num(r.round),
     draw: num(r.draw),
+    clickPass: num(r.clickPass),
+    ...(typeof r.sceneId === "string" && r.sceneId
+      ? { sceneId: r.sceneId }
+      : {}),
     cost: num(r.cost),
+    ...(liveTrace ? { liveTrace } : {}),
     ...(typeof r.error === "string" && r.error ? { error: r.error } : {}),
   };
 }

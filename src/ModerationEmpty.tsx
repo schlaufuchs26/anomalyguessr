@@ -7,6 +7,11 @@
  * top the queue up on demand, with the run's progress while it works. A
  * finished run reloads the manifest so the new unmoderated scenes appear.
  *
+ * #1446 adds the pipeline's own steps below the progress line: GET /generate
+ * carries the running scene's trace metadata (the pipeline flushes each step
+ * to traces/pending/<source>.json) and LiveTraceView renders them like the
+ * gallery's trace panel, with the step text fetched on demand.
+ *
  * That reload is triggered by the running -> done transition observed while
  * polling, not by "the status file says done" (#1287): the file keeps the
  * last run's result forever, so a done run whose scenes never reached this
@@ -15,6 +20,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type GenerateStatus, loadGenerateStatus, startGenerate } from "./api";
+import { LiveTraceView } from "./LiveTrace";
 
 /** Poll interval while a generation run is in flight. */
 const POLL_MS = 2000;
@@ -29,6 +35,8 @@ function phaseLabel(status: GenerateStatus): string {
   if (!phase) return "";
   const round = status.round ?? 0;
   const roundLabel = round > 0 ? ` (round ${round} of 2)` : "";
+  const passLabel =
+    (status.clickPass ?? 0) > 0 ? ` (pass ${status.clickPass})` : "";
   switch (phase) {
     case "starting":
       return "starting up";
@@ -43,7 +51,7 @@ function phaseLabel(status: GenerateStatus): string {
     case "locating":
       return "placing the click target";
     case "click-target":
-      return "checking the click target";
+      return `checking the click target${passLabel}`;
     case "scene-done":
       return "scene done";
     case "budget":
@@ -60,7 +68,14 @@ function generationDetail(status: GenerateStatus): string {
   return bits.filter(Boolean).join(" · ");
 }
 
-export function ModerationEmpty({ onReload }: { onReload: () => void }) {
+export function ModerationEmpty({
+  onReload,
+  pollMs = POLL_MS,
+}: {
+  onReload: () => void;
+  /** Poll cadence while a run is in flight; tests drive a shorter one. */
+  pollMs?: number;
+}) {
   const [status, setStatus] = useState<GenerateStatus | null>(null);
   const [error, setError] = useState("");
   const [starting, setStarting] = useState(false);
@@ -96,9 +111,9 @@ export function ModerationEmpty({ onReload }: { onReload: () => void }) {
   // Poll while running so the counter keeps moving.
   useEffect(() => {
     if (!status?.running) return;
-    const timer = window.setInterval(() => void refresh(), POLL_MS);
+    const timer = window.setInterval(() => void refresh(), pollMs);
     return () => window.clearInterval(timer);
-  }, [status?.running, refresh]);
+  }, [status?.running, refresh, pollMs]);
 
   const onGenerate = async () => {
     setStarting(true);
@@ -139,6 +154,12 @@ export function ModerationEmpty({ onReload }: { onReload: () => void }) {
           {detail ? ` · ${detail}` : ""}
         </p>
       ) : null}
+      <LiveTraceView
+        trace={status?.liveTrace}
+        running={running}
+        endState={status?.state ?? "idle"}
+        sceneId={status?.sceneId}
+      />
       {error ? (
         <p className="gen-error" role="alert">
           {error}

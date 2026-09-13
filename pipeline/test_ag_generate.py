@@ -1462,6 +1462,9 @@ class RunTest(TempDataMixin, unittest.TestCase):
         self.assertEqual(status["planned"], 1)
         self.assertEqual(status["scenesTotal"], 1)
         self.assertGreater(status["cost"], 0)
+        # ticket #1446: the done status names the scene that landed, so the
+        # live view can open the finished trace sidecar
+        self.assertEqual(status["sceneId"], report["added"][0]["scene"])
 
     def test_run_reports_the_refusal_rate_and_the_raw_messages(self):
         # #1439: the run summary carries the refusal rate, split by element

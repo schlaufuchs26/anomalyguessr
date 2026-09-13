@@ -1830,6 +1830,10 @@ def _run(args, data_dir: Path, lock) -> dict:
     out_dir = Path(args.out_dir) if args.out_dir else Path(
         tempfile.mkdtemp(prefix="ag-gen-"))
     used_prompts = set()
+    # Long id of the last scene that landed (#1446): the done status carries
+    # it so the live view can open the finished trace sidecar, which the
+    # pipeline renames from traces/pending/ to traces/<id>.json.
+    last_scene_id = None
     for index, source in enumerate(picked, 1):
         if image_budget_left(args, totals) <= 0:
             report["failed"].append({"id": source["id"], "stage": "budget",
@@ -1842,9 +1846,10 @@ def _run(args, data_dir: Path, lock) -> dict:
         if scene is not None:
             report["added"].append(scene["report"])
             used_prompts.add(scene["label"])
+            last_scene_id = scene["report"]["scene"]
         elif failed is not None:
             report["failed"].append(failed)
-        emit(phase="scene-done", scene=source["id"])
+        emit(phase="scene-done", scene=source["id"], sceneId=last_scene_id)
 
     report["duration_s"] = round(time.time() - started, 1)
     report["image_calls"] = int(totals.get("image_calls", 0))
@@ -1885,10 +1890,10 @@ def _run(args, data_dir: Path, lock) -> dict:
         message = report.get("error") or (
             f"no scenes added ({len(report['failed'])} failed)")
         emit(state="error", phase="error", error=message,
-             finishedAt=_now_iso())
+             finishedAt=_now_iso(), sceneId=last_scene_id)
     else:
         emit(state="done", phase="done", finishedAt=_now_iso(),
-             durationS=report["duration_s"])
+             durationS=report["duration_s"], sceneId=last_scene_id)
     return report
 
 
@@ -2068,6 +2073,7 @@ def _check_round(image: Path, proposal: dict, scene: dict | None, round_no: int,
     record_call(data_dir, trace,
                 {"stage": f"check r{round_no}", "attempt": attempt,
                  "score": check["score"], "failed": check["failed"],
+                 "reason": check["reason"],
                  **_call_trace(check["call"])})
     return check
 
