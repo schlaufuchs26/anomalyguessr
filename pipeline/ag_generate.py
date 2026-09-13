@@ -1487,7 +1487,7 @@ def _run(args, data_dir: Path, lock) -> dict:
                          count=args.count, planned=report["planned"],
                          added=len(report["added"]),
                          failed=len(report["failed"]),
-                         imageCalls=report["image_calls"],
+                         imageCalls=int(totals.get("image_calls", 0)),
                          cost=round(totals.get("cost", 0.0), 6),
                          elapsedS=round(time.time() - started, 1),
                          startedAt=started_iso, **extra)
