@@ -10,8 +10,8 @@ away.
 
 For every scene it resolves:
 
-- the scene year: the source metadata anchor first (``source.date`` via
-  ``ag_sources.anchor_year``), the displayed ``year`` field second;
+- the scene year: the source metadata anchor (``source.date`` via
+  ``ag_sources.source_year``), the displayed ``year`` field second;
 - the element's introduction year: the catalog's ``min_year`` where the label
   matches exactly, a curated keyword table for the historic labels the
   catalog no longer carries, and "futuristic" for the robot/UFO families
@@ -106,7 +106,7 @@ _YEAR_RE = re.compile(r"(?<!\d)((?:1[5-9]|20)\d{2})(?!\d)")
 
 def scene_anchor(scene: dict) -> tuple[int | None, str]:
     """(year, origin) for a scene: metadata anchor first, display second."""
-    year, _field = ag_sources.anchor_year(scene.get("source") or {})
+    year, _field = ag_sources.source_year(scene.get("source") or {})
     if year is not None:
         return year, "metadata"
     m = _YEAR_RE.search(str(scene.get("year") or ""))

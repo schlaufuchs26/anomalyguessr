@@ -731,7 +731,7 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
         data = self.trace_of(scene)
         self.assertEqual(data["scene_time"]["year"], 1905)
         self.assertEqual(data["scene_time"]["origin"], "metadata")
-        self.assertEqual(data["scene_time"]["field"], "dateTimeOriginal")
+        self.assertEqual(data["scene_time"]["field"], "exif")
         self.assertEqual(scene["report"]["scene_time"]["year"], 1905)
 
     def test_best_of_k_ships_the_highest_scoring_candidate(self):
@@ -1089,7 +1089,7 @@ class SceneTimeTest(unittest.TestCase):
         s["raw"]["dateTime"] = "2014-09-13"
         st = g.scene_time(s, proposal(apparent_era="1905"))
         self.assertEqual(st["year"], 1905)
-        self.assertEqual(st["field"], "dateTimeOriginal")
+        self.assertEqual(st["field"], "exif")
         self.assertFalse(st["disagreement"])
 
     def test_without_an_anchor_the_proposal_is_the_year(self):

@@ -107,7 +107,7 @@ class KeyFilterTest(unittest.TestCase):
 
     def test_entry_reject_reason(self):
         good = {"license": "CC0", "mime": "image/jpeg", "width": 2000,
-                "height": 1500}
+                "height": 1500, "date": "2013-10-24"}
         self.assertEqual(s.entry_reject_reason(good), "")
         self.assertEqual(
             s.entry_reject_reason({**good, "license": "All rights reserved"}),
@@ -117,6 +117,11 @@ class KeyFilterTest(unittest.TestCase):
         self.assertIn("orientation",
                       s.entry_reject_reason({**good, "width": 1500,
                                              "height": 2000}))
+        # #1405: a source without a single unambiguous year is inadmissible.
+        self.assertIn("year",
+                      s.entry_reject_reason({**good, "date": "circa 1900"}))
+        self.assertIn("year",
+                      s.entry_reject_reason({**good, "date": ""}))
 
 
 class BornDigitalTest(unittest.TestCase):
@@ -138,20 +143,47 @@ class BornDigitalTest(unittest.TestCase):
             {"raw": {"dateTimeOriginal": "1902"}}))
         self.assertFalse(s.is_born_digital({"raw": {}}))
 
-    def test_anchor_year_prefers_capture_then_upload_then_date(self):
-        # The EXIF capture date is the photo's year; the upload/scan stamp is
-        # only a fallback, so a scan's digitization date cannot win.
+    def test_single_year_rejects_ambiguous_forms(self):
+        # #1405: the year must be a fact from one structured field, not a
+        # guess. Ranges, decades, centuries and uncertainty markers fall out.
+        for good, want in (("2013-10-24 15:02:48", 2013),
+                           ("1900-01-20", 1900),
+                           ("1900", 1900),
+                           ("2009-05", 2009),
+                           ("1900 date QS:P571,+1900-00-00T00:00:00Z/9", 1900)):
+            self.assertEqual(s.single_year(good), want, good)
+        for bad in ("", None, "1907?", "1900s", "19th century", "circa 1900",
+                    "[ca. 1900]", "about 1900", "1890-1900", "1820–50",
+                    "1903/19uu", "between 1890 and 1900", "1900 or 1901",
+                    "early 1900s"):
+            self.assertIsNone(s.single_year(bad), bad)
+
+    def test_source_year_prefers_exif_then_structured(self):
+        # The EXIF/template capture date wins; the structured date is the
+        # fallback. The upload/file date is never a year source.
         self.assertEqual(
-            s.anchor_year({"raw": {"dateTimeOriginal": "1902",
+            s.source_year({"raw": {"dateTimeOriginal": "1902-05-01",
                                    "dateTime": "2014-09-13"},
                            "date": "2014-09-13"}),
-            (1902, "dateTimeOriginal"))
+            (1902, "exif"))
+        self.assertEqual(s.source_year({"date": "1899-05-01"}),
+                         (1899, "structured"))
         self.assertEqual(
-            s.anchor_year({"raw": {"dateTime": "1899"}, "date": "1900"}),
-            (1899, "dateTime"))
-        self.assertEqual(s.anchor_year({"date": "1907?"}), (1907, "date"))
-        self.assertEqual(s.anchor_year({"date": ""}), (None, ""))
-        self.assertEqual(s.anchor_year({"date": "1900s"}), (None, ""))
+            s.source_year({"raw": {"dateTime": "1899"}, "date": ""}),
+            (None, ""))
+        self.assertEqual(s.source_year({"date": "1907?"}), (None, ""))
+
+    def test_structured_date_repeating_the_upload_stamp_is_rejected(self):
+        # A "structured" date that just repeats the upload timestamp is not a
+        # creation date (#1405 trap 2).
+        self.assertEqual(
+            s.source_year({"date": "2014-09-13",
+                           "raw": {"uploadTimestamp": "2014-09-13T06:14:18Z"}}),
+            (None, ""))
+        self.assertEqual(
+            s.source_year({"date": "1900-01-20",
+                           "raw": {"uploadTimestamp": "2014-09-13T06:14:18Z"}}),
+            (1900, "structured"))
 
 
 class MetadataDateTest(unittest.TestCase):
@@ -209,6 +241,8 @@ class CommonsNormalizeTest(unittest.TestCase):
         self.assertEqual(n["quality"], "quality")
         self.assertTrue(s.quality_ok(n))
         self.assertEqual(n["date"], "2013-10-24")
+        self.assertEqual(n["year"], 2013)
+        self.assertEqual(n["year_field"], "exif")
         self.assertTrue(s.is_born_digital(n))
         self.assertEqual(n["raw"]["dateTimeOriginal"],
                          "2013-10-24 15:02:48")
@@ -292,6 +326,51 @@ class IndexTest(TempDirMixin, unittest.TestCase):
         self.assertTrue(str(s.default_data_dir()).endswith("data/anomalyguessr"))
         self.assertEqual(s.sources_dir(self.data_dir),
                          self.data_dir / "sources")
+
+
+class MeasureTest(unittest.TestCase):
+    def test_measure_candidates_reports_survival_and_fields(self):
+        adapter = s.CommonsAdapter()
+        modern = commons_raw(title="Modern",
+                             date_original="2019-06-09 10:00:00")
+        old = commons_raw(title="Old")
+        old["imageinfo"][0]["extmetadata"].pop("DateTimeOriginal")
+        old["imageinfo"][0]["extmetadata"]["DateTime"] = {
+            "value": "1900-01-20 00:00:00"}
+        # A capture field that is uncertain and a file date that just repeats
+        # the upload stamp: no admissible year.
+        ambiguous = commons_raw(title="Circa", date_original="circa 1900")
+        ambiguous["imageinfo"][0]["extmetadata"]["DateTime"] = {
+            "value": "2014-09-13 00:00:00"}
+        ambiguous["imageinfo"][0]["timestamp"] = "2014-09-13T00:00:00Z"
+        portrait = commons_raw(title="Portrait", width=1500, height=2000)
+        rep = s.measure_candidates([modern, old, ambiguous, portrait], adapter)
+        self.assertEqual(rep["sample"], 4)
+        self.assertEqual(rep["normalize_rejected"], 1)   # portrait
+        self.assertEqual(rep["normalized"], 3)
+        self.assertEqual(rep["survivors"], 2)
+        self.assertEqual(rep["year_rejected"], 1)
+        self.assertEqual(rep["exif_anchored"], 1)
+        self.assertEqual(rep["structured_anchored"], 1)
+        self.assertEqual(rep["structured_equals_upload"], 1)
+
+
+class YearAuditTest(TempDirMixin, unittest.TestCase):
+    def test_year_audit_flags_pool_entries_without_a_year(self):
+        good = {"id": "commons-good-000000", "repository": "Wikimedia Commons",
+                "fileUrl": "", "originalTitle": "Good", "date": "2013-10-24",
+                "place": "", "license": "CC0", "licenseUrl": "",
+                "description": "", "width": 2000, "height": 1500,
+                "used": True}
+        bad = {**good, "id": "commons-bad-000000", "originalTitle": "Bad",
+               "date": "circa 1900", "used": False}
+        s.add_sources(self.data_dir, [good, bad], "2026-09-13")
+        rep = s.year_audit(self.data_dir)
+        self.assertEqual(rep["total"], 2)
+        self.assertEqual(rep["rejected"], ["commons-bad-000000"])
+        self.assertEqual(rep["rejected_used"], 0)
+        self.assertEqual(rep["structured_anchored"], 1)
+        self.assertEqual(rep["decades"], {2010: 1})
 
 
 def stub_raw(title, born=1902, license="CC0"):
@@ -402,6 +481,15 @@ class TopUpTest(TempDirMixin, unittest.TestCase):
         self.assertEqual(rep["rejected"], 2)
         self.assertEqual(rep["downloaded"], 0)
 
+    def test_year_rejected_counted_separately(self):
+        StubCommons.pages = [stub_raw("Dated"), stub_raw("Undated")]
+        StubCommons.pages[1]["imageinfo"][0]["extmetadata"][
+            "DateTimeOriginal"] = {"value": "circa 1900"}
+        rep = s.top_up(self.data_dir, target=5, batch=2, max_calls=2)
+        self.assertEqual(rep["added"], 1)
+        self.assertEqual(rep["year_rejected"], 1)
+        self.assertEqual(rep["downloaded"], 1)
+
 
 class ManualSeedTest(TempDirMixin, unittest.TestCase):
     def test_manual_import(self):
@@ -410,14 +498,33 @@ class ManualSeedTest(TempDirMixin, unittest.TestCase):
         (src / "photo.jpg").write_bytes(b"img")
         (src / s.MANUAL_META).write_text(json.dumps({
             "photo.jpg": {"license": "CC0", "originalTitle": "Old photo",
-                          "width": 1200, "height": 800,
+                          "date": "1900-01-20", "width": 1200, "height": 800,
                           "repository": "Manual"}}))
         res = s.seed_backend(self.data_dir, "manual", "", 10, "2026-09-12",
                              {"directory": src})
         self.assertEqual(res["added"], 1)
         self.assertEqual(res["downloaded"], 1)
-        self.assertEqual(s.entry_reject_reason(
-            s.list_sources(self.data_dir)[0]), "")
+        self.assertEqual(res["year_rejected"], 0)
+        entry = s.list_sources(self.data_dir)[0]
+        self.assertEqual(entry["year"], 1900)
+        self.assertEqual(entry["year_field"], "structured")
+        self.assertEqual(s.entry_reject_reason(entry), "")
+
+    def test_manual_import_without_a_year_is_rejected(self):
+        # #1405: a manual photo with no single unambiguous year never enters
+        # the pool.
+        src = self._tmp / "manual2"
+        src.mkdir()
+        (src / "photo.jpg").write_bytes(b"img")
+        (src / s.MANUAL_META).write_text(json.dumps({
+            "photo.jpg": {"license": "CC0", "originalTitle": "Undated",
+                          "width": 1200, "height": 800,
+                          "repository": "Manual"}}))
+        res = s.seed_backend(self.data_dir, "manual", "", 10, "2026-09-12",
+                             {"directory": src})
+        self.assertEqual(res["added"], 0)
+        self.assertEqual(res["year_rejected"], 1)
+        self.assertEqual(s.status(self.data_dir)["total"], 0)
 
 
 @unittest.skipUnless(os.environ.get("AG_SOURCES_NETWORK") == "1",

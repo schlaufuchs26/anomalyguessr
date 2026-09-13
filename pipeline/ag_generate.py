@@ -15,7 +15,7 @@ Per scene:
    one (Evan: modern photos are fine, "dann nutzen wir fictional futures").
    The bar is *impossibility*, not improbability (ticket #1403): the element
    must not exist in the scene's year. The source metadata's capture year
-   (`ag_sources.anchor_year`) is passed in as the scene's year and is the
+   (`ag_sources.source_year`) is passed in as the scene's year and is the
    bar; the model returns label, kind, the year the element exists from
    (`exists_from`), apparent era, figure flag, placement, the impossibility
    reason and references. `ag_catalog.INSPIRATION` supplies few-shot shape
@@ -252,7 +252,7 @@ def requirements_text() -> str:
 
 
 def proposal_prompt(source: dict, recent=()) -> str:
-    anchor, _field = ag_sources.anchor_year(source)
+    anchor, _field = ag_sources.source_year(source)
     lines = [
         "You are the content designer for a spot-the-anachronism game: "
         "players get a real photograph and must find the ONE thing that does "
@@ -877,14 +877,14 @@ def scene_time(source: dict, proposal: dict) -> dict:
     """The scene's year: the metadata anchor wins, the proposal is sanity.
 
     Ticket #1403: the impossibility test needs a real year, so the source
-    metadata's capture year (``ag_sources.anchor_year``) is the bar when it
+    metadata's capture year (``ag_sources.source_year``) is the bar when it
     exists; the proposal's ``apparent_era`` only sanity-checks it. A
     disagreement of more than two years is flagged for the trace, and the
     anchor still wins. Without an anchor the proposal's judgement is the
     year, and ``year`` is None when that judgment carries no four-digit year
     (the checker cannot test impossibility against "modern").
     """
-    anchor, field = ag_sources.anchor_year(source)
+    anchor, field = ag_sources.source_year(source)
     apparent = _year_int(proposal.get("apparent_era"))
     if anchor is not None:
         return {"year": anchor, "display": str(anchor), "origin": "metadata",

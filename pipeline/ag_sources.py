@@ -7,10 +7,20 @@ source images and nothing else:
 
 - **Wikimedia Commons only for now**, as a consistent baseline.
 - **No string heuristics.** Candidates are filtered on structured keys only:
-  license, quality rating, MIME/format, pixel dimensions, file size.
-- **No year limit.** Any era of photograph is usable; the generator's first
-  model call judges the apparent era (a modern photo becomes a fictional
-  future, not a rejection).
+  license, quality rating, MIME/format, pixel dimensions, file size, and
+  the capture year (below).
+- **A single unambiguous year is required** (ticket #1405). The game's claim
+  is "this could not exist in the photo's year", so the year must be a fact
+  from one structured metadata field: the EXIF/template capture date or the
+  catalog's structured date. A source whose metadata names no year, a range,
+  a decade, a century or an uncertainty ("circa 1907") is rejected at
+  sourcing; titles and descriptions are not consulted. The year and the
+  field that supplied it are stored on the entry as ``year``/``year_field``
+  (``exif``/``structured``).
+- **No era limit.** Any year is usable; with the current Commons pool the
+  surviving years skew modern, so the game is mostly fictional-future (see
+  the measurement below). The generator's first model call still judges the
+  apparent era as a sanity check.
 - **"Quality images" only**, enumerated from the Commons assessment category
   until the pool runs out. `used` marks a consumed source, so "running out"
   is real.
@@ -30,6 +40,7 @@ rule, backed up by scripts/backup.sh)::
 Commands::
 
     ag_sources.py --data DIR top-up [--target 30] [--batch 20] [--max-calls 8]
+    ag_sources.py --data DIR measure-years [--sample 200]
     ag_sources.py --data DIR status
     ag_sources.py --data DIR list [--repo REPO] [--unused]
     ag_sources.py --data DIR seed --backend manual --dir PATH
@@ -51,6 +62,11 @@ fictional-future element. Measured on the first 200 Quality images:
 filter would empty the pool. ``EXCLUDE_BORN_DIGITAL`` flips that to a
 rejection if it is ever wanted.
 
+``measure-years`` is the read-only audit for the year filter: it walks a
+fresh slice of the Quality-images category without downloading and reports
+survival, the exif-vs-structured split, the decade histogram and the
+upload-stamp share, then audits the current pool with the same rule.
+
 Pure logic lives in module functions so tests can import them; only the
 Commons adapter dials the live API and those tests are gated behind
 ``AG_SOURCES_NETWORK=1`` (engineering-practices.md ticket #1084).
@@ -67,6 +83,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections import Counter
 from pathlib import Path
 
 INDEX_VERSION = 1
@@ -76,7 +93,7 @@ INDEX_VERSION = 1
 CORE_KEYS = (
     "id", "repository", "fileUrl", "originalTitle", "date", "place",
     "license", "licenseUrl", "description", "image", "width", "height",
-    "used",
+    "used", "year", "year_field",
 )
 
 # Allowlisted license families. PD + CC0 are unambiguously reusable; CC BY /
@@ -231,7 +248,120 @@ def entry_reject_reason(entry: dict) -> str:
         return f"format ({mime})"
     if not dimensions_ok(entry.get("width"), entry.get("height")):
         return f"orientation/size ({entry.get('width')}x{entry.get('height')})"
+    year, _field = source_year(entry)
+    if year is None:
+        return "year (no single unambiguous year in the source metadata)"
     return ""
+
+
+# ── Single-year filter (ticket #1405) ──────────────────────────────────────
+#
+# The game's claim is "this could not exist in the photo's year", so the year
+# must be a fact from exactly one structured metadata field. This is the year
+# path; titles and descriptions are never parsed for it. A value that names a
+# range, a decade, a century or an uncertainty is rejected.
+
+# Four-digit year, 1500-2099.
+_YEAR_RE = re.compile(r"(?<!\d)(1[5-9]\d{2}|20\d{2})(?!\d)")
+# "1900s" is a decade. _YEAR_RE alone would read the "1900" out of it, so the
+# decade form is rejected before the year extraction.
+_DECADE_RE = re.compile(r"(?<!\d)(?:1[5-9]\d{2}|20\d{2})s(?!\w)")
+# "19th century", "19th-century".
+_CENTURY_RE = re.compile(r"(?i)\b\d{1,2}(?:st|nd|rd|th)?[\s-]+century\b")
+# A 4-digit year followed by an abbreviated tail: "1890-1900", "1820-50". A
+# 2-digit tail that is a valid month ("1900-01") is a date, not a range.
+_RANGE_RE = re.compile(r"(?<!\d)(?:1[5-9]\d{2}|20\d{2})\s*[-–—]\s*(\d{2,4})(?!\d)")
+# Unknown-digit placeholders: "1903/19uu".
+_UNKNOWN_DIGITS_RE = re.compile(r"(?i)\d*u{2,}")
+_UNCERTAIN_RE = re.compile(
+    r"(?i)(?:"
+    r"\b(?:circa|approx|approximately|about|around|between|before|after|"
+    r"early|middle|mid|late|possibly|probably|maybe|unknown|unclear|"
+    r"estimated|or)\b"
+    r"|\bc\.|\bca\.|\?|~"
+    r")"
+)
+
+
+def _has_range(s: str) -> bool:
+    for m in _RANGE_RE.finditer(s):
+        tail = m.group(1)
+        if len(tail) == 4:
+            return True  # 1890-1900
+        if not 1 <= int(tail) <= 12:
+            return True  # 1820-50 (not a month)
+        # "1900-01" is a year-month, not a range.
+    return False
+
+
+def single_year(text) -> int | None:
+    """A single unambiguous year from one structured metadata value, or None.
+
+    Rejects everything that does not name exactly one year: empty values, a
+    range ("1890-1900", "1820-50"), a decade ("1900s"), a century
+    ("19th century"), an unknown-digit placeholder ("19uu") and every
+    uncertainty marker ("circa 1907", "1907?"). A full timestamp keeps its
+    year; this is not a free-text parser (ticket #1405).
+    """
+    s = _strip_html(str(text or "")).strip()
+    if not s:
+        return None
+    if (_DECADE_RE.search(s) or _CENTURY_RE.search(s)
+            or _UNKNOWN_DIGITS_RE.search(s) or _UNCERTAIN_RE.search(s)):
+        return None
+    # A Wikidata/Information-template wrapper ("1900 date QS:P571,+1900-00
+    # -00T00:00:00Z/9"): the QS year is the value. The zero month/day
+    # placeholders must not read as a range.
+    m = _QS_RE.search(s)
+    if m:
+        return int(m.group(1))
+    if _has_range(s):
+        return None
+    years = {int(m.group(1)) for m in _YEAR_RE.finditer(s)}
+    if len(years) != 1:
+        return None
+    return years.pop()
+
+
+def exif_capture_year(entry: dict) -> int | None:
+    """The EXIF/template capture year (``raw.dateTimeOriginal``), or None."""
+    raw = entry.get("raw") or {}
+    return single_year(raw.get("dateTimeOriginal"))
+
+
+def structured_year(entry: dict) -> int | None:
+    """The catalog's structured date year (``date``), or None.
+
+    The structured date is the file page's creation date when the source
+    carries one. A value that just repeats the upload timestamp
+    (``raw.uploadTimestamp``) is not a creation date; it is rejected so an
+    upload stamp cannot masquerade as the photo's year (ticket #1405).
+    """
+    y = single_year(entry.get("date"))
+    if y is None:
+        return None
+    up = single_year((entry.get("raw") or {}).get("uploadTimestamp"))
+    if up is not None and up == y:
+        return None
+    return y
+
+
+def source_year(entry: dict) -> tuple[int | None, str]:
+    """The year a source's metadata names, and which field supplied it.
+
+    ``(year, "exif")`` when the capture date (``dateTimeOriginal``) names a
+    single year, ``(year, "structured")`` when the catalog's structured date
+    does. ``(None, "")`` when neither does: such a source is not admissible
+    (ticket #1405). The upload/file date (``dateTime``) is deliberately not a
+    source: a scan's digitization date is not the photo's year.
+    """
+    y = exif_capture_year(entry)
+    if y is not None:
+        return y, "exif"
+    y = structured_year(entry)
+    if y is not None:
+        return y, "structured"
+    return None, ""
 
 
 # ── Born-digital signal (recorded, not enforced) ───────────────────────────
@@ -275,25 +405,6 @@ def is_born_digital(entry: dict) -> bool:
     """True when the file's own EXIF capture date is modern (>= 2000)."""
     y = exif_year(entry)
     return y is not None and y >= BORN_DIGITAL_YEAR
-
-
-def anchor_year(entry: dict) -> tuple[int | None, str]:
-    """The scene-year anchor from the source's structured metadata (#1403).
-
-    Returns ``(year, field)``: the year the photograph was taken, and which
-    structured value supplied it. The EXIF capture date is preferred over the
-    upload/scan stamp, so a scan's digitization date cannot masquerade as the
-    photo's year; the field name is kept for the trace. ``(None, "")`` when no
-    structured value carries a year.
-    """
-    raw = entry.get("raw") or {}
-    for field, value in (("dateTimeOriginal", raw.get("dateTimeOriginal")),
-                         ("dateTime", raw.get("dateTime")),
-                         ("date", entry.get("date"))):
-        y = year_in_metadata(value)
-        if y is not None:
-            return y, field
-    return None, ""
 
 
 def metadata_date(original: str, fallback: str) -> str:
@@ -505,7 +616,7 @@ class CommonsAdapter(SourceAdapter):
             "action": "query", "format": "json",
             "titles": "|".join(titles),
             "prop": "imageinfo|coordinates",
-            "iiprop": "url|size|extmetadata|mime",
+            "iiprop": "url|size|extmetadata|mime|timestamp",
             "coprop": "type|name|dim", "colimit": "max",
         }
         data = _commons_api(params)
@@ -535,7 +646,7 @@ class CommonsAdapter(SourceAdapter):
         description = _strip_html(g("ImageDescription"))
         categories = g("Categories")
         gps = raw.get("coordinates")
-        return {
+        norm = {
             "repository": self.repo,
             "fileUrl": ii.get("descriptionurl") or _commons_file_page(raw.get("title", "")),
             "originalTitle": title,
@@ -557,12 +668,17 @@ class CommonsAdapter(SourceAdapter):
                 "artist": g("Artist"),
                 "dateTime": g("DateTime"),
                 "dateTimeOriginal": g("DateTimeOriginal"),
+                # The upload/page timestamp: distinct from the capture date,
+                # and the value the year filter refuses to anchor on (#1405).
+                "uploadTimestamp": ii.get("timestamp"),
                 "assessments": g("Assessments"),
                 "gps": _gps_raw(gps),
                 "credit": g("Credit"),
                 "restrictions": g("Restrictions"),
             },
         }
+        norm["year"], norm["year_field"] = source_year(norm)
+        return norm
 
     def download_url(self, raw) -> str:
         ii = (raw.get("imageinfo") or [None])[0]
@@ -621,7 +737,7 @@ class LocAdapter(SourceAdapter):
         desc = raw.get("description") or ""
         if isinstance(desc, list):
             desc = " ".join(str(x) for x in desc)
-        return {
+        norm = {
             "repository": self.repo,
             "fileUrl": raw.get("url") or raw.get("id", ""),
             "originalTitle": title,
@@ -639,6 +755,8 @@ class LocAdapter(SourceAdapter):
                 "subjects": raw.get("subject"),
             },
         }
+        norm["year"], norm["year_field"] = source_year(norm)
+        return norm
 
     def download_url(self, raw) -> str:
         return (raw.get("image") or [""])[0]
@@ -681,7 +799,7 @@ class ManualAdapter(SourceAdapter):
         license_text = str(m.get("license") or "")
         if not license_ok(license_text):
             return None
-        return {
+        norm = {
             "repository": str(m.get("repository") or "Manual"),
             "fileUrl": str(m.get("fileUrl") or ""),
             "originalTitle": str(m.get("originalTitle") or raw["path"].stem),
@@ -694,6 +812,8 @@ class ManualAdapter(SourceAdapter):
             "height": int(m.get("height") or 0),
             "raw": {k: v for k, v in m.items() if k not in ("license",)},
         }
+        norm["year"], norm["year_field"] = source_year(norm)
+        return norm
 
     def download_url(self, raw) -> str:
         return ""  # handled as a local file copy, not a URL fetch
@@ -772,7 +892,7 @@ def add_sources(data_dir: Path, entries: list, date: str,
 # Metadata fields a refresh may overwrite; identity + bookkeeping stay.
 _REFRESH_KEYS = ("repository", "fileUrl", "originalTitle", "date", "place",
                  "license", "licenseUrl", "description", "width", "height",
-                 "mime", "quality", "raw")
+                 "mime", "quality", "raw", "year", "year_field")
 
 
 def _refresh_entry(existing: dict, new: dict) -> bool:
@@ -877,7 +997,7 @@ def seed_backend(data_dir: Path, backend: str, query: str, limit: int,
     """
     adapter = get_adapter(backend, **(adapter_kw or {}))
     raws = adapter.search(query, limit, offset)
-    rejected = 0
+    rejected, year_rejected = 0, 0
     pairs = []
     for raw in raws:
         try:
@@ -888,11 +1008,15 @@ def seed_backend(data_dir: Path, backend: str, query: str, limit: int,
         if norm is None:
             rejected += 1
             continue
+        if source_year(norm)[0] is None:
+            year_rejected += 1
+            continue
         pairs.append((raw, norm))
     res = _stage(data_dir, adapter, pairs, date)
     return {
         "added": res["added"], "skipped": res["skipped"],
         "refreshed": res["refreshed"], "rejected": rejected,
+        "year_rejected": year_rejected,
         "downloaded": res["downloaded"], "failed": res["failed"],
     }
 
@@ -904,11 +1028,14 @@ def status(data_dir: Path) -> dict:
     sources = index["sources"]
     used = sum(1 for s in sources.values() if s.get("used"))
     born = sum(1 for s in sources.values() if is_born_digital(s))
+    fields = Counter(field for _, field in
+                     (source_year(s) for s in sources.values()) if field)
     return {
         "total": len(sources),
         "used": used,
         "unused": len(sources) - used,
         "born_digital": born,
+        "year_fields": dict(sorted(fields.items())),
         "repositories": sorted({s.get("repository", "?") for s in sources.values()}),
     }
 
@@ -976,11 +1103,15 @@ def _save_quality_state(data_dir: Path, state: dict) -> None:
 def select_candidates(raws, adapter) -> dict:
     """Apply the key filters to a page of raw candidates.
 
-    Returns {pairs, rejected, quality_rejected, born_digital} where ``pairs``
-    are the (raw, norm) tuples ready to download. The born-digital signal is
-    counted, not (by default) a rejection.
+    Returns {pairs, rejected, quality_rejected, year_rejected, born_digital}
+    where ``pairs`` are the (raw, norm) tuples ready to download. ``rejected``
+    counts candidates the adapter itself refuses (license/format/size);
+    ``year_rejected`` counts those that pass everything else but name no
+    single unambiguous year (#1405). The born-digital signal is counted, not
+    (by default) a rejection.
     """
-    pairs, rejected, quality_rejected, born_digital = [], 0, 0, 0
+    pairs, rejected, quality_rejected, year_rejected, born_digital = \
+        [], 0, 0, 0, 0
     for raw in raws:
         try:
             norm = adapter.normalize(raw)
@@ -993,6 +1124,9 @@ def select_candidates(raws, adapter) -> dict:
         if isinstance(adapter, CommonsAdapter) and not quality_ok(norm):
             quality_rejected += 1
             continue
+        if source_year(norm)[0] is None:
+            year_rejected += 1
+            continue
         if is_born_digital(norm):
             born_digital += 1
             if EXCLUDE_BORN_DIGITAL:
@@ -1000,6 +1134,7 @@ def select_candidates(raws, adapter) -> dict:
         pairs.append((raw, norm))
     return {"pairs": pairs, "rejected": rejected,
             "quality_rejected": quality_rejected,
+            "year_rejected": year_rejected,
             "born_digital": born_digital}
 
 
@@ -1021,9 +1156,9 @@ def top_up(data_dir: Path, target: int = DEFAULT_TOPUP_TARGET,
     before = status(data_dir)
     report = {"target": target, "before": before, "added": 0, "skipped": 0,
               "refreshed": 0, "rejected": 0, "quality_rejected": 0,
-              "born_digital": 0, "downloaded": 0, "calls": 0, "pruned":
-              pruned["removed"], "errors": [], "failed": [], "examples": [],
-              "stopped": ""}
+              "year_rejected": 0, "born_digital": 0, "downloaded": 0,
+              "calls": 0, "pruned": pruned["removed"], "errors": [],
+              "failed": [], "examples": [], "stopped": ""}
     if before["unused"] >= target:
         report["stopped"] = "pool healthy"
         report["after"] = before
@@ -1043,7 +1178,8 @@ def top_up(data_dir: Path, target: int = DEFAULT_TOPUP_TARGET,
             break
         report["calls"] += 1
         sel = select_candidates(raws, adapter)
-        for k in ("rejected", "quality_rejected", "born_digital"):
+        for k in ("rejected", "quality_rejected", "year_rejected",
+                  "born_digital"):
             report[k] += sel[k]
         if sel["pairs"]:
             res = _stage(data_dir, adapter, sel["pairs"], date)
@@ -1066,6 +1202,111 @@ def top_up(data_dir: Path, target: int = DEFAULT_TOPUP_TARGET,
     if after["unused"] >= target:
         report["stopped"] = "target reached"
     return report
+
+
+# ── Year measurement (ticket #1405) ────────────────────────────────────────
+
+def _decade(year: int) -> int:
+    return (year // 10) * 10
+
+
+def measure_candidates(raws, adapter) -> dict:
+    """Survival + anchor stats for a page of raw candidates (no download).
+
+    Pure reporting for the #1405 year filter: how many candidates the adapter
+    refuses, how many fail only the year filter, how many survive and from
+    which field (``exif``/``structured``) their year comes, the decade
+    histogram, and how often the structured date just repeats the upload
+    stamp.
+    """
+    normalized, rejected = [], 0
+    for raw in raws:
+        try:
+            n = adapter.normalize(raw)
+        except Exception:
+            n = None
+        if n is None:
+            rejected += 1
+            continue
+        normalized.append(n)
+    with_year = [n for n in normalized if source_year(n)[0] is not None]
+    fields, decades = Counter(), Counter()
+    for n in with_year:
+        year, field = source_year(n)
+        fields[field] += 1
+        decades[_decade(year)] += 1
+    both = [n for n in normalized
+            if exif_capture_year(n) is not None
+            and single_year(n.get("date")) is not None]
+    structured_eq_upload = sum(
+        1 for n in normalized
+        if single_year(n.get("date")) is not None
+        and single_year(n.get("date"))
+        == single_year((n.get("raw") or {}).get("uploadTimestamp")))
+    return {
+        "sample": len(raws),
+        "normalize_rejected": rejected,
+        "normalized": len(normalized),
+        "year_rejected": len(normalized) - len(with_year),
+        "survivors": len(with_year),
+        "exif_anchored": fields.get("exif", 0),
+        "structured_anchored": fields.get("structured", 0),
+        "decades": dict(sorted(decades.items())),
+        "both_fields": len(both),
+        "both_differ": sum(
+            1 for n in both
+            if exif_capture_year(n) != single_year(n.get("date"))),
+        "structured_equals_upload": structured_eq_upload,
+    }
+
+
+def year_audit(data_dir: Path) -> dict:
+    """Apply the year filter to the stored pool, read-only (#1405)."""
+    entries = load_index(data_dir)["sources"]
+    fields, decades = Counter(), Counter()
+    rejected, rejected_used = [], 0
+    for sid, entry in sorted(entries.items()):
+        year, field = source_year(entry)
+        if year is None:
+            rejected.append(sid)
+            if entry.get("used"):
+                rejected_used += 1
+            continue
+        fields[field] += 1
+        decades[_decade(year)] += 1
+    return {
+        "total": len(entries),
+        "used": sum(1 for e in entries.values() if e.get("used")),
+        "rejected": rejected,
+        "rejected_used": rejected_used,
+        "exif_anchored": fields.get("exif", 0),
+        "structured_anchored": fields.get("structured", 0),
+        "decades": dict(sorted(decades.items())),
+    }
+
+
+def measure_years(data_dir: Path, sample: int = 200, batch: int = 50,
+                  from_top: bool = False, log=None) -> dict:
+    """Read-only audit: a fresh walk sample + the stored pool (#1405).
+
+    Walks the Quality-images category (no downloads) from the persisted
+    top-up cursor unless ``from_top``, then reports both the walk sample and
+    the stored pool under the same year rule.
+    """
+    say = log or (lambda *a, **k: None)
+    adapter = CommonsAdapter()
+    start = "" if from_top else (_load_quality_state(data_dir).get("continue") or "")
+    cursor, raws = start, []
+    while len(raws) < sample:
+        page, cursor = adapter.quality_batch(
+            max(1, min(batch, sample - len(raws))), cursor or None)
+        raws.extend(page)
+        say(f"measure: {len(raws)}/{sample} files")
+        if not page or not cursor:
+            break
+    return {"started_at_cursor": start,
+            "walk": measure_candidates(raws, adapter),
+            "pool": year_audit(data_dir)}
 
 
 # ── CLI ────────────────────────────────────────────────────────────────────
@@ -1104,6 +1345,14 @@ def main(argv=None) -> int:
                     help="category pages per run")
     tu.add_argument("--date", default=None)
 
+    my = sub.add_parser("measure-years",
+                        help="read-only year-filter audit (walk sample + pool)")
+    my.add_argument("--sample", type=int, default=200, help="files to sample")
+    my.add_argument("--batch", type=int, default=50,
+                    help="category members per page")
+    my.add_argument("--from-top", action="store_true",
+                    help="start at the category top instead of the cursor")
+
     mu = sub.add_parser("mark-used")
     mu.add_argument("ids", nargs="+")
     mnu = sub.add_parser("mark-unused")
@@ -1127,6 +1376,13 @@ def main(argv=None) -> int:
                      max_calls=args.max_calls,
                      log=lambda m: print(m, file=sys.stderr))
         print(json.dumps(rep, indent=2))
+        return 0
+    if args.cmd == "measure-years":
+        print(json.dumps(
+            measure_years(data_dir, sample=args.sample, batch=args.batch,
+                          from_top=args.from_top,
+                          log=lambda m: print(m, file=sys.stderr)),
+            indent=2))
         return 0
     if args.cmd == "status":
         print(json.dumps(status(data_dir), indent=2))
