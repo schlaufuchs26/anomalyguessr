@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""AnomalyGuessr scene generator: a four-step LLM flow (ticket #1372).
+"""AnomalyGuessr scene generator: a six-step LLM flow (tickets #1372, #1436).
 
 Sourcing and generation are two separate problems (Evan, 2026-09-12).
 Sourcing (`pipeline/ag_sources.py`) fills the pool from Commons "Quality
@@ -2130,7 +2130,7 @@ def parse_args(argv=None):
     p = argparse.ArgumentParser(
         prog="ag_generate.py",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        description="AnomalyGuessr generator, four-step LLM flow (#1372).")
+        description="AnomalyGuessr generator, six-step LLM flow (#1372, #1436).")
     p.add_argument("--data", default=None,
                    help="data dir (default: repo data/anomalyguessr)")
     p.add_argument("--retext", action="store_true",
