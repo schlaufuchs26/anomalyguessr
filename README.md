@@ -98,6 +98,15 @@ edits; the best-scoring round's image ships). Each scene gets a trace sidecar
 under `data/anomalyguessr/traces/`
 with the full prompt and answer of the calls that decided its content.
 
+**Shipping** (`pipeline/ag_ship.py`, ticket #1508) is the delivery step. Its
+`ship` command serves the day's five scenes from the accepted pool (oldest
+unshown first, recycling the least recently shown once the fresh pool runs
+dry) and pushes the manifest, which redeploys GitHub Pages; a daily cron
+(`daily-anomalyguessr-ship`) runs it in the morning. Its `check` command
+reads the manifest the live site actually serves and alerts when it is not
+today's set; a second cron (`daily-anomalyguessr-watch`) runs that two hours
+later, so a stopped ship run cannot stay unnoticed for days.
+
 ## Stack
 
 React 19 + Bun + TypeScript on the house `frontend-template` setup (ticket
