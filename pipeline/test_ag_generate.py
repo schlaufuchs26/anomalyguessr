@@ -148,7 +148,8 @@ def stub_click_target(box=None, reason="covers it", cost=0.001):
         "call": call(prompt="click-target-prompt", cost=cost)}
 
 
-def stub_presence(present=True, box=None, height_percent=None, cost=0.0):
+def stub_presence(present=True, box=None, height_percent=None,
+                  scale_reference_percent=None, cost=0.0):
     """A presence-check stub (#1485): the element is seen, no box by default.
 
     The default costs nothing, so the run-total assertions that predate the
@@ -156,6 +157,7 @@ def stub_presence(present=True, box=None, height_percent=None, cost=0.0):
     """
     return lambda *a, **kw: {
         "present": present, "box": box, "height_percent": height_percent,
+        "scale_reference_percent": scale_reference_percent,
         "note": "stub presence",
         "call": call(prompt="presence-prompt", cost=cost)}
 
@@ -2112,15 +2114,28 @@ class MechanicalCheckFlowTest(GenerateOneTest):
         self.assertIn("fails 9", scene["report"]["review"])
         self.assertIn("tone", scene["report"]["review"])
 
-    def test_a_prominent_element_is_flagged_by_size(self):
+    def test_a_prominent_element_is_reported_not_flagged(self):
+        # #1487: the size measurement no longer adds a review reason.
         g.presence_check = stub_presence(
             box={"x1": 0.4, "y1": 0.4, "x2": 0.5, "y2": 0.8})
         scene, failed, _ = self.run_one()
         self.assertIsNone(failed)
         size = scene["report"]["mechanical"]["size"]
-        self.assertTrue(size["failed"])
+        self.assertFalse(size["failed"])
+        self.assertFalse(size["flag"])
         self.assertEqual(size["verdict"], "too_prominent")
-        self.assertIn("size", scene["report"]["review"])
+        self.assertNotIn("size", scene["report"]["review"])
+        self.assertFalse(scene["report"]["needs_review"])
+
+    def test_the_relative_size_is_recorded_from_the_presence_answer(self):
+        g.presence_check = stub_presence(
+            box={"x1": 0.4, "y1": 0.4, "x2": 0.5, "y2": 0.55},
+            scale_reference_percent=30.0)
+        scene, failed, _ = self.run_one()
+        self.assertIsNone(failed)
+        size = scene["report"]["mechanical"]["size"]
+        self.assertEqual(size["relative"]["reference_percent"], 30.0)
+        self.assertAlmostEqual(size["relative"]["factor"], 0.5, places=3)
 
 
 class RefusalTest(TempDataMixin, unittest.TestCase):

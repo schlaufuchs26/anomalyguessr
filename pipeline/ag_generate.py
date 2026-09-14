@@ -667,7 +667,8 @@ def presence_prompt(proposal: dict) -> str:
     sits entirely outside the drawn answer area. A vision call answers both
     questions at once; the deterministic decision on its box is in
     ``ag_checks.presence_finding``. The same answer carries the element's
-    rendered height, which the size check needs.
+    rendered height, which the size check reports, and a scene-scale
+    reference (a typical person's height) for the relative measure (#1487).
     """
     return "\n".join([
         "This is an edited historical photo. Exactly one element was edited "
@@ -684,10 +685,14 @@ def presence_prompt(proposal: dict) -> str:
         "it; null when present is false.",
         "- height_percent: how tall the element is rendered, as a number of "
         "percent of the image height (e.g. 2.5); null when present is false.",
+        "- scale_reference_percent: how tall a typical adult person in THIS "
+        "image is rendered, as a number of percent of the image height (e.g. "
+        "30); use a comparable standing figure or object when the photo has "
+        "no person; null when it has neither.",
         'Answer as strict JSON only, no prose: {"present": true|false, '
         '"note": "<one short sentence>", "box": {"x1": <0..1>, "y1": <0..1>, '
         '"x2": <0..1>, "y2": <0..1>} or null, "height_percent": <number or '
-        'null>}',
+        'null>, "scale_reference_percent": <number or null>}',
     ])
 
 
@@ -1200,6 +1205,14 @@ def check_click_target(image: Path, proposal: dict, api_key: str,
             "call": result}
 
 
+def _optional_float(value) -> float | None:
+    """A model-returned number, or None when it is missing or malformed."""
+    try:
+        return float(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
 def presence_check(image: Path, proposal: dict, api_key: str, model: str,
                    base_url: str, max_tokens: int, timeout: int,
                    temperature: float | None) -> dict:
@@ -1207,20 +1220,19 @@ def presence_check(image: Path, proposal: dict, api_key: str, model: str,
 
     A vision call, never an image call: it costs the text-model rate and
     leaves the run's image-call budget untouched. Returns ``{present, box,
-    height_percent, note, call}``; the decision that turns this into a
-    finding is ``ag_checks.presence_finding``.
+    height_percent, scale_reference_percent, note, call}``; the decision that
+    turns this into a finding is ``ag_checks.presence_finding``.
+    ``scale_reference_percent`` is a typical person's rendered height in the
+    image, the scene scale for the relative size measure (#1487).
     """
     result = _run_call(presence_prompt(proposal), image, api_key, model,
                        base_url, max_tokens, timeout, temperature)
     parsed = result["parsed"] or {}
-    height = parsed.get("height_percent")
-    try:
-        height = float(height) if height is not None else None
-    except (TypeError, ValueError):
-        height = None
     return {"present": bool(parsed.get("present")),
             "box": valid_box(parsed.get("box")),
-            "height_percent": height,
+            "height_percent": _optional_float(parsed.get("height_percent")),
+            "scale_reference_percent": _optional_float(
+                parsed.get("scale_reference_percent")),
             "note": ag_llm.clean_text(parsed.get("note"), 200),
             "call": result}
 
@@ -2831,9 +2843,15 @@ def _presence_call(image: Path, proposal: dict, attempt: int, args, api_key: str
         trace.setdefault("call_errors", []).append(
             {"stage": stage, "attempt": attempt, "error": str(e)})
         return {"present": True, "box": None, "height_percent": None,
+                "scale_reference_percent": None,
                 "note": "", "call": None, "error": str(e)}
     ag_llm.add_usage(totals, vc["call"].get("usage"))
     return vc
+
+
+# The presence answer fields the trace/scene keep (ticket #1485, #1487).
+_PRESENCE_VISION_KEYS = ("present", "box", "height_percent",
+                         "scale_reference_percent", "note")
 
 
 def _mechanical_rounds(image: Path, source_image: Path, proposal: dict,
@@ -2844,11 +2862,13 @@ def _mechanical_rounds(image: Path, source_image: Path, proposal: dict,
                        ) -> tuple:
     """Presence, tone and size checks on the shipped render (#1485).
 
-    One vision call answers presence and localizes the element; the tone and
-    size checks are deterministic measurements on the files, so they add no
-    model call at all. A presence failure ("not visible" or "not in the
-    answer area") gets exactly one repair attempt with the finding as the
-    instruction, never a second; tone and size never spend an image call.
+    One vision call answers presence, localizes the element and returns the
+    scene-scale reference; the tone and size checks are deterministic
+    measurements on the files, so they add no model call at all. A presence
+    failure ("not visible" or "not in the answer area") gets exactly one
+    repair attempt with the finding as the instruction, never a second; tone
+    and size never spend an image call. Presence and tone flag a scene; size
+    is a report line only (#1487).
 
     Returns ``(findings, image, answer, click)``; ``image`` and ``click``
     change only when a presence repair was adopted.
@@ -2858,14 +2878,15 @@ def _mechanical_rounds(image: Path, source_image: Path, proposal: dict,
     vc = _presence_call(image, proposal, attempt, args, api_key, data_dir,
                         trace, totals, progress)
     findings["presence"] = ag_checks.presence_finding(vc, answer)
-    findings["presence"]["vision"] = {
-        k: vc.get(k) for k in ("present", "box", "height_percent", "note")}
+    findings["presence"]["vision"] = {k: vc.get(k) for k in
+                                      _PRESENCE_VISION_KEYS}
     findings["presence"]["call"] = (_call_trace(vc["call"])
                                     if vc.get("call") else None)
     box = vc.get("box") if vc.get("present") else None
     findings["tone"] = ag_checks.tone_finding(source_image, image, answer, box)
     findings["size"] = ag_checks.size_finding(
-        box, figure=bool(proposal.get("figure")))
+        box, figure=bool(proposal.get("figure")),
+        reference_height_percent=vc.get("scale_reference_percent"))
     if not findings["presence"]["failed"]:
         return findings, image, answer, click
     # The scene is damaged (element absent or outside the click area): one
@@ -2890,8 +2911,8 @@ def _mechanical_rounds(image: Path, source_image: Path, proposal: dict,
                          stage="presence-repair")
     after = ag_checks.presence_finding(vc2, answer)
     findings["repair"]["after"] = after["status"]
-    findings["repair"]["vision"] = {
-        k: vc2.get(k) for k in ("present", "box", "height_percent", "note")}
+    findings["repair"]["vision"] = {k: vc2.get(k) for k in
+                                    _PRESENCE_VISION_KEYS}
     findings["repair"]["call"] = (_call_trace(vc2["call"])
                                   if vc2.get("call") else None)
     if after["failed"]:
@@ -2905,7 +2926,8 @@ def _mechanical_rounds(image: Path, source_image: Path, proposal: dict,
     findings["tone"] = ag_checks.tone_finding(source_image, fixed["path"],
                                               answer, box)
     findings["size"] = ag_checks.size_finding(
-        box, figure=bool(proposal.get("figure")))
+        box, figure=bool(proposal.get("figure")),
+        reference_height_percent=vc2.get("scale_reference_percent"))
     findings["repair"]["shipped"] = "repair"
     # The drawn answer overlay belongs to the previous render.
     click = {k: v for k, v in click.items() if k != "overlay_path"}
@@ -3265,10 +3287,10 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
             conflict = None
 
         # Mechanical post-render checks (ticket #1485): presence, tone, size.
-        # They share the checker's run switch; --no-check skips both. A
-        # failing check flags the scene for moderation (and a presence
-        # failure gets one repair attempt inside _mechanical_rounds); nothing
-        # is dropped and no image call is added.
+        # They share the checker's run switch; --no-check skips both. Presence
+        # and tone flag the scene for moderation (and a presence failure gets
+        # one repair attempt inside _mechanical_rounds); size is a report line
+        # since #1487. Nothing is dropped and no image call is added.
         mechanical = None
         if not args.no_check:
             mechanical, final_path, answer, click = _mechanical_rounds(

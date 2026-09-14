@@ -17,13 +17,16 @@ checks, so they no longer depend on the language model's judgement:
 - **tone** (:func:`tone_finding`): a grayscale source must stay grayscale.
   Measured from the files, no model: the added element's area is the tight
   localization box when we have one, else the answer ellipse.
-- **size** (:func:`size_finding`): the rendered element height against the
-  band the edit prompt asks for (about 2-3 % for an object, 8-15 % for a
-  person). The 2 % floor comes from #1473; #1485 adds the ceiling.
+- **size** (:func:`size_finding`): the rendered element height (the
+  localization box) against the band the edit prompt asks for (about 2-3 %
+  for an object, 8-15 % for a person), plus a relative measure against the
+  scene's own scale (:func:`relative_size`). Since #1487 this is a *report
+  line only*: absolute element height does not separate Evan's size
+  rejections from the elements he keeps, so it never flags a scene.
 
-All three are measurements and flags. A failed check flags the scene for
-moderation and can drive one repair attempt; it never drops the scene, so
-the run's image-call budget is untouched.
+Presence and tone are flags: a failure flags the scene for moderation and a
+presence failure can drive one repair attempt. Size never flags. Nothing
+drops the scene, so the run's image-call budget is untouched.
 
 The thresholds are measured, not guessed: see
 ``wiki/entries/anomalyguessr-checks.md`` for the class distribution and the
@@ -48,15 +51,15 @@ COLOR_FRACTION_MAX = 0.02
 # The size band the edit prompt asks for (DEFAULT_OBJECT_SCALE /
 # DEFAULT_FIGURE_SCALE in ag_generate), as a fraction of the image height.
 # These are the two values the report carries: the 2 % floor from #1473 and
-# the 3 % ceiling #1485 adds.
+# the 3 % ceiling #1485 added.
 OBJECT_SIZE_BAND = (0.02, 0.03)
 FIGURE_SIZE_BAND = (0.08, 0.15)
-# The gate band the mechanical check flags on. The vision localization box is
-# generous (it includes the surroundings), so measured heights on the pool run
-# roughly 2-5x the prompt target: accepted objects land at 0.03-0.10, the two
-# "too prominent" / "too obvious" scenes of the 2026-09-14 sample at 0.19 and
-# 0.42. The gate therefore keeps the prompt's floor and widens the ceiling;
-# the report prints both bands so Evan can tighten them from data.
+# The band the reported ``verdict`` classifies against. The localization box
+# is the element silhouette (measured 2026-09-14, #1487), but it does not
+# separate the classes: accepted scenes carry boxes up to 0.21 (a daypack, a
+# robot, both tight), the size rejections sit at 0.13-0.24. The verdict is
+# therefore classification for the report, not a gate; a future measure
+# flips ``flag`` to True only once it separates the two verdict sets.
 OBJECT_GATE_BAND = (0.015, 0.15)
 FIGURE_GATE_BAND = (0.05, 0.30)
 
@@ -137,17 +140,49 @@ def tone_finding(source: Path, edited: Path, answer: dict,
     return out
 
 
-def size_finding(box: dict | None, figure: bool = False) -> dict:
-    """The size check (#1485): rendered height against the requested band.
+def relative_size(height_fraction: float,
+                  reference_height_percent) -> dict | None:
+    """The element height against the scene's own scale (#1487).
 
-    ``box`` is the normalized localization box (from the presence vision
-    call). Without one the check reports ``checked: False``; the answer
-    circle's radius is a coverage margin, not an element height, so it must
-    not be used as a substitute. ``band`` is what the edit prompt asks for,
-    ``gate_band`` what the check flags on (see OBJECT_GATE_BAND).
+    ``reference_height_percent`` is a typical person's rendered height in the
+    same image (the presence call returns it), so ``factor`` answers "how
+    many typical people tall is the element". None when there is no usable
+    reference (a photo without people, or a malformed answer).
+
+    Reported only: Evan's decision on #1487 is to build this measure and
+    report it, and to gate on it only once it separates accepted from
+    rejected scenes.
+    """
+    try:
+        ref = float(reference_height_percent) if reference_height_percent \
+            is not None else 0.0
+    except (TypeError, ValueError):
+        ref = 0.0
+    if ref <= 0:
+        return None
+    return {"reference_percent": round(ref, 4),
+            "factor": round(height_fraction / (ref / 100.0), 4)}
+
+
+def size_finding(box: dict | None, figure: bool = False,
+                 reference_height_percent=None) -> dict:
+    """The size check (#1485, report-only since #1487).
+
+    ``box`` is the normalized localization box from the presence vision call,
+    which the 2026-09-14 measurement showed *is* the element's silhouette: on
+    eight renders it bounds the element tightly and sometimes undershoots.
+    Without a box the check reports ``checked: False``; the answer circle's
+    radius is a coverage margin, not an element height, so it is not used.
+
+    ``verdict`` classifies the height against ``gate_band`` for the report.
+    It is not a failure and never flags a scene (``failed`` and ``flag`` stay
+    False): accepted scenes reach 0.19-0.21 while the size rejections sit at
+    0.13-0.24, so the classes overlap. ``relative`` carries the scene-relative
+    measure (:func:`relative_size`).
     """
     out = {"checked": False, "reason": "no localization box", "class": "size",
-           "failed": False, "verdict": "unmeasured", "figure": bool(figure)}
+           "failed": False, "flag": False, "verdict": "unmeasured",
+           "figure": bool(figure), "relative": None}
     if not box:
         return out
     height = float(box["y2"]) - float(box["y1"])
@@ -155,10 +190,10 @@ def size_finding(box: dict | None, figure: bool = False) -> dict:
     gate = FIGURE_GATE_BAND if figure else OBJECT_GATE_BAND
     verdict = ("too_small" if height < gate[0]
                else "too_prominent" if height > gate[1] else "ok")
-    out.update({"checked": True, "reason": "", "height_fraction": round(height, 4),
-                "band": [round(v, 4) for v in band],
+    out.update({"checked": True, "reason": "", "height_fraction":
+                round(height, 4), "band": [round(v, 4) for v in band],
                 "gate_band": [round(v, 4) for v in gate], "verdict": verdict,
-                "failed": verdict != "ok"})
+                "relative": relative_size(height, reference_height_percent)})
     return out
 
 
@@ -241,7 +276,10 @@ def review_reasons(findings: dict) -> list:
     """One moderation reason per failed mechanical check (#1485).
 
     Empty when every check passed. The reasons name the measured value, so a
-    moderator can judge the finding without opening the trace.
+    moderator can judge the finding without opening the trace. Size is a
+    report line since #1487 (its measured height does not separate Evan's
+    verdicts), so it contributes a reason only if a future measure sets
+    ``flag``.
     """
     out = []
     presence = findings.get("presence") or {}
@@ -254,7 +292,7 @@ def review_reasons(findings: dict) -> list:
         out.append("tone: color on a grayscale source (colored fraction "
                    f"{tone['edited']['colored_fraction']})")
     size = findings.get("size") or {}
-    if size.get("failed"):
+    if size.get("flag"):
         out.append(f"size: {size['verdict']} "
                    f"({size['height_fraction']} of the image height)")
     return out

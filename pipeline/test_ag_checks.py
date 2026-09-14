@@ -113,21 +113,26 @@ class SizeTest(unittest.TestCase):
         self.assertTrue(out["checked"])
         self.assertEqual(out["verdict"], "ok")
         self.assertFalse(out["failed"])
+        self.assertFalse(out["flag"])
         self.assertEqual(out["gate_band"], [0.015, 0.15])
 
-    def test_a_tiny_object_is_flagged(self):
+    def test_a_tiny_object_is_reported_not_flagged(self):
         out = c.size_finding(self.box(0.005))
         self.assertEqual(out["verdict"], "too_small")
-        self.assertTrue(out["failed"])
+        self.assertFalse(out["failed"])
+        self.assertFalse(out["flag"])
 
-    def test_a_prominent_object_is_flagged(self):
+    def test_a_prominent_object_is_reported_not_flagged(self):
+        # #1487: absolute height does not separate Evan's verdicts, so the
+        # measurement stays a report line.
         out = c.size_finding(self.box(0.2))
         self.assertEqual(out["verdict"], "too_prominent")
-        self.assertTrue(out["failed"])
+        self.assertFalse(out["failed"])
+        self.assertFalse(out["flag"])
 
     def test_a_generous_box_below_the_gate_is_not_flagged(self):
         # Measured accepted scenes sit at 0.04-0.10: above the prompt's 3 %
-        # ceiling, below the calibrated gate.
+        # ceiling, below the report band.
         out = c.size_finding(self.box(0.10))
         self.assertEqual(out["verdict"], "ok")
         self.assertFalse(out["failed"])
@@ -143,6 +148,30 @@ class SizeTest(unittest.TestCase):
         self.assertFalse(out["checked"])
         self.assertEqual(out["verdict"], "unmeasured")
         self.assertFalse(out["failed"])
+        self.assertIsNone(out["relative"])
+
+    def test_the_relative_measure_divides_by_the_scene_reference(self):
+        # A 0.15 element in a scene whose typical person is 0.30 tall.
+        out = c.size_finding(self.box(0.15), reference_height_percent=30.0)
+        self.assertEqual(out["relative"]["reference_percent"], 30.0)
+        self.assertAlmostEqual(out["relative"]["factor"], 0.5, places=3)
+
+    def test_the_relative_measure_is_none_without_a_reference(self):
+        self.assertIsNone(c.size_finding(self.box(0.1))["relative"])
+        self.assertIsNone(
+            c.size_finding(self.box(0.1),
+                           reference_height_percent=None)["relative"])
+
+    def test_a_malformed_reference_does_not_raise(self):
+        out = c.size_finding(self.box(0.1), reference_height_percent="tall")
+        self.assertIsNone(out["relative"])
+        out = c.size_finding(self.box(0.1), reference_height_percent=0)
+        self.assertIsNone(out["relative"])
+
+    def test_reported_size_does_not_enter_the_review_reasons(self):
+        findings = {"presence": {"failed": False}, "tone": {"failed": False},
+                    "size": c.size_finding(self.box(0.2))}
+        self.assertEqual(c.review_reasons(findings), [])
 
 
 class GeometryTest(unittest.TestCase):
@@ -205,17 +234,31 @@ class ReviewReasonsTest(unittest.TestCase):
                     "size": {"failed": False}}
         self.assertEqual(c.review_reasons(findings), [])
 
-    def test_each_failed_check_names_itself(self):
+    def test_presence_and_tone_name_themselves(self):
         findings = {"presence": {"failed": True, "status": "absent"},
                     "tone": {"failed": True,
-                             "edited": {"colored_fraction": 0.31}},
-                    "size": {"failed": True, "verdict": "too_prominent",
-                             "height_fraction": 0.42}}
+                             "edited": {"colored_fraction": 0.31}}}
         reasons = c.review_reasons(findings)
-        self.assertEqual(len(reasons), 3)
+        self.assertEqual(len(reasons), 2)
         self.assertIn("not visible", reasons[0])
         self.assertIn("grayscale", reasons[1])
-        self.assertIn("too_prominent", reasons[2])
+
+    def test_a_reported_size_finding_adds_no_reason(self):
+        # #1487: size is a report line; only a future measure that sets
+        # ``flag`` may add a moderation reason.
+        findings = {"presence": {"failed": False},
+                    "tone": {"failed": False},
+                    "size": {"failed": False, "flag": False,
+                             "verdict": "too_prominent",
+                             "height_fraction": 0.42}}
+        self.assertEqual(c.review_reasons(findings), [])
+
+    def test_a_flagged_size_finding_would_name_itself(self):
+        findings = {"presence": {"failed": False}, "tone": {"failed": False},
+                    "size": {"failed": False, "flag": True,
+                             "verdict": "too_prominent",
+                             "height_fraction": 0.42}}
+        self.assertIn("too_prominent", c.review_reasons(findings)[0])
 
     def test_a_presence_box_outside_names_its_own_class(self):
         findings = {"presence": {"failed": True, "status": "outside"}}
