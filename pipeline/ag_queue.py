@@ -68,8 +68,8 @@ SOURCE_KEYS = (
     "description",
 )
 ENTRY_KEYS = (
-    "id", "title", "place", "year", "credit", "sourceUrl", "source",
-    "anomaly", "family", "explanation", "references", "description",
+    "id", "title", "title_source", "place", "year", "credit", "sourceUrl",
+    "source", "anomaly", "family", "explanation", "references", "description",
     "answer", "shortId", "checker", "needs_review",
 )
 
@@ -427,6 +427,11 @@ def validate_entry(e) -> list:
     review = e.get("needs_review")
     if review is not None and not isinstance(review, bool):
         errs.append("needs_review must be a boolean when present")
+    # Title provenance (ticket #1496): optional for scenes queued before the
+    # field existed, but a present one names the two known origins.
+    title_source = e.get("title_source")
+    if title_source is not None and title_source not in ("catalog", "fallback"):
+        errs.append('title_source must be "catalog" or "fallback" when present')
     # Raw source metadata in the caption is what ticket #1402 fixed; a scene
     # with an upload stamp, an unbalanced quote, coordinates as its place or
     # a second year must not reach the queue at all.

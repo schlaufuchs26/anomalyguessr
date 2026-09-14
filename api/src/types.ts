@@ -62,6 +62,12 @@ export interface SceneEntry {
    * for another object). Dev-side curation metadata; never in the manifest.
    */
   needs_review?: boolean;
+  /**
+   * Where the shown title came from (ticket #1496): the source's own
+   * catalogue name ("catalog") or the "Photograph" placeholder ("fallback").
+   * Absent on scenes queued before the field existed.
+   */
+  title_source?: "catalog" | "fallback";
   added: string;
   shown: string | null;
   explanation?: string;

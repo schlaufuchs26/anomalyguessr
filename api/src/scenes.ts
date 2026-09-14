@@ -45,6 +45,9 @@ export interface ApiScene {
   /** The scene shipped with an unrepaired checker finding (ticket #1449):
    *  moderation should look at it first. Never in the public manifest. */
   needsReview?: boolean;
+  /** Where the shown title came from (ticket #1496): the source catalogue
+   *  name, or the "Photograph" placeholder. Absent on older scenes. */
+  titleSource?: "catalog" | "fallback";
   images: { edited: string; original: string; audit?: string };
 }
 
@@ -73,6 +76,8 @@ export interface ManifestScene {
    *  strips it). */
   shortId?: string;
   title: string;
+  /** Provenance of the shown title (ticket #1496): "catalog" or "fallback". */
+  title_source?: "catalog" | "fallback";
   place: string;
   year: string;
   credit: string;
@@ -200,6 +205,7 @@ export function sceneToApi(
   if (e.source !== undefined) out.source = e.source;
   if (e.checker !== undefined) out.checker = e.checker;
   if (e.needs_review !== undefined) out.needsReview = e.needs_review;
+  if (e.title_source !== undefined) out.titleSource = e.title_source;
   if (rejectedAt !== undefined) out.rejectedAt = rejectedAt;
   return out;
 }
@@ -263,6 +269,7 @@ export function renderManifestScene(e: SceneEntry): ManifestScene {
     id: e.id,
     ...(e.shortId !== undefined ? { shortId: e.shortId } : {}),
     title: e.title,
+    ...(e.title_source !== undefined ? { title_source: e.title_source } : {}),
     place: e.place,
     year: e.year,
     credit: e.credit,

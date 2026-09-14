@@ -73,6 +73,9 @@ export interface TDScene {
   /** The scene shipped with an unrepaired checker finding (ticket #1449);
    *  the card flags it so moderation looks at it first. */
   needsReview?: boolean;
+  /** Where the shown title came from (ticket #1496): the source catalogue
+   *  name, or the "Photograph" placeholder. Absent on older scenes. */
+  titleSource?: "catalog" | "fallback";
   images: TDSceneImages;
 }
 export interface TDList {

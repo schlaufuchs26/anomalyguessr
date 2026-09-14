@@ -762,16 +762,27 @@ class EntryTest(unittest.TestCase):
     def test_clean_title_falls_back_to_photograph(self):
         self.assertEqual(g.clean_title({"originalTitle": "1905"}), "Photograph")
 
-    def test_scene_title_prefers_the_proposal(self):
+    def test_scene_title_is_the_catalogue_name_not_the_proposal(self):
+        # Ticket #1496: the proposal's short name is model text that would
+        # need its own quality check; the displayed title is the source's
+        # own catalogue name.
         entry = g.build_entry(source(place="Berlin"),
                               proposal(title="Sculpture garden in Toronto"),
                               self.answer(), "2026-09-12")
-        self.assertEqual(entry["title"], "Sculpture garden in Toronto")
-
-    def test_scene_title_falls_back_to_the_cleaned_source_name(self):
-        entry = g.build_entry(source(title="Busy market street, 1905"),
-                              proposal(), self.answer(), "2026-09-12")
         self.assertEqual(entry["title"], "Busy market street")
+        self.assertEqual(entry["title_source"], "catalog")
+
+    def test_scene_title_falls_back_to_photograph_with_provenance(self):
+        entry = g.build_entry(source(title="1905"),
+                              proposal(), self.answer(), "2026-09-12")
+        self.assertEqual(entry["title"], "Photograph")
+        self.assertEqual(entry["title_source"], "fallback")
+
+    def test_commons_name_with_a_slash_keeps_its_tail(self):
+        # No medium word, so the BnF cleaner must not read "Cygnet" as a maker.
+        entry = g.build_entry(source(title="Swan / Cygnet"),
+                              proposal(), self.answer(), "2026-09-12")
+        self.assertEqual(entry["title"], "Swan / Cygnet")
 
     def test_description_omits_an_unknown_place(self):
         entry = g.build_entry(source(), proposal(), self.answer(),
@@ -808,6 +819,67 @@ class EntryTest(unittest.TestCase):
         self.assertEqual(entry["place"], "")
         self.assertEqual(ag_queue.caption_problems(entry), [])
         self.assertEqual(ag_queue.validate_entry(entry), [])
+
+
+class BnfTitleTest(unittest.TestCase):
+    """Gallica/BnF catalogue titles: medium tag and maker come off (#1496)."""
+
+    def gallica(self, title, creator=None, **kw):
+        s = source(title=title, **kw)
+        s["repository"] = "Bibliothèque nationale de France (Gallica)"
+        s["raw"] = {"creator": creator, "ark": "ark:/12148/btv1b10516422n"}
+        return s
+
+    def answer(self):
+        return {"x": 0.5, "y": 0.6, "r": 0.08}
+
+    def test_strips_the_medium_tag_and_reads_the_maker(self):
+        s = self.gallica("Rue Saint-Louis en l'Ile : [photographie] "
+                         "/ E. Atget")
+        self.assertEqual(g.clean_title(s), "Rue Saint-Louis en l'Ile")
+        self.assertEqual(g.bnf_title_parts(s["originalTitle"])[1], "E. Atget")
+
+    def test_strips_the_live_rol_title_shape(self):
+        s = self.gallica("Monaco, 1921, hélicoptère Oemichen : "
+                         "[photographie de presse] / [Agence Rol]")
+        self.assertEqual(g.clean_title(s), "Monaco, hélicoptère Oemichen")
+
+    def test_reads_the_wrapped_medium_and_maker(self):
+        s = self.gallica("[Portrait d'actrices / dessin de Yves Marevéry]")
+        self.assertEqual(g.clean_title(s), "Portrait d'actrices")
+        self.assertEqual(g.bnf_title_parts(s["originalTitle"])[1],
+                         "Yves Marevéry")
+
+    def test_keeps_a_wrapped_name_beside_a_trailing_tag(self):
+        # "[Allée boisée, Gabon] : [photographie de presse] / [Agence Rol]":
+        # the leading bracket is the title's own, not a wrapper.
+        s = self.gallica("[Allée boisée, Gabon] : [photographie de presse] "
+                         "/ [Agence Rol]")
+        self.assertEqual(g.clean_title(s), "[Allée boisée, Gabon]")
+
+    def test_credit_uses_the_catalogue_creator(self):
+        s = self.gallica("Rue : [photographie] / E. Atget",
+                         creator="Eugène Atget")
+        self.assertEqual(
+            g.build_credit(s),
+            "Eugène Atget via Bibliothèque nationale de France (Gallica)")
+
+    def test_credit_falls_back_to_the_title_maker_without_duplication(self):
+        # dc:creator empty: the maker from the title carries the credit once.
+        s = self.gallica("Rue : [photographie] / E. Atget", creator="")
+        credit = g.build_credit(s)
+        self.assertEqual(
+            credit,
+            "E. Atget via Bibliothèque nationale de France (Gallica)")
+        self.assertEqual(credit.count("E. Atget"), 1)
+
+    def test_title_source_is_catalog_for_a_gallica_title(self):
+        entry = g.build_entry(
+            self.gallica("Nevers, Porte du Croux : [photographie de presse] "
+                         "/ [Agence Rol]"),
+            proposal(), self.answer(), "2026-09-12")
+        self.assertEqual(entry["title"], "Nevers, Porte du Croux")
+        self.assertEqual(entry["title_source"], "catalog")
 
 
 class RetextTest(TempDataMixin, unittest.TestCase):
@@ -866,12 +938,65 @@ class RetextTest(TempDataMixin, unittest.TestCase):
         state = ag_queue.load_state(self.data_dir)
         self.assertIn("43.6527", state["scenes"]["damaged"]["place"])
 
-    def test_retext_keeps_a_model_title(self):
-        scene = g.build_entry(source(), proposal(title="Market day"),
-                              self.answer(), "2026-09-12")
+    def test_retext_leaves_a_clean_scene_alone(self):
+        scene = g.build_entry(source(), proposal(), self.answer(),
+                              "2026-09-12")
         self.save({"s": scene})
         report = g.retext_state(self.data_dir)
         self.assertEqual(report["changed"], 0)
+
+
+class RetitleTest(TempDataMixin, unittest.TestCase):
+    """The #1496 backfill: queued scenes get the catalogue title."""
+
+    def answer(self):
+        return {"x": 0.5, "y": 0.6, "r": 0.08}
+
+    def legacy(self):
+        """A scene as the proposal-title rule stored it (before #1496)."""
+        scene = g.build_entry(source(), proposal(), self.answer(),
+                              "2026-09-12")
+        scene.pop("title_source", None)
+        scene["title"] = "Model-written market scene"
+        scene["description"] = ("Model-written market scene · "
+                                "Wikimedia Commons.")
+        return scene
+
+    def save(self, scenes):
+        ag_queue.save_state(self.data_dir,
+                            {"version": 1, "last_shipped": None,
+                             "scenes": scenes})
+
+    def test_retitle_entry_moves_the_title_to_the_catalogue_name(self):
+        fixed, changed = g.retitle_entry(self.legacy())
+        self.assertEqual(sorted(changed),
+                         ["description", "title", "title_source"])
+        self.assertEqual(fixed["title"], "Busy market street")
+        self.assertEqual(fixed["title_source"], "catalog")
+        self.assertEqual(fixed["description"],
+                         "Busy market street · Wikimedia Commons.")
+
+    def test_retitle_records_a_placeholder_source(self):
+        scene = g.build_entry(source(title="1905"), proposal(), self.answer(),
+                              "2026-09-12")
+        fixed, _ = g.retitle_entry(scene)
+        self.assertEqual(fixed["title"], "Photograph")
+        self.assertEqual(fixed["title_source"], "fallback")
+
+    def test_retitle_state_counts_and_writes(self):
+        self.save({"x": self.legacy()})
+        report = g.retitle_state(self.data_dir)
+        self.assertEqual(report["changed"], 1)
+        state = ag_queue.load_state(self.data_dir)
+        self.assertEqual(state["scenes"]["x"]["title"], "Busy market street")
+        self.assertEqual(state["scenes"]["x"]["title_source"], "catalog")
+
+    def test_retitle_is_a_no_op_on_a_fresh_scene(self):
+        scene = g.build_entry(source(), proposal(), self.answer(),
+                              "2026-09-12")
+        _, changed = g.retitle_entry(scene)
+        self.assertEqual(changed, [])
+
 
 
 # ── Trace sidecar ──────────────────────────────────────────────────────────
@@ -1511,7 +1636,10 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
         entry = ag_queue.load_state(self.data_dir)["scenes"][report["scene"]]
         self.assertEqual(entry["anomaly"], "Hovering transport pod")
         self.assertIn("hovering-transport-pod", entry["id"])
-        self.assertEqual(entry["title"], "House with a hovering pod")
+        # #1496: the reconciliation's model-written title stays in the
+        # proposal/trace; the displayed title is the source's catalogue name.
+        self.assertEqual(entry["title"], "Busy market street")
+        self.assertEqual(entry["title_source"], "catalog")
         trace = self.trace_of(scene)
         self.assertEqual(trace["calls"][-2]["stage"], "reconcile-text")
         self.assertEqual(trace["text_reconciliation"]["changed"]["anomaly"],

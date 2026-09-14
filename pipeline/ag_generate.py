@@ -147,15 +147,17 @@ CLI::
         [--dry-run] [--top-up] [--env .env] [--dm-channel ID] [--model M]
         [--image-model M] [--max-attempts 2] [--max-generations N]
         [--date YYYY-MM-DD] [--out-dir DIR] [--report FILE] [--no-check]
-        [--no-preflight] [--retext] [--audit-text]
+        [--no-preflight] [--retext] [--retitle] [--audit-text]
 
-The caption (title, place, description) is derived from the proposal and the
-source's structured keys, never from raw metadata: the title drops the
-uploader's timestamps and years, a coordinate pair is no place, and the era
-lives in its own field instead of a "circa <year>" glued into the
-description (ticket #1402). ``--retext`` re-derives the captions of the
-scenes already in the queue, the repair path for the scenes the old builder
-damaged.
+The caption (title, place, description) is derived from the source's own
+catalogue keys, never from raw metadata and never from model prose: the title
+is the catalogue name (only the uploader's timestamps, years and BnF medium
+tags come off), a coordinate pair is no place, and the era lives in its own
+field instead of a "circa <year>" glued into the description (tickets #1402,
+#1496). ``--retext`` re-derives the captions of the scenes already in the
+queue, the repair path for the scenes the old builder damaged; ``--retitle``
+backfills the displayed title + ``title_source`` of every queued scene after
+the title-source change in #1496.
 
 Exit code 0 = ran (a scene that only breaks mechanically can still be
 missing; the JSON report lists what failed); 1 = no scene was added or a
@@ -1662,6 +1664,80 @@ _QS_ID_RE = re.compile(r"\s*\bQS:[^\s,]*")
 _ARCHIVE_SUFFIX_RE = re.compile(
     r"\s*-\s*(?:DPLA|LOC|NARA|Flickr)\s*-\s*.+$", re.I)
 
+# ── BnF/Gallica title shape (ticket #1496) ─────────────────────────────────
+#
+# A Gallica catalogue title names the medium and the maker after the readable
+# title: "Monaco, 1921, hélicoptère Oemichen : [photographie de presse] /
+# [Agence Rol]". Bracketed whole, the medium can sit inside the title
+# ("[Portrait d'actrices / dessin de Yves Marevéry]"). Medium and maker are
+# catalogue fields, not title text: the medium is dropped, the maker moves to
+# the credit line. A title without a medium word is untouched, so a Commons
+# object name that happens to contain a slash keeps its tail.
+_BNF_MEDIUM_WORDS = (
+    r"photographie(?:s)?|dessin(?:s)?|estampe(?:s)?|image(?:s)? fixe(?:s)?|"
+    r"carte(?:s)? postale(?:s)?|aquarelle(?:s)?|peinture(?:s)?|"
+    r"gravure(?:s)?|affiche(?:s)?|lithographie(?:s)?"
+)
+_BNF_MEDIUM_RE = re.compile(r"\b(?:" + _BNF_MEDIUM_WORDS + r")\b", re.I)
+# The medium's own bracket, with an optional leading colon:
+# "… Oemichen : [photographie de presse]". Everything to the closing bracket
+# belongs to the tag.
+_BNF_TAG_RE = re.compile(
+    r"\s*:?\s*\[\s*(?:" + _BNF_MEDIUM_WORDS + r")\b[^\]]*\]", re.I)
+# The maker after the last slash, optionally in its own bracket. It leads
+# with the medium when the bracket wraps the whole entry
+# (" / dessin de Yves Marevéry").
+_BNF_MAKER_RE = re.compile(r"\s*/\s*(?P<maker>[^/]+?)\s*\]?\s*$")
+_BNF_MAKER_MEDIUM_RE = re.compile(
+    r"^\s*(?:" + _BNF_MEDIUM_WORDS + r")\b\s*(?:de\s+|par\s+)?", re.I)
+
+
+def _outer_bracket_wraps(t: str) -> bool:
+    """Whether the first "[" closes only at the string's last character."""
+    if not (t.startswith("[") and t.endswith("]")):
+        return False
+    depth = 0
+    for i, ch in enumerate(t):
+        if ch == "[":
+            depth += 1
+        elif ch == "]":
+            depth -= 1
+            if depth == 0:
+                return i == len(t) - 1
+    return False
+
+
+def bnf_title_parts(text) -> tuple:
+    """(readable title, maker) of a BnF/Gallica catalogue title (#1496).
+
+    Returns the text unchanged and an empty maker when it names no medium:
+    the Commons path must not lose a slash tail that belongs to the name.
+    The maker is the name the credit line shows when the catalogue's own
+    ``dc:creator`` is empty. The readable part is never rewritten, only the
+    medium tag and the maker come off.
+    """
+    t = strip_html(str(text or "")).strip()
+    if not _BNF_MEDIUM_RE.search(t):
+        return t, ""
+    maker = ""
+    # A wholly bracketed entry wraps the medium and the maker inside after a
+    # slash: "[Portrait d'actrices / dessin de Yves Marevéry]". A title that
+    # is one bracketed name beside a trailing tag stays wrapped ("[Allée
+    # boisée, Gabon] : [photographie de presse] / [Agence Rol]").
+    if _outer_bracket_wraps(t):
+        t = t[1:-1].strip()
+    else:
+        tag = _BNF_TAG_RE.search(t)
+        if tag:
+            t = (t[:tag.start()] + " " + t[tag.end():]).strip()
+    m = _BNF_MAKER_RE.search(t)
+    if m:
+        candidate = _BNF_MAKER_MEDIUM_RE.sub("", m.group("maker")).strip(" []")
+        if candidate:
+            maker = candidate
+            t = t[:m.start()].strip()
+    return t, maker
+
 
 def _balance_quotes(t: str) -> str:
     """No half quote survives: a wrapping pair goes, an odd one is dropped.
@@ -1682,6 +1758,7 @@ def _balance_quotes(t: str) -> str:
 def clean_caption_title(text) -> str:
     """The scene title from a raw name; "" when nothing readable is left."""
     t = strip_html(str(text or ""))
+    t, _maker = bnf_title_parts(t)
     t = re.sub(r"^File:", "", t).strip()
     t = re.sub(r"\.(jpe?g|png|gif|webp|tiff?)$", "", t, flags=re.I)
     t = t.replace("_", " ")
@@ -1708,17 +1785,20 @@ def clean_caption_title(text) -> str:
 
 
 def clean_title(source: dict) -> str:
-    """The scene title shown when the proposal names none."""
+    """The displayed scene title: the source's catalogue name, or the
+    "Photograph" placeholder when the catalogue carries nothing readable."""
     return clean_caption_title(source.get("originalTitle")) or "Photograph"
 
 
-def scene_title(source: dict, proposal: dict) -> str:
-    """The displayed title: the proposal's short human title, cleaned.
+def scene_title_source(source: dict) -> str:
+    """Where the displayed title comes from (ticket #1496).
 
-    The proposal call sees the photo, so it can name the scene; the Commons
-    object name is only the fallback (ticket #1402).
+    ``catalog`` when the source's own name supplied it, ``fallback`` when the
+    scene shows the "Photograph" placeholder. The flag lets a quality pass
+    find the placeholders without reading every title.
     """
-    return clean_caption_title(proposal.get("title")) or clean_title(source)
+    return "catalog" if clean_caption_title(source.get("originalTitle")) \
+        else "fallback"
 
 
 def scene_place(source: dict) -> str:
@@ -1778,8 +1858,17 @@ def build_description(source: dict, title: str, place: str) -> str:
 
 
 def build_credit(source: dict) -> str:
+    """The credit line: the maker via the repository.
+
+    The maker is the catalogue's own field first (Commons ``artist``,
+    Gallica ``creator``); when the catalogue names none, the maker embedded
+    in a Gallica title carries it (ticket #1496). There is at most one maker,
+    so the same name cannot appear twice.
+    """
     raw = source.get("raw") or {}
-    artist = strip_html(str(raw.get("artist") or ""))
+    artist = strip_html(str(raw.get("artist") or raw.get("creator") or ""))
+    if not artist:
+        artist = bnf_title_parts(source.get("originalTitle"))[1]
     repo = source.get("repository") or "unknown repository"
     return f"{artist} via {repo}" if artist else repo
 
@@ -1799,13 +1888,14 @@ def build_entry(source: dict, proposal: dict, answer: dict, date: str,
         explanation = proposal["explanation"]
         refs, _ = resolve_references(proposal, source)
     family = ag_catalog.family_of(proposal["anomaly"]) or "other"
-    title = scene_title(source, proposal)
+    title = clean_title(source)
     source_block = {k: source.get(k, "") for k in (
         "repository", "fileUrl", "originalTitle", "date", "place", "license",
         "description")}
     out = {
         "id": eid,
         "title": title,
+        "title_source": scene_title_source(source),
         "place": place,
         "year": year,
         "description": build_description(source, title, place),
@@ -1913,6 +2003,69 @@ def retext_state(data_dir: Path, dry_run: bool = False) -> dict:
             "damaged": damaged, "changed": len(changed),
             "unfixable": unfixable, "dry_run": dry_run,
             "details": changed}
+
+
+# ── Title provenance backfill (ticket #1496) ────────────────────────────────
+
+
+def retitle_entry(scene: dict) -> tuple:
+    """Re-derive one queued scene's displayed title from its source (#1496).
+
+    Returns ``(fixed entry, changed keys)``. Before #1496 the title was the
+    proposal's model-written short name; the displayed title is now the
+    source's catalogue name (cleaned, see ``clean_title``), with
+    ``title_source`` recording whether the catalogue supplied it. The
+    description is re-derived only from the caption form (a narrative
+    description older scenes carry is left alone).
+    """
+    if not isinstance(scene, dict):
+        return scene, []
+    out = dict(scene)
+    source = (scene.get("source")
+              if isinstance(scene.get("source"), dict) else {})
+    changed = []
+    title = clean_title(source)
+    if title != scene.get("title"):
+        out["title"] = title
+        changed.append("title")
+    mark = scene_title_source(source)
+    if mark != scene.get("title_source"):
+        out["title_source"] = mark
+        changed.append("title_source")
+    if "title" in changed and str(scene.get("title") or "") and \
+            str(out.get("description") or "").startswith(
+                str(scene.get("title") or "")):
+        description = build_description(source, title,
+                                        ag_queue.clean_place(out.get("place")))
+        if description != out.get("description"):
+            out["description"] = description
+            changed.append("description")
+    return out, changed
+
+
+def retitle_state(data_dir: Path, dry_run: bool = False) -> dict:
+    """Backfill the displayed title + provenance of every queued scene.
+
+    One-off repair for the scenes queued under the proposal-title rule
+    (ticket #1496); new scenes carry the catalogue title from generation, so
+    a later run is a no-op.
+    """
+    state = ag_queue.load_state(data_dir)
+    scenes = state.get("scenes") or {}
+    changed = []
+    for eid, scene in scenes.items():
+        fixed, keys = retitle_entry(scene)
+        if not keys:
+            continue
+        changed.append({"id": eid, "changed": keys,
+                        "before": {k: scene.get(k) for k in keys},
+                        "after": {k: fixed[k] for k in keys}})
+        if not dry_run:
+            scene.update(fixed)
+    if changed and not dry_run:
+        ag_queue.save_state(data_dir, state)
+    return {"data": str(data_dir), "scenes": len(scenes),
+            "changed": len(changed), "dry_run": dry_run, "details": changed}
 
 
 def last_check_call(trace: dict) -> dict | None:
@@ -3577,6 +3730,10 @@ def parse_args(argv=None):
                    help="repair mode: re-derive the queued scenes' captions "
                         "(title/place/description) instead of generating "
                         "(ticket #1402)")
+    p.add_argument("--retitle", action="store_true",
+                   help="backfill mode: re-derive every queued scene's title "
+                        "from its source catalogue name and record "
+                        "title_source (ticket #1496)")
     p.add_argument("--audit-text", action="store_true",
                    help="audit mode: report queued scenes whose last checker "
                         "verdict disagrees with their text (ticket #1449)")
@@ -3646,6 +3803,12 @@ def main(argv=None) -> int:
         data_dir = Path(args.data) if args.data \
             else ag_sources.default_data_dir()
         report = retext_state(data_dir)
+        print(json.dumps(report, indent=2))
+        return 0
+    if args.retitle:
+        data_dir = Path(args.data) if args.data \
+            else ag_sources.default_data_dir()
+        report = retitle_state(data_dir, dry_run=args.dry_run)
         print(json.dumps(report, indent=2))
         return 0
     if args.audit_text:

@@ -156,6 +156,16 @@ export function SceneModal({
               <dd>{scene.anomaly}</dd>
             </div>
             <div>
+              <dt>Title</dt>
+              <dd data-testid={`td-modal-title-source-${scene.id}`}>
+                {scene.titleSource === "catalog"
+                  ? "catalogue name"
+                  : scene.titleSource === "fallback"
+                    ? "Photograph placeholder"
+                    : "not recorded"}
+              </dd>
+            </div>
+            <div>
               <dt>Answer</dt>
               <dd>
                 {isAnswerCircle(scene.answer)
