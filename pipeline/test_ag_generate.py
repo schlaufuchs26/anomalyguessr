@@ -1358,7 +1358,7 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
                     "reason": "tone off", "fix_prompt": "match the tone",
                     "call": call()}
 
-        scene, failed, totals = self.run_one(edit=edit, check=check)
+        scene, failed, totals = self.run_one(sampling_mode="repair", edit=edit, check=check)
         self.assertIsNone(failed)
         self.assertEqual(edits["n"], 3)    # one draw + two correction edits
         self.assertEqual(checks["n"], 3)   # r0 + one check per round
@@ -1397,7 +1397,7 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
                     "reason": "tone off", "fix_prompt": "match the tone",
                     "call": call()}
 
-        scene, failed, totals = self.run_one(edit=edit, check=check)
+        scene, failed, totals = self.run_one(sampling_mode="repair", edit=edit, check=check)
         self.assertIsNone(failed)
         self.assertEqual(edits["n"], 3)    # the chain still spends its rounds
         self.assertEqual(checks["n"], 3)
@@ -1430,7 +1430,7 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
             return {"ok": True, "score": g.REQUIREMENTS_TOTAL, "failed": [],
                     "reason": "fixed", "fix_prompt": "", "call": call()}
 
-        scene, failed, _ = self.run_one(check=check)
+        scene, failed, _ = self.run_one(sampling_mode="repair", check=check)
         self.assertIsNone(failed)
         report = scene["report"]
         self.assertEqual(report["correction_rounds"], 1)
@@ -1456,7 +1456,7 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
                     "reason": "tone off", "fix_prompt": "match the tone",
                     "call": call()}
 
-        scene, failed, _ = self.run_one(check=check)
+        scene, failed, _ = self.run_one(sampling_mode="repair", check=check)
         self.assertIsNone(failed)
         self.assertEqual(scene["report"]["correction_rounds"], 2)
         self.assertEqual(scene["report"]["checker"]["selected_round"], 0)
@@ -1503,7 +1503,7 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
             return {"ok": False, "score": 5, "failed": [3], "reason": "scale",
                     "fix_prompt": "make it smaller", "call": call()}
 
-        scene, failed, _ = self.run_one(edit=edit, check=check)
+        scene, failed, _ = self.run_one(sampling_mode="repair", edit=edit, check=check)
         self.assertIsNone(failed)
         self.assertEqual(edits["n"], 2)   # one draw + one correction
         self.assertEqual(checks["n"], 2)
@@ -1512,7 +1512,7 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
                          g.REQUIREMENTS_TOTAL)
 
     def test_no_fix_prompt_ships_without_a_correction(self):
-        scene, failed, totals = self.run_one(
+        scene, failed, totals = self.run_one(sampling_mode="repair", 
             check=stub_check(failed=[1], fix_prompt=""))
         self.assertIsNone(failed)
         self.assertEqual(totals["image_calls"], 1)
@@ -1532,7 +1532,7 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
             edits["n"] += 1
             return img_bytes()
 
-        scene, failed, totals = self.run_one(
+        scene, failed, totals = self.run_one(sampling_mode="repair", 
             edit=edit,
             check=stub_check(failed=[3], fix_prompt="Replace the plastic "
                              "bottle with a hovering drone."))
@@ -1563,7 +1563,7 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
             edits["n"] += 1
             return img_bytes(color="blue" if edits["n"] > 1 else "red")
 
-        scene, failed, totals = self.run_one(
+        scene, failed, totals = self.run_one(sampling_mode="repair", 
             edit=edit,
             check=stub_check(failed=[3], fix_prompt="Make it smaller."))
         self.assertIsNone(failed)
@@ -1583,7 +1583,7 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
             edits["n"] += 1
             return img_bytes(color="blue" if edits["n"] > 1 else "red")
 
-        scene, failed, _ = self.run_one(
+        scene, failed, _ = self.run_one(sampling_mode="repair", 
             edit=edit,
             check=stub_check(failed=[9], fix_prompt="Make the lit screen "
                              "readable at this size."))
@@ -1600,7 +1600,7 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
         # Requirement 8 is not repairable (the element is not impossible for
         # the scene year); the chain ends and the scene ships with the verdict
         # and the moderation flag. Nothing is dropped, no image is replaced.
-        scene, failed, totals = self.run_one(
+        scene, failed, totals = self.run_one(sampling_mode="repair", 
             check=stub_check(failed=[8], fix_prompt="Replace it with a "
                              "clearly futuristic element."))
         self.assertIsNone(failed)
@@ -1622,7 +1622,7 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
         # #1449 rule 4: the checker says the image shows a different element.
         # One text-only call rewrites anomaly, explanation and title; the id
         # is built from the final label, so the slug follows.
-        scene, failed, totals = self.run_one(
+        scene, failed, totals = self.run_one(sampling_mode="repair", 
             check=stub_check(image_match=False, reason="shows a pod"),
             reconcile=stub_reconcile())
         self.assertIsNone(failed)
@@ -1669,7 +1669,7 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
             edits["n"] += 1
             return img_bytes(color="blue" if edits["n"] > 1 else "red")
 
-        scene, failed, totals = self.run_one(
+        scene, failed, totals = self.run_one(sampling_mode="repair", 
             edit=edit,
             check=stub_check(failed=[4], fix_prompt="Match the tone."))
         self.assertIsNone(failed)
@@ -1679,13 +1679,12 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
                          1 + g.CORRECTION_ROUNDS)
         self.assertLessEqual(scene["report"]["image_calls"],
                              g.IMAGE_CALLS_PER_SCENE)
-        self.assertEqual(g.IMAGE_CALLS_PER_SCENE,
-                         1 + g.MECHANICAL_RETRIES + g.CORRECTION_ROUNDS)
+        self.assertEqual(g.IMAGE_CALLS_PER_SCENE, g.MAX_DRAWS)
 
     def test_run_max_generations_defaults_to_the_per_scene_budget(self):
         args = self.make_args(count=4)
         self.assertEqual(args.max_generations,
-                         4 * g.IMAGE_CALLS_PER_SCENE)
+                         4 * g.RUN_IMAGE_CALLS_PER_SCENE)
 
     def test_correction_that_fails_the_gates_keeps_the_image(self):
         calls = {"n": 0}
@@ -1697,7 +1696,7 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
             return None, {"cx": 0.5, "cy": 0.6}
 
         g.candidate_gate = gate
-        scene, failed, totals = self.run_one(
+        scene, failed, totals = self.run_one(sampling_mode="repair", 
             check=stub_check(failed=[4], fix_prompt="fix the tone"))
         self.assertIsNone(failed)
         # the pre-correction image ships; the broken correction is recorded
@@ -1716,7 +1715,7 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
             return None, {"cx": 0.5, "cy": 0.6}
 
         g.candidate_gate = gate
-        scene, failed, totals = self.run_one(check=stub_check(failed=[7]))
+        scene, failed, totals = self.run_one(sampling_mode="repair", check=stub_check(failed=[7]))
         self.assertIsNotNone(scene)
         self.assertEqual(calls["n"], 2)   # 1 broken + 1 shipped draw
         self.assertEqual(totals["image_calls"], 2)
@@ -1768,7 +1767,7 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
                 return img_bytes()
             raise g.GenerationError("no images returned (model refusal?)")
 
-        scene, failed, totals = self.run_one(
+        scene, failed, totals = self.run_one(sampling_mode="repair", 
             edit=edit, check=stub_check(failed=[4], fix_prompt="fix tone"))
         self.assertIsNone(failed)
         self.assertEqual(totals["image_calls"], 2)
@@ -1800,9 +1799,10 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
         scene, failed, totals = self.run_one()
         self.assertIsNone(scene)
         self.assertEqual(failed["stage"], "image")
-        # 1+retries draws in the first attempt, the rest of the run budget
-        # (default 1+retries+2 per scene) in the second
-        self.assertEqual(totals["image_calls"], 1 + g.MECHANICAL_RETRIES + 2)
+        # #1497: attempt 1 spends its three draw slots on broken renders, the
+        # second attempt gets the rest of the run budget (RUN_IMAGE_CALLS_PER_
+        # SCENE per scene), then the scene is reported instead of skipped.
+        self.assertEqual(totals["image_calls"], g.RUN_IMAGE_CALLS_PER_SCENE)
 
     def test_every_refused_draw_leaves_a_row_and_its_cost(self):
         # The exact #1435 gap: when the model refuses every edit, each
@@ -1816,7 +1816,7 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
         scene, failed, totals = self.run_one(edit=edit)
         self.assertIsNone(scene)
         self.assertEqual(failed["stage"], "image")
-        self.assertEqual(totals["image_calls"], 1 + g.MECHANICAL_RETRIES + 2)
+        self.assertEqual(totals["image_calls"], g.RUN_IMAGE_CALLS_PER_SCENE)
         self.assertAlmostEqual(totals["image_cost"],
                                0.002 * totals["image_calls"])
         pending = g.pending_trace_path(self.data_dir, SOURCE_ID)
@@ -1989,7 +1989,7 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
         args = self.make_args(count=2)
         self.assertEqual(
             args.max_generations,
-            2 * (1 + g.MECHANICAL_RETRIES + g.CORRECTION_ROUNDS))
+            2 * g.RUN_IMAGE_CALLS_PER_SCENE)
 
     def test_blocked_edit_is_classified_and_retried_with_the_rephrase(self):
         # #1439: a provider block is not a mechanical gate failure. The first
@@ -2168,6 +2168,105 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
         self.assertFalse(scene["report"]["avoidance"]["reask"])
 
 
+class IndependentDrawRuleTest(GenerateOneTest):
+    """#1497: up to three fresh draws; first clean ships, else best score."""
+
+    def test_independent_ships_the_first_clean_draw(self):
+        scene, failed, totals = self.run_one()
+        self.assertIsNone(failed)
+        self.assertEqual(totals["image_calls"], 1)
+        self.assertEqual(scene["report"]["selected_draw"], 1)
+        trace = self.trace_of(scene)
+        self.assertEqual(trace["selected_draw"], 1)
+        self.assertEqual([d["draw"] for d in trace["draws"]], [1])
+        self.assertTrue(trace["draws"][0]["shipped"])
+        self.assertTrue(trace["draws"][0]["clean"])
+
+    def test_independent_stops_at_the_first_clean_draw(self):
+        state = {"n": 0}
+
+        def check(*a, **kw):
+            state["n"] += 1
+            failed = [3] if state["n"] == 1 else []
+            return {"ok": not failed,
+                    "score": g.REQUIREMENTS_TOTAL - len(failed),
+                    "failed": failed, "reason": "r", "fix_prompt": "",
+                    "image_match": True, "call": call()}
+
+        scene, failed, totals = self.run_one(check=check)
+        self.assertIsNone(failed)
+        self.assertEqual(totals["image_calls"], 2)
+        self.assertEqual(scene["report"]["selected_draw"], 2)
+        self.assertEqual(state["n"], 2)
+        trace = self.trace_of(scene)
+        self.assertEqual([d["draw"] for d in trace["draws"]], [1, 2])
+        self.assertEqual([d["shipped"] for d in trace["draws"]], [False, True])
+
+    def test_independent_ships_the_best_score_when_none_clean(self):
+        scores = [6, 8, 7]
+        state = {"n": 0}
+
+        def check(*a, **kw):
+            s = scores[state["n"]]
+            state["n"] += 1
+            return {"ok": False, "score": s, "failed": [3], "reason": "r",
+                    "fix_prompt": "", "image_match": True, "call": call()}
+
+        colors = ["red", "green", "blue"]
+
+        def edit(*a, **kw):
+            return img_bytes(color=colors.pop(0))
+
+        scene, failed, totals = self.run_one(check=check, edit=edit)
+        self.assertIsNone(failed)
+        self.assertEqual(totals["image_calls"], 3)
+        self.assertEqual(scene["report"]["selected_draw"], 2)
+        self.assertIn("no draw passed every check",
+                      scene["report"]["review"])
+        self.assertEqual(self.shipped_bytes(scene),
+                         self.out_bytes(f"{SOURCE_ID}-a1-r0-d2.png"))
+
+    def test_independent_mechanical_finding_takes_a_draw_out_of_the_race(self):
+        # Both draws score 8, but draw 1 gets color on the grayscale source;
+        # the mechanical finding disqualifies it even though its score ties
+        # the clean-ish draw 2.
+        def check(*a, **kw):
+            return {"ok": False, "score": 8, "failed": [3], "reason": "r",
+                    "fix_prompt": "", "image_match": True, "call": call()}
+
+        state = {"n": 0}
+
+        def edit(*a, **kw):
+            state["n"] += 1
+            return img_bytes(color="red" if state["n"] == 1 else "gray")
+
+        self.run_one(check=check, edit=edit)
+        # three slots are drawn; only the first is colored
+        self.assertEqual(state["n"], 3)
+
+    def test_independent_trace_draw_rows_carry_verdict_and_finding(self):
+        scene, _, _ = self.run_one()
+        trace = self.trace_of(scene)
+        row = trace["draws"][0]
+        self.assertEqual(row["score"], g.REQUIREMENTS_TOTAL)
+        self.assertEqual(row["failed"], [])
+        self.assertIn("presence", row["mechanical"])
+        self.assertIsNotNone(row["cost"])
+
+
+class IndependentModeTest(unittest.TestCase):
+    """The #1497 shipping rule and trace, on the default sampling mode."""
+
+    def test_independent_mode_is_the_default(self):
+        self.assertEqual(g.SAMPLING_MODE, "independent")
+        self.assertEqual(g.IMAGE_CALLS_PER_SCENE, g.MAX_DRAWS)
+
+    def test_parse_args_default_sampling_mode(self):
+        args = g.parse_args(["--count", "2"])
+        self.assertEqual(args.sampling_mode, "independent")
+        self.assertEqual(args.sampling_mode and g.SAMPLING_MODE, "independent")
+
+
 class MechanicalCheckFlowTest(GenerateOneTest):
     """The presence/tone/size checks inside the generation flow (#1485)."""
 
@@ -2204,7 +2303,7 @@ class MechanicalCheckFlowTest(GenerateOneTest):
             return img_bytes()
 
         g.presence_check = presence
-        scene, failed, _ = self.run_one(edit=edit)
+        scene, failed, _ = self.run_one(sampling_mode="repair", edit=edit)
         self.assertIsNone(failed)
         # one draw plus the single presence repair
         self.assertEqual(edits["n"], 2)
@@ -2223,7 +2322,7 @@ class MechanicalCheckFlowTest(GenerateOneTest):
             return img_bytes()
 
         g.presence_check = stub_presence(present=False)
-        scene, failed, _ = self.run_one(edit=edit)
+        scene, failed, _ = self.run_one(sampling_mode="repair", edit=edit)
         self.assertIsNone(failed)
         self.assertEqual(edits["n"], 2)  # draw plus the one repair attempt
         mechanical = scene["report"]["mechanical"]
@@ -2235,7 +2334,7 @@ class MechanicalCheckFlowTest(GenerateOneTest):
     def test_a_mechanical_reason_joins_a_checker_reason(self):
         # The checker's own finding must not shadow the mechanical one; the
         # moderation card carries both.
-        scene, failed, _ = self.run_one(
+        scene, failed, _ = self.run_one(sampling_mode="repair", 
             check=stub_check(failed=[9]),
             edit=lambda *a, **kw: img_bytes(color="red"))
         self.assertIsNone(failed)

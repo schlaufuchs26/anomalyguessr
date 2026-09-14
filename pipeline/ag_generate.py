@@ -60,19 +60,21 @@ Per scene:
    the proposal's `visual_tell` is not readable in the render: a cue lost
    in the grain or hidden at the shipped scale fails instead of passing on
    "the object is correct".
-4. **Correct** (`fix-edit`, at most `CORRECTION_ROUNDS` = 2, ticket #1449):
-   the correction repairs only how the element is rendered (scale, placement,
-   lighting, grain, blending); a checker repair that asks for another object
-   (`presentation_only_fix`) is ignored and the round skipped, so the image
-   can never show an element the scene text does not name. A failure of
-   requirement 8 ends the chain too: it is not a rendering problem, so the
-   scene ships with its verdict and a `needs_review` flag instead of being
-   edited into another object or dropped. A check with no findings ends the
-   chain immediately (Evan 2026-09-13), and the last fix-edit is followed by a
-   final check for the record only, which never triggers another edit. Every
-   scored round is a candidate and the best-scoring one wins the scene
-   (ticket #1461): a correction that lowered the checker's score does not
-   ship, and a tie keeps the earlier render.
+4. **Sample or Correct** (`SAMPLING_MODE`, ticket #1497): the default
+   `independent` mode draws up to `MAX_DRAWS` = 3 fresh renders of the source
+   photo with the same edit prompt (never building on the previous result) and
+   runs the checker plus the mechanical checks (#1485) on each; the first draw
+   whose checker fails no requirement and whose mechanical checks all pass
+   ships. If none is clean, a draw with a mechanical finding is out of the
+   race and the best-scoring remaining draw wins, ties keeping the earlier
+   draw (`_pick_independent_draw`); the score is only a tiebreak because it
+   agrees with Evan's verdicts just 0.56 (#1485). The `repair` mode is the
+   older chain and stays switchable as the measurement's comparison arm: the
+   checker's repair instruction drives at most `CORRECTION_ROUNDS` = 2
+   fix-edits of the failing render, a repair that asks for another object
+   (`presentation_only_fix`) is ignored, a requirement-8 finding ends the
+   chain, and the best-scoring round wins (ticket #1461). Both modes are
+   capped at `IMAGE_CALLS_PER_SCENE` = 3 image calls per scene.
 5. **Reconcile text** (`reconcile_text`, ticket #1449, only when the checker's
    `image_match` is false): one text-only call rewrites `anomaly`,
    `explanation` and `title` to describe the shipped image; the scene id is
@@ -98,8 +100,10 @@ landscape shape) work. A mechanically broken draw is replaced by another one
 (up to `MECHANICAL_RETRIES` extra image calls per scene, every attempt in the
 trace); only a source whose image call fails or whose draws all break the
 pixel gates is reported as failed, never silently skipped. The image-call
-budget per scene is `IMAGE_CALLS_PER_SCENE` = 1 + `MECHANICAL_RETRIES` +
-`CORRECTION_ROUNDS`; the run report carries the count and the bound.
+budget per scene is `IMAGE_CALLS_PER_SCENE` = 3 in both sampling modes
+(ticket #1497; the repair chain's own cap is 1 + `CORRECTION_ROUNDS`, its
+mechanical retries share the three); the run report carries the count and the
+bound.
 
 Deterministic gates stay deterministic: a byte-identical re-serve is refused
 (`ag_verify.identical_output_check`), a scene that is not a localized edit is
@@ -128,7 +132,11 @@ partial record; a finished scene shows the whole flow, a scene from before
 the trace existed shows none. Only the shipped image and the last
 click-target overlay are copied on; the other rounds' renders stay in the
 run's out-dir, and a `score_guard` trace entry names the round that was
-rejected for scoring lower (ticket #1461). The scene-time
+rejected for scoring lower (ticket #1461). In the independent mode the trace
+carries a `draws` row per fresh render (model, draw number, duration, tokens,
+cost, score, failed requirements, mechanical finding) and `selected_draw`
+names the one that shipped (#1497), the counterpart of the repair chain's
+`score_guard`. The scene-time
 entry (`scene_time`: the catalogue year, its provenance class, the repository
 field and its raw value) is in the trace too, so a moderator can check the
 date without opening the repository page (tickets #1403, #1430). A source
@@ -147,7 +155,8 @@ CLI::
         [--dry-run] [--top-up] [--env .env] [--dm-channel ID] [--model M]
         [--image-model M] [--max-attempts 2] [--max-generations N]
         [--date YYYY-MM-DD] [--out-dir DIR] [--report FILE] [--no-check]
-        [--no-preflight] [--retext] [--retitle] [--audit-text]
+        [--sampling-mode independent|repair] [--no-preflight] [--retext]
+        [--retitle] [--audit-text]
 
 The caption (title, place, description) is derived from the source's own
 catalogue keys, never from raw metadata and never from model prose: the title
@@ -215,18 +224,28 @@ ASPECTS = (("16:9", 16 / 9), ("3:2", 1.5), ("4:3", 4 / 3), ("5:4", 1.25),
            ("21:9", 21 / 9), ("2:1", 2.0))
 SCENE_ID_RE = re.compile(r"[^a-z0-9]+")
 
-# One image per scene (ticket #1436, Evan): the checker no longer ranks
-# candidates, it names what is wrong and the pipeline fixes that at most
-# CORRECTION_ROUNDS times. MECHANICAL_RETRIES stays: a wrong aspect ratio or
-# a byte-identical re-serve is not a quality question, so a broken draw is
-# replaced by a new draw instead of shrinking the planned scene count.
+# One image per scene (tickets #1436, #1497). MECHANICAL_RETRIES stays: a
+# wrong aspect ratio or a byte-identical re-serve is not a quality question,
+# so a broken draw is replaced by a new draw instead of shrinking the planned
+# scene count. CORRECTION_ROUNDS is the repair arm's cap.
 MECHANICAL_RETRIES = 2
 CORRECTION_ROUNDS = 2
-# The deterministic image-call budget for one scene (ticket #1449): one
-# initial draw, MECHANICAL_RETRIES replacements for mechanically broken
-# draws, and at most CORRECTION_ROUNDS fix-edits. Nothing else spends an
-# image call; the run report counts them and a test asserts the bound.
-IMAGE_CALLS_PER_SCENE = 1 + MECHANICAL_RETRIES + CORRECTION_ROUNDS
+# How the pipeline spends its image calls (ticket #1497). "independent" draws
+# up to MAX_DRAWS fresh renders of the source photo and ships the first one
+# that passes every check (else the best-scoring one), so a defect from one
+# attempt cannot carry into the next; "repair" is the older chain that edits
+# the failing render in place and is kept as the measurement's comparison arm.
+# Both arms are capped at IMAGE_CALLS_PER_SCENE image calls per scene, so the
+# comparison runs on the same budget (one independent draw + its two
+# mechanical retries, or one draw + two fix-edits).
+SAMPLING_MODE = "independent"
+MAX_DRAWS = 3
+IMAGE_CALLS_PER_SCENE = MAX_DRAWS
+# The run-level runaway guard (`--max-generations`) adds one mechanical-retry
+# allowance per scene on top: a broken render (non-landscape, byte-identical,
+# whole-frame repaint) is replaced without counting as a quality attempt, so
+# the run cap has to leave room for it.
+RUN_IMAGE_CALLS_PER_SCENE = IMAGE_CALLS_PER_SCENE + MECHANICAL_RETRIES
 # Requirement numbers that end the correction chain instead of driving an
 # edit: 8 ("Impossible at the scene's time") is a property of the chosen
 # element, so a fix-edit could only swap the object, which the scene text
@@ -2616,11 +2635,12 @@ def _run(args, data_dir: Path, lock) -> dict:
     report["duration_s"] = round(time.time() - started, 1)
     report["image_calls"] = int(totals.get("image_calls", 0))
     # The deterministic budget (ticket #1449): every planned scene may spend
-    # at most IMAGE_CALLS_PER_SCENE image calls (one draw, MECHANICAL_RETRIES
-    # replacements, CORRECTION_ROUNDS fix-edits). A run that stays under it
-    # cannot have regenerated an image to dodge the checker.
-    report["image_budget"] = report["planned"] * IMAGE_CALLS_PER_SCENE
+    # at most RUN_IMAGE_CALLS_PER_SCENE image calls (IMAGE_CALLS_PER_SCENE
+    # quality attempts plus the mechanical-retry allowance). A run that stays
+    # under it cannot have regenerated an image to dodge the checker.
+    report["image_budget"] = report["planned"] * RUN_IMAGE_CALLS_PER_SCENE
     report["image_calls_per_scene_budget"] = IMAGE_CALLS_PER_SCENE
+    report["sampling_mode"] = args.sampling_mode
     report["model_usage"] = {k: v for k, v in totals.items()
                              if k not in ("image_calls", "image_cost")}
     report["cost_total"] = round(totals["cost"], 6)
@@ -2747,9 +2767,10 @@ def image_budget_left(args, totals: dict) -> int:
     """Image calls the run may still spend (ticket #1436).
 
     ``--max-generations`` stays a run-level runaway guard, not a per-scene
-    quota: the default covers every planned source at one draw plus its
-    mechanical retries and its two correction rounds, and a scene that meets
-    the cap is reported instead of starving the sources queued behind it.
+    quota: the default covers every planned source at its quality attempts
+    (`IMAGE_CALLS_PER_SCENE`) plus one mechanical retry allowance, and a scene
+    that meets the cap is reported instead of starving the sources queued
+    behind it.
     """
     return max(0, int(args.max_generations) - int(totals.get("image_calls", 0)))
 
@@ -2758,8 +2779,9 @@ def _draw_scene_image(source_image: Path, prompt: str, retry_prompt: str,
                       proposal: dict, attempt: int, args, api_key: str,
                       source: dict, data_dir: Path, out_dir: Path, trace: dict,
                       totals: dict, progress, previous_outputs: list,
-                      stats: dict | None = None) -> tuple:
-    """The ONE image for this scene (tickets #1436, #1439).
+                      stats: dict | None = None,
+                      draw_offset: int = 0, max_draws: int | None = None) -> tuple:
+    """One image edit until it passes the mechanical gate (tickets #1436, #1497).
 
     Draws image edits until one passes the mechanical gate (landscape shape,
     byte-identical re-serve, whole-frame repaint), allowing
@@ -2768,13 +2790,17 @@ def _draw_scene_image(source_image: Path, prompt: str, retry_prompt: str,
     a retry used to leave no row, so the draw numbers jumped). A refused edit
     gets one retry with the rephrased prompt first; an element the provider
     refuses twice ends the attempt (``refused``) instead of burning more
-    draws on the same wording. Returns
-    ``(draw|None, failure_reasons, budget_hit, refused|None)`` where ``draw``
-    carries ``path``, ``seed``, ``hotspot`` and its trace ``record``.
+    draws on the same wording.
+
+    ``max_draws`` overrides the mechanical-retry allowance: the independent
+    mode (#1497) spends one fresh draw per call, so it passes ``max_draws=1``
+    and a ``draw_offset`` that keeps the trace's draw numbers counting up.
+    Returns ``(draw|None, failure_reasons, budget_hit, refused|None)`` where
+    ``draw`` carries ``path``, ``seed``, ``hotspot`` and its trace ``record``.
     """
-    draws_allowed = 1 + MECHANICAL_RETRIES
-    failures, draw, budget_hit, refused = [], 0, False, None
-    while draw < draws_allowed:
+    draws_allowed = 1 + MECHANICAL_RETRIES if max_draws is None else max_draws
+    failures, draw, budget_hit, refused = [], draw_offset, False, None
+    while draw - draw_offset < draws_allowed:
         if image_budget_left(args, totals) <= 0:
             # Not a draw failure: the gate reasons above stay the report's
             # "why", so a budget stop cannot mask a mechanical rejection.
@@ -3007,29 +3033,22 @@ _PRESENCE_VISION_KEYS = ("present", "box", "height_percent",
                          "scale_reference_percent", "note")
 
 
-def _mechanical_rounds(image: Path, source_image: Path, proposal: dict,
-                       answer: dict, click: dict, attempt: int, args,
-                       api_key: str, source: dict, data_dir: Path,
-                       out_dir: Path, trace: dict, totals: dict, progress,
-                       previous_outputs: list, stats: dict | None = None
-                       ) -> tuple:
-    """Presence, tone and size checks on the shipped render (#1485).
+def _mechanical_findings(image: Path, source_image: Path, proposal: dict,
+                         answer: dict, attempt: int, args, api_key: str,
+                         data_dir: Path, trace: dict, totals: dict, progress,
+                         stage: str = "presence") -> dict:
+    """Presence, tone and size on one render, without any repair (#1485).
 
     One vision call answers presence, localizes the element and returns the
     scene-scale reference; the tone and size checks are deterministic
-    measurements on the files, so they add no model call at all. A presence
-    failure ("not visible" or "not in the answer area") gets exactly one
-    repair attempt with the finding as the instruction, never a second; tone
-    and size never spend an image call. Presence and tone flag a scene; size
-    is a report line only (#1487).
-
-    Returns ``(findings, image, answer, click)``; ``image`` and ``click``
-    change only when a presence repair was adopted.
+    measurements on the files, so they add no model call at all. The
+    independent sampling mode (#1497) calls this per draw to decide whether a
+    draw stays in the race; the repair mode wraps it in a presence-repair.
     """
     findings = {"presence": None, "tone": None, "size": None,
                 "repair": {"attempted": False}}
     vc = _presence_call(image, proposal, attempt, args, api_key, data_dir,
-                        trace, totals, progress)
+                        trace, totals, progress, stage=stage)
     findings["presence"] = ag_checks.presence_finding(vc, answer)
     findings["presence"]["vision"] = {k: vc.get(k) for k in
                                       _PRESENCE_VISION_KEYS}
@@ -3040,7 +3059,32 @@ def _mechanical_rounds(image: Path, source_image: Path, proposal: dict,
     findings["size"] = ag_checks.size_finding(
         box, figure=bool(proposal.get("figure")),
         reference_height_percent=vc.get("scale_reference_percent"))
-    if not findings["presence"]["failed"]:
+    return findings
+
+
+def _mechanical_rounds(image: Path, source_image: Path, proposal: dict,
+                       answer: dict, click: dict, attempt: int, args,
+                       api_key: str, source: dict, data_dir: Path,
+                       out_dir: Path, trace: dict, totals: dict, progress,
+                       previous_outputs: list, stats: dict | None = None,
+                       repair: bool = True,
+                       stage: str = "presence") -> tuple:
+    """Presence, tone and size checks on the shipped render (#1485).
+
+    A presence failure ("not visible" or "not in the answer area") gets exactly
+    one repair attempt with the finding as the instruction, never a second;
+    tone and size never spend an image call. Presence and tone flag a scene;
+    size is a report line only (#1487). ``repair=False`` returns the findings
+    untouched, which the independent mode uses to take a draw out of the race
+    instead of repairing it (#1497).
+
+    Returns ``(findings, image, answer, click)``; ``image`` and ``click``
+    change only when a presence repair was adopted.
+    """
+    findings = _mechanical_findings(image, source_image, proposal, answer,
+                                    attempt, args, api_key, data_dir, trace,
+                                    totals, progress, stage=stage)
+    if not repair or not findings["presence"]["failed"]:
         return findings, image, answer, click
     # The scene is damaged (element absent or outside the click area): one
     # repair attempt, then the finding stands for moderation. No scene is
@@ -3156,6 +3200,189 @@ def _click_target_passes(image: Path, proposal: dict, answer: dict,
     return current, summary
 
 
+def _locate_answer(image: Path, proposal: dict, hint: str, attempt: int, args,
+                   api_key: str, data_dir: Path, trace: dict, totals: dict,
+                   progress, hotspot) -> tuple:
+    """One coordinate call plus the diff-hotspot fallback (ticket #1436).
+
+    Returns ``(answer|None, conflict|None, error|None)``. ``answer`` is None
+    only when the call failed and no diff hotspot is available to fall back
+    to; ``hint`` is the edit prompt the model sees as context.
+    """
+    progress("locating")
+    loc, loc_err = None, None
+    try:
+        loc = locate_anomaly(image, proposal, hint, api_key, args.model,
+                             args.base_url, args.model_max_tokens,
+                             args.model_timeout, args.temperature)
+    except ag_llm.LLMError as e:
+        loc_err = str(e)
+        trace.setdefault("call_errors", []).append(
+            {"stage": "coordinates", "error": str(e)})
+    coords = None
+    if loc is not None:
+        ag_llm.add_usage(totals, loc["call"].get("usage"))
+        record_call(data_dir, trace,
+                    {"stage": "coordinates", "attempt": attempt,
+                     **_call_trace(loc["call"])})
+        coords = loc["coords"]
+    if coords is None and hotspot is not None:
+        # The coordinate call is the answer source; when it is unusable, the
+        # diff hotspot still gives a deterministic click target.
+        trace["coordinates_fallback"] = "hotspot"
+        return ({"x": round(float(hotspot["cx"]), 4),
+                 "y": round(float(hotspot["cy"]), 4),
+                 "r": 0.05, "fallback": "hotspot"}, None, loc_err)
+    if coords is None:
+        return None, None, loc_err or "no click target and no diff hotspot"
+    answer, conflict = finalize_answer(coords, hotspot)
+    return answer, conflict, None
+
+
+def _draw_row(n: int, path: Path, record: dict, check: dict | None,
+              failed: list, findings: dict | None, clean: bool) -> dict:
+    """One per-draw trace row for the independent mode (ticket #1497).
+
+    Carries what a moderator needs to compare the draws without opening the
+    images: draw number, model, image file, duration, tokens, cost, the
+    checker verdict and the mechanical finding.
+    """
+    usage = record.get("usage") or {}
+    return {"draw": n, "image": path.name, "seed": record.get("seed"),
+            "model": record.get("model"),
+            "duration_s": record.get("duration_s"),
+            "cost": round(float(usage.get("cost") or 0.0), 6),
+            "prompt_tokens": usage.get("prompt_tokens"),
+            "completion_tokens": usage.get("completion_tokens"),
+            "score": check["score"] if check else None,
+            "failed": list(failed),
+            "mechanical": (ag_checks.findings_summary(findings)
+                           if findings else None),
+            "clean": bool(clean), "shipped": False}
+
+
+def _pick_independent_draw(candidates: list, no_check: bool) -> tuple:
+    """The shipping rule for the independent mode (ticket #1497).
+
+    Returns ``(selected, review)``. The first draw whose checker failed no
+    requirement and whose mechanical checks all passed ships. If none is
+    clean, a draw with a mechanical finding is out of the race; the
+    best-scoring remaining draw wins, and a tie keeps the earlier draw
+    (ticket #1461's rule). Only when every draw carries a mechanical finding
+    does the best-scoring one ship anyway, flagged for moderation. The score
+    is the weak link (0.56 agreement with Evan, #1485), so the review reason
+    names every draw that failed and why.
+    """
+    clean = [c for c in candidates if c["clean"]]
+    if clean:
+        return clean[0], ""
+    pool = [c for c in candidates if not c["mechanical_failed"]] or candidates
+    scored = [c for c in pool if isinstance(c["score"], int)]
+    selected = (max(scored, key=lambda c: (c["score"], -c["draw"]))
+                if scored else pool[0])
+    reasons = []
+    if selected["failed"]:
+        reasons.append("checker failed " + ", ".join(
+            str(x) for x in selected["failed"]))
+    if selected["mechanical"]:
+        reasons.extend(ag_checks.review_reasons(selected["mechanical"]))
+    if no_check:
+        reasons.append("no checker run")
+    what = "; ".join(reasons) if reasons else "no draw was clean"
+    review = (f"independent draws: no draw passed every check, shipped "
+              f"draw {selected['draw']} ({what})")
+    return selected, review
+
+
+def _independent_draws(source_image: Path, source: dict, proposal: dict,
+                       prompt: str, retry_prompt: str, attempt: int, args,
+                       api_key: str, data_dir: Path, out_dir: Path,
+                       trace: dict, totals: dict, progress,
+                       previous_outputs: list, stats: dict | None,
+                       scene: dict, recent: list) -> tuple:
+    """Up to MAX_DRAWS fresh renders, checked and mechanically tested (#1497).
+
+    Each draw is a fresh edit of the source photo with the same prompt, never
+    built on the previous render, so a defect cannot carry over. Every draw
+    runs the checker and the mechanical checks. Returns ``(selection|None,
+    failure|None)``; a selection carries the shipped draw's ``path``,
+    ``hotspot``, ``check``, ``answer``, ``conflict``, ``mechanical``,
+    ``selected_draw``, the per-draw ``draws`` rows and a ``review`` reason.
+    """
+    candidates, draws, failure = [], [], None
+    gate_failures = []
+    for n in range(1, MAX_DRAWS + 1):
+        if image_budget_left(args, totals) <= 0:
+            failure = {"stage": "budget", "reason": "generation budget"}
+            break
+        draw, failures, budget_hit, refused = _draw_scene_image(
+            source_image, prompt, retry_prompt, proposal, attempt, args,
+            api_key, source, data_dir, out_dir, trace, totals, progress,
+            previous_outputs, stats, draw_offset=n - 1, max_draws=1)
+        gate_failures.extend(failures)
+        if draw is None:
+            if refused is not None:
+                return None, {"stage": "refusal",
+                              "reason": f"image edit refused ({refused['kind']})",
+                              "refusal_kind": refused["kind"],
+                              "provider": refused.get("detail"),
+                              "element": proposal.get("anomaly")}
+            failure = {"stage": "budget", "reason": "generation budget"} \
+                if budget_hit else {"stage": "image",
+                                    "reason": failures[-1] if failures
+                                    else "no draw passed the gates"}
+            continue
+        path, hotspot = draw["path"], draw["hotspot"]
+        check = None
+        if not args.no_check:
+            check = _check_round(path, proposal, scene, 0, attempt, args,
+                                 api_key, data_dir, trace, totals, progress)
+        answer, conflict, _loc_err = _locate_answer(
+            path, proposal, prompt, attempt, args, api_key, data_dir, trace,
+            totals, progress, hotspot)
+        if answer is None:
+            failure = {"stage": "coordinates",
+                       "reason": _loc_err or "no click target"}
+            continue
+        findings = None
+        if not args.no_check:
+            findings = _mechanical_findings(
+                path, source_image, proposal, answer, attempt, args, api_key,
+                data_dir, trace, totals, progress, stage=f"presence d{n}")
+        failed = list(check.get("failed") or []) if check else []
+        mech_failed = bool(ag_checks.review_reasons(findings)) \
+            if findings else False
+        clean = args.no_check or (
+            check is not None and not failed and not mech_failed)
+        draws.append(_draw_row(n, path, draw["record"], check, failed,
+                               findings, clean))
+        candidates.append({"draw": n, "path": path, "hotspot": hotspot,
+                           "check": check, "score": check["score"]
+                           if check else None, "failed": failed,
+                           "answer": answer, "conflict": conflict,
+                           "mechanical": findings, "clean": clean,
+                           "mechanical_failed": mech_failed})
+        if clean:
+            break
+    trace["draws"] = draws
+    if not candidates:
+        fail = failure or {"stage": "image",
+                           "reason": "no independent draw landed"}
+        fail["mechanical_failures"] = gate_failures
+        return None, fail
+    selected, review = _pick_independent_draw(candidates, args.no_check)
+    for row in draws:
+        if row["draw"] == selected["draw"]:
+            row["shipped"] = True
+    trace["selected_draw"] = selected["draw"]
+    return {"path": selected["path"], "hotspot": selected["hotspot"],
+            "check": selected["check"], "answer": selected["answer"],
+            "conflict": selected["conflict"],
+            "mechanical": selected["mechanical"], "review": review,
+            "selected_draw": selected["draw"], "draws": draws,
+            "mechanical_failures": gate_failures}, None
+
+
 def _generate_one(source: dict, args, data_dir: Path, date: str,
                   out_dir: Path, recent: list, totals: dict, emit,
                   scene_index: int = 1, scene_total: int = 1,
@@ -3189,7 +3416,10 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
     st = scene_time(source)
     trace = {"source": source["id"], "date": date, "model": args.model,
              "image_model": args.image_model, "scene_time": st,
+             "sampling_mode": args.sampling_mode,
              "candidate_policy": {"images_per_scene": 1,
+                                  "sampling_mode": args.sampling_mode,
+                                  "max_draws": MAX_DRAWS,
                                   "mechanical_retries": MECHANICAL_RETRIES,
                                   "correction_rounds": CORRECTION_ROUNDS,
                                   "click_target_passes": CLICK_TARGET_PASSES}}
@@ -3231,121 +3461,169 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
                            f"({gate['repeated']})")
         prompt = edit_prompt(proposal)
         retry_prompt = edit_prompt(proposal, retry=True)
-        draw, failures, budget_hit, refused = _draw_scene_image(
-            source_image, prompt, retry_prompt, proposal, attempt, args,
-            api_key, source, data_dir, out_dir, trace, totals, progress,
-            previous_outputs, stats)
-        if draw is None:
-            if refused is not None:
-                # Ticket #1439: the provider refused this element twice, so it
-                # is marked refusal-prone and the next proposal avoids it
-                # instead of re-proposing the same element.
-                stage, reason = "refusal", f"image edit refused ({refused['kind']})"
-                record_refused_element(data_dir, proposal.get("anomaly"),
-                                       refused["kind"],
-                                       detail=refused.get("detail"))
-                if proposal.get("anomaly"):
-                    recent.append(proposal["anomaly"])
-                last_error = {"id": source["id"], "stage": stage,
-                              "reason": reason, "attempt": attempt,
-                              "element": proposal.get("anomaly"),
-                              "refusal_kind": refused["kind"],
-                              "provider": refused.get("detail")}
-            elif failures:
-                stage, reason = "image", failures[-1]
-                last_error = {"id": source["id"], "stage": stage,
-                              "reason": reason, "attempt": attempt}
-            elif budget_hit:
-                stage, reason = "budget", "generation budget"
-                last_error = {"id": source["id"], "stage": stage,
-                              "reason": reason, "attempt": attempt}
-            else:
-                stage, reason = "image", "no draw passed the gates"
-                last_error = {"id": source["id"], "stage": stage,
-                              "reason": reason, "attempt": attempt}
-            set_trace_error(data_dir, trace, last_error["reason"])
-            continue
-        final_path, hotspot = draw["path"], draw["hotspot"]
+        # Ticket #1497: the sampling mode decides how the image-call budget
+        # is spent. "independent" draws up to MAX_DRAWS fresh renders and
+        # ships the first clean one; "repair" is the older chain that edits
+        # the failing render in place and is kept as the comparison arm.
+        if args.sampling_mode == "independent":
+            selection, fail = _independent_draws(
+                source_image, source, proposal, prompt, retry_prompt, attempt,
+                args, api_key, data_dir, out_dir, trace, totals, progress,
+                previous_outputs, stats, st, recent)
+            if selection is None:
+                fail = fail or {"stage": "image",
+                                "reason": "no independent draw landed"}
+                if fail.get("stage") == "refusal":
+                    record_refused_element(data_dir, proposal.get("anomaly"),
+                                           fail.get("refusal_kind"),
+                                           detail=fail.get("provider"))
+                    if proposal.get("anomaly"):
+                        recent.append(proposal["anomaly"])
+                if not (fail.get("stage") == "budget" and last_error
+                        and last_error.get("stage") != "budget"):
+                    # A scene-budget stop on a later attempt must not mask the
+                    # more specific reason an earlier attempt reported.
+                    last_error = {"id": source["id"], "attempt": attempt, **fail}
+                set_trace_error(data_dir, trace, last_error["reason"])
+                continue
+            final_path, hotspot = selection["path"], selection["hotspot"]
+            check = selection["check"]
+            answer, conflict = selection["answer"], selection["conflict"]
+            mechanical = selection["mechanical"]
+            review = selection["review"] or gate_review
+            rounds_used, selected_round = 0, 0
+            failures = selection["mechanical_failures"]
+            selected_draw = selection["selected_draw"]
+            if check is not None:
+                failed = list(check.get("failed") or [])
+                presentation = [n for n in PRESENTATION_REQUIREMENTS
+                                if n in failed]
+                if presentation:
+                    review = review or ("checker still fails " + ", ".join(
+                        str(n) for n in presentation))
+            located = True
+        else:
+            draw, failures, budget_hit, refused = _draw_scene_image(
+                source_image, prompt, retry_prompt, proposal, attempt, args,
+                api_key, source, data_dir, out_dir, trace, totals, progress,
+                previous_outputs, stats)
+            if draw is None:
+                if refused is not None:
+                    # Ticket #1439: the provider refused this element twice, so
+                    # it is marked refusal-prone and the next proposal avoids
+                    # it instead of re-proposing the same element.
+                    stage, reason = "refusal", \
+                        f"image edit refused ({refused['kind']})"
+                    record_refused_element(data_dir, proposal.get("anomaly"),
+                                           refused["kind"],
+                                           detail=refused.get("detail"))
+                    if proposal.get("anomaly"):
+                        recent.append(proposal["anomaly"])
+                    last_error = {"id": source["id"], "stage": stage,
+                                  "reason": reason, "attempt": attempt,
+                                  "element": proposal.get("anomaly"),
+                                  "refusal_kind": refused["kind"],
+                                  "provider": refused.get("detail")}
+                elif failures:
+                    stage, reason = "image", failures[-1]
+                    last_error = {"id": source["id"], "stage": stage,
+                                  "reason": reason, "attempt": attempt}
+                elif budget_hit:
+                    stage, reason = "budget", "generation budget"
+                    last_error = {"id": source["id"], "stage": stage,
+                                  "reason": reason, "attempt": attempt}
+                else:
+                    stage, reason = "image", "no draw passed the gates"
+                    last_error = {"id": source["id"], "stage": stage,
+                                  "reason": reason, "attempt": attempt}
+                set_trace_error(data_dir, trace, last_error["reason"])
+                continue
+            final_path, hotspot = draw["path"], draw["hotspot"]
 
-        # Generate -> check; a clean check ends the chain right there (Evan
-        # 2026-09-13). Otherwise the checker's repair instruction drives a
-        # fix-edit, at most CORRECTION_ROUNDS rounds, each followed by a
-        # check; the check after the last round is a record, never a trigger.
-        # Ticket #1449: a finding that the element is not impossible
-        # (requirement 8) is not repairable; the chain ends and the scene
-        # ships with the verdict, flagged for moderation instead of dropped
-        # or edited into another object.
-        # Ticket #1461: every scored round is a candidate, and the best one
-        # wins the scene; a correction that lowered the score does not ship.
-        check, rounds_used, review = None, 0, ""
-        rounds, review_notes = [], {}
-        if not args.no_check:
-            check = _check_round(final_path, proposal, st, 0, attempt, args,
-                                 api_key, data_dir, trace, totals, progress)
-            rounds.append(round_candidate(0, final_path, hotspot, check))
-            while (check is not None and check["failed"]
-                   and check["fix_prompt"]
-                   and rounds_used < CORRECTION_ROUNDS):
-                round_no = rounds_used + 1
-                if any(n in check["failed"]
-                       for n in UNREPAIRABLE_REQUIREMENTS):
-                    review = ("checker: the element is not clearly impossible "
-                              "for the scene's year")
-                    review_notes[rounds_used] = review
-                    trace.setdefault("corrections", []).append(
-                        {"round": round_no, "skipped": "unrepairable "
-                         "requirement " + ", ".join(
-                             str(n) for n in UNREPAIRABLE_REQUIREMENTS
-                             if n in check["failed"]), "review": review})
-                    break
-                usable, why = presentation_only_fix(check["fix_prompt"])
-                if not usable:
-                    review = ("checker repair ignored: " + why)
-                    review_notes[rounds_used] = review
-                    trace.setdefault("corrections", []).append(
-                        {"round": round_no, "fix_prompt": "ignored",
-                         "reason": why, "review": review})
-                    break
-                fixed, _refused = _fix_edit(
-                    final_path, proposal, check, round_no, attempt, args,
-                    api_key, source, data_dir, out_dir, trace, totals,
-                    progress, previous_outputs, stats)
-                if fixed is None:
-                    break
-                rounds_used = round_no
-                final_path, hotspot = fixed["path"], fixed["hotspot"]
-                check = _check_round(final_path, proposal, st, rounds_used,
-                                     attempt, args, api_key, data_dir, trace,
-                                     totals, progress)
-                rounds.append(round_candidate(rounds_used, final_path,
-                                              hotspot, check))
-        best = best_scoring_round(rounds)
-        selected_round = rounds_used
-        if best is not None and best["round"] != rounds_used:
-            # The guard: ship the best-scoring render, not the newest one.
-            # The later rounds stay in the trace, so the rejected attempt is
-            # still visible to moderation.
-            rejected = rounds[-1]
-            final_path = best["path"]
-            hotspot, check = best["hotspot"], best["check"]
-            selected_round = best["round"]
-            trace["score_guard"] = {
-                "shipped": best["round"], "score": best["score"],
-                "total": REQUIREMENTS_TOTAL,
-                "rejected": {"round": rounds_used, "score": rejected["score"]}}
-        review = review_notes.get(selected_round, "")
-        # #1473: a repeat the re-ask could not resolve, and a final check that
-        # still fails a presentation requirement (subtlety, scale, grain,
-        # identifiability, and since #1476 an unreadable era cue), are both
-        # moderation-first findings, like the
-        # requirement-8 path. Nothing is dropped; the scene is flagged.
-        review = review or gate_review
-        if check is not None:
-            failed = list(check.get("failed") or [])
-            presentation = [n for n in PRESENTATION_REQUIREMENTS if n in failed]
-            if presentation:
-                review = review or ("checker still fails " + ", ".join(
-                    str(n) for n in presentation))
+            # Generate -> check; a clean check ends the chain right there (Evan
+            # 2026-09-13). Otherwise the checker's repair instruction drives a
+            # fix-edit, at most CORRECTION_ROUNDS rounds, each followed by a
+            # check; the check after the last round is a record, never a
+            # trigger.
+            # Ticket #1449: a finding that the element is not impossible
+            # (requirement 8) is not repairable; the chain ends and the scene
+            # ships with the verdict, flagged for moderation instead of dropped
+            # or edited into another object.
+            # Ticket #1461: every scored round is a candidate, and the best one
+            # wins the scene; a correction that lowered the score does not ship.
+            check, rounds_used, review = None, 0, ""
+            rounds, review_notes = [], {}
+            if not args.no_check:
+                check = _check_round(final_path, proposal, st, 0, attempt, args,
+                                     api_key, data_dir, trace, totals, progress)
+                rounds.append(round_candidate(0, final_path, hotspot, check))
+                while (check is not None and check["failed"]
+                       and check["fix_prompt"]
+                       and rounds_used < CORRECTION_ROUNDS):
+                    round_no = rounds_used + 1
+                    if any(n in check["failed"]
+                           for n in UNREPAIRABLE_REQUIREMENTS):
+                        review = ("checker: the element is not clearly "
+                                  "impossible for the scene's year")
+                        review_notes[rounds_used] = review
+                        trace.setdefault("corrections", []).append(
+                            {"round": round_no, "skipped": "unrepairable "
+                             "requirement " + ", ".join(
+                                 str(n) for n in UNREPAIRABLE_REQUIREMENTS
+                                 if n in check["failed"]), "review": review})
+                        break
+                    usable, why = presentation_only_fix(check["fix_prompt"])
+                    if not usable:
+                        review = ("checker repair ignored: " + why)
+                        review_notes[rounds_used] = review
+                        trace.setdefault("corrections", []).append(
+                            {"round": round_no, "fix_prompt": "ignored",
+                             "reason": why, "review": review})
+                        break
+                    fixed, _refused = _fix_edit(
+                        final_path, proposal, check, round_no, attempt, args,
+                        api_key, source, data_dir, out_dir, trace, totals,
+                        progress, previous_outputs, stats)
+                    if fixed is None:
+                        break
+                    rounds_used = round_no
+                    final_path, hotspot = fixed["path"], fixed["hotspot"]
+                    check = _check_round(final_path, proposal, st, rounds_used,
+                                         attempt, args, api_key, data_dir, trace,
+                                         totals, progress)
+                    rounds.append(round_candidate(rounds_used, final_path,
+                                                  hotspot, check))
+            best = best_scoring_round(rounds)
+            selected_round = rounds_used
+            if best is not None and best["round"] != rounds_used:
+                # The guard: ship the best-scoring render, not the newest one.
+                # The later rounds stay in the trace, so the rejected attempt is
+                # still visible to moderation.
+                rejected = rounds[-1]
+                final_path = best["path"]
+                hotspot, check = best["hotspot"], best["check"]
+                selected_round = best["round"]
+                trace["score_guard"] = {
+                    "shipped": best["round"], "score": best["score"],
+                    "total": REQUIREMENTS_TOTAL,
+                    "rejected": {"round": rounds_used,
+                                 "score": rejected["score"]}}
+            review = review_notes.get(selected_round, "")
+            # #1473: a repeat the re-ask could not resolve, and a final check
+            # that still fails a presentation requirement (subtlety, scale,
+            # grain, identifiability, and since #1476 an unreadable era cue),
+            # are both moderation-first findings, like the
+            # requirement-8 path. Nothing is dropped; the scene is flagged.
+            review = review or gate_review
+            if check is not None:
+                failed = list(check.get("failed") or [])
+                presentation = [n for n in PRESENTATION_REQUIREMENTS
+                                if n in failed]
+                if presentation:
+                    review = review or ("checker still fails " + ", ".join(
+                        str(n) for n in presentation))
+            mechanical, located = None, False
+            selected_draw = None
 
         # Text follows the image (ticket #1449): when the checker says the
         # shipped image shows a different element than the scene names, one
@@ -3388,40 +3666,18 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
                 review = review or ("image does not match the text; "
                                     "reconciliation failed")
 
-        progress("locating")
-        loc = None
-        try:
-            loc = locate_anomaly(final_path, proposal, prompt, api_key,
-                                 args.model, args.base_url,
-                                 args.model_max_tokens, args.model_timeout,
-                                 args.temperature)
-        except ag_llm.LLMError as e:
-            last_error = {"id": source["id"], "stage": "coordinates",
-                          "reason": str(e), "attempt": attempt}
-            trace.setdefault("call_errors", []).append(
-                {"stage": "coordinates", "error": str(e)})
-        if loc is not None:
-            ag_llm.add_usage(totals, loc["call"].get("usage"))
-            record_call(data_dir, trace,
-                        {"stage": "coordinates", "attempt": attempt,
-                         **_call_trace(loc["call"])})
-        coords = loc["coords"] if loc is not None else None
-
-        if coords is None and hotspot is not None:
-            # The coordinate call is the answer source; when it is unusable,
-            # the diff hotspot still gives a deterministic click target.
-            answer = {"x": round(float(hotspot["cx"]), 4),
-                      "y": round(float(hotspot["cy"]), 4),
-                      "r": 0.05, "fallback": "hotspot"}
-            conflict = None
-            trace["coordinates_fallback"] = "hotspot"
-        elif coords is None:
-            last_error = {"id": source["id"], "stage": "coordinates",
-                          "reason": "no click target and no diff hotspot",
-                          "attempt": attempt}
-            continue
-        else:
-            answer, conflict = finalize_answer(coords, hotspot)
+        if not located:
+            # The independent mode already located (and mechanically tested)
+            # each draw; only the repair arm's single shipped render needs the
+            # coordinate call here.
+            answer, conflict, loc_err = _locate_answer(
+                final_path, proposal, prompt, attempt, args, api_key, data_dir,
+                trace, totals, progress, hotspot)
+            if answer is None:
+                last_error = {"id": source["id"], "stage": "coordinates",
+                              "reason": loc_err or "no click target",
+                              "attempt": attempt}
+                continue
 
         # Click-target quality pass (tickets #1436, #1445): only the checker's
         # identifiability finding questions the answer area; then the model
@@ -3443,9 +3699,10 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
         # They share the checker's run switch; --no-check skips both. Presence
         # and tone flag the scene for moderation (and a presence failure gets
         # one repair attempt inside _mechanical_rounds); size is a report line
-        # since #1487. Nothing is dropped and no image call is added.
-        mechanical = None
-        if not args.no_check:
+        # since #1487. Nothing is dropped and no image call is added. In the
+        # independent mode the checks ran per draw, so only the repair arm
+        # runs them here.
+        if mechanical is None and not args.no_check:
             mechanical, final_path, answer, click = _mechanical_rounds(
                 final_path, source_image, proposal, answer, click, attempt,
                 args, api_key, source, data_dir, out_dir, trace, totals,
@@ -3512,6 +3769,7 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
             "checker": check_summary,
             "avoidance": gate,
             "correction_rounds": rounds_used,
+            "selected_draw": selected_draw,
             "image_calls": int(totals.get("image_calls", 0))
             - image_calls_start,
             "needs_review": bool(entry.get("needs_review")),
@@ -3767,6 +4025,12 @@ def parse_args(argv=None):
     p.add_argument("--no-check", action="store_true",
                    help="skip the checker calls (and the correction edits, "
                         "ticket #1436)")
+    p.add_argument("--sampling-mode", choices=("independent", "repair"),
+                   default=SAMPLING_MODE,
+                   help="how the image-call budget is spent (ticket #1497): "
+                        "'independent' draws up to three fresh renders and "
+                        "ships the first clean one (default); 'repair' edits "
+                        "the failing render in place")
     p.add_argument("--no-preflight", action="store_true",
                    help="skip the one-call vision preflight")
     p.add_argument("--max-attempts", type=int, default=2,
@@ -3774,8 +4038,7 @@ def parse_args(argv=None):
                         "(run-guard #1122; default 2)")
     p.add_argument("--max-generations", type=int, default=0,
                    help="hard cap on image calls per run "
-                        "(0 = count*(1+retries+correction rounds); "
-                        "ticket #1436)")
+                        "(0 = count*IMAGE_CALLS_PER_SCENE; ticket #1436)")
     p.add_argument("--out-dir", default=None,
                    help="working dir for attempts (default: temp dir)")
     p.add_argument("--report", default=None, help="write the JSON report here")
@@ -3793,7 +4056,7 @@ def parse_args(argv=None):
                    help="category pages per top-up")
     args = p.parse_args(argv)
     if not args.max_generations:
-        args.max_generations = max(1, args.count * IMAGE_CALLS_PER_SCENE)
+        args.max_generations = max(1, args.count * RUN_IMAGE_CALLS_PER_SCENE)
     return args
 
 
