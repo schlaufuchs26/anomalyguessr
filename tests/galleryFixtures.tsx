@@ -73,6 +73,8 @@ export function makeScene(over: Partial<FixtureScene>): {
   };
   needsReview?: boolean;
   mechanical?: Record<string, boolean>;
+  /** The pre-fix click ellipse when the presence recompute moved it (#1504). */
+  answerBefore?: { x: number; y: number; r: number } | null;
   funny: boolean;
 } {
   const moderation = over.moderation ?? "unmoderated";
@@ -108,6 +110,7 @@ export function makeScene(over: Partial<FixtureScene>): {
     funny: over.funny ?? false,
     ...(over.checker ? { checker: over.checker } : {}),
     ...(over.mechanical ? { mechanical: over.mechanical } : {}),
+    ...(over.answerBefore ? { answerBefore: over.answerBefore } : {}),
     ...(over.needsReview ? { needsReview: true } : {}),
     images: {
       edited: agUrl(`scenes/${over.id}/image`),

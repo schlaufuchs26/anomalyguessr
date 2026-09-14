@@ -162,3 +162,43 @@ describe("SceneModal answer overlay (ticket #1209)", () => {
     expect(screen.getByText("no answer data")).toBeInTheDocument();
   });
 });
+
+describe("SceneModal recomputed click area (ticket #1504)", () => {
+  test("draws the replaced ellipse as a dashed ghost next to the shipped one", () => {
+    // The presence recompute moved the click area from a misplaced ellipse
+    // onto the element box; the lightbox shows both so the intervention is
+    // visible without opening the trace.
+    const scene = makeScene({
+      id: "r1",
+      answer: { x: 0.7, y: 0.3, r: 0.12 },
+      answerBefore: { x: 0.4, y: 0.6, r: 0.05 },
+    });
+    renderModal(scene);
+
+    const shipped = screen.getByTestId("td-answer-overlay");
+    expect(shipped.style.left).toBe("58%");
+    const ghost = screen.getByTestId("td-answer-ghost");
+    // the old circle: left = x - r, top = y - r, side = 2r
+    expect(ghost.style.left).toBe("35%");
+    expect(ghost.style.top).toBe("55%");
+    expect(ghost.style.width).toBe("10%");
+    expect(ghost.className).toContain("td-answer-overlay-ghost");
+    expect(
+      screen.getByText(/recomputed from the element box/),
+    ).toBeInTheDocument();
+  });
+
+  test("hides the ghost with the click-area toggle and without a fix", () => {
+    const fixed = makeScene({
+      id: "r2",
+      answerBefore: { x: 0.4, y: 0.6, r: 0.05 },
+    });
+    renderModal(fixed);
+    expect(screen.getByTestId("td-answer-ghost")).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Click area"));
+    expect(screen.queryByTestId("td-answer-ghost")).not.toBeInTheDocument();
+
+    renderModal(makeScene({ id: "r3" }));
+    expect(screen.queryByTestId("td-answer-ghost")).not.toBeInTheDocument();
+  });
+});

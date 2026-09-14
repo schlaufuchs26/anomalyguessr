@@ -666,6 +666,15 @@ body {
   pointer-events: none;
 }
 
+/* The click area the presence recompute replaced (ticket #1504): dashed and
+   unfilled, so it reads as "before" next to the solid shipped ellipse. */
+.td-answer-overlay-ghost {
+  border: 2px dashed rgba(255, 255, 255, 0.9);
+  background: none;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6);
+  opacity: 0.85;
+}
+
 .td-figure figcaption {
   padding: 6px 10px;
   font-size: 11px;

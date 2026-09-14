@@ -1900,7 +1900,8 @@ def build_credit(source: dict) -> str:
 def build_entry(source: dict, proposal: dict, answer: dict, date: str,
                 scene: dict | None = None, checker: dict | None = None,
                 review: str | None = None,
-                defects: dict | None = None) -> dict:
+                defects: dict | None = None,
+                answer_before: dict | None = None) -> dict:
     eid = scene_id(source["id"], proposal["anomaly"])
     st = scene if scene is not None else scene_time(source)
     year = st["display"]
@@ -1959,6 +1960,11 @@ def build_entry(source: dict, proposal: dict, answer: dict, date: str,
     # line; they are never offset by the soft-point count.
     if defects is not None:
         out["mechanical"] = {k: bool(v) for k, v in defects.items()}
+    # The pre-fix click ellipse when the presence recompute moved it (#1504),
+    # so the lightbox can draw before and after. Dev-side curation metadata
+    # like `checker`; the public manifest strips it.
+    if answer_before is not None:
+        out["answer_before"] = {k: answer_before[k] for k in ("x", "y", "r")}
     # A scene the pipeline could not fully repair ships with a moderation
     # flag (ticket #1449): a requirement-8 finding (the element is not
     # impossible) or a checker repair that asked for another object. The
@@ -3083,6 +3089,53 @@ def _mechanical_findings(image: Path, source_image: Path, proposal: dict,
     return findings
 
 
+def _recompute_outside_presence(answer: dict, findings: dict,
+                                proposal: dict) -> dict:
+    """Move the click ellipse onto the element when it is merely outside (#1504).
+
+    An "outside" presence finding (the model sees the element, the drawn
+    ellipse does not contain it) is our own datum, not a damaged image, so the
+    ellipse is re-derived from the reported box instead of spending a render.
+    Records ``presence.fix`` with the before/after ellipse and whether the
+    recomputed one covers the box; on success the finding turns ``ok`` and the
+    new ellipse is returned. A recompute that still does not cover the box
+    (a frame-filling box the answer-radius cap cannot enclose) keeps the
+    original ellipse and the finding, so the scene still flags for moderation.
+
+    Caller decides when this applies: only the "outside" class, never
+    "absent" (that needs a new draw).
+    """
+    presence = findings.get("presence") or {}
+    box = presence.get("box")
+    if not box:
+        return answer
+    revised = ag_checks.recomputed_answer(
+        box, figure=bool(proposal.get("figure")))
+    covers = ag_checks.answer_covers_box(revised, box)
+    presence["fix"] = {
+        "mode": "recompute",
+        "answer_before": {k: answer[k] for k in ("x", "y", "r")},
+        "answer_after": dict(revised),
+        "covers": covers,
+    }
+    if not covers:
+        return answer
+    presence["status"] = "ok"
+    presence["failed"] = False
+    return revised
+
+
+def fixed_answer_before(mechanical: dict | None) -> dict | None:
+    """The pre-fix ellipse when the presence recompute moved the answer (#1504).
+
+    The gallery's lightbox draws the shipped ellipse; this is the dashed
+    "before" so the intervention is visible. None when no fix happened or a
+    failed recompute kept the original ellipse.
+    """
+    fix = ((mechanical or {}).get("presence") or {}).get("fix") or {}
+    return fix.get("answer_before") if fix.get("covers") else None
+
+
 def _mechanical_rounds(image: Path, source_image: Path, proposal: dict,
                        answer: dict, click: dict, attempt: int, args,
                        api_key: str, source: dict, data_dir: Path,
@@ -3092,25 +3145,41 @@ def _mechanical_rounds(image: Path, source_image: Path, proposal: dict,
                        stage: str = "presence") -> tuple:
     """Presence, tone and size checks on the shipped render (#1485).
 
-    A presence failure ("not visible" or "not in the answer area") gets exactly
-    one repair attempt with the finding as the instruction, never a second;
-    tone and size never spend an image call. Presence and tone flag a scene;
-    size is a report line only (#1487). ``repair=False`` returns the findings
-    untouched, which the independent mode uses to take a draw out of the race
-    instead of repairing it (#1497).
+    A presence failure gets one repair, never a second; tone and size never
+    spend an image call. Presence and tone flag a scene; size is a report line
+    only (#1487). ``repair=False`` returns the findings untouched, which the
+    independent mode uses to take a draw out of the race instead of repairing
+    it (#1497).
 
-    Returns ``(findings, image, answer, click)``; ``image`` and ``click``
-    change only when a presence repair was adopted.
+    Since #1504 the repair is split by class: an element that is merely
+    *outside* the drawn area is fixed by re-deriving the ellipse from the
+    reported box (no image call, see :func:`_recompute_outside_presence`); an
+    *absent* element still drives one repair edit.
+
+    Returns ``(findings, image, answer, click)``; ``image`` changes only when a
+    repair edit was adopted, ``answer`` when the outside recompute moved it.
     """
     findings = _mechanical_findings(image, source_image, proposal, answer,
                                     attempt, args, api_key, data_dir, trace,
                                     totals, progress, stage=stage)
     if not repair or not findings["presence"]["failed"]:
         return findings, image, answer, click
-    # The scene is damaged (element absent or outside the click area): one
-    # repair attempt, then the finding stands for moderation. No scene is
-    # dropped and no image call is added beyond the existing correction
-    # budget.
+    if findings["presence"].get("status") == "outside":
+        # Our datum, not a damaged image: re-derive the ellipse from the box
+        # the presence call already returned. No image call, so the scene's
+        # call budget is untouched.
+        answer = _recompute_outside_presence(answer, findings, proposal)
+        shipped = "recompute" if not findings["presence"]["failed"] else \
+            "original"
+        findings["repair"] = {"attempted": True, "mode": "recompute",
+                              "status": "outside", "shipped": shipped}
+        if shipped == "recompute":
+            # The rendered overlay belongs to the previous ellipse.
+            click = {k: v for k, v in click.items() if k != "overlay_path"}
+        return findings, image, answer, click
+    # The element is absent: one repair edit, then the finding stands for
+    # moderation. No scene is dropped and no image call is added beyond the
+    # existing correction budget.
     findings["repair"] = {"attempted": True, "status":
                           findings["presence"]["status"]}
     if image_budget_left(args, totals) <= 0:
@@ -3370,6 +3439,12 @@ def _independent_draws(source_image: Path, source: dict, proposal: dict,
             findings = _mechanical_findings(
                 path, source_image, proposal, answer, attempt, args, api_key,
                 data_dir, trace, totals, progress, stage=f"presence d{n}")
+            # #1504: an element merely outside the drawn area is fixed by
+            # re-deriving the ellipse, no image call, so the draw can still be
+            # clean and ship instead of leaving the race.
+            if findings["presence"]["failed"] \
+                    and findings["presence"].get("status") == "outside":
+                answer = _recompute_outside_presence(answer, findings, proposal)
         failed = list(check.get("failed") or []) if check else []
         mech_failed = bool(ag_checks.review_reasons(findings)) \
             if findings else False
@@ -3759,7 +3834,8 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
         entry = build_entry(source, proposal, answer, date, scene=st,
                             checker=check_summary, review=review,
                             defects=(ag_checks.defect_flags(mechanical)
-                                     if mechanical is not None else None))
+                                     if mechanical is not None else None),
+                            answer_before=fixed_answer_before(mechanical))
         errs = ag_queue.validate_entry(entry)
         if errs:
             last_error = {"id": source["id"], "stage": "entry",

@@ -110,6 +110,9 @@ export interface TDScene {
   /** Hard mechanical defects flagged on the shipped render (ticket #1502);
    *  the card renders them as a warning line. Absent on older scenes. */
   mechanical?: Record<string, unknown> | null;
+  /** The pre-fix click ellipse when the presence recompute moved it (ticket
+   *  #1504); the lightbox draws it as a dashed "before". Absent otherwise. */
+  answerBefore?: AnswerCircle | null;
   /** The optional "lustig" moderation tag (ticket #1502). */
   funny: boolean;
   /** When the tag was set, when it is (RFC3339). */
@@ -320,6 +323,9 @@ export interface SceneTrace {
   /** One row per fresh render in the independent mode (#1497). Absent on
    *  repair-chain traces and on scenes generated before the mode existed. */
   draws?: DrawRow[];
+  /** The mechanical checks of the shipped render (ticket #1485): presence,
+   *  tone and size, plus the click-area recompute of ticket #1504. */
+  mechanical_checks?: Record<string, unknown> | null;
   /** The last attempt's failure reason, when the scene still landed. */
   error?: string;
   gate_failures?: { attempt?: number; reason?: string }[];

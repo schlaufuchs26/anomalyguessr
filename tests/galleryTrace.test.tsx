@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { agUrl } from "../src/gallery/api";
 import { SceneModal } from "../src/gallery/SceneModal";
+import { TraceNotes } from "../src/gallery/TraceSteps";
 import { makeScene, TRACE, TRACE_GUARDED } from "./galleryFixtures";
 
 // The scene lightbox's generation-trace panel (ticket #1373): collapsed by
@@ -143,5 +144,52 @@ describe("SceneModal trace shipped marker (ticket #1465)", () => {
 
     expect(screen.queryByText("shipped")).toBeNull();
     expect(screen.queryByText("superseded")).toBeNull();
+  });
+});
+
+// The click-area recompute (ticket #1504) is auditable from the trace notes:
+// the panel shows the ellipse before and after the presence fix.
+describe("trace click-area recompute note (ticket #1504)", () => {
+  test("names the before and after ellipse of the presence fix", () => {
+    render(
+      <TraceNotes
+        trace={{
+          calls: [],
+          mechanical_checks: {
+            presence: {
+              status: "ok",
+              fix: {
+                mode: "recompute",
+                answer_before: { x: 0.5, y: 0.6, r: 0.08 },
+                answer_after: { x: 0.85, y: 0.85, r: 0.1 },
+                covers: true,
+              },
+            },
+          },
+        }}
+      />,
+    );
+
+    const notes = screen.getByTestId("td-trace-notes").textContent ?? "";
+    expect(notes).toContain("click area recomputed from the element box");
+    expect(notes).toContain("x=0.50, y=0.60, r=0.08");
+    expect(notes).toContain("x=0.85, y=0.85, r=0.10");
+  });
+
+  test("no note without a fix or with a failed recompute", () => {
+    render(<TraceNotes trace={{ calls: [] }} />);
+    expect(screen.queryByTestId("td-trace-notes")).toBeNull();
+
+    render(
+      <TraceNotes
+        trace={{
+          calls: [],
+          mechanical_checks: {
+            presence: { status: "outside", fix: { covers: false } },
+          },
+        }}
+      />,
+    );
+    expect(screen.queryByTestId("td-trace-notes")).toBeNull();
   });
 });

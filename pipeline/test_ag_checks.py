@@ -194,6 +194,58 @@ class GeometryTest(unittest.TestCase):
                                               "x2": 0.8, "y2": 0.8}))
 
 
+class RecomputeAnswerTest(unittest.TestCase):
+    """The click ellipse re-derived from a presence box (#1504)."""
+
+    @staticmethod
+    def box(x1, y1, x2, y2):
+        return {"x1": x1, "y1": y1, "x2": x2, "y2": y2}
+
+    def test_a_centred_box_recentres_the_ellipse_and_covers_it(self):
+        box = self.box(0.4, 0.4, 0.5, 0.6)
+        out = c.recomputed_answer(box)
+        self.assertAlmostEqual(out["x"], 0.45, places=4)
+        self.assertAlmostEqual(out["y"], 0.5, places=4)
+        self.assertTrue(c.answer_covers_box(out, box))
+
+    def test_a_tiny_box_keeps_the_minimum_click_radius(self):
+        # A coin-sized element must not leave a sliver target (the player aims
+        # at the ellipse).
+        out = c.recomputed_answer(self.box(0.5, 0.5, 0.52, 0.52))
+        self.assertAlmostEqual(out["r"], c.MIN_CLICK_RADIUS, places=4)
+        self.assertTrue(c.answer_covers_box(
+            out, self.box(0.5, 0.5, 0.52, 0.52)))
+
+    def test_an_edge_box_stays_in_the_frame_and_covers_its_corners(self):
+        box = self.box(0.9, 0.1, 1.0, 0.3)
+        out = c.recomputed_answer(box)
+        self.assertGreaterEqual(out["x"], 0.0)
+        self.assertLessEqual(out["x"], 1.0)
+        self.assertGreaterEqual(out["y"], 0.0)
+        self.assertLessEqual(out["y"], 1.0)
+        # The recompute must not trade coverage for the frame: the centre is
+        # deliberately not pushed inward.
+        self.assertTrue(c.answer_covers_box(out, box))
+
+    def test_a_frame_filling_box_cannot_be_covered_by_the_radius_cap(self):
+        # A mis-parsed box the model "found" as the whole scene: the answer
+        # radius cap (0.22) cannot enclose it, so the caller keeps the finding.
+        box = self.box(0.05, 0.05, 0.95, 0.95)
+        out = c.recomputed_answer(box)
+        self.assertLessEqual(out["r"], 0.22)
+        self.assertFalse(c.answer_covers_box(out, box))
+
+    def test_a_person_box_keeps_the_person_floor(self):
+        out = c.recomputed_answer(self.box(0.4, 0.4, 0.5, 0.5), figure=True)
+        self.assertAlmostEqual(out["r"], 0.12, places=4)
+
+    def test_the_radius_never_exceeds_the_answer_cap(self):
+        # Half-diagonal x cover margin for a 0.2 x 0.2 box is ~0.184, inside
+        # the cap; a 0.3 x 0.3 box would exceed it.
+        out = c.recomputed_answer(self.box(0.3, 0.3, 0.6, 0.6))
+        self.assertLessEqual(out["r"], 0.22)
+
+
 class PresenceTest(unittest.TestCase):
     answer = {"x": 0.5, "y": 0.5, "r": 0.1}
 

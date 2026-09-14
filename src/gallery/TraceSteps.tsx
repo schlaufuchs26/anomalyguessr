@@ -256,9 +256,35 @@ export function DrawsList({
   );
 }
 
+/** The click-area recompute of a presence "outside" finding (ticket #1504):
+ *  the before and after ellipse, so the intervention is auditable from the
+ *  trace. Null when the shipped render carries no such fix. */
+function presenceFixNote(
+  mechanical?: Record<string, unknown> | null,
+): string | null {
+  const presence = mechanical?.presence as
+    | { fix?: unknown; status?: unknown }
+    | undefined;
+  const fix = presence?.fix as
+    | {
+        answer_before?: { x: number; y: number; r: number };
+        answer_after?: { x: number; y: number; r: number };
+        covers?: boolean;
+      }
+    | undefined;
+  if (!fix?.answer_before || !fix.answer_after) return null;
+  const circle = (a: { x: number; y: number; r: number }) =>
+    `x=${a.x.toFixed(2)}, y=${a.y.toFixed(2)}, r=${a.r.toFixed(2)}`;
+  const state = fix.covers ? "recomputed" : "recompute failed";
+  return (
+    `click area ${state} from the element box: ` +
+    `${circle(fix.answer_before)} → ${circle(fix.answer_after)}`
+  );
+}
+
 /** The failure notes of a whole trace: last error, gate rejections, failed
- *  calls, the score guard's kept round, the independent draws. Null when the
- *  trace has none. */
+ *  calls, the score guard's kept round, the independent draws, the click-area
+ *  recompute. Null when the trace has none. */
 export function TraceNotes({ trace }: { trace: SceneTrace }) {
   const notes: string[] = [];
   if (trace.error) notes.push(`last error: ${trace.error}`);
@@ -266,6 +292,8 @@ export function TraceNotes({ trace }: { trace: SceneTrace }) {
   if (guard) notes.push(guard);
   const draws = drawSummaryNote(trace);
   if (draws) notes.push(draws);
+  const fix = presenceFixNote(trace.mechanical_checks);
+  if (fix) notes.push(fix);
   for (const g of trace.gate_failures ?? [])
     notes.push(`gate rejected attempt ${g.attempt ?? "?"}: ${g.reason ?? ""}`);
   for (const c of trace.call_errors ?? [])

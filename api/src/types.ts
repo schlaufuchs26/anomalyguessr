@@ -80,6 +80,12 @@ export interface SceneEntry {
    * soft checker points; the gallery shows them as a warning line.
    */
   mechanical?: { presence?: boolean; tone?: boolean; size?: boolean };
+  /**
+   * The pre-fix click ellipse when the presence recompute moved it (ticket
+   * #1504): the lightbox draws it as a dashed "before" next to the shipped
+   * answer. Dev-side curation metadata; never in the public manifest.
+   */
+  answer_before?: { x: number; y: number; r: number };
   added: string;
   shown: string | null;
   explanation?: string;

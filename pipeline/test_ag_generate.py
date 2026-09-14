@@ -17,6 +17,7 @@ import unittest
 from pathlib import Path
 
 import ag_catalog
+import ag_checks
 import ag_generate as g
 import ag_llm
 import ag_queue
@@ -2354,6 +2355,68 @@ class MechanicalCheckFlowTest(GenerateOneTest):
         self.assertEqual(mechanical["repair"]["shipped"], "original")
         self.assertTrue(scene["report"]["needs_review"])
         self.assertIn("presence", scene["report"]["review"])
+
+    def entry_of(self, scene) -> dict:
+        return ag_queue.load_state(self.data_dir)["scenes"][
+            scene["report"]["scene"]]
+
+    def test_an_outside_element_is_fixed_without_an_image_call(self):
+        # #1504: the located answer (stub_locate: 0.5, 0.6, r 0.08) does not
+        # contain the box the presence call reports, so the ellipse is
+        # recomputed. That is our datum, not a damaged image: no render.
+        edits = {"n": 0}
+
+        def edit(*a, **kw):
+            edits["n"] += 1
+            return img_bytes()
+
+        g.presence_check = stub_presence(
+            box={"x1": 0.8, "y1": 0.8, "x2": 0.9, "y2": 0.9})
+        scene, failed, totals = self.run_one(sampling_mode="repair", edit=edit)
+        self.assertIsNone(failed)
+        self.assertEqual(edits["n"], 1)          # the draw only
+        self.assertEqual(totals["image_calls"], 1)
+        mechanical = scene["report"]["mechanical"]
+        self.assertEqual(mechanical["presence"]["status"], "ok")
+        self.assertFalse(mechanical["presence"]["failed"])
+        self.assertTrue(mechanical["presence"]["fix"]["covers"])
+        self.assertEqual(mechanical["repair"],
+                         {"attempted": True, "mode": "recompute",
+                          "status": "outside", "shipped": "recompute"})
+        self.assertFalse(scene["report"]["needs_review"])
+        entry = self.entry_of(scene)
+        self.assertAlmostEqual(entry["answer"]["x"], 0.85, places=3)
+        self.assertAlmostEqual(entry["answer"]["y"], 0.85, places=3)
+        self.assertAlmostEqual(entry["answer_before"]["x"], 0.5, places=3)
+        # The shipped ellipse covers the box the vision call reported.
+        self.assertTrue(ag_checks.answer_covers_box(
+            entry["answer"], {"x1": 0.8, "y1": 0.8, "x2": 0.9, "y2": 0.9}))
+
+    def test_an_outside_draw_can_ship_clean_in_independent_mode(self):
+        # The recompute happens per draw before the race decision, so a draw
+        # that only missed the click area is not dropped for a non-defect.
+        g.presence_check = stub_presence(
+            box={"x1": 0.8, "y1": 0.8, "x2": 0.9, "y2": 0.9})
+        scene, failed, totals = self.run_one()
+        self.assertIsNone(failed)
+        self.assertEqual(totals["image_calls"], 1)
+        self.assertTrue(self.trace_of(scene)["draws"][0]["clean"])
+        self.assertAlmostEqual(self.entry_of(scene)["answer"]["x"], 0.85,
+                               places=3)
+
+    def test_an_absent_element_still_costs_one_repair_render(self):
+        # The counterpart of the recompute: a genuinely missing element needs
+        # a new draw, so the image-call budget still pays for it.
+        edits = {"n": 0}
+
+        def edit(*a, **kw):
+            edits["n"] += 1
+            return img_bytes()
+
+        g.presence_check = stub_presence(present=False)
+        _, failed, _ = self.run_one(sampling_mode="repair", edit=edit)
+        self.assertIsNone(failed)
+        self.assertEqual(edits["n"], 2)
 
     def test_a_mechanical_reason_joins_a_checker_reason(self):
         # The checker's own finding must not shadow the mechanical one; the

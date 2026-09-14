@@ -28,6 +28,12 @@ Presence and tone are flags: a failure flags the scene for moderation and a
 presence failure can drive one repair attempt. Size never flags. Nothing
 drops the scene, so the run's image-call budget is untouched.
 
+Since #1504 the presence failure is split: an element that is merely
+*outside* the drawn click area (:func:`recomputed_answer`) is fixed by
+re-deriving the ellipse from the box the vision call already reported, no
+image call; only an *absent* element needs a fresh draw. The scene then
+ships playable instead of spending a render on a defect that is ours.
+
 The thresholds are measured, not guessed: see
 ``wiki/entries/anomalyguessr-checks.md`` for the class distribution and the
 calibration on the 2026-09-14 pool.
@@ -227,6 +233,41 @@ def answer_covers_box(answer: dict, box: dict) -> bool:
     return all(
         ((x - answer["x"]) / r) ** 2 + ((y - answer["y"]) / r) ** 2 <= 1.0
         for x in (box["x1"], box["x2"]) for y in (box["y1"], box["y2"]))
+
+
+# Floor for the click ellipse recomputed from a presence box (#1504). The
+# player aims at the ellipse, so a tiny element box must not leave a sliver
+# target. Measured on the 177 stored scenes (2026-09-14): answer radii run
+# 0.035-0.22, median 0.117; 0.05 keeps a small element clickable without
+# inflating it over a neighbouring object. It sits below the person floor
+# (``ag_verify.PERSON_MIN_RADIUS``, 0.12), so a figure keeps its larger area.
+MIN_CLICK_RADIUS = 0.05
+
+
+def recomputed_answer(box: dict, figure: bool = False) -> dict:
+    """The click ellipse re-derived from the element box (#1504).
+
+    The "outside" presence finding is our own datum, not a damaged image: the
+    vision call reports where the element sits, so the ellipse can be drawn
+    around it without spending an image call. The box goes through the same
+    coordinate path as a click-target correction (``ag_verify.box_to_answer``:
+    half-diagonal times the cover margin, clamped to the answer-radius window,
+    person floor for a figure), then the click floor
+    (:data:`MIN_CLICK_RADIUS`) applies and the centre is clamped into the
+    frame.
+
+    The centre is the box centre, already inside [0, 1] because the vision box
+    is validated that way; the clamp is a float-safety net. The whole ellipse
+    is deliberately NOT forced inside the frame: pushing an edge element's
+    centre inward would undo the coverage the margin bought, and a circle that
+    reaches past the frame edge costs the player nothing.
+    """
+    answer = ag_verify.box_to_answer(
+        [box["x1"], box["y1"], box["x2"], box["y2"]], person=figure)
+    r = min(ag_verify.MAX_ANSWER_RADIUS, max(answer["r"], MIN_CLICK_RADIUS))
+    return {"x": round(min(1.0, max(0.0, answer["x"])), 4),
+            "y": round(min(1.0, max(0.0, answer["y"])), 4),
+            "r": round(r, 4)}
 
 
 def presence_finding(vision: dict, answer: dict) -> dict:

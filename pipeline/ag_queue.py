@@ -70,7 +70,7 @@ SOURCE_KEYS = (
 ENTRY_KEYS = (
     "id", "title", "title_source", "place", "year", "credit", "sourceUrl",
     "source", "anomaly", "family", "explanation", "references", "description",
-    "answer", "shortId", "checker", "needs_review",
+    "answer", "answer_before", "shortId", "checker", "needs_review",
 )
 
 # The last checker verdict the generator stored with a scene (ticket #1436):
@@ -783,6 +783,9 @@ def write_manifest(repo: Path, date: str, scenes: list) -> None:
         # The moderation flag (ticket #1449) is dev-side too: the game shows
         # only accepted scenes, so the flag has no place in the manifest.
         out.pop("needs_review", None)
+        # The pre-fix click ellipse of a presence recompute (ticket #1504) is
+        # gallery curation metadata: the game draws the corrected answer only.
+        out.pop("answer_before", None)
         # The short handle (ticket #1413) is an internal curation alias the
         # gallery reads from the API list. The public Pages manifest does not
         # need it, so it is stripped from the shipped set.

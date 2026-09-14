@@ -57,21 +57,37 @@ export function isAnswerCircle(value: unknown): value is AnswerCircle {
 /** The click area as a positioned overlay. Renders nothing without a valid
  *  answer, when hidden, or on an image whose frame is not the full scene
  *  (the audit crop). Decorative: the geometry is display-only, never a hit
- *  target, hence pointer-events: none + aria-hidden. */
+ *  target, hence pointer-events: none + aria-hidden.
+ *
+ *  ``ghost`` (ticket #1504) draws the answer the presence recompute replaced
+ *  as a dashed outline, so the lightbox shows the intervention: the solid
+ *  ellipse is the shipped one, the dashed one where the click area was. */
 export function AnswerOverlay({
   answer,
   visible,
+  ghost,
 }: {
   answer: unknown;
   visible: boolean;
+  ghost?: unknown;
 }) {
   if (!visible || !isAnswerCircle(answer)) return null;
   return (
-    <div
-      className="td-answer-overlay"
-      style={answerCircleStyle(answer)}
-      data-testid="td-answer-overlay"
-      aria-hidden="true"
-    />
+    <>
+      <div
+        className="td-answer-overlay"
+        style={answerCircleStyle(answer)}
+        data-testid="td-answer-overlay"
+        aria-hidden="true"
+      />
+      {isAnswerCircle(ghost) ? (
+        <div
+          className="td-answer-overlay td-answer-overlay-ghost"
+          style={answerCircleStyle(ghost)}
+          data-testid="td-answer-ghost"
+          aria-hidden="true"
+        />
+      ) : null}
+    </>
   );
 }

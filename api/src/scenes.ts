@@ -52,6 +52,10 @@ export interface ApiScene {
    *  presence/tone/size booleans, shown as a gallery warning line. Never in
    *  the public manifest. */
   mechanical?: { presence?: boolean; tone?: boolean; size?: boolean };
+  /** The pre-fix click ellipse when the presence recompute moved it (#1504);
+   *  the lightbox draws it as a dashed "before". Never in the public
+   *  manifest. */
+  answerBefore?: { x: number; y: number; r: number };
   /** The optional "lustig" moderation tag (ticket #1502); the gallery card
    *  shows it and can toggle it. */
   funny: boolean;
@@ -217,6 +221,7 @@ export function sceneToApi(
   if (e.needs_review !== undefined) out.needsReview = e.needs_review;
   if (e.title_source !== undefined) out.titleSource = e.title_source;
   if (e.mechanical !== undefined) out.mechanical = e.mechanical;
+  if (e.answer_before !== undefined) out.answerBefore = e.answer_before;
   const funnyAt = fb.funny?.[id];
   if (funnyAt !== undefined) out.funnyAt = funnyAt;
   if (rejectedAt !== undefined) out.rejectedAt = rejectedAt;

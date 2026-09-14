@@ -27,6 +27,9 @@ export function SceneModal({
   const [showAnswer, setShowAnswer] = React.useState(true);
 
   const hasAnswer = isAnswerCircle(scene.answer);
+  // The click area the presence recompute replaced (#1504): drawn dashed so
+  // the intervention is visible without opening the trace.
+  const ghost = scene.answerBefore ?? null;
   // The audit crop is a zoomed detail of the hotspot, so the answer's
   // normalized coordinates do not map onto it.
   const framesAnswer = tab === "edited" || tab === "original";
@@ -146,6 +149,7 @@ export function SceneModal({
               <AnswerOverlay
                 answer={scene.answer}
                 visible={showAnswer && framesAnswer}
+                ghost={ghost}
               />
             </div>
             <figcaption>{current.note}</figcaption>
@@ -171,6 +175,9 @@ export function SceneModal({
                 {isAnswerCircle(scene.answer)
                   ? `x=${scene.answer.x.toFixed(2)}, y=${scene.answer.y.toFixed(2)}, r=${scene.answer.r.toFixed(2)}`
                   : "no answer data"}
+                {isAnswerCircle(ghost)
+                  ? ` · recomputed from the element box (was x=${ghost.x.toFixed(2)}, y=${ghost.y.toFixed(2)}, r=${ghost.r.toFixed(2)}); dashed outline`
+                  : ""}
               </dd>
             </div>
             <div>
