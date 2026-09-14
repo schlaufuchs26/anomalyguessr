@@ -37,6 +37,7 @@ import argparse
 import datetime
 import json
 import os
+import subprocess
 import sys
 import time
 import urllib.error
@@ -149,21 +150,49 @@ def alert(args, message: str) -> None:
     notify_discord(channel, message, os.environ.get("DISCORD_BOT_TOKEN", ""))
 
 
+def _git(repo: Path, *args: str) -> None:
+    subprocess.run(["git", "-C", str(repo), *args], check=True,
+                   capture_output=True, text=True)
+
+
+def push_main(repo: Path) -> None:
+    """Push the committed scenes to ``main``, rebasing on a rejection.
+
+    The shared checkout can be seconds behind ``origin/main`` when a parallel
+    kanban merge lands between the robot's commit and the push. A bare push is
+    then rejected, and every later day replays the same rejected push because
+    the local branch never caught up. Replaying the robot's own commit onto
+    origin/main turns that race into a retry; anything else (auth, network)
+    fails again and stays an alert.
+    """
+    try:
+        _git(repo, "push", "origin", "main")
+    except subprocess.CalledProcessError:
+        _git(repo, "fetch", "origin", "main")
+        _git(repo, "rebase", "origin/main")
+        _git(repo, "push", "origin", "main")
+
+
 def cmd_ship(args) -> int:
     date = args.date or today()
     data_dir = Path(args.data) if args.data else ag_queue.default_data_dir()
     repo = Path(args.repo)
     ids = [i.strip() for i in args.ids.split(",") if i.strip()] \
         if args.ids else None
+    # The push is what deploys Pages, so --push implies the commit.
+    commit = args.commit or args.push
     try:
-        res = ag_queue.ship(data_dir, repo, date, commit=args.commit,
-                            push=args.push, ids=ids)
+        res = ag_queue.ship(data_dir, repo, date, commit=commit, push=False,
+                            ids=ids)
     except Exception as e:  # noqa: BLE001 - any failure is an alert, not a crash
         alert(args, f"AnomalyGuessr: daily ship for {date} failed: {e}")
         return 1
     if not res["shipped"]:
+        # Not a failure: the ship is idempotent per date. Still push, because
+        # the first run may have committed and then failed at the push; a
+        # same-day retry would otherwise never deliver the pending commit.
         print(f"already shipped for {date}")
-        return 0
+        return _push_step(args, repo, date) if args.push else 0
     print(f"shipped {len(res['scenes'])} scenes for {date}: "
           + ", ".join(res["scenes"])
           + f" (fresh {len(res['scenes']) - res['recycled']}, "
@@ -177,6 +206,17 @@ def cmd_ship(args) -> int:
     if written != date:
         alert(args, f"AnomalyGuessr: ship for {date} left the manifest at "
                     f"{written} (expected {date})")
+        return 1
+    return _push_step(args, repo, date) if args.push else 0
+
+
+def _push_step(args, repo: Path, date: str) -> int:
+    try:
+        push_main(repo)
+    except subprocess.CalledProcessError as e:
+        detail = (e.stderr or "").strip() or str(e)
+        alert(args, f"AnomalyGuessr: the ship for {date} committed but the "
+                    f"push to main failed: {detail}")
         return 1
     return 0
 
@@ -222,7 +262,7 @@ def parse_args(argv=None):
     p_ship.add_argument("--commit", action="store_true",
                         help="commit the new scenes")
     p_ship.add_argument("--push", action="store_true",
-                        help="push after committing (deploys Pages)")
+                        help="commit and push (implies --commit; deploys Pages)")
     p_ship.add_argument("--ids", default="",
                         help="comma-separated scene ids to ship explicitly")
     p_ship.add_argument("--dm-channel", default=None,

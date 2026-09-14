@@ -8,6 +8,7 @@ network), and both commands end to end with a temp data dir + fake game repo.
 import contextlib
 import http.server
 import json
+import subprocess
 import tempfile
 import threading
 import unittest
@@ -182,6 +183,84 @@ class ShipCommandTest(unittest.TestCase):
                     "--date", "2026-09-15"]
             self.assertEqual(s.main(argv), 0)
             self.assertEqual(s.main(argv), 0)  # second run: already shipped
+
+
+def git(cwd: Path, *args: str) -> None:
+    subprocess.run(["git", *args], cwd=cwd, check=True,
+                   capture_output=True, text=True)
+
+
+def git_out(cwd: Path, *args: str) -> str:
+    r = subprocess.run(["git", *args], cwd=cwd, check=True,
+                       capture_output=True, text=True)
+    return r.stdout
+
+
+def init_remote(root: Path):
+    """A bare origin + one clone on main, with an initial commit."""
+    origin = root / "origin.git"
+    git(root, "init", "--bare", "-b", "main", str(origin))
+    work = root / "work"
+    git(root, "clone", "-q", str(origin), str(work))
+    for key, value in (("user.name", "Test"), ("user.email", "t@example.test")):
+        git(work, "config", key, value)
+    (work / "seed.txt").write_text("seed")
+    git(work, "add", "seed.txt")
+    git(work, "commit", "-q", "-m", "seed")
+    git(work, "push", "-q", "origin", "main")
+    return origin, work
+
+
+class PushMainTest(unittest.TestCase):
+    def test_push_main_sends_the_commit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            origin, work = init_remote(Path(tmp))
+            (work / "new.txt").write_text("new")
+            git(work, "add", "new.txt")
+            git(work, "commit", "-q", "-m", "new")
+            s.push_main(work)
+            self.assertIn("new", git_out(origin, "log", "--format=%s", "main"))
+
+    def test_push_main_rebases_when_origin_moved(self):
+        # A parallel merge landed on origin/main between our commit and the
+        # push; the retry must replay our own commit instead of failing.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            origin, work = init_remote(root)
+            (work / "ours.txt").write_text("ours")
+            git(work, "add", "ours.txt")
+            git(work, "commit", "-q", "-m", "ours")
+            other = root / "other"
+            git(root, "clone", "-q", str(origin), str(other))
+            for key, value in (("user.name", "Other"),
+                               ("user.email", "o@example.test")):
+                git(other, "config", key, value)
+            (other / "theirs.txt").write_text("theirs")
+            git(other, "add", "theirs.txt")
+            git(other, "commit", "-q", "-m", "theirs")
+            git(other, "push", "-q", "origin", "main")
+            s.push_main(work)
+            subjects = git_out(origin, "log", "--format=%s", "main")
+            self.assertIn("ours", subjects)
+            self.assertIn("theirs", subjects)
+
+    def test_push_main_raises_when_there_is_no_remote(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            git(repo, "init", "-b", "main", ".")
+            with self.assertRaises(subprocess.CalledProcessError):
+                s.push_main(repo)
+
+    def test_ship_with_push_lands_the_manifest_on_main(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            origin, work = init_remote(root)
+            data = make_data_dir(root, [scene("a1", "2026-09-11")], ["a1"])
+            rc = s.main(["ship", "--data", str(data), "--repo", str(work),
+                         "--date", "2026-09-15", "--push"])
+            self.assertEqual(rc, 0)
+            manifest = git_out(origin, "show", "main:scenes/manifest.json")
+            self.assertEqual(s.parse_manifest_date(manifest), "2026-09-15")
 
 
 class CheckCommandTest(unittest.TestCase):
