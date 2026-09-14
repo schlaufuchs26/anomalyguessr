@@ -199,13 +199,73 @@ export function scoreGuardNote(guard?: ScoreGuard): string | null {
   return `score guard: shipped round ${guard.shipped} (checker ${score(guard.score, guard.total)})${rejected}`;
 }
 
+/** The independent mode's one-line summary (ticket #1497): which draw
+ *  shipped, how many were clean, and each draw's checker verdict. Null when
+ *  the trace carries no draws (the repair chain, or a pre-#1497 scene). */
+export function drawSummaryNote(trace: SceneTrace): string | null {
+  const draws = trace.draws ?? [];
+  if (draws.length === 0) return null;
+  const shipped = draws.find((d) => d.shipped)?.draw ?? trace.selected_draw;
+  const clean = draws.filter((d) => d.clean).length;
+  const per = draws
+    .map((d) => {
+      const score =
+        typeof d.score === "number" ? `checker ${d.score}` : "no score";
+      const failed = d.failed.length ? `, failed ${d.failed.join(", ")}` : "";
+      const state = d.clean ? "clean" : "flagged";
+      return `draw ${d.draw}: ${score}${failed}, ${state}`;
+    })
+    .join("; ");
+  return (
+    `independent draws: shipped draw ${shipped ?? "?"} of ${draws.length} ` +
+    `(${clean} clean); ${per}`
+  );
+}
+
+/** The independent mode's per-draw rows (ticket #1497), the counterpart of
+ *  the score guard's note. Null when the trace has no draws. */
+export function DrawsList({
+  sceneId,
+  trace,
+}: {
+  sceneId: string;
+  trace: SceneTrace;
+}) {
+  const draws = trace.draws ?? [];
+  if (draws.length === 0) return null;
+  return (
+    <ol className="td-trace-draws" data-testid={`td-trace-draws-${sceneId}`}>
+      {draws.map((d) => (
+        <li
+          key={d.draw}
+          className={
+            d.shipped ? "td-trace-draw td-trace-draw-shipped" : "td-trace-draw"
+          }
+          data-testid={`td-trace-draw-${sceneId}-${d.draw}`}
+        >
+          <span className="td-trace-draw-no">draw {d.draw}</span>
+          <span className="td-trace-draw-meta">
+            {typeof d.score === "number" ? `checker ${d.score}` : "no score"}
+            {d.failed.length ? ` · failed ${d.failed.join(", ")}` : ""}
+            {d.shipped ? " · shipped" : ""}
+            {d.clean ? " · clean" : ""}
+          </span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 /** The failure notes of a whole trace: last error, gate rejections, failed
- *  calls, the score guard's kept round. Null when the trace has none. */
+ *  calls, the score guard's kept round, the independent draws. Null when the
+ *  trace has none. */
 export function TraceNotes({ trace }: { trace: SceneTrace }) {
   const notes: string[] = [];
   if (trace.error) notes.push(`last error: ${trace.error}`);
   const guard = scoreGuardNote(trace.score_guard);
   if (guard) notes.push(guard);
+  const draws = drawSummaryNote(trace);
+  if (draws) notes.push(draws);
   for (const g of trace.gate_failures ?? [])
     notes.push(`gate rejected attempt ${g.attempt ?? "?"}: ${g.reason ?? ""}`);
   for (const c of trace.call_errors ?? [])

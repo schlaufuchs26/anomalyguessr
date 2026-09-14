@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  drawSummaryNote,
   scoreGuardNote,
   shippedMarker,
   stepRound,
@@ -72,5 +73,49 @@ describe("scoreGuardNote (ticket #1465)", () => {
 
   test("null without a guard record", () => {
     expect(scoreGuardNote(undefined)).toBeNull();
+  });
+});
+
+// The independent mode (ticket #1497): the trace carries one row per fresh
+// render plus the shipped draw's number. The panel shows a note and the rows.
+describe("drawSummaryNote (ticket #1497)", () => {
+  const trace = {
+    calls: [],
+    selected_draw: 2,
+    draws: [
+      { draw: 1, score: 6, failed: [3], clean: false, shipped: false },
+      { draw: 2, score: 9, failed: [], clean: true, shipped: true },
+      { draw: 3, score: 7, failed: [5], clean: false, shipped: false },
+    ],
+  };
+
+  test("names the shipped draw, the clean count and each verdict", () => {
+    expect(drawSummaryNote(trace)).toBe(
+      "independent draws: shipped draw 2 of 3 (1 clean); " +
+        "draw 1: checker 6, failed 3, flagged; " +
+        "draw 2: checker 9, clean; " +
+        "draw 3: checker 7, failed 5, flagged",
+    );
+  });
+
+  test("falls back to selected_draw when no row is marked shipped", () => {
+    const rows = trace.draws.map((d) => ({ ...d, shipped: false }));
+    expect(
+      drawSummaryNote({ calls: [], selected_draw: 2, draws: rows }),
+    ).toContain("shipped draw 2 of 3");
+  });
+
+  test("tolerates a missing score", () => {
+    const draws = [
+      { draw: 1, score: null, failed: [], clean: false, shipped: true },
+    ];
+    expect(drawSummaryNote({ calls: [], draws })).toBe(
+      "independent draws: shipped draw 1 of 1 (0 clean); draw 1: no score, flagged",
+    );
+  });
+
+  test("null for the repair chain (no draws)", () => {
+    expect(drawSummaryNote({ calls: [] })).toBeNull();
+    expect(drawSummaryNote({ calls: [], draws: [] })).toBeNull();
   });
 });

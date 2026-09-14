@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import React from "react";
 import { fmtDateTime, getSceneTrace } from "./api";
 import { SceneHandle } from "./SceneHandle";
-import { TraceNotes, TraceStepItem } from "./TraceSteps";
+import { DrawsList, TraceNotes, TraceStepItem } from "./TraceSteps";
 
 // Collapsible "Generation trace" panel for the scene lightbox (ticket
 // #1373). Collapsed by default and fetched only when opened, so the scene
@@ -78,6 +78,7 @@ export function TracePanel({
                 : ""}
             </p>
             <TraceNotes trace={data} />
+            <DrawsList sceneId={sceneId} trace={data} />
             <ol className="td-trace-steps">
               {data.calls.map((step, i) => (
                 <TraceStepItem

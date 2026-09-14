@@ -275,10 +275,37 @@ export interface SceneTrace {
   /** Which round's render shipped, when it is not the last one (ticket
    *  #1461). Absent on traces of scenes whose last round shipped. */
   score_guard?: ScoreGuard;
+  /** The sampling mode that produced the scene (ticket #1497). */
+  sampling_mode?: string;
+  /** Draw number whose render shipped in the independent mode (#1497). */
+  selected_draw?: number;
+  /** One row per fresh render in the independent mode (#1497). Absent on
+   *  repair-chain traces and on scenes generated before the mode existed. */
+  draws?: DrawRow[];
   /** The last attempt's failure reason, when the scene still landed. */
   error?: string;
   gate_failures?: { attempt?: number; reason?: string }[];
   call_errors?: { stage?: string; error?: string; after_fix?: boolean }[];
+}
+
+/** One independent draw of a scene (ticket #1497): a fresh render of the
+ *  source photo with its own checker verdict and mechanical finding. The
+ *  pipeline writes one row per draw and names the shipped one in
+ *  `selected_draw`. */
+interface DrawRow {
+  draw: number;
+  image?: string;
+  seed?: number;
+  model?: string;
+  duration_s?: number;
+  cost?: number;
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  score: number | null;
+  failed: number[];
+  mechanical?: Record<string, unknown> | null;
+  clean: boolean;
+  shipped: boolean;
 }
 
 /** Fetch one scene's generation trace (the panel calls this on open). */
