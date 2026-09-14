@@ -315,8 +315,9 @@ main {
 
 /*
  * Miss cue (ticket #1407): one arrow at the clicked point, rotated toward the
- * anomaly, plus a flat −10 tick. It fades on its own and the next miss
- * replaces it; it never accumulates into a heat map.
+ * anomaly. It fades on its own and the next miss replaces it; it never
+ * accumulates into a heat map. The old flat −10 tick is gone (#1490): the
+ * price of a miss now shows in the HUD score counter, the direction here.
  */
 .marker.cue {
   display: flex;
@@ -348,6 +349,47 @@ main {
 
 @media (prefers-reduced-motion: reduce) {
   .marker.cue {
+    animation: none;
+  }
+}
+
+/* Live score counter (#1490): the running sum of the scene scores,
+   right-aligned at the top of the HUD rail. A miss drops it by MISS_PENALTY
+   and flashes the value red once; the number then holds. */
+.hud-score {
+  display: flex;
+  justify-content: flex-end;
+  align-items: baseline;
+  gap: 0.4rem;
+  color: var(--ink-dim);
+  font-size: 0.85rem;
+}
+
+.hud-score-value {
+  display: inline-block;
+  color: var(--ink);
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.hud-score.dip .hud-score-value {
+  animation: score-dip 0.6s ease-out;
+}
+
+@keyframes score-dip {
+  0% {
+    color: #e88;
+    transform: scale(1.2);
+  }
+
+  100% {
+    color: var(--ink);
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hud-score.dip .hud-score-value {
     animation: none;
   }
 }

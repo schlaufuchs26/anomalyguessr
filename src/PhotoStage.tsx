@@ -1,7 +1,6 @@
 import type { RefObject } from "react";
 import { useEffect, useRef, useState } from "react";
 import type { ViewState } from "../layout";
-import { MISS_PENALTY } from "../scoring";
 import {
   createPhotoInteractions,
   type MissCue,
@@ -196,7 +195,6 @@ export function PhotoStage(props: PhotoStageProps) {
               >
                 ➤
               </span>
-              <span className="cue-tick">{`−${MISS_PENALTY}`}</span>
             </div>
           ) : null}
         </div>

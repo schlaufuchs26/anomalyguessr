@@ -48,6 +48,22 @@ export function scoreFor(
 }
 
 /**
+ * The live score counter in the HUD (#1490): the sum of the resolved scene
+ * scores, minus the flat penalty for every miss in the scene still being
+ * played, floored at 0 like `scoreFor` does per scene. A miss drops the
+ * counter by MISS_PENALTY before the scene resolves; the scene's real score
+ * (already penalized) then replaces the preview. An undone scene (score -1)
+ * does not count.
+ */
+export function runningTotal(scores: number[], misses: number): number {
+  let total = 0;
+  for (const score of scores) {
+    if (score >= 0) total += score;
+  }
+  return Math.max(0, total - MISS_PENALTY * misses);
+}
+
+/**
  * Bearing from `from` toward `to` in radians, for the miss cue's arrow
  * (ticket #1407). Screen coordinates (y grows downward), so 0 points east
  * and positive angles turn clockwise; a CSS `rotate(<angle>rad)` matches.

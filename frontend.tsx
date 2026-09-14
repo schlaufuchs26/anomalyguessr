@@ -2,7 +2,7 @@ import { type RefObject, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { DAILY_COUNT, dateFromKey, dateLabel, pickDaily } from "./daily";
 import { type Manifest, parseManifest, type Scene } from "./manifest";
-import { bearingTo, MISS_PENALTY } from "./scoring";
+import { bearingTo, MISS_PENALTY, runningTotal } from "./scoring";
 import {
   loadDailyManifest,
   loadLiveManifest,
@@ -149,6 +149,12 @@ export function App() {
   const [queue, setQueue] = useState<Scene[]>([]);
   const [index, setIndex] = useState(0);
   const [misses, setMisses] = useState(0);
+  /**
+   * Nonce for the HUD score counter's dip animation (#1490): bumped on every
+   * miss so the value remounts and flashes once, then holds. It is not the
+   * score itself; the number comes from `runningTotal`.
+   */
+  const [scoreDips, setScoreDips] = useState(0);
   const [cue, setCue] = useState<MissCue | null>(null);
   const [scores, setScores] = useState<number[]>([]);
   const [answered, setAnswered] = useState(false);
@@ -442,6 +448,7 @@ export function App() {
     if (!result.hit) {
       const next = misses + 1;
       setMisses(next);
+      setScoreDips((d) => d + 1);
       setCue({
         x: hit.x,
         y: hit.y,
@@ -695,6 +702,15 @@ export function App() {
           {announce}
         </p>
         <div className="hud">
+          <div
+            id="score-counter"
+            className={`hud-score${scoreDips > 0 ? " dip" : ""}`}
+          >
+            <span className="hud-score-label">Score</span>
+            <strong key={scoreDips} className="hud-score-value">
+              {runningTotal(scores, answered ? 0 : misses)}
+            </strong>
+          </div>
           <div
             id="result"
             className={`result${guess ? ` ${guess.verdict}` : ""}`}

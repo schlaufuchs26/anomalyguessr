@@ -478,7 +478,9 @@ describe("miss penalty and bearing cue (#1407)", () => {
     // the arrow points from the click toward the anomaly: south-east here
     const arrow = cues[0]?.querySelector<HTMLElement>(".cue-arrow");
     expect(arrow?.style.transform).toBe(`rotate(${Math.PI / 4}rad)`);
-    expect(cues[0]?.textContent).toContain("−10");
+    // #1490: the cue is the arrow alone (the "−10" moved to the HUD counter)
+    expect(cues[0]?.querySelector(".cue-tick")).toBeNull();
+    expect(cues[0]?.textContent).toBe("➤");
 
     // a second miss replaces the cue instead of stacking into a heat map
     clickPhoto(container, 0.8, 0.5);
@@ -506,6 +508,49 @@ describe("miss penalty and bearing cue (#1407)", () => {
     expect(screen.getByText(/100 points/)).toBeInTheDocument();
     expect(screen.getByText(/no misses/)).toBeInTheDocument();
     expect(container.querySelector(".marker.cue")).toBeNull();
+  });
+});
+
+describe("live score counter (#1490)", () => {
+  /** The number inside the HUD counter, as text. */
+  function counter(container: HTMLElement): string {
+    const el = container.querySelector("#score-counter .hud-score-value");
+    if (!el) throw new Error("no score counter in the HUD");
+    return el.textContent ?? "";
+  }
+
+  test("starts at 0 and shows the running scene sum", async () => {
+    const container = await renderGame();
+    expect(counter(container)).toBe("0");
+
+    clickPhoto(container, 0.5, 0.5); // 100 on scene A
+    expect(counter(container)).toBe("100");
+
+    fireEvent.click(screen.getByRole("button", { name: "Next →" }));
+    clickPhoto(container, 0.2, 0.8); // first-try hit on scene B: 100 more
+    expect(counter(container)).toBe("200");
+  });
+
+  test("a miss drops the counter by the flat penalty", async () => {
+    const container = await renderGame();
+    clickPhoto(container, 0.5, 0.5); // 100 on scene A
+    fireEvent.click(screen.getByRole("button", { name: "Next →" }));
+
+    // #1407 miss while scene B is open: the preview of the penalty
+    clickPhoto(container, 0.9, 0.1);
+    expect(counter(container)).toBe("90");
+
+    // the hit then resolves B at 100 − 10, replacing the preview
+    clickPhoto(container, 0.2, 0.8);
+    expect(counter(container)).toBe("190");
+  });
+
+  test("the counter never goes below zero", async () => {
+    const container = await renderGame();
+    // two misses on the first scene: 0 − 20 would be negative
+    clickPhoto(container, 0.9, 0.1);
+    clickPhoto(container, 0.1, 0.9);
+    expect(counter(container)).toBe("0");
   });
 });
 

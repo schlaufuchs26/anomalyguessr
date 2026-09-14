@@ -5,6 +5,7 @@ import {
   clickDistance,
   isHit,
   MISS_PENALTY,
+  runningTotal,
   scoreFor,
   verdictFor,
 } from "../scoring";
@@ -63,6 +64,30 @@ describe("scoreFor (#1407 miss penalty)", () => {
   test("outside the radius the base is the distance score minus the penalty", () => {
     // distance 0.3 -> base 50; two misses cost 20
     expect(scoreFor(0.3, 0.04, 2)).toBe(30);
+  });
+});
+
+describe("runningTotal (#1490 HUD counter)", () => {
+  test("empty scores with no misses is 0", () => {
+    expect(runningTotal([], 0)).toBe(0);
+  });
+
+  test("sums the resolved scenes", () => {
+    expect(runningTotal([100, 80, 0], 0)).toBe(180);
+  });
+
+  test("each miss in the open scene costs the flat penalty", () => {
+    expect(runningTotal([100], 1)).toBe(100 - MISS_PENALTY);
+    expect(runningTotal([100], 2)).toBe(100 - 2 * MISS_PENALTY);
+  });
+
+  test("floors at zero, like scoreFor does per scene", () => {
+    expect(runningTotal([], 1)).toBe(0);
+    expect(runningTotal([5], 3)).toBe(0);
+  });
+
+  test("an undone scene (score -1) does not count", () => {
+    expect(runningTotal([100, -1], 0)).toBe(100);
   });
 });
 

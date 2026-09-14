@@ -27,7 +27,7 @@ const EXPLANATION =
   "foil wrapper was patented in the 1950s and reached European corner shops " +
   "only after the war.";
 
-const MANIFEST = {
+export const MANIFEST = {
   version: 2,
   date: "2026-09-10",
   moderation: true,
@@ -74,17 +74,21 @@ const MANIFEST = {
  */
 export async function stubManifest(
   target: Page | BrowserContext,
+  manifest: unknown = MANIFEST,
 ): Promise<void> {
-  const handler = (route: Route) => route.fulfill({ json: MANIFEST });
+  const handler = (route: Route) => route.fulfill({ json: manifest });
   await target.route("**/scenes/manifest.json", handler);
   await target.route("**/scenes/daily.json", handler);
   await target.route("**/scenes/live.json", handler);
 }
 
 /** Load the game at laptop size with the stubbed manifest. */
-export async function openGame(page: Page): Promise<void> {
+export async function openGame(
+  page: Page,
+  manifest: unknown = MANIFEST,
+): Promise<void> {
   await page.setViewportSize(LAPTOP);
-  await stubManifest(page);
+  await stubManifest(page, manifest);
   await page.goto("/");
   // #1214: the app lands on the frontpage; the smoke flow plays the dev
   // moderation queue (the stubbed manifest carries `moderation: true`).
