@@ -39,7 +39,7 @@ def make_img(path: Path, w=1200, h=800, color="gray"):
     )
 
 
-def img_bytes(w=1200, h=800, color="red") -> bytes:
+def img_bytes(w=1200, h=800, color="gray") -> bytes:
     p = Path(tempfile.mkdtemp()) / "x.png"
     make_img(p, w, h, color)
     data = p.read_bytes()
@@ -148,6 +148,18 @@ def stub_click_target(box=None, reason="covers it", cost=0.001):
         "call": call(prompt="click-target-prompt", cost=cost)}
 
 
+def stub_presence(present=True, box=None, height_percent=None, cost=0.0):
+    """A presence-check stub (#1485): the element is seen, no box by default.
+
+    The default costs nothing, so the run-total assertions that predate the
+    check keep their exact numbers.
+    """
+    return lambda *a, **kw: {
+        "present": present, "box": box, "height_percent": height_percent,
+        "note": "stub presence",
+        "call": call(prompt="presence-prompt", cost=cost)}
+
+
 class TempDataMixin:
     def setUp(self):
         self._tmp = Path(tempfile.mkdtemp())
@@ -165,8 +177,11 @@ class TempDataMixin:
         self._old_candidate_gate = g.candidate_gate
         self._old_click_target = g.check_click_target
         g.check_click_target = stub_click_target()
+        self._old_presence = g.presence_check
+        g.presence_check = stub_presence()
 
     def tearDown(self):
+        g.presence_check = self._old_presence
         g.check_click_target = self._old_click_target
         g.candidate_gate = self._old_candidate_gate
         g.deterministic_gate = self._old_gate
@@ -2021,6 +2036,91 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
         self.assertEqual(calls["n"], 1)
         self.assertEqual(scene["report"]["avoidance"]["findings"], {})
         self.assertFalse(scene["report"]["avoidance"]["reask"])
+
+
+class MechanicalCheckFlowTest(GenerateOneTest):
+    """The presence/tone/size checks inside the generation flow (#1485)."""
+
+    def test_a_clean_scene_records_the_mechanical_checks(self):
+        scene, failed, _ = self.run_one()
+        self.assertIsNone(failed)
+        mechanical = scene["report"]["mechanical"]
+        self.assertFalse(mechanical["presence"]["failed"])
+        self.assertFalse(mechanical["tone"]["failed"])
+        self.assertFalse(scene["report"]["needs_review"])
+        self.assertIn("mechanical_checks", self.trace_of(scene))
+
+    def test_a_colored_element_on_a_grayscale_source_is_flagged(self):
+        # The "color on black and white photo" class: the source is gray and
+        # the edited render carries a saturated color.
+        scene, failed, _ = self.run_one(
+            edit=lambda *a, **kw: img_bytes(color="red"))
+        self.assertIsNone(failed)
+        self.assertTrue(scene["report"]["mechanical"]["tone"]["failed"])
+        self.assertTrue(scene["report"]["needs_review"])
+        self.assertIn("tone", scene["report"]["review"])
+
+    def test_a_presence_failure_gets_exactly_one_repair(self):
+        calls, edits = {"n": 0}, {"n": 0}
+
+        def presence(*a, **kw):
+            calls["n"] += 1
+            return {"present": calls["n"] > 1, "box": None,
+                    "height_percent": None, "note": "stub",
+                    "call": call(prompt="presence-prompt", cost=0.0)}
+
+        def edit(*a, **kw):
+            edits["n"] += 1
+            return img_bytes()
+
+        g.presence_check = presence
+        scene, failed, _ = self.run_one(edit=edit)
+        self.assertIsNone(failed)
+        # one draw plus the single presence repair
+        self.assertEqual(edits["n"], 2)
+        self.assertEqual(calls["n"], 2)
+        mechanical = scene["report"]["mechanical"]
+        self.assertTrue(mechanical["repair"]["attempted"])
+        self.assertEqual(mechanical["repair"]["shipped"], "repair")
+        self.assertEqual(mechanical["presence"]["status"], "unlocated")
+        self.assertFalse(scene["report"]["needs_review"])
+
+    def test_a_presence_failure_that_stays_flags_for_review(self):
+        edits = {"n": 0}
+
+        def edit(*a, **kw):
+            edits["n"] += 1
+            return img_bytes()
+
+        g.presence_check = stub_presence(present=False)
+        scene, failed, _ = self.run_one(edit=edit)
+        self.assertIsNone(failed)
+        self.assertEqual(edits["n"], 2)  # draw plus the one repair attempt
+        mechanical = scene["report"]["mechanical"]
+        self.assertTrue(mechanical["presence"]["failed"])
+        self.assertEqual(mechanical["repair"]["shipped"], "original")
+        self.assertTrue(scene["report"]["needs_review"])
+        self.assertIn("presence", scene["report"]["review"])
+
+    def test_a_mechanical_reason_joins_a_checker_reason(self):
+        # The checker's own finding must not shadow the mechanical one; the
+        # moderation card carries both.
+        scene, failed, _ = self.run_one(
+            check=stub_check(failed=[9]),
+            edit=lambda *a, **kw: img_bytes(color="red"))
+        self.assertIsNone(failed)
+        self.assertIn("fails 9", scene["report"]["review"])
+        self.assertIn("tone", scene["report"]["review"])
+
+    def test_a_prominent_element_is_flagged_by_size(self):
+        g.presence_check = stub_presence(
+            box={"x1": 0.4, "y1": 0.4, "x2": 0.5, "y2": 0.8})
+        scene, failed, _ = self.run_one()
+        self.assertIsNone(failed)
+        size = scene["report"]["mechanical"]["size"]
+        self.assertTrue(size["failed"])
+        self.assertEqual(size["verdict"], "too_prominent")
+        self.assertIn("size", scene["report"]["review"])
 
 
 class RefusalTest(TempDataMixin, unittest.TestCase):

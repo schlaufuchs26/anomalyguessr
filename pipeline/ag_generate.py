@@ -186,6 +186,7 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 import ag_catalog  # noqa: E402
+import ag_checks  # noqa: E402
 import ag_llm  # noqa: E402
 import ag_queue  # noqa: E402
 import ag_sources  # noqa: E402
@@ -241,6 +242,12 @@ CLICK_TARGET_REQUIREMENT = 7
 # The overlay that is handed to the model: a stroke this wide relative to the
 # image height is unambiguous but still leaves the photo readable.
 CLICK_TARGET_STROKE_FRACTION = 0.004
+# The instruction for the one repair attempt of a presence finding (ticket
+# #1485): the element is not visible or sits outside the drawn answer area.
+PRESENCE_HINT = ("The element is not visible in the image, or it does not lie "
+                 "inside the drawn answer area. Re-add it so it is clearly "
+                 "visible and its centre sits inside the marked area, at the "
+                 "requested small size.")
 
 # How recently used anomaly labels feed the proposal prompt (the free-form
 # replacement for the old catalog label/family novelty tier, #1328).
@@ -650,6 +657,38 @@ def coord_prompt(proposal: dict, prompt: str = "") -> str:
         "feet, shoes included), and figure is true when it is a human-like "
         "figure.")
     return "\n".join(lines)
+
+
+def presence_prompt(proposal: dict) -> str:
+    """The presence-check prompt (ticket #1485).
+
+    The class Evan rejects as "no smartphone in this image" or "no such
+    bottle in the click area": the render never showed the element, or it
+    sits entirely outside the drawn answer area. A vision call answers both
+    questions at once; the deterministic decision on its box is in
+    ``ag_checks.presence_finding``. The same answer carries the element's
+    rendered height, which the size check needs.
+    """
+    return "\n".join([
+        "This is an edited historical photo. Exactly one element was edited "
+        f"into the original photo: {proposal['anomaly']} "
+        f"({proposal['placement']}). An anomaly is anything that could not "
+        "have been in the original photo: a later-era object, a "
+        "time-traveling person, or futuristic technology a time traveler "
+        "brought from a fictional future.",
+        "Look at THIS image and answer about that element:",
+        "- present: true when the named element is visible and recognizable "
+        "in this image, false when it is not (or is not there at all).",
+        "- box: its bounding box in THIS image, normalized 0..1 (x1,y1 = "
+        "top-left, x2,y2 = bottom-right), generous enough to include all of "
+        "it; null when present is false.",
+        "- height_percent: how tall the element is rendered, as a number of "
+        "percent of the image height (e.g. 2.5); null when present is false.",
+        'Answer as strict JSON only, no prose: {"present": true|false, '
+        '"note": "<one short sentence>", "box": {"x1": <0..1>, "y1": <0..1>, '
+        '"x2": <0..1>, "y2": <0..1>} or null, "height_percent": <number or '
+        'null>}',
+    ])
 
 
 def click_target_prompt(proposal: dict) -> str:
@@ -1161,6 +1200,31 @@ def check_click_target(image: Path, proposal: dict, api_key: str,
             "call": result}
 
 
+def presence_check(image: Path, proposal: dict, api_key: str, model: str,
+                   base_url: str, max_tokens: int, timeout: int,
+                   temperature: float | None) -> dict:
+    """Call 5 (ticket #1485): is the element visible, and how tall is it?
+
+    A vision call, never an image call: it costs the text-model rate and
+    leaves the run's image-call budget untouched. Returns ``{present, box,
+    height_percent, note, call}``; the decision that turns this into a
+    finding is ``ag_checks.presence_finding``.
+    """
+    result = _run_call(presence_prompt(proposal), image, api_key, model,
+                       base_url, max_tokens, timeout, temperature)
+    parsed = result["parsed"] or {}
+    height = parsed.get("height_percent")
+    try:
+        height = float(height) if height is not None else None
+    except (TypeError, ValueError):
+        height = None
+    return {"present": bool(parsed.get("present")),
+            "box": valid_box(parsed.get("box")),
+            "height_percent": height,
+            "note": ag_llm.clean_text(parsed.get("note"), 200),
+            "call": result}
+
+
 def render_click_target(image: Path, answer: dict, out_path: Path) -> Path:
     """Draw the answer area onto a copy of the image (ticket #1436).
 
@@ -1322,16 +1386,10 @@ def box_answer(box: dict) -> dict:
 def answer_covers_box(answer: dict, box: dict) -> bool:
     """Whether the drawn ellipse contains every corner of the box (#1445).
 
-    The answer is a circle in normalized coordinates (r is a fraction of the
-    image height), so the test is Euclidean there; a corner just outside the
-    ellipse counts as not covered.
+    The geometry lives in ``ag_checks.answer_covers_box`` so the presence
+    check (#1485) and the click-target pass share one implementation.
     """
-    r = float(answer["r"])
-    if r <= 0:
-        return False
-    return all(
-        ((x - answer["x"]) / r) ** 2 + ((y - answer["y"]) / r) ** 2 <= 1.0
-        for x in (box["x1"], box["x2"]) for y in (box["y1"], box["y2"]))
+    return ag_checks.answer_covers_box(answer, box)
 
 
 def covering_answer(a: dict, b: dict) -> dict:
@@ -2755,6 +2813,105 @@ def _save_click_target_overlay(data_dir: Path, eid: str, src) -> str:
         return ""
 
 
+def _presence_call(image: Path, proposal: dict, attempt: int, args, api_key: str,
+                   data_dir: Path, trace: dict, totals: dict, progress,
+                   stage: str = "presence") -> dict:
+    """One presence vision call, with its usage folded into the run totals.
+
+    The call record is returned (the caller stores it in the trace's
+    ``mechanical_checks`` section, ticket #1485); on a call error the check
+    degrades to "present, unlocated", which cannot wrongly fail a scene.
+    """
+    progress(stage)
+    try:
+        vc = presence_check(image, proposal, api_key, args.model, args.base_url,
+                            args.model_max_tokens, args.model_timeout,
+                            args.temperature)
+    except ag_llm.LLMError as e:
+        trace.setdefault("call_errors", []).append(
+            {"stage": stage, "attempt": attempt, "error": str(e)})
+        return {"present": True, "box": None, "height_percent": None,
+                "note": "", "call": None, "error": str(e)}
+    ag_llm.add_usage(totals, vc["call"].get("usage"))
+    return vc
+
+
+def _mechanical_rounds(image: Path, source_image: Path, proposal: dict,
+                       answer: dict, click: dict, attempt: int, args,
+                       api_key: str, source: dict, data_dir: Path,
+                       out_dir: Path, trace: dict, totals: dict, progress,
+                       previous_outputs: list, stats: dict | None = None
+                       ) -> tuple:
+    """Presence, tone and size checks on the shipped render (#1485).
+
+    One vision call answers presence and localizes the element; the tone and
+    size checks are deterministic measurements on the files, so they add no
+    model call at all. A presence failure ("not visible" or "not in the
+    answer area") gets exactly one repair attempt with the finding as the
+    instruction, never a second; tone and size never spend an image call.
+
+    Returns ``(findings, image, answer, click)``; ``image`` and ``click``
+    change only when a presence repair was adopted.
+    """
+    findings = {"presence": None, "tone": None, "size": None,
+                "repair": {"attempted": False}}
+    vc = _presence_call(image, proposal, attempt, args, api_key, data_dir,
+                        trace, totals, progress)
+    findings["presence"] = ag_checks.presence_finding(vc, answer)
+    findings["presence"]["vision"] = {
+        k: vc.get(k) for k in ("present", "box", "height_percent", "note")}
+    findings["presence"]["call"] = (_call_trace(vc["call"])
+                                    if vc.get("call") else None)
+    box = vc.get("box") if vc.get("present") else None
+    findings["tone"] = ag_checks.tone_finding(source_image, image, answer, box)
+    findings["size"] = ag_checks.size_finding(
+        box, figure=bool(proposal.get("figure")))
+    if not findings["presence"]["failed"]:
+        return findings, image, answer, click
+    # The scene is damaged (element absent or outside the click area): one
+    # repair attempt, then the finding stands for moderation. No scene is
+    # dropped and no image call is added beyond the existing correction
+    # budget.
+    findings["repair"] = {"attempted": True, "status":
+                          findings["presence"]["status"]}
+    if image_budget_left(args, totals) <= 0:
+        findings["repair"]["skipped"] = "generation budget"
+        return findings, image, answer, click
+    check = {"failed": [CLICK_TARGET_REQUIREMENT], "fix_prompt": PRESENCE_HINT}
+    fixed, _refused = _fix_edit(image, proposal, check,
+                                CORRECTION_ROUNDS + 1, attempt, args,
+                                api_key, source, data_dir, out_dir, trace,
+                                totals, progress, previous_outputs, stats)
+    if fixed is None:
+        findings["repair"]["skipped"] = "repair edit did not land"
+        return findings, image, answer, click
+    vc2 = _presence_call(fixed["path"], proposal, attempt, args, api_key,
+                         data_dir, trace, totals, progress,
+                         stage="presence-repair")
+    after = ag_checks.presence_finding(vc2, answer)
+    findings["repair"]["after"] = after["status"]
+    findings["repair"]["vision"] = {
+        k: vc2.get(k) for k in ("present", "box", "height_percent", "note")}
+    findings["repair"]["call"] = (_call_trace(vc2["call"])
+                                  if vc2.get("call") else None)
+    if after["failed"]:
+        # Keep the original render: the repair did not fix the finding, and
+        # shipping an unverified repair would hide it.
+        findings["repair"]["shipped"] = "original"
+        return findings, image, answer, click
+    findings["presence"] = after
+    findings["presence"]["vision"] = findings["repair"]["vision"]
+    box = vc2.get("box") if vc2.get("present") else None
+    findings["tone"] = ag_checks.tone_finding(source_image, fixed["path"],
+                                              answer, box)
+    findings["size"] = ag_checks.size_finding(
+        box, figure=bool(proposal.get("figure")))
+    findings["repair"]["shipped"] = "repair"
+    # The drawn answer overlay belongs to the previous render.
+    click = {k: v for k, v in click.items() if k != "overlay_path"}
+    return findings, fixed["path"], answer, click
+
+
 def _click_target_passes(image: Path, proposal: dict, answer: dict,
                          attempt: int, args, api_key: str, data_dir: Path,
                          out_dir: Path, trace: dict, totals: dict,
@@ -3107,6 +3264,23 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
             # longer describes it.
             conflict = None
 
+        # Mechanical post-render checks (ticket #1485): presence, tone, size.
+        # They share the checker's run switch; --no-check skips both. A
+        # failing check flags the scene for moderation (and a presence
+        # failure gets one repair attempt inside _mechanical_rounds); nothing
+        # is dropped and no image call is added.
+        mechanical = None
+        if not args.no_check:
+            mechanical, final_path, answer, click = _mechanical_rounds(
+                final_path, source_image, proposal, answer, click, attempt,
+                args, api_key, source, data_dir, out_dir, trace, totals,
+                progress, previous_outputs, stats)
+            reasons = ag_checks.review_reasons(mechanical)
+            if reasons:
+                # The mechanical findings are the new signal; they join an
+                # existing checker reason instead of being shadowed by it.
+                review = "; ".join([r for r in (review, *reasons) if r])
+
         check_summary = {
             "skipped": bool(args.no_check) or check is None,
             "score": check["score"] if check else None,
@@ -3145,6 +3319,8 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
             click["overlay"] = overlay
         click.pop("overlay_path", None)
         trace["click_target"] = click
+        if mechanical is not None:
+            trace["mechanical_checks"] = mechanical
         if review:
             trace["review"] = review
         if reconcile is not None:
@@ -3167,6 +3343,8 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
             "review": review,
             "text_reconciliation": reconcile,
             "click_target": click,
+            "mechanical": (ag_checks.findings_summary(mechanical)
+                           if mechanical is not None else None),
             "mechanical_failures": failures,
         }
         return {"report": scene_report, "label": entry["anomaly"]}, None
