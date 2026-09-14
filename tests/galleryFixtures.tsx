@@ -27,9 +27,19 @@ export interface FixtureScene {
   /** A generation trace sidecar exists (ticket #1373). */
   hasTrace?: boolean;
   /** Last checker verdict (ticket #1436). */
-  checker?: { score: number; failed: number[]; reason: string };
+  checker?: {
+    score: number;
+    failed: number[];
+    reason: string;
+    points?: number;
+    points_total?: number;
+  };
+  /** Hard mechanical defects (ticket #1502). */
+  mechanical?: Record<string, boolean>;
   /** Unrepaired checker finding (ticket #1449). */
   needsReview?: boolean;
+  /** The optional "lustig" label (ticket #1502). */
+  funny?: boolean;
 }
 
 export function makeScene(over: Partial<FixtureScene>): {
@@ -54,8 +64,16 @@ export function makeScene(over: Partial<FixtureScene>): {
   comments: { text: string; createdAt: string }[];
   hasTrace: boolean;
   images: { edited: string; original: string; audit?: string };
-  checker?: { score: number; failed: number[]; reason: string };
+  checker?: {
+    score: number;
+    failed: number[];
+    reason: string;
+    points?: number;
+    points_total?: number;
+  };
   needsReview?: boolean;
+  mechanical?: Record<string, boolean>;
+  funny: boolean;
 } {
   const moderation = over.moderation ?? "unmoderated";
   const rejected = moderation === "rejected";
@@ -87,7 +105,9 @@ export function makeScene(over: Partial<FixtureScene>): {
     moderation,
     comments: over.comments ?? [],
     hasTrace: over.hasTrace ?? false,
+    funny: over.funny ?? false,
     ...(over.checker ? { checker: over.checker } : {}),
+    ...(over.mechanical ? { mechanical: over.mechanical } : {}),
     ...(over.needsReview ? { needsReview: true } : {}),
     images: {
       edited: agUrl(`scenes/${over.id}/image`),

@@ -3,9 +3,11 @@ import React from "react";
 import {
   agUrl,
   checkerLabel,
+  defectLabels,
   fmtDate,
   fmtDateTime,
   MOD_LABELS,
+  pointsLabel,
   QUERY_KEY,
   type TDComment,
   type TDScene,
@@ -64,6 +66,22 @@ export function SceneCard({
     onError: (e: Error) => setError(e.message),
   });
 
+  // The optional "lustig" tag (ticket #1502): independent of accept/reject,
+  // one click. The label set the blind vision test needs later.
+  const setFunny = useMutation({
+    mutationFn: async (tag: boolean) => {
+      const res = await fetch(agUrl(`scenes/${scene.id}/funny`), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tag }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json() as Promise<{ id: string; funny: boolean }>;
+    },
+    onSuccess: invalidate,
+    onError: (e: Error) => setError(e.message),
+  });
+
   const submitComment = (e: React.FormEvent) => {
     e.preventDefault();
     const text = draft.trim();
@@ -75,6 +93,9 @@ export function SceneCard({
     setError("");
     setRejected.mutate(!scene.rejected);
   };
+
+  const defects = defectLabels(scene.mechanical);
+  const points = scene.checker ? pointsLabel(scene.checker) : null;
 
   return (
     <article
@@ -165,9 +186,50 @@ export function SceneCard({
               {checkerLabel(scene.checker)}
             </span>
           ) : null}
+          {points ? (
+            <span
+              className="td-chip td-chip-points"
+              title="Soft criteria met, one point each (ticket #1502); hard defects are counted separately and never offset these"
+              data-testid={`td-points-${scene.id}`}
+            >
+              {points}
+            </span>
+          ) : null}
+          {scene.funny ? (
+            <span
+              className="td-chip td-chip-funny"
+              title="Marked as deliberately funny (ticket #1502)"
+              data-testid={`td-funny-${scene.id}`}
+            >
+              😄 lustig
+            </span>
+          ) : null}
         </div>
+        {defects.length > 0 ? (
+          <p
+            className="td-defects"
+            title="Hard mechanical defects; points never cancel them"
+            data-testid={`td-defects-${scene.id}`}
+          >
+            ⚠ {defects.join(" · ")}
+          </p>
+        ) : null}
 
         <div className="td-card-actions">
+          <button
+            type="button"
+            className={`td-funny${scene.funny ? " active" : ""}`}
+            onClick={() => setFunny.mutate(!scene.funny)}
+            disabled={setFunny.isPending}
+            title="Mark this scene as deliberately funny (optional label, ticket #1502)"
+            data-testid={`td-funny-toggle-${scene.id}`}
+          >
+            {setFunny.isPending
+              ? "…"
+              : scene.funny
+                ? "😄 Lustig ✓"
+                : "😄 Lustig"}
+          </button>
           {scene.rejected ? (
             <button
               type="button"

@@ -725,6 +725,29 @@ class EntryTest(unittest.TestCase):
         self.assertEqual(entry["explanation"], "No such device exists yet.")
         self.assertEqual(entry["family"], "other")
 
+    def test_build_entry_stores_points_and_mechanical_defects(self):
+        # #1502: the two pots travel with the scene. Requirements 3 and 7 are
+        # mechanically backed, so they cost no soft point; the presence defect
+        # is stored as a boolean and never offset by the full point count.
+        entry = g.build_entry(
+            source(), proposal(), self.answer(), "2026-09-12",
+            checker={"score": 7, "failed": [3, 7], "total": 9,
+                     "reason": "scale off"},
+            defects={"presence": True, "tone": False, "size": False})
+        self.assertEqual(entry["checker"]["points"], 5)
+        self.assertEqual(entry["checker"]["points_total"], 5)
+        self.assertEqual(entry["checker"]["total"], 9)
+        self.assertEqual(entry["mechanical"],
+                         {"presence": True, "tone": False, "size": False})
+
+    def test_build_entry_derives_points_from_failed_soft_criteria(self):
+        # Requirements 1 and 9 are soft: each failure costs one point.
+        entry = g.build_entry(
+            source(), proposal(), self.answer(), "2026-09-12",
+            checker={"score": 7, "failed": [1, 9], "total": 9, "reason": ""})
+        self.assertEqual(entry["checker"]["points"], 3)
+        self.assertEqual(entry["checker"]["points_total"], 5)
+
     def test_clean_title_strips_archive_suffix(self):
         s = source(title="Street scene - DPLA - 1234567890abcdef.jpg")
         self.assertEqual(g.clean_title(s), "Street scene")
@@ -1311,7 +1334,8 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
         entry = ag_queue.load_state(self.data_dir)["scenes"][report["scene"]]
         self.assertEqual(entry["checker"],
                          {"score": 5, "failed": [3, 7], "total":
-                          g.REQUIREMENTS_TOTAL, "reason": "scale off"})
+                          g.REQUIREMENTS_TOTAL, "points": 5,
+                          "points_total": 5, "reason": "scale off"})
         trace = self.trace_of(scene)
         self.assertEqual(trace["calls"][2]["stage"], "check r0")
         self.assertEqual(trace["calls"][2]["score"], 5)

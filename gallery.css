@@ -375,6 +375,57 @@ body {
   color: #e66e5a;
 }
 
+/* Soft-point counter (#1502): the second pot next to the hard defects. */
+.td-chip-points {
+  background: rgba(120, 170, 240, 0.14);
+  color: #78aaf0;
+}
+
+/* The optional "lustig" moderation tag (#1502). */
+.td-chip-funny {
+  background: rgba(200, 150, 230, 0.16);
+  color: #c896e6;
+}
+
+/* Hard mechanical defects (#1502): a warning line under the chips. Points
+   never cancel these. */
+.td-defects {
+  margin: 0;
+  font-size: 12px;
+  color: #e66e5a;
+}
+
+/* The "lustig" toggle in the card actions (#1502). */
+.td-funny {
+  font-family: var(--font);
+  font-size: 12px;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.04);
+  transition:
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.td-funny:hover:not(:disabled) {
+  border-color: #c896e6;
+  color: #c896e6;
+}
+
+.td-funny.active {
+  border-color: #c896e6;
+  color: #c896e6;
+  background: rgba(200, 150, 230, 0.16);
+}
+
+.td-funny:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .td-card-actions {
   display: flex;
   gap: 6px;

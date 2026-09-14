@@ -7,6 +7,7 @@ import {
   loadDailyManifest,
   loadLiveManifest,
   loadManifest,
+  postFunny as postFunnyTag,
   postModeration,
 } from "./src/api";
 import { buildEndData } from "./src/endView";
@@ -170,6 +171,16 @@ export function App() {
   const [quizDay, setQuizDay] = useState(() => new Date());
   const [mod, setMod] = useState<ModerationState>(IDLE_MODERATION);
   const [modFeedback, setModFeedback] = useState("");
+  /**
+   * The optional "lustig" tag (#1502): a separate, one-way moderation click
+   * next to accept/reject. The label set the blind vision test needs before
+   * "funny" can become a point.
+   */
+  const [funny, setFunny] = useState<{
+    busy: boolean;
+    tagged: boolean;
+    error: string;
+  }>({ busy: false, tagged: false, error: "" });
   const [loadError, setLoadError] = useState(false);
   /**
    * The mode the URL names (ticket #1223): null = frontpage, "daily" or
@@ -275,6 +286,7 @@ export function App() {
     setQuizDay(day);
     setMod(IDLE_MODERATION);
     setModFeedback("");
+    setFunny({ busy: false, tagged: false, error: "" });
     // An empty queue still enters a run state: the moderation mode shows the
     // pipeline buffer + Generate button there (#1202/#1210).
     setStatus(scenes.length === 0 ? "empty" : "playing");
@@ -417,6 +429,7 @@ export function App() {
     setAnnounce("");
     setMod(IDLE_MODERATION);
     setModFeedback("");
+    setFunny({ busy: false, tagged: false, error: "" });
   };
 
   /**
@@ -560,6 +573,25 @@ export function App() {
               done: false,
               busy: false,
             });
+          }
+        }
+      : null;
+
+  /**
+   * The optional "lustig" click (#1502): one-way tag, independent of the
+   * verdict. Compiled out of the production bundle like the moderation
+   * action above.
+   */
+  const postFunnyTagAction =
+    process.env.NODE_ENV !== "production"
+      ? async () => {
+          if (!scene || funny.busy || funny.tagged) return;
+          setFunny({ busy: true, tagged: false, error: "" });
+          try {
+            const tagged = await postFunnyTag(scene.id, true);
+            setFunny({ busy: false, tagged, error: "" });
+          } catch (err) {
+            setFunny({ busy: false, tagged: false, error: String(err) });
           }
         }
       : null;
@@ -805,6 +837,16 @@ export function App() {
                 >
                   ✓ Accept
                 </button>
+                <button
+                  id="funny-btn"
+                  className="btn ghost"
+                  type="button"
+                  disabled={funny.busy || funny.tagged}
+                  title="Optional label: this scene is deliberately funny (ticket #1502)"
+                  onClick={() => void postFunnyTagAction?.()}
+                >
+                  {funny.tagged ? "😄 Lustig ✓" : "😄 Lustig"}
+                </button>
               </div>
               <p
                 id="moderate-status"
@@ -813,6 +855,17 @@ export function App() {
               >
                 {mod.status}
               </p>
+              {funny.tagged || funny.error ? (
+                <p
+                  id="funny-status"
+                  className="moderate-status"
+                  aria-live="polite"
+                >
+                  {funny.error
+                    ? `Lustig failed: ${funny.error}`
+                    : "😄 Lustig markiert."}
+                </p>
+              ) : null}
             </div>
           ) : null}
         </div>

@@ -48,6 +48,15 @@ export interface ApiScene {
   /** Where the shown title came from (ticket #1496): the source catalogue
    *  name, or the "Photograph" placeholder. Absent on older scenes. */
   titleSource?: "catalog" | "fallback";
+  /** Hard mechanical defects flagged on the shipped render (ticket #1502):
+   *  presence/tone/size booleans, shown as a gallery warning line. Never in
+   *  the public manifest. */
+  mechanical?: { presence?: boolean; tone?: boolean; size?: boolean };
+  /** The optional "lustig" moderation tag (ticket #1502); the gallery card
+   *  shows it and can toggle it. */
+  funny: boolean;
+  /** When the tag was set, when it is (RFC3339). */
+  funnyAt?: string;
   images: { edited: string; original: string; audit?: string };
 }
 
@@ -199,6 +208,7 @@ export function sceneToApi(
     moderation,
     comments: fb.comments[id] ?? [],
     hasTrace: hasTrace(id),
+    funny: id in (fb.funny ?? {}),
     images,
   };
   if (e.shortId !== undefined) out.shortId = e.shortId;
@@ -206,6 +216,9 @@ export function sceneToApi(
   if (e.checker !== undefined) out.checker = e.checker;
   if (e.needs_review !== undefined) out.needsReview = e.needs_review;
   if (e.title_source !== undefined) out.titleSource = e.title_source;
+  if (e.mechanical !== undefined) out.mechanical = e.mechanical;
+  const funnyAt = fb.funny?.[id];
+  if (funnyAt !== undefined) out.funnyAt = funnyAt;
   if (rejectedAt !== undefined) out.rejectedAt = rejectedAt;
   return out;
 }

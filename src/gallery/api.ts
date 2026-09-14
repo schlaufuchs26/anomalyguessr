@@ -16,6 +16,11 @@ export interface SceneChecker {
   /** Requirements the score is out of (ticket #1476). Absent on a verdict
    *  from the older eight-requirement rubric, which then reads as /8. */
   total?: number;
+  /** Soft-point count (ticket #1502): one point per met soft criterion.
+   *  Absent on verdicts stored before #1502. */
+  points?: number;
+  /** Soft criteria in the verdict's rubric (5 on the nine-requirement one). */
+  points_total?: number;
   reason: string;
 }
 /** "checker 5/9" plus the failed numbers, e.g. "checker 5/9 · failed 3, 7".
@@ -27,6 +32,32 @@ export function checkerLabel(checker: SceneChecker): string {
     ? ` · failed ${checker.failed.join(", ")}`
     : "";
   return `checker ${checker.score}/${checker.total ?? 8}${failed}`;
+}
+
+/** "points 3/5" (ticket #1502): the soft-point pot, separate from the hard
+ *  mechanical defects. Null when the verdict carries no point count. */
+export function pointsLabel(checker: SceneChecker): string | null {
+  if (checker.points === undefined || checker.points_total === undefined) {
+    return null;
+  }
+  return `points ${checker.points}/${checker.points_total}`;
+}
+
+/** The hard mechanical defects of a render as display labels (#1502); the
+ *  card renders them as a warning line. Unknown keys are ignored. */
+const DEFECT_LABELS: Record<string, string> = {
+  presence: "element missing or outside the click area",
+  tone: "color on a grayscale source",
+  size: "size out of band",
+};
+
+export function defectLabels(
+  mechanical: Record<string, unknown> | undefined | null,
+): string[] {
+  if (!mechanical) return [];
+  return Object.entries(DEFECT_LABELS)
+    .filter(([key]) => mechanical[key] === true)
+    .map(([, label]) => label);
 }
 /** Answer circle in normalized image coordinates (0..1, top-left origin):
  *  x/y center, r radius. The game scores a click against exactly this
@@ -76,6 +107,13 @@ export interface TDScene {
   /** Where the shown title came from (ticket #1496): the source catalogue
    *  name, or the "Photograph" placeholder. Absent on older scenes. */
   titleSource?: "catalog" | "fallback";
+  /** Hard mechanical defects flagged on the shipped render (ticket #1502);
+   *  the card renders them as a warning line. Absent on older scenes. */
+  mechanical?: Record<string, unknown> | null;
+  /** The optional "lustig" moderation tag (ticket #1502). */
+  funny: boolean;
+  /** When the tag was set, when it is (RFC3339). */
+  funnyAt?: string | null;
   images: TDSceneImages;
 }
 export interface TDList {

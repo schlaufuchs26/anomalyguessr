@@ -14,6 +14,12 @@ Answers three questions from the recorded queue, no model calls:
    deterministic tone (and, with ``--presence``, the vision presence) check
    added: a scene counts as clean only when the checker and every mechanical
    check that ran found it clean.
+4. **Does the soft-point count separate?** (#1502) The best points threshold
+   against Evan's verdicts, the "all soft criteria met" agreement, and the
+   constant-answer baselines on the same subset.
+5. **How are the "lustig" labels doing?** (#1502) How many scenes carry the
+   tag, the base rate, and whether a blind vision test has earned it a place
+   as a point yet.
 
 The presence check needs an API key and is opt-in (``--presence N``); the
 tone check runs offline on the library images. Neither writes to the queue.
@@ -233,9 +239,128 @@ def mechanical_agreement(state: dict, feedback: dict, data_dir: Path) -> dict:
             "rows": rows}
 
 
+def _scene_points(scene: dict) -> tuple:
+    """The soft-point count of one stored verdict (#1502).
+
+    Reads the stored ``points``/``points_total`` when present; verdicts from
+    before #1502 derive it from the failed numbers and the rubric size.
+    """
+    checker = scene.get("checker") or {}
+    points = checker.get("points")
+    if isinstance(points, int):
+        return points, int(checker.get("points_total") or 0)
+    total = checker.get("total")
+    total = int(total) if isinstance(total, int) \
+        else ag_checks.CURRENT_REQUIREMENTS_TOTAL
+    derived = ag_checks.rubric_points(checker.get("failed"), total)
+    return derived["points"], derived["points_total"]
+
+
+def points_agreement(state: dict, feedback: dict) -> dict:
+    """Agreement of the soft-point count with Evan's verdicts (#1502).
+
+    A scene passes at a threshold when it has no stored mechanical defect and
+    its soft points reach the threshold. The report carries the agreement of
+    the best threshold and of "all soft criteria met", each against the
+    constant-answer baselines on the same subset, so a count that separates
+    worse than "always reject" shows up as the number it is.
+    """
+    accepted = set(feedback.get("accepted", {}))
+    rejected = set(feedback.get("rejected", {})) | set(
+        feedback.get("excluded", {}))
+    rows = []
+    for eid, scene in (state.get("scenes") or {}).items():
+        if eid not in accepted and eid not in rejected:
+            continue
+        checker = scene.get("checker") or {}
+        if not isinstance(checker.get("score"), int) \
+                and not isinstance(checker.get("points"), int):
+            continue
+        points, total = _scene_points(scene)
+        mech = scene.get("mechanical") or {}
+        defect = any(bool(v) for v in mech.values())
+        rows.append({"id": eid, "points": points, "total": total,
+                     "defect": defect, "evan": eid in accepted})
+    judged = len(rows)
+    accepted_n = sum(1 for r in rows if r["evan"])
+    rejected_n = judged - accepted_n
+    if not judged:
+        return {"judged": 0, "rows": [], "best_threshold": None,
+                "agreement": None, "all_points_agreement": None,
+                "baseline_always_accept": None,
+                "baseline_always_reject": None,
+                "points_total": None, "defects": 0}
+    max_total = max((r["total"] for r in rows), default=0)
+    best = None
+    for threshold in range(0, max_total + 1):
+        agree = sum(1 for r in rows
+                    if ((not r["defect"]) and r["points"] >= threshold)
+                    == r["evan"])
+        if best is None or agree > best["agree"]:
+            best = {"threshold": threshold, "agree": agree}
+    all_in = sum(1 for r in rows
+                 if ((not r["defect"]) and r["points"] >= r["total"])
+                 == r["evan"])
+    return {
+        "judged": judged, "accepted": accepted_n, "rejected": rejected_n,
+        "points_total": max_total,
+        "defects": sum(1 for r in rows if r["defect"]),
+        "best_threshold": best["threshold"],
+        "agreement": round(best["agree"] / judged, 3),
+        "all_points_agreement": round(all_in / judged, 3),
+        "baseline_always_accept": round(accepted_n / judged, 3),
+        "baseline_always_reject": round(rejected_n / judged, 3),
+        "rows": rows,
+    }
+
+
+# "Funny" becomes a model-scored point only after enough human labels exist
+# and a blind vision test separates them from the base rate (#1502).
+FUNNY_MIN_MARKS = 50
+FUNNY_MIN_LIFT = 0.20
+
+
+def funny_labels(feedback: dict) -> dict:
+    """The "lustig" label set in feedback.json (#1502).
+
+    ``tagged`` is how many scenes carry the label, ``judged`` how many scenes
+    have a moderation verdict at all, and ``base_rate`` the share that is
+    tagged: the rate a blind vision model has to beat before "funny" can
+    become a point.
+    """
+    funny = feedback.get("funny") or {}
+    judged = (set(feedback.get("accepted", {}))
+              | set(feedback.get("rejected", {}))
+              | set(feedback.get("excluded", {})))
+    tagged = len(funny)
+    return {"tagged": tagged, "judged": len(judged),
+            "base_rate": round(tagged / len(judged), 3) if judged else None,
+            "per_scene": dict(funny)}
+
+
+def funny_verdict(tagged: int, hit_rate, base_rate,
+                  min_marks: int = FUNNY_MIN_MARKS,
+                  min_lift: float = FUNNY_MIN_LIFT) -> dict:
+    """Whether "funny" has earned a place as a point (#1502).
+
+    Needs the label set to be big enough *and* a blind vision test to beat
+    the base rate by ``min_lift``. Until then it stays a moderation tag; the
+    returned ``reason`` says which condition is missing.
+    """
+    if tagged < min_marks:
+        return {"is_a_point": False,
+                "reason": f"{tagged} of {min_marks} labels"}
+    if hit_rate is None or base_rate is None:
+        return {"is_a_point": False, "reason": "no blind-test numbers"}
+    lift = float(hit_rate) - float(base_rate)
+    return {"is_a_point": lift >= min_lift,
+            "lift": round(lift, 3),
+            "reason": (f"blind lift {lift:.2f}" if lift >= min_lift
+                       else f"blind lift {lift:.2f} below {min_lift}")}
+
+
 def acceptance_by_day(feedback: dict) -> dict:
     """Accepted vs rejected per day, from the moderation timestamps (#1485).
-
     The re-measurement after a change reads the last day's rate; the earlier
     days are the baseline.
     """
@@ -266,10 +391,14 @@ def scene_counts(state: dict) -> dict:
 def audit(data_dir: Path) -> dict:
     state = ag_queue.load_state(data_dir)
     feedback = ag_queue.load_feedback(data_dir)
+    funny = funny_labels(feedback)
     return {"data": str(data_dir), "scene_counts": scene_counts(state),
             "classes": classify_rejections(feedback, state),
             "rubric": rubric_agreement(state, feedback),
             "with_tone": mechanical_agreement(state, feedback, data_dir),
+            "points": points_agreement(state, feedback),
+            "funny": {**funny,
+                      "verdict": funny_verdict(funny["tagged"], None, None)},
             "by_day": acceptance_by_day(feedback)}
 
 
@@ -290,6 +419,8 @@ def format_report(report: dict) -> str:
         lines.append(f"{CLASS_LABELS[name]:<22} {n:>7} {sn:>7} "
                      f"{sn / scenes_total:>6.1%}")
     rubric, tone = report["rubric"], report["with_tone"]
+    points = report["points"]
+    funny = report["funny"]
     lines += [
         f"rubric: judged {rubric['judged']}, agreement "
         f"{rubric['agreement']}, false green {rubric['false_green']} "
@@ -301,6 +432,17 @@ def format_report(report: dict) -> str:
         f"always reject {rubric['baseline_always_reject']}",
         f"with the tone check: agreement {tone['agreement']} "
         f"(before {tone['before']}), tone failures {tone['tone_failed']}",
+        f"soft points (#1502): judged {points['judged']}, best threshold "
+        f"{points['best_threshold']}/{points['points_total']} agreement "
+        f"{points['agreement']}, all-criteria agreement "
+        f"{points['all_points_agreement']}, baselines "
+        f"always accept {points['baseline_always_accept']} / always reject "
+        f"{points['baseline_always_reject']}, stored defects "
+        f"{points['defects']}",
+        f"funny labels (#1502): {funny['tagged']} tagged of "
+        f"{funny['judged']} judged (base rate {funny['base_rate']}), "
+        f"{funny['verdict']['reason']}; "
+        f"is a point: {funny['verdict']['is_a_point']}",
         "acceptance by day:",
     ]
     for day, cell in report["by_day"].items():

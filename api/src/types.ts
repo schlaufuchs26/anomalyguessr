@@ -20,6 +20,12 @@ export interface SceneChecker {
   /** Rubric size the score is out of (#1476; absent on verdicts from the
    *  older eight-requirement rubric). */
   total?: number;
+  /** Soft-point count (#1502): one point per met soft criterion, the second
+   *  pot next to the hard mechanical defects. Absent on verdicts stored
+   *  before #1502. */
+  points?: number;
+  /** Soft criteria in the verdict's rubric (5 on the nine-requirement one). */
+  points_total?: number;
   /** The checker's one-line reason for that verdict. */
   reason: string;
 }
@@ -68,6 +74,12 @@ export interface SceneEntry {
    * Absent on scenes queued before the field existed.
    */
   title_source?: "catalog" | "fallback";
+  /**
+   * The hard mechanical defects of the shipped render (ticket #1502):
+   * booleans for presence, tone and size from ag_checks. Never offset by the
+   * soft checker points; the gallery shows them as a warning line.
+   */
+  mechanical?: { presence?: boolean; tone?: boolean; size?: boolean };
   added: string;
   shown: string | null;
   explanation?: string;
@@ -104,6 +116,12 @@ export interface FeedbackFile {
   excluded?: Record<string, string>;
   accepted: Record<string, string>;
   comments: Record<string, Comment[]>;
+  /**
+   * The optional "lustig" moderation tag (ticket #1502): scene id -> RFC3339
+   * timestamp. The labelled set the blind vision test needs before "funny"
+   * can become a point. Independent of the accept/reject verdict.
+   */
+  funny?: Record<string, string>;
 }
 
 export type Moderation = "accepted" | "rejected" | "unmoderated";

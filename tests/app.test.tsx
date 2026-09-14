@@ -141,6 +141,12 @@ beforeEach(() => {
     }
     if (init?.method === "POST") {
       posts.push({ url, body: JSON.parse(String(init.body)) });
+      if (url.includes("/funny")) {
+        return new Response(JSON.stringify({ funny: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
       return new Response("{}", { status: 200 });
     }
     gets.push(url);
@@ -977,6 +983,21 @@ describe("moderation mode (dev instance, #1163)", () => {
     fireEvent.click(screen.getByRole("button", { name: "✕ Reject" }));
     expect(await screen.findByText(/Save failed/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "✕ Reject" })).not.toBeDisabled();
+  });
+
+  test("the funny tag posts on its own and marks the button (#1502)", async () => {
+    payload = { ...MANIFEST, moderation: true };
+    const container = await renderGame("moderation");
+    clickPhoto(container, 0.5, 0.5);
+
+    fireEvent.click(screen.getByRole("button", { name: "😄 Lustig" }));
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(posts[0]?.url).toBe("/anomalyguessr/api/scenes/a/funny");
+    expect(posts[0]?.body).toEqual({ tag: true });
+    expect(await screen.findByText("😄 Lustig markiert.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "😄 Lustig ✓" })).toBeDisabled();
+    // The verdict buttons stay untouched: the tag is independent.
+    expect(screen.getByRole("button", { name: "✓ Accept" })).not.toBeDisabled();
   });
 
   test("the box stays hidden outside moderation mode", async () => {

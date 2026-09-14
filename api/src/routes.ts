@@ -314,6 +314,35 @@ export async function handle(
     return json({ comment });
   }
 
+  // POST /scenes/{id}/funny  (the optional "lustig" moderation tag, #1502)
+  if (
+    method === "POST" &&
+    segs.length === 3 &&
+    segs[0] === "scenes" &&
+    segs[2] === "funny"
+  ) {
+    const id = await resolveSceneId(store, segs[1] ?? "");
+    if (id === null) return notFound();
+    let body: { tag?: boolean };
+    try {
+      body = (await req.json()) as { tag?: boolean };
+    } catch {
+      body = {};
+    }
+    const fb = await store.feedback();
+    const tagged = id in (fb.funny ?? {});
+    const next = typeof body.tag === "boolean" ? body.tag : !tagged;
+    const funny = fb.funny ?? {};
+    if (next) {
+      if (!(id in funny)) funny[id] = new Date().toISOString();
+    } else {
+      delete funny[id];
+    }
+    fb.funny = funny;
+    await store.saveFeedback(fb);
+    return json({ id, funny: next, funnyAt: funny[id] ?? null });
+  }
+
   // POST /scenes/{id}/reject | /restore (and the moderate endpoint above)
   if (method === "POST" && segs.length === 3 && segs[0] === "scenes") {
     const action = segs[2] ?? "";

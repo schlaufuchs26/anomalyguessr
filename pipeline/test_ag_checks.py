@@ -265,5 +265,52 @@ class ReviewReasonsTest(unittest.TestCase):
         self.assertIn("outside", c.review_reasons(findings)[0])
 
 
+class DefectFlagsTest(unittest.TestCase):
+    def test_a_clean_finding_set_has_no_defects(self):
+        findings = {"presence": {"failed": False}, "tone": {"failed": False},
+                    "size": {"failed": False, "flag": False}}
+        self.assertEqual(c.defect_flags(findings),
+                         {"presence": False, "tone": False, "size": False})
+        self.assertFalse(c.has_defect(findings))
+        self.assertEqual(c.defect_labels(c.defect_flags(findings)), [])
+
+    def test_presence_and_tone_are_defects(self):
+        findings = {"presence": {"failed": True}, "tone": {"failed": True}}
+        self.assertTrue(c.has_defect(findings))
+        self.assertEqual(c.defect_labels(c.defect_flags(findings)),
+                         ["element missing or outside the click area",
+                          "color on a grayscale source"])
+
+    def test_size_is_not_a_defect_until_it_flags(self):
+        # #1487: size reports; only a future measure that sets ``flag`` is a
+        # defect.
+        findings = {"size": {"failed": False, "flag": False}}
+        self.assertFalse(c.has_defect(findings))
+        flagged = {"size": {"failed": False, "flag": True}}
+        self.assertTrue(c.has_defect(flagged))
+
+
+class RubricPointsTest(unittest.TestCase):
+    def test_all_soft_criteria_met(self):
+        self.assertEqual(c.rubric_points([], 9),
+                         {"points": 5, "points_total": 5})
+
+    def test_a_failed_soft_criterion_costs_a_point(self):
+        self.assertEqual(c.rubric_points([1], 9),
+                         {"points": 4, "points_total": 5})
+
+    def test_a_hard_requirement_failure_costs_no_point(self):
+        # Subtle (2) is mechanically backed (#1502): it is a defect, not a
+        # point deduction.
+        self.assertEqual(c.rubric_points([2], 9),
+                         {"points": 5, "points_total": 5})
+
+    def test_the_old_eight_requirement_rubric(self):
+        # Before #1476 the rubric had eight requirements; requirement 9 did
+        # not exist, so it is not counted as met.
+        self.assertEqual(c.rubric_points([], 8),
+                         {"points": 4, "points_total": 4})
+
+
 if __name__ == "__main__":
     unittest.main()

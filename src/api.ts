@@ -37,6 +37,11 @@ function moderationUrl(sceneId: string): string {
   return `/anomalyguessr/api/scenes/${sceneId}/moderate`;
 }
 
+/** The optional "lustig" tag endpoint (#1502). */
+function funnyUrl(sceneId: string): string {
+  return `/anomalyguessr/api/scenes/${sceneId}/funny`;
+}
+
 /** Manifest JSON as served: a v1/v2 manifest plus the queue API's flag. */
 type ManifestJson = Manifest & { moderation?: boolean };
 
@@ -107,6 +112,24 @@ export async function postModeration(
     body: JSON.stringify({ action, feedback }),
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
+}
+
+/**
+ * POST the optional "lustig" tag (dev instance only, ticket #1502); returns
+ * the server's resulting state. Independent of the accept/reject verdict.
+ */
+export async function postFunny(
+  sceneId: string,
+  tag: boolean,
+): Promise<boolean> {
+  const res = await fetch(funnyUrl(sceneId), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tag }),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const body = (await res.json()) as { funny?: boolean };
+  return body.funny === true;
 }
 
 /** Dev queue generation, on demand (ticket #1210). */

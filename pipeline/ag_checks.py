@@ -272,6 +272,72 @@ def findings_summary(findings: dict) -> dict:
     return out
 
 
+# Which checker requirements the deterministic mechanical checks directly
+# cover (#1502): Subtle (2) and Scale (3) via the size/prominence measure,
+# Tone (4) via the grayscale check, Identifiable (7) via the
+# presence/localization check. Those are the hard requirements: a scene that
+# trips one cannot be saved by points. The remaining requirements carry the
+# soft criteria and accrue points, one per criterion met. The requirement
+# numbers are ag_generate.REQUIREMENTS' (stable since #1476 appended
+# requirement 9).
+MECHANICAL_REQUIREMENTS = (2, 3, 4, 7)
+SOFT_REQUIREMENTS = (1, 5, 6, 8, 9)
+# The nine-requirement rubric (ag_generate.REQUIREMENTS_TOTAL).
+CURRENT_REQUIREMENTS_TOTAL = 9
+
+
+def rubric_points(failed, total: int = CURRENT_REQUIREMENTS_TOTAL) -> dict:
+    """The soft-point count of one checker verdict (#1502).
+
+    ``failed`` holds the requirement numbers the checker flagged; ``total``
+    is the rubric size the verdict is out of (nine since #1476, eight
+    before). The count covers only the soft requirements of that rubric: a
+    defect in a hard requirement is reported separately and never offset
+    here.
+    """
+    failed = set(failed or [])
+    soft = [n for n in SOFT_REQUIREMENTS if n <= total]
+    return {"points": sum(1 for n in soft if n not in failed),
+            "points_total": len(soft)}
+
+
+# The mechanical checks are hard defects (#1502): a scene that trips one
+# cannot be saved by soft points. Size is report-only since #1487, so its
+# boolean stays False until a measure separates Evan's verdicts.
+DEFECT_NAMES = ("presence", "tone", "size")
+DEFECT_LABELS = {
+    "presence": "element missing or outside the click area",
+    "tone": "color on a grayscale source",
+    "size": "size out of band",
+}
+
+
+def defect_flags(findings: dict) -> dict:
+    """The hard-defect booleans of one render (#1502).
+
+    Presence and tone are the checks that flag; size reports ``flag`` (always
+    False today), so its boolean stays False. These three are the "defects"
+    pot: they are never offset by the soft-point count.
+    """
+    presence = findings.get("presence") or {}
+    tone = findings.get("tone") or {}
+    size = findings.get("size") or {}
+    return {"presence": bool(presence.get("failed")),
+            "tone": bool(tone.get("failed")),
+            "size": bool(size.get("flag"))}
+
+
+def has_defect(findings: dict) -> bool:
+    """Whether any hard defect fired; the precedence gate (#1502)."""
+    return any(defect_flags(findings).values())
+
+
+def defect_labels(defects: dict) -> list:
+    """Human-readable labels of the set defect booleans (#1502)."""
+    return [DEFECT_LABELS[name] for name in DEFECT_NAMES
+            if defects.get(name)]
+
+
 def review_reasons(findings: dict) -> list:
     """One moderation reason per failed mechanical check (#1485).
 

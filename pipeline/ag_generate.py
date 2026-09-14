@@ -492,6 +492,11 @@ REQUIREMENTS = (
 )
 REQUIREMENTS_TOTAL = len(REQUIREMENTS)
 
+# The soft/hard requirement partition and the soft-point count live in
+# ag_checks (the mechanical-checks module); the generator imports them so one
+# definition serves the pipeline, the audit and the report (#1502).
+rubric_points = ag_checks.rubric_points
+
 
 def requirements_text() -> str:
     return "\n".join(f"{i}. {name}: {detail}"
@@ -1894,7 +1899,8 @@ def build_credit(source: dict) -> str:
 
 def build_entry(source: dict, proposal: dict, answer: dict, date: str,
                 scene: dict | None = None, checker: dict | None = None,
-                review: str | None = None) -> dict:
+                review: str | None = None,
+                defects: dict | None = None) -> dict:
     eid = scene_id(source["id"], proposal["anomaly"])
     st = scene if scene is not None else scene_time(source)
     year = st["display"]
@@ -1931,13 +1937,28 @@ def build_entry(source: dict, proposal: dict, answer: dict, date: str,
     # moderation and the gallery lightbox can show "checker 5/9, failed 3, 7"
     # without opening any image. A run without the checker (--no-check, or a
     # failed check call) stores no field. ``total`` names the rubric size the
-    # score is out of (ticket #1476).
+    # score is out of (ticket #1476). Since #1502 the verdict also carries the
+    # soft-point count ("points X/Y"), the second, separate pot next to the
+    # hard mechanical defects.
     if checker is not None and checker.get("score") is not None:
-        out["checker"] = {"score": checker["score"],
-                          "failed": list(checker.get("failed") or []),
-                          "total": int(checker.get("total")
-                                       or len(REQUIREMENTS)),
+        failed = list(checker.get("failed") or [])
+        total = int(checker.get("total") or REQUIREMENTS_TOTAL)
+        if isinstance(checker.get("points"), int):
+            point_count = checker["points"]
+            points_total = int(checker.get("points_total") or 0)
+        else:
+            points = rubric_points(failed, total)
+            point_count = points["points"]
+            points_total = points["points_total"]
+        out["checker"] = {"score": checker["score"], "failed": failed,
+                          "total": total, "points": point_count,
+                          "points_total": points_total,
                           "reason": checker.get("reason") or ""}
+    # The hard mechanical defects (#1502) travel with the scene too, as
+    # booleans (presence/tone/size). The gallery renders them as a warning
+    # line; they are never offset by the soft-point count.
+    if defects is not None:
+        out["mechanical"] = {k: bool(v) for k, v in defects.items()}
     # A scene the pipeline could not fully repair ships with a moderation
     # flag (ticket #1449): a requirement-8 finding (the element is not
     # impossible) or a checker repair that asked for another object. The
@@ -3728,8 +3749,17 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
             # guard kept an earlier, better-scoring round (ticket #1461).
             "selected_round": selected_round,
         }
+        # The soft-point pot (#1502), computed from the shipped verdict's
+        # failed numbers. Absent when no checker ran; the gallery then shows
+        # no counter.
+        if check is not None and check.get("score") is not None:
+            check_summary.update(rubric_points(
+                check.get("failed"), int(check.get("total")
+                                          or REQUIREMENTS_TOTAL)))
         entry = build_entry(source, proposal, answer, date, scene=st,
-                            checker=check_summary, review=review)
+                            checker=check_summary, review=review,
+                            defects=(ag_checks.defect_flags(mechanical)
+                                     if mechanical is not None else None))
         errs = ag_queue.validate_entry(entry)
         if errs:
             last_error = {"id": source["id"], "stage": "entry",

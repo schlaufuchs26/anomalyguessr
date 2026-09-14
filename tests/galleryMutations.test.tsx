@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { agUrl } from "../src/gallery/api";
-import { FIXTURE, listBody, renderPage } from "./galleryFixtures";
+import { FIXTURE, listBody, makeScene, renderPage } from "./galleryFixtures";
 
 // Mutation flows (reject/restore/comment) live in their own file so both
 // gallery test files stay under the 500-line gate. They mock the state
@@ -163,5 +163,51 @@ describe("AnomalyGuessrGalleryPage mutations", () => {
       expect(screen.getByText("can too big")).toBeInTheDocument();
     });
     expect(postedBody).toBe("can too big");
+  });
+
+  test("points counter, defect warning and funny tag render and toggle (#1502)", async () => {
+    let postedBody: unknown = null;
+    const scene = makeScene({
+      id: "p1",
+      title: "Points Scene",
+      moderation: "accepted",
+      checker: {
+        score: 7,
+        failed: [3, 9],
+        reason: "ok",
+        points: 4,
+        points_total: 5,
+      },
+      mechanical: { presence: true, tone: false, size: false },
+      funny: true,
+    });
+    global.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === agUrl("scenes") && !init?.method) {
+        return new Response(JSON.stringify(listBody([scene], ["p1"])), {
+          status: 200,
+        });
+      }
+      if (url.endsWith("/p1/funny")) {
+        postedBody = JSON.parse(String(init?.body));
+        return new Response(JSON.stringify({ id: "p1", funny: false }), {
+          status: 200,
+        });
+      }
+      return new Response("not found", { status: 404 });
+    }) as unknown as typeof fetch;
+
+    renderPage();
+    await waitFor(() =>
+      expect(screen.getByTestId("td-points-p1")).toBeInTheDocument(),
+    );
+    expect(screen.getByTestId("td-points-p1").textContent).toBe("points 4/5");
+    expect(screen.getByTestId("td-defects-p1").textContent).toContain(
+      "element missing",
+    );
+    expect(screen.getByTestId("td-funny-p1")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("td-funny-toggle-p1"));
+    await waitFor(() => expect(postedBody).toEqual({ tag: false }));
   });
 });
