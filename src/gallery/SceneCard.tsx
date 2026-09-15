@@ -9,6 +9,7 @@ import {
   MOD_LABELS,
   pointsLabel,
   QUERY_KEY,
+  showsNeedsReview,
   type TDComment,
   type TDScene,
 } from "./api";
@@ -161,7 +162,7 @@ export function SceneCard({
           <span className="td-chip td-chip-anomaly" title="The anomaly">
             {scene.anomaly}
           </span>
-          {scene.needsReview ? (
+          {showsNeedsReview(scene) ? (
             <span
               className="td-chip td-chip-review"
               title="The checker found a problem the pipeline could not repair; review before accepting"

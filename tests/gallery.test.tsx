@@ -209,7 +209,7 @@ describe("short scene handles (#1413)", () => {
     await waitFor(() => expect(written).toEqual(["AG-3"]));
   });
 
-  test("an unrepaired checker finding is flagged on the card (#1449)", async () => {
+  test("the needs-review chip shows only while a decision is open (#1449, #1532)", async () => {
     mockList(
       [
         makeScene({
@@ -227,6 +227,21 @@ describe("short scene handles (#1413)", () => {
             reason: "not clearly impossible for 2021",
           },
         }),
+        makeScene({
+          id: "rv2",
+          title: "Flagged Lane",
+          place: "Eta",
+          year: "1912",
+          anomaly: "Hovering drone",
+          added: "2026-09-14",
+          moderation: "unmoderated",
+          needsReview: true,
+          checker: {
+            score: 7,
+            failed: [8],
+            reason: "not clearly impossible for 1912",
+          },
+        }),
       ],
       ["rv1"],
     );
@@ -234,11 +249,19 @@ describe("short scene handles (#1413)", () => {
     await waitFor(() =>
       expect(screen.getByText("Flagged Market")).toBeInTheDocument(),
     );
-    expect(screen.getByTestId("td-review-rv1").textContent).toBe(
-      "needs review",
-    );
+    // an accepted scene keeps the checker verdict but loses the badge
+    expect(screen.queryByTestId("td-review-rv1")).not.toBeInTheDocument();
     expect(screen.getByTestId("td-checker-rv1").textContent).toBe(
       "checker 7/8 · failed 8",
+    );
+
+    // an undecided scene still carries the badge
+    fireEvent.click(screen.getByTestId("td-filter-unmoderated"));
+    await waitFor(() =>
+      expect(screen.getByText("Flagged Lane")).toBeInTheDocument(),
+    );
+    expect(screen.getByTestId("td-review-rv2").textContent).toBe(
+      "needs review",
     );
   });
 });

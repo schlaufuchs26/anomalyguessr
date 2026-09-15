@@ -43,7 +43,9 @@ export interface ApiScene {
   /** Last checker verdict (ticket #1436); absent on older scenes. */
   checker?: SceneChecker;
   /** The scene shipped with an unrepaired checker finding (ticket #1449):
-   *  moderation should look at it first. Never in the public manifest. */
+   *  moderation should look at it first. Never in the public manifest.
+   *  Served only while no decision is recorded (ticket #1532): once the scene
+   *  is accepted or rejected the badge points at work nobody can do. */
   needsReview?: boolean;
   /** Where the shown title came from (ticket #1496): the source catalogue
    *  name, or the "Photograph" placeholder. Absent on older scenes. */
@@ -218,7 +220,10 @@ export function sceneToApi(
   if (e.shortId !== undefined) out.shortId = e.shortId;
   if (e.source !== undefined) out.source = e.source;
   if (e.checker !== undefined) out.checker = e.checker;
-  if (e.needs_review !== undefined) out.needsReview = e.needs_review;
+  // #1532: the flag says "a decision is still open", so a decided scene never
+  // serves it. The stored entry and the checker verdict stay untouched.
+  if (e.needs_review !== undefined && !accepted && !rejected)
+    out.needsReview = e.needs_review;
   if (e.title_source !== undefined) out.titleSource = e.title_source;
   if (e.mechanical !== undefined) out.mechanical = e.mechanical;
   if (e.answer_before !== undefined) out.answerBefore = e.answer_before;

@@ -102,7 +102,8 @@ export interface TDScene {
    *  the checker. The card and the lightbox show it before any image opens. */
   checker?: SceneChecker;
   /** The scene shipped with an unrepaired checker finding (ticket #1449);
-   *  the card flags it so moderation looks at it first. */
+   *  the card flags it so moderation looks at it first. Only while the scene
+   *  is still undecided (ticket #1532). */
   needsReview?: boolean;
   /** Where the shown title came from (ticket #1496): the source catalogue
    *  name, or the "Photograph" placeholder. Absent on older scenes. */
@@ -181,6 +182,17 @@ export const MOD_LABELS: Record<TDScene["moderation"], string> = {
   rejected: "Rejected",
   unmoderated: "Unmoderated",
 };
+
+/** Whether the card and the lightbox show the "needs review" chip (ticket
+ *  #1532). The flag marks a scene whose checks did not pass cleanly, which is
+ *  only actionable while no accept/reject decision exists; the API already
+ *  suppresses it on decided scenes, and this guard keeps a payload from an
+ *  older server from re-introducing a badge nobody can act on. */
+export function showsNeedsReview(
+  scene: Pick<TDScene, "needsReview" | "moderation">,
+): boolean {
+  return scene.needsReview === true && scene.moderation === "unmoderated";
+}
 
 // One user-facing vocabulary: the moderation axis (#1205). The ship state
 // (`state`/`shown` in the API payload) stays data; the card keeps the "shown"
