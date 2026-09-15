@@ -2914,23 +2914,29 @@ def refresh_label_verdicts(data_dir: Path, today=None,
 
 
 def select_sources(data_dir: Path, count: int, seed=None) -> list:
-    """Up to ``count`` unused sources with an image, spread by decade.
+    """Up to ``count`` unused sources with an image, spread by source.
 
     Ticket #1533: the pick keeps at most ``ag_sources.RUN_DECADE_CAP`` from
     one decade and takes one per decade first, so an unused decade is
     preferred, and a day cannot be five scenes from the same twenty years.
-    A run with several decades still draws from several repositories: the
-    repository cap applies whenever the pool holds more than one, but a pool
-    with a single reachable archive is not starved down to two scenes (the
-    report says so through ``spread_warning``).
+    Ticket #1536: it takes one per repository first too, so a pool with two
+    archives (Gallica and the National Library of Norway) really mixes them.
+    The repository cap is the pick's fair share, never below
+    ``RUN_REPO_CAP`` but raised to ``ceil(count/repos)`` so two archives can
+    still fill a five-scene day; a pool with a single reachable archive is
+    not starved down to two scenes (the report says so through
+    ``spread_warning``).
     """
     unused = [s for s in ag_sources.list_sources(data_dir, unused=True)
               if s.get("image")
               and (ag_sources.sources_dir(data_dir) / s["image"]).exists()]
     rng = random.Random(seed)
     rng.shuffle(unused)
-    repos_available = len({ag_sources.entry_repository(s) for s in unused})
-    repo_cap = ag_sources.RUN_REPO_CAP if repos_available > 1 else count
+    repos = sorted({ag_sources.entry_repository(s) for s in unused})
+    # Ticket #1536: two archives and a five-scene day need three from one
+    # archive; the cap is the fair share, not a fixed two.
+    repo_cap = (count if len(repos) <= 1 else
+                max(ag_sources.RUN_REPO_CAP, -(-count // len(repos))))
     picked, chosen = [], set()
     repo_n, dec_n = Counter(), Counter()
 
@@ -2940,17 +2946,37 @@ def select_sources(data_dir: Path, count: int, seed=None) -> list:
         dec_n[ag_sources.entry_decade(s)] += 1
         picked.append(s)
 
-    # First pass: one per decade (an unused decade wins over a second scene
+    def first_of(repo):
+        """An unpicked source of ``repo``, a fresh decade preferred."""
+        candidates = [s for s in unused
+                      if s["id"] not in chosen
+                      and ag_sources.entry_repository(s) == repo]
+        fresh = next((s for s in candidates
+                      if ag_sources.entry_decade(s) not in dec_n), None)
+        return fresh or (candidates[0] if candidates else None)
+
+    # First pass: one per repository, so every archive in the pool is in the
+    # day before any archive repeats.
+    rng.shuffle(repos)
+    for repo in repos:
+        if len(picked) >= count:
+            return picked
+        s = first_of(repo)
+        if s is not None:
+            take(s)
+    # Second pass: one per decade (an unused decade wins over a second scene
     # from a decade already in the pick).
     for s in unused:
         if len(picked) >= count:
             return picked
+        if s["id"] in chosen:
+            continue
         if ag_sources.entry_decade(s) in dec_n:
             continue
         if repo_n[ag_sources.entry_repository(s)] >= repo_cap:
             continue
         take(s)
-    # Second pass: fill the slots the caps still leave open.
+    # Third pass: fill the slots the caps still leave open.
     for s in unused:
         if len(picked) >= count:
             break

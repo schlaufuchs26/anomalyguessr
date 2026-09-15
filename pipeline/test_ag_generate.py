@@ -3016,6 +3016,45 @@ class RunTest(TempDataMixin, unittest.TestCase):
         self.assertLessEqual(max(decades.count(d) for d in set(decades)), 2)
         self.assertLessEqual(max(repos.count(r) for r in set(repos)), 2)
 
+    def test_select_sources_starts_with_one_per_repository(self):
+        # #1536: with a two-scene day each archive gets a slot before any
+        # archive repeats, so the pick never becomes two shots from the
+        # bigger archive while the smaller one sits unused.
+        for sid, year in [("commons-a", 1901), ("commons-b", 1911)]:
+            self.write_source(src=source(sid=sid, title=sid,
+                                         date=f"{year}-01-01"))
+        entry = source(sid="nb-only", title="Norway only",
+                       date="1905-01-01")
+        entry["repository"] = "National Library of Norway"
+        self.write_source(src=entry)
+        for seed in range(10):
+            picked = g.select_sources(self.data_dir, 2, seed=seed)
+            repos = {ag_sources.entry_repository(s) for s in picked}
+            self.assertEqual(repos, {"Wikimedia Commons",
+                                     "National Library of Norway"})
+
+    def test_select_sources_fills_a_two_repository_day(self):
+        # #1536: two archives and five scenes. The repository cap is the
+        # pick's fair share (three of five), so the day fills, both archives
+        # are in it, and the spread warning stays quiet.
+        for i, year in enumerate([1901, 1912, 1923, 1934, 1945, 1956]):
+            self.write_source(src=source(sid=f"commons-fill-{i:02d}",
+                                         title=f"Fill {i}",
+                                         date=f"{year}-01-01"))
+        for i, year in enumerate([1905, 1915, 1925]):
+            entry = source(sid=f"nb-fill-{i:02d}", title=f"Norway {i}",
+                           date=f"{year}-01-01")
+            entry["repository"] = "National Library of Norway"
+            self.write_source(src=entry)
+        picked = g.select_sources(self.data_dir, 5, seed=7)
+        self.assertEqual(len(picked), 5)
+        repos = [ag_sources.entry_repository(s) for s in picked]
+        self.assertIn("Wikimedia Commons", repos)
+        self.assertIn("National Library of Norway", repos)
+        self.assertLessEqual(max(repos.count(r) for r in set(repos)), 3)
+        self.assertEqual(
+            ag_sources.spread_warning(ag_sources.spread_report(picked)), "")
+
 
 # ── Scene-time anchor (#1403) ──────────────────────────────────────────────
 

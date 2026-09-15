@@ -449,7 +449,10 @@ def year_provenance(entry: dict) -> tuple[int | None, str, str, str]:
 
 SPREAD_PARTS = 3
 # A run of five scenes: at most this many from one repository or one decade,
-# so a day cannot be five pictures of the same place and time.
+# so a day cannot be five pictures of the same place and time. Ticket #1536
+# makes the repository number a floor rather than the whole rule:
+# ``ag_generate.select_sources`` raises it to the pick's fair share
+# (ceil(count/repos)) when a small pool could not otherwise fill the day.
 RUN_REPO_CAP = 2
 RUN_DECADE_CAP = 2
 # Fewer distinct decades than this in a run (or all from one repository) is
