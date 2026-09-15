@@ -220,6 +220,17 @@ def rejected_ids(data_dir: Path) -> set:
     return set(fb.get("rejected", {})) | set(fb.get("excluded", {}))
 
 
+def tagged_ids(data_dir: Path, tag: str) -> set:
+    """Ids carrying a moderation tag ("funny" #1502, "great" #1541).
+
+    The tags live in feedback.json next to the verdicts but are independent
+    of them: a scene can be tagged while it is still unmoderated. A missing
+    file or a missing tag map reads as empty, so the tag rule in ``choose_day``
+    simply has nothing to place.
+    """
+    return set(load_feedback(data_dir).get(tag, {}))
+
+
 def save_state(data_dir: Path, state: dict) -> None:
     data_dir.mkdir(parents=True, exist_ok=True)
     p = data_dir / "state.json"
@@ -638,7 +649,8 @@ def day_candidates(state: dict, accepted=(), rejected=()) -> list:
             + shown_oldest_first(state, accepted, rejected))
 
 
-def choose_day(candidates: list, limit: int = DAILY_COUNT) -> list:
+def choose_day(candidates: list, limit: int = DAILY_COUNT, funny=(),
+               great=()) -> list:
     """Pick up to ``limit`` scenes for one day, preferring variety.
 
     Candidate order is the freshness order (fresh oldest-first, then LRU).
@@ -655,6 +667,14 @@ def choose_day(candidates: list, limit: int = DAILY_COUNT) -> list:
     fewer than ``limit`` distinct labels/families in the pool the day still
     fills and simply carries repeats. Scenes without a label or family never
     block (their key reads as "").
+
+    ``funny``/``great`` are the tagged scene ids from feedback.json (#1542).
+    After the variety passes the day also carries one of each when the pool
+    has one: the tagged scene takes the slot of the last untagged pick,
+    preferring a pick whose label already repeats in the day so the swap
+    costs the least variety. A swap never evicts a pick that carries the
+    other tag. Order stays stable, ids stay unique, and the result is
+    deterministic for a given pool; ``tag_report`` reads back what happened.
     """
     day = []
     taken = set()
@@ -701,20 +721,96 @@ def choose_day(candidates: list, limit: int = DAILY_COUNT) -> list:
                 continue
             day.append(c)
             taken.add(cid)
+    return _place_tags(day, candidates, set(funny), set(great))
+
+
+def _place_tags(day: list, candidates: list, funny: set,
+                great: set) -> list:
+    """Swap a funny and a great scene into ``day`` when the pool has one.
+
+    Funny first, then great, each pass protecting the other tag, so a swap
+    for one tag never evicts the scene the other just placed. A tag the day
+    already carries is left alone; a tagged scene the pool does not hold (or
+    that no untagged pick can make room for) leaves the day untouched and is
+    reported by ``tag_report`` instead of failing.
+    """
+    for tag_ids, protect in ((funny, great), (great, funny)):
+        if not tag_ids:
+            continue
+        ids = {c.get("id") for c in day}
+        if ids & tag_ids:
+            continue
+        incoming = next((c for c in candidates
+                         if c.get("id") in tag_ids
+                         and c.get("id") not in ids), None)
+        if incoming is None:
+            continue
+        evictable = [i for i, c in enumerate(day)
+                     if c.get("id") not in tag_ids | protect]
+        if not evictable:
+            continue
+        day = _swap_in(day, evictable, incoming)
     return day
 
 
-def daily_order(state: dict, accepted=(), rejected=()) -> list:
+def _swap_in(day: list, evictable: list, incoming: dict) -> list:
+    """Replace the last evictable pick with ``incoming``, in place.
+
+    A pick whose label already repeats in the day goes first: dropping one of
+    two "Bottle" scenes costs no label variety, dropping the only "Robot"
+    does.
+    """
+    labels = [anomaly_label(c) for c in day]
+    repeats = [i for i in evictable
+               if labels[i] and labels.count(labels[i]) > 1]
+    idx = (repeats or evictable)[-1]
+    out = list(day)
+    out[idx] = incoming
+    return out
+
+
+def tag_report(day: list, candidates: list, funny=(), great=()) -> dict:
+    """What the #1542 tag rule did with the day ``choose_day`` returned.
+
+    ``{"placed": {"funny": "AG-3"}, "unplaced": {"great": "no untagged pick
+    to swap"}}``. ``placed`` names the scene that carries the tag in the day
+    (short handle when it has one, else the long id); ``unplaced`` says why a
+    tag the pool holds could not make the day: every pick already carried a
+    tag, so the swap would have dropped one tag for the other. A tag with no
+    tagged scene in the ship-eligible pool appears in neither map; that is
+    the normal case, not a problem.
+    """
+    pool = {c.get("id") for c in candidates}
+    placed, unplaced = {}, {}
+    for tag, ids in (("funny", set(funny)), ("great", set(great))):
+        hit = next((c for c in day if c.get("id") in ids), None)
+        if hit is not None:
+            placed[tag] = scene_handle(hit)
+        elif ids & pool:
+            unplaced[tag] = "no untagged pick to swap"
+    return {"placed": placed, "unplaced": unplaced}
+
+
+def scene_handle(scene: dict) -> str:
+    """The human-facing name of a scene: its "AG-n" handle, else the long id."""
+    handle = scene.get("shortId")
+    if isinstance(handle, str) and handle.strip():
+        return handle
+    return str(scene.get("id") or "")
+
+
+def daily_order(state: dict, accepted=(), rejected=(), funny=(),
+                great=()) -> list:
     """Ship-eligible scene ids in the exact order ``ship`` would pick them.
 
-    The day's set first (``choose_day``, variety-preferred), then the
-    remaining candidates in freshness order. This is the order the dashboard
-    gallery exposes as ``dailyOrder`` (ticket #1208); it must stay identical
-    to the Go mirror ``tdDailyOrder`` in
-    ``core/platforms/api/dashboard_temporal_daily.go`` (ticket #1229).
+    The day's set first (``choose_day``, variety-preferred, including the
+    #1542 tag rule when ``funny``/``great`` are passed), then the remaining
+    candidates in freshness order. This is what the dev API exposes as
+    ``dailyOrder``, so it must stay identical to the TypeScript copy in
+    ``api/src/daily.ts`` (the Go mirror was deleted in #1242).
     """
     cands = day_candidates(state, accepted, rejected)
-    day = choose_day(cands)
+    day = choose_day(cands, funny=funny, great=great)
     chosen = {c["id"] for c in day}
     return ([c["id"] for c in day]
             + [c["id"] for c in cands if c["id"] not in chosen])
@@ -828,6 +924,13 @@ def ship(data_dir: Path, repo: Path, date: str, commit: bool = False,
     visible instead of silent; fewer distinct keys than 5 is an honest
     outcome, not an error.
 
+    Tagged scenes (ticket #1542): when Evan marked a ship-eligible scene
+    "funny" or "great" in feedback.json, the day carries one of each, swapped
+    into the last untagged pick (``choose_day``). ``tags_placed`` names the
+    scene per tag and ``tags_unplaced`` says why a tag the pool holds could
+    not make the day; no tagged scene in the pool is the normal case and
+    appears in neither map.
+
     Explicit ``ids`` (curation / same-day redo) keep the given order; every
     id must exist, be accepted and not rejected, and may be fresh, shown
     earlier (a deliberate re-show updates ``shown``) or already shown on
@@ -842,11 +945,14 @@ def ship(data_dir: Path, repo: Path, date: str, commit: bool = False,
     state = load_state(data_dir)
     accepted = accepted_ids(data_dir)
     rejected = rejected_ids(data_dir)
+    funny = tagged_ids(data_dir, "funny")
+    great = tagged_ids(data_dir, "great")
     if state.get("last_shipped") == date and not ids:
         return {"shipped": False, "date": date, "scenes": [], "recycled": 0,
                 "labels": [], "families": [],
                 "distinct_labels": 0, "pool_distinct_labels": 0,
-                "distinct_families": 0, "pool_distinct_families": 0}
+                "distinct_families": 0, "pool_distinct_families": 0,
+                "tags_placed": {}, "tags_unplaced": {}}
     if ids:
         # Explicit daily set (curation / same-day redo, ticket #1107): the
         # caller picks the scenes; order = given order. All must exist, be
@@ -873,18 +979,24 @@ def ship(data_dir: Path, repo: Path, date: str, commit: bool = False,
         # a same-day redo of this date's own set is not.
         recycled = sum(1 for sc in day
                        if sc.get("shown") not in (None, date))
+        # Explicit curation: the caller's order is the set, so the #1542 tag
+        # rule is not applied; the report still says which tags the set
+        # carries.
+        tags = tag_report(day, day, funny, great)
     else:
         # Variety-preferring fill (#1206 + #1229 + #1232): the freshness
         # order is never-shown oldest-first, then the back catalogue least
         # recently shown first, so the daily survives a dry fresh pool
         # instead of failing; choose_day takes distinct anomaly labels and
         # families first and only fills the rest with repeats. Never the same
-        # scene twice.
-        day = choose_day(day_candidates(state, accepted, rejected))
+        # scene twice. A tagged scene (#1542) is swapped in on top.
+        cands = day_candidates(state, accepted, rejected)
+        day = choose_day(cands, funny=funny, great=great)
         if not day:
             raise ValueError("no accepted scenes; moderate scenes on the "
                              "dev instance before shipping")
         recycled = sum(1 for sc in day if sc.get("shown"))
+        tags = tag_report(day, cands, funny, great)
     lib = data_dir / "library"
     scenes_dir = repo / "scenes"
     scenes_dir.mkdir(parents=True, exist_ok=True)
@@ -929,6 +1041,8 @@ def ship(data_dir: Path, repo: Path, date: str, commit: bool = False,
         "pool_distinct_labels": len(pool_labels),
         "distinct_families": len({f for f in families if f}),
         "pool_distinct_families": len(pool_families),
+        "tags_placed": tags["placed"],
+        "tags_unplaced": tags["unplaced"],
     }
     if commit:
         _git(repo, "add", "--", "scenes")

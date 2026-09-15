@@ -20,6 +20,15 @@ import {
 /** Size of one shipped daily set; mirrors ag_queue.py's DAILY_COUNT. */
 export const DAILY_COUNT = 5;
 
+/**
+ * The moderation tags that steer the day (tickets #1502/#1541, rule #1542):
+ * scene ids Evan marked "funny" or "great" in feedback.json.
+ */
+export interface DayTags {
+  funny?: ReadonlySet<string>;
+  great?: ReadonlySet<string>;
+}
+
 /** A scene's shown date, "" when never shown (mirrors ag_queue.py's truthiness). */
 function shownValue(e: SceneEntry): string {
   return e.shown ?? "";
@@ -73,8 +82,16 @@ export function shipCandidates(st: StateFile, fb: FeedbackFile): SceneEntry[] {
  * Order within each pass is preserved; never the same scene id twice. A pool
  * with fewer than `limit` distinct labels or families still fills the day
  * with repeats.
+ *
+ * `tags` are the tagged scene ids from feedback.json (#1502/#1541): after the
+ * variety passes the day also carries one "funny" and one "great" scene when
+ * the pool has one (ag_queue.py's tag rule, ticket #1542).
  */
-export function pickDay(candidates: SceneEntry[], limit: number): SceneEntry[] {
+export function pickDay(
+  candidates: SceneEntry[],
+  limit: number,
+  tags: DayTags = {},
+): SceneEntry[] {
   const day: SceneEntry[] = [];
   const taken = new Set<string>();
   const labels = new Set<string>();
@@ -113,19 +130,82 @@ export function pickDay(candidates: SceneEntry[], limit: number): SceneEntry[] {
       taken.add(e.id);
     }
   }
-  return day;
+  return placeTags(
+    day,
+    candidates,
+    tags.funny ?? new Set(),
+    tags.great ?? new Set(),
+  );
+}
+
+/**
+ * Swap a funny and a great scene into the day when the pool has one
+ * (ag_queue.py's `_place_tags`, ticket #1542). Funny first, then great, each
+ * pass protecting the other tag, so a swap for one never evicts the scene the
+ * other just placed. A tag the day already carries is left alone; a tag no
+ * untagged pick can make room for leaves the day as it is.
+ */
+function placeTags(
+  day: SceneEntry[],
+  candidates: SceneEntry[],
+  funny: ReadonlySet<string>,
+  great: ReadonlySet<string>,
+): SceneEntry[] {
+  let out = day;
+  for (const [tagIds, protect] of [
+    [funny, great],
+    [great, funny],
+  ] as const) {
+    if (tagIds.size === 0) continue;
+    const ids = new Set(out.map((e) => e.id));
+    if (out.some((e) => tagIds.has(e.id))) continue;
+    const incoming = candidates.find((e) => tagIds.has(e.id) && !ids.has(e.id));
+    if (incoming === undefined) continue;
+    const evictable = out
+      .map((_e, i) => i)
+      .filter(
+        (i) => !tagIds.has(out[i]?.id ?? "") && !protect.has(out[i]?.id ?? ""),
+      );
+    if (evictable.length === 0) continue;
+    out = swapIn(out, evictable, incoming);
+  }
+  return out;
+}
+
+/**
+ * Replace the last evictable pick with `incoming`, in place (ag_queue.py's
+ * `_swap_in`). A pick whose label already repeats in the day goes first:
+ * dropping one of two "Bottle" scenes costs no label variety, dropping the
+ * only "Robot" does.
+ */
+function swapIn(
+  day: SceneEntry[],
+  evictable: number[],
+  incoming: SceneEntry,
+): SceneEntry[] {
+  const labels = day.map((e) => e.anomaly);
+  const repeats = evictable.filter(
+    (i) => labels[i] !== "" && labels.filter((l) => l === labels[i]).length > 1,
+  );
+  const order = repeats.length > 0 ? repeats : evictable;
+  const idx = order.at(-1);
+  if (idx === undefined) return day;
+  return day.map((e, i) => (i === idx ? incoming : e));
 }
 
 /**
  * Ship-eligible scene ids in the exact order ag_queue.py's ship() would pick
  * them (ag_queue.py's daily_order): the day's set first (pickDay,
- * variety-preferred), then the remaining candidates in freshness order. This
- * is what the gallery reads as `dailyOrder`, so the UI never re-derives the
- * order.
+ * variety-preferred, including the #1542 tag rule), then the remaining
+ * candidates in freshness order. This is what the gallery reads as
+ * `dailyOrder`, so the UI never re-derives the order.
  */
 export function dailyOrder(st: StateFile, fb: FeedbackFile): string[] {
   const candidates = shipCandidates(st, fb);
-  const day = pickDay(candidates, DAILY_COUNT);
+  const day = pickDay(candidates, DAILY_COUNT, {
+    funny: new Set(Object.keys(fb.funny ?? {})),
+    great: new Set(Object.keys(fb.great ?? {})),
+  });
   const chosen = new Set(day.map((e) => e.id));
   return [
     ...day.map((e) => e.id),

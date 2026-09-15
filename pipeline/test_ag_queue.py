@@ -73,14 +73,21 @@ def make_repo(root: Path, scenes=None):
     return repo
 
 
-def write_feedback(data_dir: Path, rejected=(), accepted=(), comments=None):
-    """Synthetic feedback.json as the dashboard API writes it (#1113/#1163)."""
+def write_feedback(data_dir: Path, rejected=(), accepted=(), comments=None,
+                   funny=(), great=()):
+    """Synthetic feedback.json as the dashboard API writes it (#1113/#1163).
+
+    ``funny``/``great`` are the optional moderation tags (#1502/#1541); the
+    API always writes both maps, empty when nothing is tagged.
+    """
     data_dir.mkdir(parents=True, exist_ok=True)
     fb = {
         "version": 1,
         "accepted": {a: "2026-09-08T08:00:00+02:00" for a in accepted},
         "rejected": {e: "2026-09-08T08:00:00+02:00" for e in rejected},
         "comments": comments or {},
+        "funny": {f: "2026-09-08T08:00:00+02:00" for f in funny},
+        "great": {g: "2026-09-08T08:00:00+02:00" for g in great},
     }
     (data_dir / "feedback.json").write_text(
         json.dumps(fb, ensure_ascii=False))
@@ -880,6 +887,161 @@ class FamilyVarietyTest(unittest.TestCase):
         cands = [{"id": "x", "anomaly": "A"}, {"id": "y", "anomaly": "A"}]
         self.assertEqual([s["id"] for s in q.choose_day(cands)],
                          ["x", "y"])
+
+
+class TaggedDayTest(unittest.TestCase):
+    """The day carries one "funny" and one "great" scene when the pool has
+    one (ticket #1542): after the variety passes the tagged scene takes the
+    slot of the last untagged pick, the ship report names it, and a pool
+    without a tagged scene is untouched and not a failure."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="agq_tagged_"))
+        self.data = self.tmp / "data"
+        self.repo = make_repo(self.tmp, [])
+
+    def _seed(self, specs, funny=(), great=(), shown=None):
+        """specs: (id, added, label). Fresh, all accepted, tagged as asked;
+        each scene gets a short handle so the report reads "AG-n"."""
+        for i, (eid, added, label) in enumerate(specs, start=1):
+            e = valid_entry(eid)
+            e["anomaly"] = label
+            e["shortId"] = f"AG-{i}"
+            make_img(self.tmp / f"ed_{eid}.jpg")
+            make_img(self.tmp / f"or_{eid}.jpg")
+            q.state_add(self.data, e, self.tmp / f"ed_{eid}.jpg",
+                        self.tmp / f"or_{eid}.jpg", added)
+        if shown:
+            set_shown(self.data, shown)
+        write_feedback(self.data, accepted=[s[0] for s in specs],
+                       funny=funny, great=great)
+
+    def test_tagged_scene_far_back_lands_in_the_day(self):
+        # Five distinct labels fill the day first; the tagged scene sits
+        # behind them in the freshness order and takes the last slot, so the
+        # other four keep their labels.
+        self._seed([
+            ("f1", "2026-09-01", "Bottle"),
+            ("f2", "2026-09-02", "Can"),
+            ("f3", "2026-09-03", "Robot"),
+            ("f4", "2026-09-04", "Statue"),
+            ("f5", "2026-09-05", "Suitcase"),
+            ("t1", "2026-09-06", "Watch"),
+        ], funny=["t1"])
+        res = q.ship(self.data, self.repo, "2026-09-10")
+        self.assertEqual(res["scenes"], ["f1", "f2", "f3", "f4", "t1"])
+        self.assertEqual(res["labels"], ["Bottle", "Can", "Robot",
+                                         "Statue", "Watch"])
+        self.assertEqual(res["distinct_labels"], 5)
+        self.assertEqual(res["tags_placed"], {"funny": "AG-6"})
+        self.assertEqual(res["tags_unplaced"], {})
+
+    def test_swap_prefers_a_pick_whose_label_repeats(self):
+        # The funny scene takes the last untagged pick; the great scene then
+        # has a "Bottle" that repeats and a lone "Can" to choose from and
+        # takes the repeat, so the day keeps three distinct labels.
+        cands = [{"id": "a1", "anomaly": "Bottle"},
+                 {"id": "b1", "anomaly": "Can"},
+                 {"id": "c1", "anomaly": "Robot"},
+                 {"id": "a2", "anomaly": "Bottle"},
+                 {"id": "g1", "anomaly": "Statue"}]
+        day = q.choose_day(cands, 3, funny={"a2"}, great={"g1"})
+        self.assertEqual([c["id"] for c in day], ["g1", "b1", "a2"])
+
+    def test_no_tagged_scene_leaves_the_day_alone(self):
+        # Same pool as the tagged case, no tag: freshness order decides, the
+        # day is unchanged and the report carries nothing to fail on.
+        self._seed([
+            ("f1", "2026-09-01", "Bottle"),
+            ("f2", "2026-09-02", "Can"),
+            ("f3", "2026-09-03", "Robot"),
+            ("f4", "2026-09-04", "Statue"),
+            ("f5", "2026-09-05", "Suitcase"),
+            ("t1", "2026-09-06", "Watch"),
+        ])
+        res = q.ship(self.data, self.repo, "2026-09-10")
+        self.assertEqual(res["scenes"], ["f1", "f2", "f3", "f4", "f5"])
+        self.assertEqual(res["tags_placed"], {})
+        self.assertEqual(res["tags_unplaced"], {})
+
+    def test_tagged_scene_already_picked_is_not_swapped(self):
+        # The tagged scene leads the freshness order and is in the day
+        # anyway; the tag rule leaves the set as it is.
+        self._seed([
+            ("t1", "2026-09-01", "Bottle"),
+            ("f2", "2026-09-02", "Can"),
+            ("f3", "2026-09-03", "Robot"),
+            ("f4", "2026-09-04", "Statue"),
+            ("f5", "2026-09-05", "Suitcase"),
+            ("f6", "2026-09-06", "Watch"),
+        ], funny=["t1"])
+        res = q.ship(self.data, self.repo, "2026-09-10")
+        self.assertEqual(res["scenes"], ["t1", "f2", "f3", "f4", "f5"])
+        self.assertEqual(res["tags_placed"], {"funny": "AG-1"})
+
+    def test_recycled_tagged_scene_lands_and_is_counted(self):
+        # The tagged scene is in the back catalogue: already shown, so it
+        # sits behind the five fresh scenes in the freshness order, takes
+        # the last slot and counts as recycled.
+        self._seed([
+            ("f1", "2026-09-01", "Bottle"),
+            ("f2", "2026-09-02", "Can"),
+            ("f3", "2026-09-03", "Robot"),
+            ("f4", "2026-09-04", "Statue"),
+            ("f5", "2026-09-05", "Suitcase"),
+            ("t1", "2026-08-01", "Watch"),
+        ], funny=["t1"], shown={"t1": "2026-08-10"})
+        res = q.ship(self.data, self.repo, "2026-09-10")
+        self.assertEqual(res["scenes"], ["f1", "f2", "f3", "f4", "t1"])
+        self.assertEqual(res["recycled"], 1)
+        self.assertEqual(res["tags_placed"], {"funny": "AG-6"})
+
+    def test_unplaceable_tag_is_reported_not_raised(self):
+        # Every pick carries a tag: swapping the funny scene in would drop a
+        # great one, so the day stays as it is and the report says why.
+        self._seed([
+            ("g1", "2026-09-01", "Bottle"),
+            ("g2", "2026-09-02", "Can"),
+            ("g3", "2026-09-03", "Robot"),
+            ("g4", "2026-09-04", "Statue"),
+            ("g5", "2026-09-05", "Suitcase"),
+            ("t1", "2026-09-06", "Watch"),
+        ], great=["g1", "g2", "g3", "g4", "g5"], funny=["t1"])
+        res = q.ship(self.data, self.repo, "2026-09-10")
+        self.assertEqual(res["scenes"], ["g1", "g2", "g3", "g4", "g5"])
+        self.assertEqual(res["tags_placed"], {"great": "AG-1"})
+        self.assertEqual(res["tags_unplaced"],
+                         {"funny": "no untagged pick to swap"})
+
+    def test_explicit_ids_report_their_tags_without_swapping(self):
+        # A curated set is the caller's decision: the tag rule adds nothing,
+        # the report still names what the set carries.
+        self._seed([
+            ("f1", "2026-09-01", "Bottle"),
+            ("f2", "2026-09-02", "Can"),
+            ("t1", "2026-09-03", "Robot"),
+        ], funny=["t1"])
+        res = q.ship(self.data, self.repo, "2026-09-10",
+                     ids=["f1", "f2"])
+        self.assertEqual(res["scenes"], ["f1", "f2"])
+        self.assertEqual(res["tags_placed"], {})
+        self.assertEqual(res["tags_unplaced"], {})
+
+    def test_daily_order_applies_the_tag_rule(self):
+        # daily_order is the dev gallery's order and must show the same day
+        # the ship would write (the TypeScript copy mirrors this).
+        self._seed([
+            ("f1", "2026-09-01", "Bottle"),
+            ("f2", "2026-09-02", "Can"),
+            ("f3", "2026-09-03", "Robot"),
+            ("f4", "2026-09-04", "Statue"),
+            ("f5", "2026-09-05", "Suitcase"),
+            ("t1", "2026-09-06", "Watch"),
+        ], funny=["t1"])
+        state = q.load_state(self.data)
+        accepted = {"f1", "f2", "f3", "f4", "f5", "t1"}
+        order = q.daily_order(state, accepted=accepted, funny={"t1"})
+        self.assertEqual(order[:5], ["f1", "f2", "f3", "f4", "t1"])
 
 
 class BackfillFamilyTest(unittest.TestCase):

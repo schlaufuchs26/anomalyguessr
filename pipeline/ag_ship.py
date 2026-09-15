@@ -173,6 +173,29 @@ def push_main(repo: Path) -> None:
         _git(repo, "push", "origin", "main")
 
 
+def tag_lines(res: dict) -> list:
+    """The #1542 report lines for one ship result.
+
+    "tagged scenes in today's set: funny: AG-3" when a tag landed, "tagged
+    scene not placed: great (no untagged pick to swap)" when the pool held
+    one that could not make the day, and "no tagged scene in the pool" when
+    there was nothing to place. The last is the normal case while few scenes
+    carry a tag; none of the three is an error.
+    """
+    placed = res.get("tags_placed") or {}
+    unplaced = res.get("tags_unplaced") or {}
+    lines = []
+    if placed:
+        lines.append("tagged scenes in today's set: " + ", ".join(
+            f"{tag}: {handle}" for tag, handle in sorted(placed.items())))
+    if unplaced:
+        lines.append("tagged scene not placed: " + ", ".join(
+            f"{tag} ({reason})" for tag, reason in sorted(unplaced.items())))
+    if not lines:
+        lines.append("no tagged scene in the pool")
+    return lines
+
+
 def cmd_ship(args) -> int:
     date = args.date or today()
     data_dir = Path(args.data) if args.data else ag_queue.default_data_dir()
@@ -197,6 +220,8 @@ def cmd_ship(args) -> int:
           + ", ".join(res["scenes"])
           + f" (fresh {len(res['scenes']) - res['recycled']}, "
             f"recycled {res['recycled']})")
+    for line in tag_lines(res):
+        print(line)
     try:
         written = manifest_date(repo)
     except ValueError as e:

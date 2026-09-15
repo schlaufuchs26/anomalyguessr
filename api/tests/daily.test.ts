@@ -1,13 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
-import { DAILY_COUNT, dailyOrder, pickDay } from "../src/daily.ts";
-import { type Env, handle } from "../src/routes.ts";
+import { DAILY_COUNT, pickDay } from "../src/daily.ts";
+import { handle } from "../src/routes.ts";
 import type { Manifest, SceneList } from "../src/scenes.ts";
-import { Store } from "../src/store.ts";
-import type { SceneEntry, StateFile } from "../src/types.ts";
-import { testEnv } from "./helpers.ts";
+import { fixture, mkEntry, order, type Spec } from "./dailyFixture.ts";
 
 /**
  * The daily pick rule is one rule with one origin
@@ -17,78 +12,6 @@ import { testEnv } from "./helpers.ts";
  * TypeScript copy is caught. (The Go copy and its TestTDDailyOrder* tests
  * were deleted in #1242.)
  */
-
-interface Spec {
-  id: string;
-  added: string;
-  shown?: string;
-  anomaly?: string;
-  family?: string;
-  /** Legacy pre-#1136 entry: cannot be a version-2 manifest scene. */
-  noSource?: boolean;
-}
-
-function mkEntry(spec: Spec): SceneEntry {
-  const e: SceneEntry = {
-    id: spec.id,
-    title: spec.id,
-    place: "P",
-    year: "1900",
-    credit: "PD",
-    sourceUrl: `https://example.test/${spec.id}`,
-    anomaly: spec.anomaly ?? "Object",
-    description: "d",
-    answer: { x: 0.5, y: 0.5, r: 0.05 },
-    hints: ["a", "b", "c"],
-    added: spec.added,
-    shown: spec.shown ?? null,
-  };
-  if (!spec.noSource) e.source = { repository: "R", license: "PD" };
-  if (spec.family !== undefined) e.family = spec.family;
-  return e;
-}
-
-// Writes a state.json/feedback.json pair; `accepted` undefined accepts every
-// scene (pass [] to accept none), mirroring the Go/TS fixture helpers.
-async function fixture(
-  specs: Spec[],
-  accepted?: string[],
-  rejected: string[] = [],
-): Promise<{ env: Env; dir: string }> {
-  const dir = await mkdtemp(path.join(tmpdir(), "ag-daily-"));
-  const scenes: Record<string, SceneEntry> = {};
-  for (const s of specs) scenes[s.id] = mkEntry(s);
-  const state: StateFile = { version: 1, last_shipped: null, scenes };
-  await writeFile(
-    path.join(dir, "state.json"),
-    `${JSON.stringify(state, null, 2)}\n`,
-  );
-  const acc: Record<string, string> = {};
-  const rej: Record<string, string> = {};
-  for (const id of accepted ?? specs.map((s) => s.id)) {
-    acc[id] = "2026-09-01T00:00:00Z";
-  }
-  for (const id of rejected) rej[id] = "2026-09-01T00:00:00Z";
-  await writeFile(
-    path.join(dir, "feedback.json"),
-    `${JSON.stringify(
-      { version: 1, accepted: acc, rejected: rej, comments: {} },
-      null,
-      2,
-    )}\n`,
-  );
-  // The daily-order tests never touch /generate.
-  return { env: testEnv(new Store(dir), dir), dir };
-}
-
-async function order(
-  specs: Spec[],
-  accepted?: string[],
-  rejected: string[] = [],
-): Promise<string[]> {
-  const { env } = await fixture(specs, accepted, rejected);
-  return dailyOrder(await env.store.state(), await env.store.feedback());
-}
 
 function req(method: string, url: string): Request {
   return new Request(`http://test.local/anomalyguessr/api/${url}`, { method });

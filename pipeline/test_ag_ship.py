@@ -7,6 +7,7 @@ network), and both commands end to end with a temp data dir + fake game repo.
 
 import contextlib
 import http.server
+import io
 import json
 import subprocess
 import tempfile
@@ -41,7 +42,8 @@ def scene(eid: str, added: str, anomaly: str = "Plastic bottle",
     }
 
 
-def make_data_dir(root: Path, scenes: list, accepted: list) -> Path:
+def make_data_dir(root: Path, scenes: list, accepted: list, funny=(),
+                  great=()) -> Path:
     data = root / "data"
     (data / "library").mkdir(parents=True)
     for sc in scenes:
@@ -57,6 +59,8 @@ def make_data_dir(root: Path, scenes: list, accepted: list) -> Path:
         "version": 1,
         "accepted": {eid: "2026-09-15T00:00:00+02:00" for eid in accepted},
         "rejected": {},
+        "funny": {eid: "2026-09-15T00:00:00+02:00" for eid in funny},
+        "great": {eid: "2026-09-15T00:00:00+02:00" for eid in great},
     }), encoding="utf-8")
     return data
 
@@ -143,6 +147,32 @@ class FetchTest(unittest.TestCase):
                 s.fetch_manifest(url, retries=1, retry_delay=0)
 
 
+class TagReportLinesTest(unittest.TestCase):
+    """The ship output's tag lines (ticket #1542): what landed, what could
+    not, and the normal "nothing tagged" case."""
+
+    def test_placed_tag_is_named(self):
+        self.assertEqual(
+            s.tag_lines({"tags_placed": {"funny": "AG-3"},
+                         "tags_unplaced": {}}),
+            ["tagged scenes in today's set: funny: AG-3"])
+
+    def test_unplaced_tag_is_reported(self):
+        self.assertEqual(
+            s.tag_lines({"tags_placed": {"great": "AG-7"},
+                         "tags_unplaced": {"funny": "no untagged pick "
+                                                    "to swap"}}),
+            ["tagged scenes in today's set: great: AG-7",
+             "tagged scene not placed: funny (no untagged pick to swap)"])
+
+    def test_no_tagged_scene_reads_as_nothing_to_do(self):
+        self.assertEqual(s.tag_lines({"tags_placed": {},
+                                      "tags_unplaced": {}}),
+                         ["no tagged scene in the pool"])
+        # A pre-#1542 result dict (no tag keys at all) must not crash either.
+        self.assertEqual(s.tag_lines({}), ["no tagged scene in the pool"])
+
+
 class ShipCommandTest(unittest.TestCase):
     def test_ship_writes_todays_manifest_and_returns_zero(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -158,6 +188,39 @@ class ShipCommandTest(unittest.TestCase):
             state = json.loads((data / "state.json").read_text())
             self.assertEqual(state["last_shipped"], "2026-09-15")
             self.assertEqual(sorted(state["last_shipped_ids"]), ["a1", "b1"])
+
+    def test_ship_reports_the_tagged_scene(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            repo = root / "game"
+            repo.mkdir()
+            scenes = [scene(f"f{i}", f"2026-09-0{i}", anomaly=f"Object {i}")
+                      for i in range(1, 6)]
+            scenes.append(scene("t1", "2026-09-06", anomaly="Watch"))
+            data = make_data_dir(root, scenes, [sc["id"] for sc in scenes],
+                                 funny=["t1"])
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                rc = s.main(["ship", "--data", str(data), "--repo", str(repo),
+                             "--date", "2026-09-15"])
+            self.assertEqual(rc, 0)
+            self.assertIn("tagged scenes in today's set: funny: t1",
+                          out.getvalue())
+
+    def test_ship_reports_no_tagged_scene(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            repo = root / "game"
+            repo.mkdir()
+            scenes = [scene(f"f{i}", f"2026-09-0{i}", anomaly=f"Object {i}")
+                      for i in range(1, 6)]
+            data = make_data_dir(root, scenes, [sc["id"] for sc in scenes])
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                rc = s.main(["ship", "--data", str(data), "--repo", str(repo),
+                             "--date", "2026-09-15"])
+            self.assertEqual(rc, 0)
+            self.assertIn("no tagged scene in the pool", out.getvalue())
 
     def test_ship_without_accepted_scenes_alerts_and_fails(self):
         with tempfile.TemporaryDirectory() as tmp:
