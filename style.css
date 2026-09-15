@@ -728,6 +728,21 @@ main {
   border-color: #b33;
   color: #e88;
 }
+/* The two optional tag checkboxes (#1502, #1541) sit next to the verdict
+   buttons; a set tag shows as checked and stays checked for the scene. */
+.moderate-tag {
+  align-items: center;
+  display: flex;
+  gap: 0.35em;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+.moderate-tag.active {
+  font-weight: 600;
+}
+.moderate-tag input:disabled {
+  cursor: default;
+}
 .moderate-status {
   font-size: 0.85em;
   margin: 0.3em 0 0;

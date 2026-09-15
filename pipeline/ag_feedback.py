@@ -99,6 +99,11 @@ PATTERN_NEGATIVE_PROMOTE = 0.4
 # shares is proposed for demotion, not applied.
 PATTERN_POSITIVE_DEMOTE = 0.3
 PATTERN_NEGATIVE_DEMOTE = 0.7
+# A positive pattern whose scenes Evan also marks "great" (#1541) is promoted
+# on a lower acceptance bar: this share of the pattern's decided scenes must
+# carry the great mark, and the acceptance rate must still clear the floor.
+PATTERN_GREAT_PROMOTE = 0.2
+PATTERN_POSITIVE_PROMOTE_GREAT = 0.3
 
 DIMS = ("labels", "families", "archives", "decades", "placements")
 _YEAR_RE = re.compile(r"(?<!\d)(1[89]\d{2}|20\d{2})(?!\d)")
@@ -448,6 +453,10 @@ def pattern_count_rows(scenes, feedback, patterns,
     """
     day = today or datetime.date.today()
     cutoff = (day - datetime.timedelta(days=window_days)).isoformat()
+    # The "great" marks (#1541) met inside the same window: the positive
+    # examples a pattern can point at, next to its acceptance rate.
+    great_ids = {str(sid) for sid, at in (feedback.get("great") or {}).items()
+                 if str(at or "")[:10] >= cutoff}
     rows: dict = {}
     for verdicts, field in (((feedback.get("accepted") or {}), "accepted"),
                             ((feedback.get("rejected") or {}), "rejected")):
@@ -461,13 +470,20 @@ def pattern_count_rows(scenes, feedback, patterns,
             label = str(scene.get("anomaly") or "")
             for pid in ag_patterns.patterns_for_label(label, patterns):
                 row = rows.setdefault(pid, {"pattern": pid, "accepted": 0,
-                                            "rejected": 0, "last": ""})
+                                            "rejected": 0, "last": "",
+                                            "great": 0, "greatScenes": []})
                 row[field] += 1
+                if str(scene_id) in great_ids:
+                    row["great"] += 1
+                    row["greatScenes"].append(str(scene_id))
                 if when > row["last"]:
                     row["last"] = when
     for row in rows.values():
         row["decided"] = row["accepted"] + row["rejected"]
         row["rate"] = _rate(row["accepted"], row["rejected"])
+        row["greatRate"] = (round(row["great"] / row["decided"], 3)
+                            if row["decided"] else None)
+        row["greatScenes"] = sorted(row["greatScenes"])
     return rows
 
 
@@ -487,15 +503,25 @@ def pattern_change_rows(counts, patterns,
         if not row or int(row.get("decided") or 0) < min_sample:
             continue
         rate = float(row.get("rate") or 0.0)
+        great = int(row.get("great") or 0)
+        great_rate = float(row.get("greatRate") or 0.0)
         kind = str(pattern.get("kind") or "")
         status = str(pattern.get("status") or "")
         positive = kind == "positive"
-        good = rate >= PATTERN_POSITIVE_PROMOTE if positive \
-            else rate <= PATTERN_NEGATIVE_PROMOTE
+        if positive:
+            # The "great" rate sits next to the acceptance rate (#1541): a
+            # pattern Evan keeps marking as a positive example is promoted on
+            # a lower acceptance bar, because the marks say the shape itself
+            # is worth building on.
+            good = (rate >= PATTERN_POSITIVE_PROMOTE
+                    or (great_rate >= PATTERN_GREAT_PROMOTE
+                        and rate >= PATTERN_POSITIVE_PROMOTE_GREAT))
+        else:
+            good = rate <= PATTERN_NEGATIVE_PROMOTE
         bad = rate < PATTERN_POSITIVE_DEMOTE if positive \
             else rate >= PATTERN_NEGATIVE_DEMOTE
-        record = (f"{row['accepted']}/{row['decided']} accepted over the "
-                  f"window")
+        record = (f"{row['accepted']}/{row['decided']} accepted, "
+                  f"{great} great ({row.get('greatRate')}) over the window")
         if status == ag_patterns.STATUS_OBSERVE and good:
             out.append({"kind": "pattern", "key": pid,
                         "proposal": "promote to active",

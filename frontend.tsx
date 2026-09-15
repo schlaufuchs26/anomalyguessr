@@ -7,8 +7,9 @@ import {
   loadDailyManifest,
   loadLiveManifest,
   loadManifest,
-  postFunny as postFunnyTag,
+  type ModerationTag,
   postModeration,
+  postTag,
 } from "./src/api";
 import { buildEndData } from "./src/endView";
 import { resolveGuess } from "./src/guess";
@@ -94,6 +95,27 @@ const IDLE_MODERATION: ModerationState = {
   busy: false,
 };
 
+/** One moderation tag's box state: posting, set, or a failed post. */
+interface TagUi {
+  busy: boolean;
+  tagged: boolean;
+  error: string;
+}
+
+/** Both tags' box state, keyed by tag (#1541). */
+type TagUiState = Record<ModerationTag, TagUi>;
+
+const IDLE_TAG_STATE: TagUiState = {
+  funny: { busy: false, tagged: false, error: "" },
+  great: { busy: false, tagged: false, error: "" },
+};
+
+/** The two tags in display order, with their checkbox labels. */
+const TAGS: { tag: ModerationTag; label: string }[] = [
+  { tag: "funny", label: "😄 Funny" },
+  { tag: "great", label: "⭐ Great" },
+];
+
 function buildGuessView(
   scene: Scene,
   score: number,
@@ -172,15 +194,12 @@ export function App() {
   const [mod, setMod] = useState<ModerationState>(IDLE_MODERATION);
   const [modFeedback, setModFeedback] = useState("");
   /**
-   * The optional "lustig" tag (#1502): a separate, one-way moderation click
-   * next to accept/reject. The label set the blind vision test needs before
-   * "funny" can become a point.
+   * The two optional moderation tags (#1502, #1541): separate, one-way
+   * checkboxes next to accept/reject. "funny" is the label set the blind
+   * vision test needs before it can become a point; "great" is the curation
+   * signal the pattern catalogue and the feedback pass read.
    */
-  const [funny, setFunny] = useState<{
-    busy: boolean;
-    tagged: boolean;
-    error: string;
-  }>({ busy: false, tagged: false, error: "" });
+  const [tags, setTags] = useState<TagUiState>(IDLE_TAG_STATE);
   const [loadError, setLoadError] = useState(false);
   /**
    * The mode the URL names (ticket #1223): null = frontpage, "daily" or
@@ -286,7 +305,7 @@ export function App() {
     setQuizDay(day);
     setMod(IDLE_MODERATION);
     setModFeedback("");
-    setFunny({ busy: false, tagged: false, error: "" });
+    setTags(IDLE_TAG_STATE);
     // An empty queue still enters a run state: the moderation mode shows the
     // pipeline buffer + Generate button there (#1202/#1210).
     setStatus(scenes.length === 0 ? "empty" : "playing");
@@ -429,7 +448,7 @@ export function App() {
     setAnnounce("");
     setMod(IDLE_MODERATION);
     setModFeedback("");
-    setFunny({ busy: false, tagged: false, error: "" });
+    setTags(IDLE_TAG_STATE);
   };
 
   /**
@@ -578,20 +597,29 @@ export function App() {
       : null;
 
   /**
-   * The optional "lustig" click (#1502): one-way tag, independent of the
-   * verdict. Compiled out of the production bundle like the moderation
-   * action above.
+   * A moderation tag click (#1502, #1541): one-way (a set tag stays set for
+   * the scene), independent of the verdict and of the other tag. Compiled
+   * out of the production bundle like the moderation action above.
    */
-  const postFunnyTagAction =
+  const postTagAction =
     process.env.NODE_ENV !== "production"
-      ? async () => {
-          if (!scene || funny.busy || funny.tagged) return;
-          setFunny({ busy: true, tagged: false, error: "" });
+      ? async (tag: ModerationTag) => {
+          if (!scene || tags[tag].busy || tags[tag].tagged) return;
+          setTags((prev) => ({
+            ...prev,
+            [tag]: { busy: true, tagged: false, error: "" },
+          }));
           try {
-            const tagged = await postFunnyTag(scene.id, true);
-            setFunny({ busy: false, tagged, error: "" });
+            await postTag(scene.id, tag, true);
+            setTags((prev) => ({
+              ...prev,
+              [tag]: { busy: false, tagged: true, error: "" },
+            }));
           } catch (err) {
-            setFunny({ busy: false, tagged: false, error: String(err) });
+            setTags((prev) => ({
+              ...prev,
+              [tag]: { busy: false, tagged: false, error: String(err) },
+            }));
           }
         }
       : null;
@@ -837,16 +865,26 @@ export function App() {
                 >
                   ✓ Accept
                 </button>
-                <button
-                  id="funny-btn"
-                  className="btn ghost"
-                  type="button"
-                  disabled={funny.busy || funny.tagged}
-                  title="Optional label: this scene is deliberately funny (ticket #1502)"
-                  onClick={() => void postFunnyTagAction?.()}
-                >
-                  {funny.tagged ? "😄 Lustig ✓" : "😄 Lustig"}
-                </button>
+                {TAGS.map(({ tag, label }) => (
+                  <label
+                    key={tag}
+                    className={`moderate-tag${tags[tag].tagged ? " active" : ""}`}
+                    title={
+                      tag === "funny"
+                        ? "Optional label: this scene is deliberately funny (ticket #1502)"
+                        : "Optional label: a scene worth keeping as a positive example (ticket #1541)"
+                    }
+                  >
+                    <input
+                      type="checkbox"
+                      checked={tags[tag].tagged}
+                      disabled={tags[tag].busy || tags[tag].tagged}
+                      onChange={() => void postTagAction?.(tag)}
+                      data-testid={`moderate-${tag}`}
+                    />
+                    {label}
+                  </label>
+                ))}
               </div>
               <p
                 id="moderate-status"
@@ -855,17 +893,22 @@ export function App() {
               >
                 {mod.status}
               </p>
-              {funny.tagged || funny.error ? (
-                <p
-                  id="funny-status"
-                  className="moderate-status"
-                  aria-live="polite"
-                >
-                  {funny.error
-                    ? `Lustig failed: ${funny.error}`
-                    : "😄 Lustig markiert."}
-                </p>
-              ) : null}
+              {TAGS.map(({ tag, label }) =>
+                tags[tag].busy || tags[tag].tagged || tags[tag].error ? (
+                  <p
+                    key={tag}
+                    id={`${tag}-status`}
+                    className="moderate-status"
+                    aria-live="polite"
+                  >
+                    {tags[tag].error
+                      ? `${label} failed: ${tags[tag].error}`
+                      : tags[tag].busy
+                        ? `${label} saving…`
+                        : `${label} marked.`}
+                  </p>
+                ) : null,
+              )}
             </div>
           ) : null}
         </div>

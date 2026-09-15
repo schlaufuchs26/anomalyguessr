@@ -322,6 +322,41 @@ class PatternCountsTest(TempDataMixin, unittest.TestCase):
                                 "rate": 1.0, "last": "2026-09-15"}}
         self.assertEqual(fb.pattern_change_rows(counts, patterns), [])
 
+    def test_great_marks_are_counted_next_to_the_verdicts(self):
+        scenes, record = outboard_fixture()
+        record["great"] = {"o0": "2026-09-15T08:00:00Z"}
+        counts = fb.pattern_count_rows(scenes, record, self.patterns,
+                                       today=TODAY)
+        row = counts["carrier-missing"]
+        self.assertEqual(row["great"], 1)
+        self.assertEqual(row["greatScenes"], ["o0"])
+        self.assertEqual(row["greatRate"], round(1 / 11, 3))
+
+    def test_a_great_mark_outside_the_window_is_not_counted(self):
+        scenes, record = outboard_fixture()
+        record["great"] = {"o0": "2026-08-01T08:00:00Z"}
+        counts = fb.pattern_count_rows(scenes, record, self.patterns,
+                                       today=TODAY)
+        self.assertEqual(counts["carrier-missing"]["great"], 0)
+
+    def test_a_great_backed_pattern_is_promoted_on_a_lower_bar(self):
+        patterns = [{"id": "candidate", "kind": "positive",
+                     "status": ap.STATUS_OBSERVE, "matches": ["jet ski"]}]
+        backed = {"candidate": {"accepted": 2, "rejected": 3, "decided": 5,
+                                "rate": 0.4, "great": 2, "greatRate": 0.4,
+                                "last": "2026-09-15"}}
+        changes = fb.pattern_change_rows(backed, patterns)
+        self.assertEqual(changes[0]["proposal"], "promote to active")
+        self.assertIn("2 great", changes[0]["reason"])
+
+    def test_without_great_backing_the_same_record_is_no_proposal(self):
+        patterns = [{"id": "candidate", "kind": "positive",
+                     "status": ap.STATUS_OBSERVE, "matches": ["jet ski"]}]
+        plain = {"candidate": {"accepted": 2, "rejected": 3, "decided": 5,
+                               "rate": 0.4, "great": 0, "greatRate": 0.0,
+                               "last": "2026-09-15"}}
+        self.assertEqual(fb.pattern_change_rows(plain, patterns), [])
+
     def test_run_writes_the_pattern_counts_file(self):
         scenes, record = outboard_fixture()
         self.write(scenes, record)

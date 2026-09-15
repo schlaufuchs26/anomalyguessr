@@ -12,6 +12,7 @@ import {
   type TDScene,
 } from "./api";
 import { SceneHandle } from "./SceneHandle";
+import { TagToggles } from "./TagToggles";
 import { TracePanel } from "./TracePanel";
 
 type ImgTab = "edited" | "original" | "audit";
@@ -224,6 +225,7 @@ export function SceneModal({
               </div>
             ) : null}
           </dl>
+          <TagToggles scene={scene} className="td-modal-tags" />
           <TracePanel
             sceneId={scene.id}
             shortId={scene.shortId}

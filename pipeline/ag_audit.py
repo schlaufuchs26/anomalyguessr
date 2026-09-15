@@ -17,9 +17,10 @@ Answers three questions from the recorded queue, no model calls:
 4. **Does the soft-point count separate?** (#1502) The best points threshold
    against Evan's verdicts, the "all soft criteria met" agreement, and the
    constant-answer baselines on the same subset.
-5. **How are the "lustig" labels doing?** (#1502) How many scenes carry the
-   tag, the base rate, and whether a blind vision test has earned it a place
-   as a point yet.
+5. **How are the two labels doing?** (#1502, #1541) How many scenes carry
+   the "funny" tag, the base rate, and whether a blind vision test has earned
+   it a place as a point yet; and how many carry the "great" curation tag,
+   with the handles of the marked scenes.
 6. **Is the source pool spread?** (#1533) The repository and decade shares
    of the pool and of its unused part, so a Gallery that keeps showing the
    same archive and the same twenty years is visible in the audit, not only
@@ -325,22 +326,57 @@ FUNNY_MIN_MARKS = 50
 FUNNY_MIN_LIFT = 0.20
 
 
-def funny_labels(feedback: dict) -> dict:
-    """The "lustig" label set in feedback.json (#1502).
+def scene_handles(scenes, ids) -> dict:
+    """Map every marked scene id to the short handle a human reads (#1541).
+
+    A scene that is gone or never got a handle falls back to its long id, so
+    the audit names the marked scenes instead of only counting them.
+    """
+    out = {}
+    for sid in ids:
+        scene = (scenes or {}).get(sid) or {}
+        handle = str(scene.get("shortId") or "").strip()
+        out[str(sid)] = handle or str(sid)
+    return out
+
+
+def tag_labels(feedback: dict, name: str, scenes=None) -> dict:
+    """One moderation tag's label set (#1502 "funny", #1541 "great").
 
     ``tagged`` is how many scenes carry the label, ``judged`` how many scenes
     have a moderation verdict at all, and ``base_rate`` the share that is
-    tagged: the rate a blind vision model has to beat before "funny" can
-    become a point.
+    tagged: for "funny" the rate a blind vision model has to beat before the
+    label can become a point. "great" needs no such test; it is a curation
+    signal.
     """
-    funny = feedback.get("funny") or {}
+    marks = feedback.get(name) or {}
     judged = (set(feedback.get("accepted", {}))
               | set(feedback.get("rejected", {}))
               | set(feedback.get("excluded", {})))
-    tagged = len(funny)
+    tagged = len(marks)
     return {"tagged": tagged, "judged": len(judged),
             "base_rate": round(tagged / len(judged), 3) if judged else None,
-            "per_scene": dict(funny)}
+            "per_scene": dict(marks),
+            "handles": scene_handles(scenes, marks)}
+
+
+def funny_labels(feedback: dict, scenes=None) -> dict:
+    """The "funny" label set (#1502); see ``tag_labels``."""
+    return tag_labels(feedback, "funny", scenes)
+
+
+def great_labels(feedback: dict, scenes=None) -> dict:
+    """The "great" curation label set (#1541); see ``tag_labels``."""
+    return tag_labels(feedback, "great", scenes)
+
+
+def _handle_list(handles, cap: int = 8) -> str:
+    """The marked scenes' handles for one report line, capped."""
+    names = sorted(str(h) for h in (handles or {}).values())
+    if not names:
+        return "none"
+    shown = ", ".join(names[:cap])
+    return shown if len(names) <= cap else f"{shown} +{len(names) - cap}"
 
 
 def funny_verdict(tagged: int, hit_rate, base_rate,
@@ -412,7 +448,9 @@ def source_spread(data_dir: Path) -> dict:
 def audit(data_dir: Path) -> dict:
     state = ag_queue.load_state(data_dir)
     feedback = ag_queue.load_feedback(data_dir)
-    funny = funny_labels(feedback)
+    scenes = state.get("scenes") or {}
+    funny = funny_labels(feedback, scenes)
+    great = great_labels(feedback, scenes)
     return {"data": str(data_dir), "scene_counts": scene_counts(state),
             "sources": source_spread(data_dir),
             "classes": classify_rejections(feedback, state),
@@ -421,6 +459,7 @@ def audit(data_dir: Path) -> dict:
             "points": points_agreement(state, feedback),
             "funny": {**funny,
                       "verdict": funny_verdict(funny["tagged"], None, None)},
+            "great": great,
             "by_day": acceptance_by_day(feedback)}
 
 
@@ -448,6 +487,7 @@ def format_report(report: dict) -> str:
                           in list(src["repositories"].items())[:4])
     src_decades = ", ".join(f"{k} {v['count']}" for k, v
                             in list(src["decades"].items())[:6])
+    great = report["great"]
     lines += [
         f"sources (#1533): {src['total']} in the pool ({src['unused']['total']}"
         f" unused), repositories: {src_repos}",
@@ -474,6 +514,9 @@ def format_report(report: dict) -> str:
         f"{funny['judged']} judged (base rate {funny['base_rate']}), "
         f"{funny['verdict']['reason']}; "
         f"is a point: {funny['verdict']['is_a_point']}",
+        f"great labels (#1541): {great['tagged']} tagged of "
+        f"{great['judged']} judged ({_handle_list(great['handles'])}); "
+        "curation signal, no model test",
         "acceptance by day:",
     ]
     for day, cell in report["by_day"].items():

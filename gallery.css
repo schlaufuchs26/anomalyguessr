@@ -381,10 +381,49 @@ body {
   color: #78aaf0;
 }
 
-/* The optional "lustig" moderation tag (#1502). */
+/* The two optional moderation tags (#1502, #1541): a chip on the card, and
+   the checkbox toggles shared by the card and the lightbox. */
 .td-chip-funny {
   background: rgba(200, 150, 230, 0.16);
   color: #c896e6;
+}
+
+.td-chip-great {
+  background: rgba(240, 200, 120, 0.16);
+  color: #f0c878;
+}
+
+.td-tags {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.td-tag {
+  align-items: center;
+  display: inline-flex;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.td-tag.active {
+  color: #c896e6;
+}
+
+.td-tag input:disabled {
+  cursor: default;
+}
+
+.td-tag-error {
+  color: #e66e5a;
+}
+
+.td-modal-tags {
+  border-top: 1px solid var(--border);
+  margin-top: 0.8em;
+  padding-top: 0.8em;
 }
 
 /* Hard mechanical defects (#1502): a warning line under the chips. Points
@@ -395,38 +434,9 @@ body {
   color: #e66e5a;
 }
 
-/* The "lustig" toggle in the card actions (#1502). */
-.td-funny {
-  font-family: var(--font);
-  font-size: 12px;
-  padding: 5px 10px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  cursor: pointer;
-  color: var(--text-secondary);
-  background: rgba(255, 255, 255, 0.04);
-  transition:
-    border-color 0.15s,
-    color 0.15s;
-}
-
-.td-funny:hover:not(:disabled) {
-  border-color: #c896e6;
-  color: #c896e6;
-}
-
-.td-funny.active {
-  border-color: #c896e6;
-  color: #c896e6;
-  background: rgba(200, 150, 230, 0.16);
-}
-
-.td-funny:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
+/* The reject/restore button in the card actions. */
 .td-card-actions {
+  align-items: center;
   display: flex;
   gap: 6px;
 }

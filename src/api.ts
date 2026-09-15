@@ -37,9 +37,32 @@ function moderationUrl(sceneId: string): string {
   return `/anomalyguessr/api/scenes/${sceneId}/moderate`;
 }
 
-/** The optional "lustig" tag endpoint (#1502). */
-function funnyUrl(sceneId: string): string {
-  return `/anomalyguessr/api/scenes/${sceneId}/funny`;
+/** The two optional moderation tags a scene can carry (tickets #1502, #1541). */
+export type ModerationTag = "funny" | "great";
+
+/** Endpoint of one optional moderation tag (tickets #1502, #1541). */
+function tagUrl(sceneId: string, tag: ModerationTag): string {
+  return `/anomalyguessr/api/scenes/${sceneId}/${tag}`;
+}
+
+/**
+ * POST one of the optional moderation tags (dev instance only, tickets
+ * #1502/#1541); returns the server's resulting state. Each tag is
+ * independent of the accept/reject verdict and of the other tag.
+ */
+export async function postTag(
+  sceneId: string,
+  tag: ModerationTag,
+  value: boolean,
+): Promise<boolean> {
+  const res = await fetch(tagUrl(sceneId, tag), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tag: value }),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const body = (await res.json()) as Record<string, unknown>;
+  return body[tag] === true;
 }
 
 /** Manifest JSON as served: a v1/v2 manifest plus the queue API's flag. */
@@ -112,24 +135,6 @@ export async function postModeration(
     body: JSON.stringify({ action, feedback }),
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-}
-
-/**
- * POST the optional "lustig" tag (dev instance only, ticket #1502); returns
- * the server's resulting state. Independent of the accept/reject verdict.
- */
-export async function postFunny(
-  sceneId: string,
-  tag: boolean,
-): Promise<boolean> {
-  const res = await fetch(funnyUrl(sceneId), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ tag }),
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const body = (await res.json()) as { funny?: boolean };
-  return body.funny === true;
 }
 
 /** Dev queue generation, on demand (ticket #1210). */

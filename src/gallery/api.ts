@@ -118,6 +118,10 @@ export interface TDScene {
   funny: boolean;
   /** When the tag was set, when it is (RFC3339). */
   funnyAt?: string | null;
+  /** The optional "great" curation tag (ticket #1541). */
+  great: boolean;
+  /** When the tag was set, when it is (RFC3339). */
+  greatAt?: string | null;
   images: TDSceneImages;
 }
 export interface TDList {

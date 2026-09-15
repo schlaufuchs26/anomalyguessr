@@ -123,12 +123,22 @@ export interface FeedbackFile {
   accepted: Record<string, string>;
   comments: Record<string, Comment[]>;
   /**
-   * The optional "lustig" moderation tag (ticket #1502): scene id -> RFC3339
+   * The optional "funny" moderation tag (ticket #1502): scene id -> RFC3339
    * timestamp. The labelled set the blind vision test needs before "funny"
    * can become a point. Independent of the accept/reject verdict.
    */
   funny?: Record<string, string>;
+  /**
+   * The optional "great" moderation tag (ticket #1541): scene id -> RFC3339
+   * timestamp. No model test: it is the curation signal the pattern
+   * catalogue and the nightly feedback pass read as a positive example.
+   */
+  great?: Record<string, string>;
 }
+
+/** The two moderation tags a scene can carry beside its verdict. */
+export const MODERATION_TAGS = ["funny", "great"] as const;
+export type ModerationTag = (typeof MODERATION_TAGS)[number];
 
 export type Moderation = "accepted" | "rejected" | "unmoderated";
 

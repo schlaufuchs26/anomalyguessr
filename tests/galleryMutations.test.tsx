@@ -165,8 +165,8 @@ describe("AnomalyGuessrGalleryPage mutations", () => {
     expect(postedBody).toBe("can too big");
   });
 
-  test("points counter, defect warning and funny tag render and toggle (#1502)", async () => {
-    let postedBody: unknown = null;
+  test("points counter, defect warning and both tag checkboxes render and toggle (#1502/#1541)", async () => {
+    const posted: { url: string; body: unknown }[] = [];
     const scene = makeScene({
       id: "p1",
       title: "Points Scene",
@@ -188,11 +188,9 @@ describe("AnomalyGuessrGalleryPage mutations", () => {
           status: 200,
         });
       }
-      if (url.endsWith("/p1/funny")) {
-        postedBody = JSON.parse(String(init?.body));
-        return new Response(JSON.stringify({ id: "p1", funny: false }), {
-          status: 200,
-        });
+      if (url.endsWith("/p1/funny") || url.endsWith("/p1/great")) {
+        posted.push({ url, body: JSON.parse(String(init?.body)) });
+        return new Response(JSON.stringify({ id: "p1" }), { status: 200 });
       }
       return new Response("not found", { status: 404 });
     }) as unknown as typeof fetch;
@@ -205,9 +203,22 @@ describe("AnomalyGuessrGalleryPage mutations", () => {
     expect(screen.getByTestId("td-defects-p1").textContent).toContain(
       "element missing",
     );
+    // Only the set tag has a chip; both tags have a checkbox.
     expect(screen.getByTestId("td-funny-p1")).toBeInTheDocument();
+    expect(screen.queryByTestId("td-great-p1")).not.toBeInTheDocument();
+    expect(screen.getByTestId("td-funny-toggle-p1")).toBeChecked();
+    expect(screen.getByTestId("td-great-toggle-p1")).not.toBeChecked();
 
+    // A gallery visit happens after the decision: each tick is undoable and
+    // posts the state it moves to.
     fireEvent.click(screen.getByTestId("td-funny-toggle-p1"));
-    await waitFor(() => expect(postedBody).toEqual({ tag: false }));
+    await waitFor(() => expect(posted).toHaveLength(1));
+    expect(posted[0]?.url).toBe(agUrl("scenes/p1/funny"));
+    expect(posted[0]?.body).toEqual({ tag: false });
+
+    fireEvent.click(screen.getByTestId("td-great-toggle-p1"));
+    await waitFor(() => expect(posted).toHaveLength(2));
+    expect(posted[1]?.url).toBe(agUrl("scenes/p1/great"));
+    expect(posted[1]?.body).toEqual({ tag: true });
   });
 });

@@ -40,6 +40,7 @@ export class Store {
         accepted: {},
         comments: {},
         funny: {},
+        great: {},
       }),
     );
   }
@@ -90,6 +91,7 @@ export function normalizeFeedback(fb: FeedbackFile): FeedbackFile {
     accepted: fb.accepted ?? {},
     comments: fb.comments ?? {},
     funny: fb.funny ?? {},
+    great: fb.great ?? {},
   };
 }
 

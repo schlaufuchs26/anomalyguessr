@@ -211,5 +211,34 @@ class FunnyLabelsTest(unittest.TestCase):
         self.assertTrue(v["is_a_point"])
 
 
+class GreatLabelsTest(unittest.TestCase):
+    """Ticket #1541: the "great" curation label is reported like "funny"."""
+
+    def test_counts_and_handles(self):
+        feedback = {"accepted": {"a": "x", "b": "x"}, "rejected": {"c": "x"},
+                    "great": {"a": "2026-09-15T10:00:00Z"}}
+        scenes = {"a": {"shortId": "AG-7"}}
+        out = a.great_labels(feedback, scenes)
+        self.assertEqual(out["tagged"], 1)
+        self.assertEqual(out["judged"], 3)
+        self.assertEqual(out["handles"], {"a": "AG-7"})
+
+    def test_a_scene_without_a_handle_falls_back_to_its_id(self):
+        out = a.tag_labels({"great": {"gone": "x"}}, "great", {})
+        self.assertEqual(out["handles"], {"gone": "gone"})
+
+    def test_both_tags_are_tallied_from_their_own_field(self):
+        feedback = {"accepted": {"a": "x"},
+                    "funny": {"a": "x"}, "great": {"a": "x"}}
+        self.assertEqual(a.funny_labels(feedback)["tagged"], 1)
+        self.assertEqual(a.great_labels(feedback)["tagged"], 1)
+        self.assertEqual(a.great_labels({"funny": {"a": "x"}})["tagged"], 0)
+
+    def test_handle_list_is_capped(self):
+        line = a._handle_list({str(i): f"AG-{i}" for i in range(10)})
+        self.assertIn("+2", line)
+        self.assertEqual(a._handle_list({}), "none")
+
+
 if __name__ == "__main__":
     unittest.main()

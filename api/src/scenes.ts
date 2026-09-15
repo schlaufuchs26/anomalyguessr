@@ -58,11 +58,17 @@ export interface ApiScene {
    *  the lightbox draws it as a dashed "before". Never in the public
    *  manifest. */
   answerBefore?: { x: number; y: number; r: number };
-  /** The optional "lustig" moderation tag (ticket #1502); the gallery card
+  /** The optional "funny" moderation tag (ticket #1502); the gallery card
    *  shows it and can toggle it. */
   funny: boolean;
   /** When the tag was set, when it is (RFC3339). */
   funnyAt?: string;
+  /** The optional "great" curation tag (ticket #1541): no model test, it is
+   *  the positive-example source for the pattern catalogue and the nightly
+   *  feedback pass. */
+  great: boolean;
+  /** When the tag was set, when it is (RFC3339). */
+  greatAt?: string;
   images: { edited: string; original: string; audit?: string };
 }
 
@@ -215,6 +221,7 @@ export function sceneToApi(
     comments: fb.comments[id] ?? [],
     hasTrace: hasTrace(id),
     funny: id in (fb.funny ?? {}),
+    great: id in (fb.great ?? {}),
     images,
   };
   if (e.shortId !== undefined) out.shortId = e.shortId;
@@ -229,6 +236,8 @@ export function sceneToApi(
   if (e.answer_before !== undefined) out.answerBefore = e.answer_before;
   const funnyAt = fb.funny?.[id];
   if (funnyAt !== undefined) out.funnyAt = funnyAt;
+  const greatAt = fb.great?.[id];
+  if (greatAt !== undefined) out.greatAt = greatAt;
   if (rejectedAt !== undefined) out.rejectedAt = rejectedAt;
   return out;
 }

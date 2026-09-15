@@ -20,7 +20,7 @@ import {
   tracePath,
 } from "./scenes.ts";
 import type { Store } from "./store.ts";
-import { MAX_COMMENT, type Moderation } from "./types.ts";
+import { MAX_COMMENT, type Moderation, type ModerationTag } from "./types.ts";
 
 export interface Env {
   store: Store;
@@ -46,6 +46,11 @@ function notFound(): Response {
 
 function badRequest(msg: string): Response {
   return json({ error: msg }, 400);
+}
+
+/** Whether a path segment names one of the two moderation tags (#1541). */
+function isModerationTag(value: string | undefined): value is ModerationTag {
+  return value === "funny" || value === "great";
 }
 
 /** Handler shared by all routes; each returns a Response. */
@@ -314,12 +319,16 @@ export async function handle(
     return json({ comment });
   }
 
-  // POST /scenes/{id}/funny  (the optional "lustig" moderation tag, #1502)
+  // POST /scenes/{id}/funny | /great  (the optional moderation tags,
+  // #1502 and #1541). Same toggle semantics for both: a bodyless POST flips
+  // the mark, `{tag:true|false}` sets it, and each tag is independent of the
+  // accept/reject verdict and of the other tag.
+  const tag = segs[2];
   if (
     method === "POST" &&
     segs.length === 3 &&
     segs[0] === "scenes" &&
-    segs[2] === "funny"
+    isModerationTag(tag)
   ) {
     const id = await resolveSceneId(store, segs[1] ?? "");
     if (id === null) return notFound();
@@ -330,17 +339,16 @@ export async function handle(
       body = {};
     }
     const fb = await store.feedback();
-    const tagged = id in (fb.funny ?? {});
-    const next = typeof body.tag === "boolean" ? body.tag : !tagged;
-    const funny = fb.funny ?? {};
+    const marks = fb[tag] ?? {};
+    const next = typeof body.tag === "boolean" ? body.tag : !(id in marks);
     if (next) {
-      if (!(id in funny)) funny[id] = new Date().toISOString();
+      if (!(id in marks)) marks[id] = new Date().toISOString();
     } else {
-      delete funny[id];
+      delete marks[id];
     }
-    fb.funny = funny;
+    fb[tag] = marks;
     await store.saveFeedback(fb);
-    return json({ id, funny: next, funnyAt: funny[id] ?? null });
+    return json({ id, [tag]: next, [`${tag}At`]: marks[id] ?? null });
   }
 
   // POST /scenes/{id}/reject | /restore (and the moderate endpoint above)

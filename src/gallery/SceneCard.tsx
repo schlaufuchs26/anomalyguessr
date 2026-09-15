@@ -14,6 +14,7 @@ import {
   type TDScene,
 } from "./api";
 import { SceneHandle } from "./SceneHandle";
+import { TAGS, TagChip, TagToggles } from "./TagToggles";
 
 /** One queue scene card: edited image (opens the lightbox), provenance meta,
  *  moderation badge, an optional "Daily N" marker (#1208) and the
@@ -64,22 +65,6 @@ export function SceneCard({
       setError("");
       invalidate();
     },
-    onError: (e: Error) => setError(e.message),
-  });
-
-  // The optional "lustig" tag (ticket #1502): independent of accept/reject,
-  // one click. The label set the blind vision test needs later.
-  const setFunny = useMutation({
-    mutationFn: async (tag: boolean) => {
-      const res = await fetch(agUrl(`scenes/${scene.id}/funny`), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tag }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return res.json() as Promise<{ id: string; funny: boolean }>;
-    },
-    onSuccess: invalidate,
     onError: (e: Error) => setError(e.message),
   });
 
@@ -196,15 +181,15 @@ export function SceneCard({
               {points}
             </span>
           ) : null}
-          {scene.funny ? (
-            <span
-              className="td-chip td-chip-funny"
-              title="Marked as deliberately funny (ticket #1502)"
-              data-testid={`td-funny-${scene.id}`}
-            >
-              😄 lustig
-            </span>
-          ) : null}
+          {TAGS.map((t) => (
+            <TagChip
+              key={t.tag}
+              scene={scene}
+              tag={t.tag}
+              chip={t.chip}
+              title={t.title}
+            />
+          ))}
         </div>
         {defects.length > 0 ? (
           <p
@@ -217,20 +202,7 @@ export function SceneCard({
         ) : null}
 
         <div className="td-card-actions">
-          <button
-            type="button"
-            className={`td-funny${scene.funny ? " active" : ""}`}
-            onClick={() => setFunny.mutate(!scene.funny)}
-            disabled={setFunny.isPending}
-            title="Mark this scene as deliberately funny (optional label, ticket #1502)"
-            data-testid={`td-funny-toggle-${scene.id}`}
-          >
-            {setFunny.isPending
-              ? "…"
-              : scene.funny
-                ? "😄 Lustig ✓"
-                : "😄 Lustig"}
-          </button>
+          <TagToggles scene={scene} />
           {scene.rejected ? (
             <button
               type="button"
