@@ -190,6 +190,7 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
+from collections import Counter
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -2463,13 +2464,54 @@ def refused_labels(data_dir: Path, today=None,
 
 
 def select_sources(data_dir: Path, count: int, seed=None) -> list:
-    """Up to ``count`` random unused sources that have an image on disk."""
+    """Up to ``count`` unused sources with an image, spread by decade.
+
+    Ticket #1533: the pick keeps at most ``ag_sources.RUN_DECADE_CAP`` from
+    one decade and takes one per decade first, so an unused decade is
+    preferred, and a day cannot be five scenes from the same twenty years.
+    A run with several decades still draws from several repositories: the
+    repository cap applies whenever the pool holds more than one, but a pool
+    with a single reachable archive is not starved down to two scenes (the
+    report says so through ``spread_warning``).
+    """
     unused = [s for s in ag_sources.list_sources(data_dir, unused=True)
               if s.get("image")
               and (ag_sources.sources_dir(data_dir) / s["image"]).exists()]
     rng = random.Random(seed)
     rng.shuffle(unused)
-    return unused[:max(0, count)]
+    repos_available = len({ag_sources.entry_repository(s) for s in unused})
+    repo_cap = ag_sources.RUN_REPO_CAP if repos_available > 1 else count
+    picked, chosen = [], set()
+    repo_n, dec_n = Counter(), Counter()
+
+    def take(s):
+        chosen.add(s["id"])
+        repo_n[ag_sources.entry_repository(s)] += 1
+        dec_n[ag_sources.entry_decade(s)] += 1
+        picked.append(s)
+
+    # First pass: one per decade (an unused decade wins over a second scene
+    # from a decade already in the pick).
+    for s in unused:
+        if len(picked) >= count:
+            return picked
+        if ag_sources.entry_decade(s) in dec_n:
+            continue
+        if repo_n[ag_sources.entry_repository(s)] >= repo_cap:
+            continue
+        take(s)
+    # Second pass: fill the slots the caps still leave open.
+    for s in unused:
+        if len(picked) >= count:
+            break
+        if s["id"] in chosen:
+            continue
+        if repo_n[ag_sources.entry_repository(s)] >= repo_cap:
+            continue
+        if dec_n[ag_sources.entry_decade(s)] >= ag_sources.RUN_DECADE_CAP:
+            continue
+        take(s)
+    return picked
 
 
 def moderation_rate(data_dir: Path, last: int = 20) -> dict:
@@ -2575,7 +2617,7 @@ def _run(args, data_dir: Path, lock) -> dict:
 
     if args.top_up and not args.dry_run:
         try:
-            report["topup"] = ag_sources.top_up(
+            report["topup"] = ag_sources.refresh_pool(
                 data_dir, target=args.topup_target, batch=args.topup_batch,
                 max_calls=args.topup_max_calls, date=date,
                 log=lambda m: print(m, file=sys.stderr))
@@ -2594,6 +2636,13 @@ def _run(args, data_dir: Path, lock) -> dict:
                              f"wanted {args.count} scenes "
                              "(run pipeline/ag_sources.py top-up)")
     report["planned"] = len(picked)
+    # Ticket #1533: what the pick is spread over, and a note when it is thin
+    # (one repository or fewer than three decades), so a run cannot ship five
+    # pictures of the same place and time silently.
+    report["spread"] = ag_sources.spread_report(picked)
+    spread_note = ag_sources.spread_warning(report["spread"])
+    if spread_note:
+        report["spread"]["warning"] = spread_note
     recent = recent_labels(data_dir, datetime.date.fromisoformat(date))
     # Ticket #1439: elements the provider refused keep out of the proposal
     # pool for the repeat window, so a refusal is not re-proposed next run.

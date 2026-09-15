@@ -20,6 +20,10 @@ Answers three questions from the recorded queue, no model calls:
 5. **How are the "lustig" labels doing?** (#1502) How many scenes carry the
    tag, the base rate, and whether a blind vision test has earned it a place
    as a point yet.
+6. **Is the source pool spread?** (#1533) The repository and decade shares
+   of the pool and of its unused part, so a Gallery that keeps showing the
+   same archive and the same twenty years is visible in the audit, not only
+   in the gallery.
 
 The presence check needs an API key and is opt-in (``--presence N``); the
 tone check runs offline on the library images. Neither writes to the queue.
@@ -43,6 +47,7 @@ if str(SCRIPT_DIR) not in sys.path:
 
 import ag_checks  # noqa: E402
 import ag_queue  # noqa: E402
+import ag_sources  # noqa: E402
 
 # The pipeline's own moderation notes ("Click area re-located onto the
 # anomaly (worker, ticket #1285)") are audit trail, not Evan's reason; they
@@ -388,11 +393,28 @@ def scene_counts(state: dict) -> dict:
     return {"scenes": len(scenes), "with_checker": with_checker}
 
 
+def source_spread(data_dir: Path) -> dict:
+    """Repository and decade shares of the source pool (ticket #1533).
+
+    The pool is what the daily run draws from, so a skew here is the cause of
+    a skewed gallery: the report carries the shares of the whole pool and of
+    the unused part (what selection actually sees) plus whether the unused
+    part is spread (no repository or decade over a third).
+    """
+    entries = ag_sources.list_sources(data_dir)
+    unused = [e for e in entries if not e.get("used")]
+    report = ag_sources.spread_report(entries)
+    report["unused"] = ag_sources.spread_report(unused)
+    report["unused_spread_ok"] = ag_sources.pool_spread_ok(unused)
+    return report
+
+
 def audit(data_dir: Path) -> dict:
     state = ag_queue.load_state(data_dir)
     feedback = ag_queue.load_feedback(data_dir)
     funny = funny_labels(feedback)
     return {"data": str(data_dir), "scene_counts": scene_counts(state),
+            "sources": source_spread(data_dir),
             "classes": classify_rejections(feedback, state),
             "rubric": rubric_agreement(state, feedback),
             "with_tone": mechanical_agreement(state, feedback, data_dir),
@@ -421,7 +443,16 @@ def format_report(report: dict) -> str:
     rubric, tone = report["rubric"], report["with_tone"]
     points = report["points"]
     funny = report["funny"]
+    src = report["sources"]
+    src_repos = ", ".join(f"{k} {v['count']}" for k, v
+                          in list(src["repositories"].items())[:4])
+    src_decades = ", ".join(f"{k} {v['count']}" for k, v
+                            in list(src["decades"].items())[:6])
     lines += [
+        f"sources (#1533): {src['total']} in the pool ({src['unused']['total']}"
+        f" unused), repositories: {src_repos}",
+        f"  decades: {src_decades}; unused spread ok: "
+        f"{src['unused_spread_ok']}",
         f"rubric: judged {rubric['judged']}, agreement "
         f"{rubric['agreement']}, false green {rubric['false_green']} "
         f"(clean verdict, rejected), false red {rubric['false_red']} "

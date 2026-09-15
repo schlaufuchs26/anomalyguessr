@@ -156,13 +156,15 @@ class BornDigitalTest(unittest.TestCase):
         for good, want in (("2013-10-24 15:02:48", 2013),
                            ("1900-01-20", 1900),
                            ("1900", 1900),
-                           ("2009-05", 2009),
-                           ("1900 date QS:P571,+1900-00-00T00:00:00Z/9", 1900)):
+                           ("2009-05", 2009)):
             self.assertEqual(s.single_year(good), want, good)
         for bad in ("", None, "1907?", "1900s", "19th century", "circa 1900",
                     "[ca. 1900]", "about 1900", "1890-1900", "1820–50",
                     "1903/19uu", "between 1890 and 1900", "1900 or 1901",
-                    "early 1900s"):
+                    "early 1900s",
+                    # #1533: the Commons pattypan/Wikidata wrapper is not an
+                    # assertion; it used to read as exactly 1900.
+                    "1900 date QS:P571,+1900-00-00T00:00:00Z/9"):
             self.assertIsNone(s.single_year(bad), bad)
 
     def test_source_year_prefers_exif_then_structured(self):
@@ -198,10 +200,18 @@ class MetadataDateTest(unittest.TestCase):
         self.assertEqual(s.metadata_date("2013-10-24 15:02:48", "2014-01-01"),
                          "2013-10-24")
 
-    def test_wikidata_wrapper_reduced_to_year(self):
+    def test_wikidata_wrapper_is_not_a_date(self):
+        # #1533: "1900 date QS:P571,+1900-00-00T00:00:00Z/9" is a pattypan
+        # marker whose hidden P571 statement is not the photo's year; it used
+        # to normalize to "1900" and anchor the item there.
         self.assertEqual(
             s.metadata_date("1900 date QS:P571,+1900-00-00T00:00:00Z/9", ""),
-            "1900")
+            "")
+        # A real timestamp after a wrapper still wins.
+        self.assertEqual(
+            s.metadata_date("1900 date QS:P571,+1900-00-00T00:00:00Z/9",
+                            "2013-10-24 15:02:48"),
+            "2013-10-24")
 
     def test_empty_when_nothing(self):
         self.assertEqual(s.metadata_date("", None), "")
@@ -624,6 +634,19 @@ class SelectCandidatesTest(unittest.TestCase):
         self.assertEqual(res["quality_rejected"], 1)
         self.assertEqual(res["year_rejected"], 1)
 
+    def test_commons_placeholder_date_is_no_year(self):
+        # #1533: the pattypan/Wikidata wrapper ("1900 date QS:P571,...") is
+        # not an assertion of the photo's year; it used to read as 1900.
+        raw = stub_raw("Street scene 1900",
+                       born='1900<div style="display: none;">date QS:P571,'
+                            '+1900-00-00T00:00:00Z/9</div>')
+        entry = s.CommonsAdapter().normalize(raw)
+        self.assertIsNone(entry["year"])
+        self.assertEqual(entry["date"], "")
+        self.assertIn("year", s.entry_reject_reason(entry))
+        res = s.select_candidates([raw], s.CommonsAdapter())
+        self.assertEqual(res["year_rejected"], 1)
+
     def test_exclude_born_digital_flag(self):
         adapter = StubCatalogAdapter(catalog_entry(
             raw={"dateTimeOriginal": "2019-06-09"}))
@@ -708,24 +731,47 @@ class GallicaTest(unittest.TestCase):
                          f"{s.GALLICA_IIIF}/abc/f1/full/900,/0/native.jpg")
         self.assertIn("/full/full/", s.gallica_image_url("abc", 0))
 
-    def test_walk_advances_through_the_query_list(self):
+    def test_walk_rotates_through_the_query_list(self):
+        # #1533: the walk used to drain the first query (Agence Rol,
+        # 1908-1914) forever, which is why the whole pool was one archive and
+        # two decades. It now takes one page per query in rotation.
         adapter = s.GallicaAdapter()
         seen = []
 
         def fake_sru(query, limit, start):
             seen.append((query, start))
-            if "presse" in query:
-                return [{"ark": f"a{i}", "dates": ["1910"]} for i in range(limit)], 100
+            if query == s.GALLICA_WALK_QUERIES[0]:
+                return [{"ark": f"a{start + i}", "dates": ["1910"]}
+                        for i in range(limit)], 100
             return [], 0
 
+        old_size = s.gallica_size
         adapter._sru = fake_sru
         s.gallica_size = lambda ark: (2000, 1500)  # no network
         try:
             raws, cursor = adapter.walk_batch(2, None)
             self.assertEqual(len(raws), 2)
-            self.assertEqual(cursor, {"query": 0, "start": 3})
+            # One page from the first query, then the walk moves on, so the
+            # next call samples a different collection.
+            self.assertEqual(cursor["query"], 1)
+            self.assertEqual(cursor["starts"], {"0": 3})
+            raws2, _cursor2 = adapter.walk_batch(2, cursor)
+            self.assertEqual(len(raws2), 2)
+            self.assertIn(s.GALLICA_WALK_QUERIES[1], [q for q, _ in seen])
         finally:
-            pass
+            s.gallica_size = old_size
+
+    def test_walk_parks_queries_and_ends_when_all_are_done(self):
+        adapter = s.GallicaAdapter()
+        adapter._sru = lambda query, limit, start: ([], 0)
+        old_size = s.gallica_size
+        s.gallica_size = lambda ark: (2000, 1500)
+        try:
+            raws, cursor = adapter.walk_batch(2, None)
+            self.assertEqual(raws, [])
+            self.assertIsNone(cursor)
+        finally:
+            s.gallica_size = old_size
 
 
 class StubGallica(s.GallicaAdapter):
@@ -833,6 +879,168 @@ class TopUpTest(TempDirMixin, unittest.TestCase):
             del s.ADAPTERS["commons"]
         self.assertEqual(rep["added"], 0)
         self.assertEqual(rep["year_rejected"], 2)
+
+
+class StubWalkAdapter(s.SourceAdapter):
+    """A walk adapter whose pages come from memory (no network)."""
+
+    repo = "Stub"
+    repo_tag = "stub"
+    entries = []
+    calls = 0
+
+    def walk_batch(self, limit, cursor=None):
+        StubWalkAdapter.calls += 1
+        start = int(cursor or 0)
+        chunk = self.entries[start:start + limit]
+        nxt = str(start + len(chunk)) \
+            if start + len(chunk) < len(self.entries) else None
+        return chunk, nxt
+
+    def normalize(self, raw):
+        return dict(raw)
+
+    def download_url(self, raw):
+        return "https://example.org/img.jpg"
+
+
+class StubArchiveA(StubWalkAdapter):
+    repo = "Archive A"
+    repo_tag = "archa"
+    entries = []
+
+
+class StubArchiveB(StubWalkAdapter):
+    repo = "Archive B"
+    repo_tag = "archb"
+    entries = []
+
+
+class StubArchiveC(StubWalkAdapter):
+    repo = "Archive C"
+    repo_tag = "archc"
+    entries = []
+
+
+def walk_entry(title, year, repo="Gallica", **over):
+    """A normalized pool entry with a catalogue year (refresh fixtures)."""
+    entry = catalog_entry(year=year, year_raw=str(year), year_source="dc:date")
+    entry.update({"repository": repo, "originalTitle": title,
+                  "fileUrl": f"https://example.org/{title}", "date": str(year),
+                  "place": "", "description": ""})
+    entry["id"] = f"{repo.lower().replace(' ', '-')}-{title}"
+    entry.update(over)
+    return entry
+
+
+class SpreadTest(unittest.TestCase):
+    def test_cap_is_a_third_of_the_batch(self):
+        self.assertEqual(s.spread_cap(30), 10)
+        self.assertEqual(s.spread_cap(31), 11)
+        self.assertEqual(s.spread_cap(5), 2)
+        self.assertGreaterEqual(s.spread_cap(0), 1)
+
+    def test_report_counts_repositories_and_decades(self):
+        entries = [walk_entry("a", 1901), walk_entry("b", 1908, repo="Other"),
+                   walk_entry("c", 1922, repo="Other")]
+        rep = s.spread_report(entries)
+        self.assertEqual(rep["total"], 3)
+        self.assertEqual(rep["repositories"]["Gallica"]["count"], 1)
+        self.assertEqual(rep["repositories"]["Other"]["count"], 2)
+        self.assertEqual(rep["decades"][1900]["count"], 2)
+        self.assertEqual(rep["distinct_decades"], 2)
+
+    def test_pool_spread_ok_ignores_the_repo_cap_with_one_repository(self):
+        # One reachable archive: judging the repository share would starve
+        # the pool, so only the decades are held to the cap.
+        one_decade = [walk_entry(f"a{i}", 1901) for i in range(6)]
+        self.assertFalse(s.pool_spread_ok(one_decade))
+        spread = [walk_entry(f"b{i}", 1901 + 10 * i) for i in range(6)]
+        self.assertTrue(s.pool_spread_ok(spread))
+
+    def test_pool_spread_ok_enforces_the_repo_cap_with_several(self):
+        entries = [walk_entry(f"a{i}", 1901 + 10 * i,
+                              repo="A" if i < 4 else "B") for i in range(8)]
+        # 4 of 8 from one repository: over a third.
+        self.assertFalse(s.pool_spread_ok(entries))
+
+    def test_warning_names_the_thin_spread(self):
+        one_repo = s.spread_report([walk_entry("a", 1901),
+                                    walk_entry("b", 1911)])
+        self.assertIn("one repository", s.spread_warning(one_repo))
+        few = s.spread_report([walk_entry("a", 1901, repo="A"),
+                               walk_entry("b", 1911, repo="B")])
+        self.assertIn("2 decade(s)", s.spread_warning(few))
+        good = s.spread_report([walk_entry("a", 1901, repo="A"),
+                                walk_entry("b", 1911, repo="B"),
+                                walk_entry("c", 1921, repo="C")])
+        self.assertEqual(s.spread_warning(good), "")
+
+
+class RefreshPoolTest(TempDirMixin, unittest.TestCase):
+    def setUp(self):
+        super().setUp()
+        self._old_fetch = s._fetch_and_save
+        s._fetch_and_save = lambda url, target: (
+            target.parent.mkdir(parents=True, exist_ok=True),
+            target.write_bytes(b"img"), 3)[-1]
+        self._saved = dict(s.ADAPTERS)
+        StubWalkAdapter.calls = 0
+        for cls in (StubArchiveA, StubArchiveB, StubArchiveC):
+            cls.entries = [walk_entry(f"{cls.repo_tag}-{i}", 1901 + 10 * (i % 4),
+                                      repo=cls.repo) for i in range(12)]
+
+    def tearDown(self):
+        s.ADAPTERS.clear()
+        s.ADAPTERS.update(self._saved)
+        s._fetch_and_save = self._old_fetch
+        super().tearDown()
+
+    def _seed_skewed_pool(self):
+        # 9 of 10 entries one repository and one decade, like the live pool.
+        s.add_sources(self.data_dir,
+                      [walk_entry(f"old{i}", 1908) for i in range(9)]
+                      + [walk_entry("other", 1922, repo="Other Archive")],
+                      "2026-09-01")
+
+    def _register(self):
+        s.ADAPTERS["a"] = StubArchiveA
+        s.ADAPTERS["b"] = StubArchiveB
+        s.ADAPTERS["c"] = StubArchiveC
+
+    def test_refresh_spreads_the_added_batch(self):
+        # #1533: a skewed pool refills into a batch with at most a third per
+        # repository and per decade, instead of a dump of the same archive
+        # and the same twenty years.
+        self._seed_skewed_pool()
+        self._register()
+        rep = s.refresh_pool(self.data_dir, target=9, batch=20, max_calls=8,
+                             sources=["a", "b", "c"])
+        self.assertEqual(rep["cap"], 3)
+        self.assertEqual(rep["added"], 9)
+        for bucket in ("repositories", "decades"):
+            for name, cell in rep["batch_spread"][bucket].items():
+                self.assertLessEqual(cell["count"], rep["cap"],
+                                     f"{bucket} {name}")
+        self.assertGreater(rep["capped"], 0)
+        self.assertEqual(rep["spread"]["total"], 19)
+
+    def test_refresh_stops_when_the_pool_is_healthy_and_spread(self):
+        self._register()
+        s.add_sources(self.data_dir,
+                      [walk_entry(f"w{i}", 1901 + 10 * i) for i in range(9)],
+                      "2026-09-01")
+        rep = s.refresh_pool(self.data_dir, target=9, batch=20, max_calls=8,
+                             sources=["a", "b", "c"])
+        self.assertEqual(rep["stopped"], "pool healthy and spread")
+        self.assertEqual(StubWalkAdapter.calls, 0)
+
+    def test_refresh_reports_an_unwalkable_source(self):
+        self._seed_skewed_pool()
+        rep = s.refresh_pool(self.data_dir, target=99, batch=2, max_calls=1,
+                             sources=["nope"])
+        self.assertEqual(rep["stopped"], "no walkable source")
+        self.assertTrue(rep["errors"])
 
 
 class ManualSeedTest(TempDirMixin, unittest.TestCase):

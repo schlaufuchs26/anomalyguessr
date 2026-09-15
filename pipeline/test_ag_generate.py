@@ -2659,6 +2659,20 @@ class RunTest(TempDataMixin, unittest.TestCase):
         report = g.run(self.make_args(count=3))
         self.assertIn("source pool low", report["warning"])
 
+    def test_report_says_when_the_spread_is_thin(self):
+        # #1533: a run from one repository (or one decade) says so instead of
+        # passing silently; the picked sources and their decades are in the
+        # report.
+        self.write_source()
+        g.propose_anomaly = stub_propose()
+        g.locate_anomaly = stub_locate()
+        g.check_scene = stub_check()
+        g.image_edit = lambda *a, **kw: img_bytes()
+        report = g.run(self.make_args(count=1))
+        self.assertEqual(report["spread"]["total"], 1)
+        self.assertIn("one repository", report["spread"]["warning"])
+        self.assertIn(1900, report["spread"]["decades"])
+
     def test_failure_message_names_the_failures(self):
         report = {"added": [], "failed": [{"id": "x", "reason": "boom"}],
                   "image_calls": 0}
@@ -2687,6 +2701,31 @@ class RunTest(TempDataMixin, unittest.TestCase):
         ag_sources.save_index(self.data_dir, index)
         picked = g.select_sources(self.data_dir, 10)
         self.assertEqual([s["id"] for s in picked], [SOURCE_ID])
+
+    def test_select_sources_spreads_the_pick_over_decades(self):
+        # #1533: a pool that is 90 % one archive and one decade still yields
+        # a pick with at most two scenes from that decade; a run cannot be
+        # five pictures of the same place and time.
+        for i in range(9):
+            self.write_source(src=source(
+                sid=f"commons-old-{i:02d}", title=f"Old street {i}",
+                date=f"190{8 + i % 2}-01-01"))
+        for i in range(3):
+            mid = source(sid=f"commons-mid-{i:02d}", title=f"Mid {i}",
+                         date="1922-01-01")
+            mid["repository"] = "Archive B"
+            self.write_source(src=mid)
+        for i in range(3):
+            young = source(sid=f"commons-young-{i:02d}", title=f"Young {i}",
+                           date="1941-01-01")
+            young["repository"] = "Archive C"
+            self.write_source(src=young)
+        picked = g.select_sources(self.data_dir, 5)
+        self.assertEqual(len(picked), 5)
+        decades = [ag_sources.entry_decade(s) for s in picked]
+        repos = [ag_sources.entry_repository(s) for s in picked]
+        self.assertLessEqual(max(decades.count(d) for d in set(decades)), 2)
+        self.assertLessEqual(max(repos.count(r) for r in set(repos)), 2)
 
 
 # ── Scene-time anchor (#1403) ──────────────────────────────────────────────

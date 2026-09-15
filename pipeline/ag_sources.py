@@ -26,6 +26,13 @@ the photo depicts with no room for error"):
   Titles and descriptions are never parsed for it.
 - **No era limit.** Any year is usable; the generator gets the year as a
   fact and never judges the era itself (#1430).
+- **A spread pool.** ``refresh_pool`` (what the daily generator calls) walks
+  the source queries round-robin and admits candidates only while their
+  repository and decade stay under roughly a third of the batch, so one
+  archive or one twenty-year window cannot fill the pool (#1533). The
+  reports print the repository and decade shares; ``ag_generate`` refuses to
+  ship a run whose five scenes come from one repository or fewer than three
+  decades without saying so.
 
 What this module owns: the pool itself (the index + downloaded images), the
 key filters, the used flag, and the walk that fills the pool. It does NOT
@@ -42,6 +49,7 @@ rule, backed up by scripts/backup.sh)::
 Commands::
 
     ag_sources.py --data DIR top-up [--source gallica] [--target 30]
+    ag_sources.py --data DIR refresh [--target 30] [--sources gallica]
     ag_sources.py --data DIR measure-years [--sample 200]      # Commons
     ag_sources.py --data DIR measure-inception [--sample 200]  # Commons
     ag_sources.py --data DIR status
@@ -321,12 +329,14 @@ def single_year(text) -> int | None:
     if (_DECADE_RE.search(s) or _CENTURY_RE.search(s)
             or _UNKNOWN_DIGITS_RE.search(s) or _UNCERTAIN_RE.search(s)):
         return None
-    # A Wikidata/Information-template wrapper ("1900 date QS:P571,+1900-00
-    # -00T00:00:00Z/9"): the QS year is the value. The zero month/day
-    # placeholders must not read as a range.
-    m = _QS_RE.search(s)
-    if m:
-        return int(m.group(1))
+    # A Commons pattypan/Wikidata wrapper ("1900 date QS:P571,+1900-00-00
+    # T00:00:00Z/9"): the hidden P571 statement is not an assertion of the
+    # photo's date. The SDC audit above found it either repeats the declared
+    # date or holds a plainly wrong year, so the value counts as unknown
+    # instead of anchoring the item at exactly its leading year (ticket
+    # #1533; scene AG-103 read "1900" this way).
+    if _QS_RE.search(s):
+        return None
     if _has_range(s):
         return None
     years = {int(m.group(1)) for m in _YEAR_RE.finditer(s)}
@@ -421,6 +431,84 @@ def year_provenance(entry: dict) -> tuple[int | None, str, str, str]:
                 str(entry["year_field"]), str(entry.get("year_source") or ""),
                 str(entry.get("year_raw") or ""))
     return file_page_year(entry)
+
+
+# ── Pool spread: repository and decade (ticket #1533) ──────────────────────
+#
+# The pool used to be one archive and one twenty-year window (Gallica's
+# Agence Rol, 1908-1914), so every run drew five scenes from the same corpus.
+# The spread rule keeps any one repository or decade to roughly a third of a
+# fresh pool (``refresh_pool``) and of a run's pick
+# (``ag_generate.select_sources``); ``spread_report`` prints the shares, so a
+# skew is a number in the report instead of a surprise in the gallery.
+
+SPREAD_PARTS = 3
+# A run of five scenes: at most this many from one repository or one decade,
+# so a day cannot be five pictures of the same place and time.
+RUN_REPO_CAP = 2
+RUN_DECADE_CAP = 2
+# Fewer distinct decades than this in a run (or all from one repository) is
+# reported, not silently shipped.
+RUN_MIN_DECADES = 3
+
+
+def spread_cap(total: int, parts: int = SPREAD_PARTS) -> int:
+    """The per-bucket cap for a batch of ``total`` entries (ceil(total/parts))."""
+    return max(1, -(-max(0, int(total)) // max(1, int(parts))))
+
+
+def entry_decade(entry: dict) -> int | None:
+    """The decade of a pool entry's catalogue year, None when it has none."""
+    year, _field = source_year(entry)
+    return None if year is None else (int(year) // 10) * 10
+
+
+def entry_repository(entry: dict) -> str:
+    return str(entry.get("repository") or "unknown")
+
+
+def spread_counts(entries) -> dict:
+    """Repository and decade histograms over a list of entries."""
+    repos, decades = Counter(), Counter()
+    for e in entries:
+        repos[entry_repository(e)] += 1
+        decades[entry_decade(e)] += 1
+    return {"repositories": dict(repos), "decades": dict(decades)}
+
+
+def _spread_shares(counts: dict, total: int) -> dict:
+    return {k: {"count": v, "share": (round(v / total, 3) if total else None)}
+            for k, v in sorted(counts.items(), key=lambda kv: (-kv[1], str(kv[0])))}
+
+
+def spread_report(entries) -> dict:
+    """Repository and decade shares of a pool or a pick, for the reports."""
+    entries = list(entries)
+    total = len(entries)
+    counts = spread_counts(entries)
+    return {"total": total,
+            "repositories": _spread_shares(counts["repositories"], total),
+            "decades": _spread_shares(counts["decades"], total),
+            "distinct_repositories": len(counts["repositories"]),
+            "distinct_decades": len(counts["decades"])}
+
+
+def spread_warning(report: dict) -> str:
+    """Why a pick's spread is thin, "" when it is mixed enough.
+
+    Ticket #1533: a run whose scenes come from one repository or from fewer
+    than ``RUN_MIN_DECADES`` decades says so in the report instead of passing
+    silently.
+    """
+    if not report.get("total"):
+        return ""
+    if report["distinct_repositories"] <= 1:
+        only = next(iter(report["repositories"]), "?")
+        return (f"all {report['total']} sources from one repository ({only})")
+    if report["distinct_decades"] < RUN_MIN_DECADES:
+        return (f"only {report['distinct_decades']} decade(s) across "
+                f"{report['total']} sources")
+    return ""
 
 
 # ── SDC P571 (inception): measured, not used (ticket #1418) ────────────────
@@ -714,16 +802,18 @@ def is_born_digital(entry: dict) -> bool:
 def metadata_date(original: str, fallback: str) -> str:
     """Plain date string from structured metadata values (no free text).
 
-    Wikidata-wrapped values (``1900 date QS:P571,+1900-00-00T00:00:00Z/9``)
-    are reduced to their year; a full EXIF timestamp keeps its date part.
+    A Commons pattypan/Wikidata wrapper (``1900 date QS:P571,+1900-00-00T00:
+    00:00Z/9``) carries no usable date: its hidden P571 statement is not the
+    photo's year, so it is skipped and the entry stays undated rather than
+    reading as exactly 1900 (ticket #1533). A full EXIF timestamp keeps its
+    date part.
     """
     for v in (original, fallback):
         s = _strip_html(str(v or ""))
         if not s:
             continue
-        m = _QS_RE.search(s)
-        if m:
-            return m.group(1)
+        if _QS_RE.search(s):
+            continue  # the wrapper is not an assertion (ticket #1533)
         m = re.match(r"(\d{4}-\d{2}-\d{2})", s)
         if m:
             return m.group(1)
@@ -1062,6 +1152,12 @@ GALLICA_PUBLIC_DOMAIN = ("domaine public", "public domain")
 # a top-up resumes where it stopped. Press photographs first: they are
 # landscape scene pictures (streets, markets, events) with a dated catalogue
 # entry, which is exactly what the game needs.
+#
+# The first three are the Agence Rol corpus (1908-1919). Ticket #1533: with
+# only those, every source was Rol and every year fell in two decades, so the
+# walk now interleaves subject queries with other date profiles (measured on
+# 2026-09-15: architecture 1705-1936, usine 1870-1931, chemin de fer
+# 1869-1922, marché 1908-1932, Agence Mondial 1932-1933).
 GALLICA_WALK_QUERIES = (
     'dc.type all "image" and dc.rights all "domaine public" and '
     'gallica all "photographie de presse"',
@@ -1069,6 +1165,16 @@ GALLICA_WALK_QUERIES = (
     'gallica all "photographie" and dc.subject all "Paris"',
     'dc.type all "image" and dc.rights all "domaine public" and '
     'gallica all "photographie" and dc.subject all "guerre"',
+    'dc.type all "image" and dc.rights all "domaine public" and '
+    'gallica all "photographie" and dc.subject all "architecture"',
+    'dc.type all "image" and dc.rights all "domaine public" and '
+    'gallica all "photographie" and dc.subject all "usine"',
+    'dc.type all "image" and dc.rights all "domaine public" and '
+    'gallica all "photographie" and dc.subject all "chemin de fer"',
+    'dc.type all "image" and dc.rights all "domaine public" and '
+    'gallica all "photographie" and dc.subject all "marché"',
+    'dc.type all "image" and dc.rights all "domaine public" and '
+    'gallica all "Agence Mondial"',
 )
 
 _GALLICA_ARK_RE = re.compile(r"ark:/12148/([a-z0-9]+)")
@@ -1176,31 +1282,53 @@ class GallicaAdapter(SourceAdapter):
     def walk_batch(self, limit: int, cursor=None) -> tuple:
         """One page of walk candidates with dimensions; (raws, next_cursor).
 
-        ``cursor`` is ``{"query": i, "start": n}`` (None starts at the top).
-        A query whose ``start`` passes its ``numberOfRecords`` moves the walk
-        to the next query; when the last query is exhausted the returned
-        cursor is None and the walk restarts on the next run. Dimensions come
-        from the IIIF ``info.json`` of each record's first page, one call per
-        candidate, because the cover page is what the game will show.
+        ``cursor`` is ``{"query": i, "starts": {...}, "parked": [...]}`` and
+        the walk visits the query list round-robin: one page from the current
+        query, then the next one on the following call, so a refresh samples
+        every collection instead of draining the first (ticket #1533: the
+        legacy cursor ``{"query": i, "start": n}`` sat in "photographie de
+        presse" forever, which is why the whole pool was Agence Rol). A query
+        is parked once its ``start`` passes its ``numberOfRecords``; when
+        every query is parked the returned cursor is None and the walk
+        restarts on the next run. Dimensions come from the IIIF ``info.json``
+        of each record's first page, one call per candidate, because the
+        cover page is what the game will show.
         """
         state = dict(cursor or {})
-        qi, start = int(state.get("query") or 0), int(state.get("start") or 1)
+        starts = {int(k): v for k, v in (state.get("starts") or {}).items()}
+        parked = {int(i) for i in (state.get("parked") or [])}
+        if not starts and state.get("query") is not None:
+            # Legacy cursor: resume the single query it named.
+            starts[int(state.get("query") or 0)] = int(state.get("start") or 1)
+        n = len(GALLICA_WALK_QUERIES)
+        qi = int(state.get("query") or 0) % n
         raws = []
-        while len(raws) < limit and qi < len(GALLICA_WALK_QUERIES):
-            query = GALLICA_WALK_QUERIES[qi]
-            recs, total = self._sru(query, limit - len(raws), start)
-            if not recs:
-                qi, start = qi + 1, 1
+        for _ in range(n):
+            if len(raws) >= limit:
+                break
+            if qi in parked:
+                qi = (qi + 1) % n
                 continue
-            start += len(recs)
-            for rec in recs:
-                rec["query"] = query
-                rec["width"], rec["height"] = gallica_size(rec.get("ark") or "")
-                raws.append(rec)
-            if start > total:
-                qi, start = qi + 1, 1
-        next_cursor = {"query": qi, "start": start} \
-            if qi < len(GALLICA_WALK_QUERIES) else None
+            query = GALLICA_WALK_QUERIES[qi]
+            start = int(starts.get(qi) or 1)
+            recs, total = self._sru(query, max(1, limit - len(raws)), start)
+            if recs:
+                new_start = start + len(recs)
+                starts[qi] = new_start
+                if total and new_start > total:
+                    parked.add(qi)
+                for rec in recs:
+                    rec["query"] = query
+                    rec["width"], rec["height"] = gallica_size(rec.get("ark") or "")
+                    raws.append(rec)
+            else:
+                parked.add(qi)
+            qi = (qi + 1) % n
+        next_cursor = None if len(parked) >= n else {
+            "query": qi,
+            "starts": {str(k): v for k, v in starts.items()},
+            "parked": sorted(parked),
+        }
         return raws, next_cursor
 
     def normalize(self, raw) -> dict | None:
@@ -1819,6 +1947,181 @@ def top_up(data_dir: Path, target: int = DEFAULT_TOPUP_TARGET,
     return report
 
 
+# ── Refresh: pool spread across sources and decades (ticket #1533) ─────────
+#
+# ``top_up`` walks one source; ``refresh_pool`` is what the daily generator
+# calls. It walks every source round-robin and admits a candidate only while
+# its repository and its decade stay under roughly a third of the batch, so
+# a refresh cannot pour one archive or one decade into the pool. The pool is
+# "healthy" only when it has ``target`` unused sources *and* no decade holds
+# more than a third of them; until then the refresh keeps drawing from the
+# under-represented buckets.
+#
+# Only Gallica is reachable from this host and passes the catalog-year gate
+# (#1430), so the repository cap is reported, not enforced, while one
+# repository is all there is: enforcing it would starve the pool. The decade
+# cap is enforced, and Gallica's subject queries above supply the decades.
+
+DEFAULT_REFRESH_SOURCES = ("gallica",)
+
+
+def pool_spread_ok(entries, parts: int = SPREAD_PARTS) -> bool:
+    """True when no repository or decade exceeds its share of ``entries``.
+
+    The repository test only applies once the pool holds more than one
+    repository: with one reachable archive there is nothing to mix.
+    """
+    entries = list(entries)
+    total = len(entries)
+    if not total:
+        return True
+    counts = spread_counts(entries)
+    cap = spread_cap(total, parts)
+    repo_ok = len(counts["repositories"]) <= 1 or all(
+        v <= cap for v in counts["repositories"].values())
+    return repo_ok and all(v <= cap for v in counts["decades"].values())
+
+
+class _Admission:
+    """Per-batch repository/decade cap while a refresh fills the pool."""
+
+    def __init__(self, cap: int, repo_cap: bool):
+        self.cap = cap
+        self.repo_cap = repo_cap
+        self.repos, self.decades = Counter(), Counter()
+
+    def admit(self, entry: dict) -> bool:
+        repo, decade = entry_repository(entry), entry_decade(entry)
+        if self.decades[decade] >= self.cap:
+            return False
+        if self.repo_cap and self.repos[repo] >= self.cap:
+            return False
+        self.repos[repo] += 1
+        self.decades[decade] += 1
+        return True
+
+
+def refresh_pool(data_dir: Path, target: int = DEFAULT_TOPUP_TARGET,
+                 batch: int = DEFAULT_TOPUP_BATCH, date: str | None = None,
+                 max_calls: int = DEFAULT_TOPUP_CALLS, log=None,
+                 sources=None, parts: int = SPREAD_PARTS) -> dict:
+    """Fill the pool with a spread across sources and decades (#1533).
+
+    Walks the sources round-robin (each keeps its own persisted cursor),
+    admits a candidate only while its repository and decade stay under
+    ``ceil(target/parts)`` additions, and stops when the unused pool reaches
+    ``target`` with no decade over a third of it. Returns a JSON-able report
+    with the pool's and the batch's repository/decade shares.
+    """
+    say = log or (lambda *a, **k: None)
+    date = date or _date_today()
+    source_names = tuple(sources or DEFAULT_REFRESH_SOURCES)
+    pruned = prune_invalid(data_dir)
+    if pruned["removed"]:
+        say(f"refresh: pruned {len(pruned['removed'])} entries failing the key filters")
+    before = status(data_dir)
+    unused = list_sources(data_dir, unused=True)
+    cap = spread_cap(target, parts)
+    repo_cap = len({entry_repository(s) for s in unused}) > 1
+    report = {"sources": list(source_names), "target": target, "parts": parts,
+              "cap": cap, "repo_cap": repo_cap, "before": before,
+              "added": 0, "skipped": 0, "refreshed": 0, "rejected": 0,
+              "quality_rejected": 0, "year_rejected": 0, "born_digital": 0,
+              "downloaded": 0, "calls": 0, "capped": 0,
+              "pruned": pruned["removed"], "errors": [], "failed": [],
+              "examples": [], "stopped": "", "per_source": {}}
+    if len(unused) >= target and pool_spread_ok(unused, parts):
+        report["stopped"] = "pool healthy and spread"
+        report["after"] = before
+        report["shortfall"] = 0
+        report["spread"] = spread_report(unused)
+        return report
+
+    walkers = {}
+    for name in source_names:
+        try:
+            adapter = get_adapter(name)
+        except ValueError as e:
+            report["errors"].append(str(e))
+            continue
+        if not hasattr(adapter, "walk_batch"):
+            report["errors"].append(f"backend {name!r} has no walk")
+            continue
+        walkers[name] = {"adapter": adapter,
+                         "cursor": _load_walk_state(data_dir, name),
+                         "done": False, "calls": 0, "added": 0}
+        report["per_source"][name] = {"calls": 0, "added": 0}
+    if not walkers:
+        report["stopped"] = "no walkable source"
+        report["after"] = before
+        report["shortfall"] = max(0, target - before["unused"])
+        report["spread"] = spread_report(unused)
+        return report
+
+    admission = _Admission(cap, repo_cap)
+    names = list(walkers)
+    idx = 0
+    while report["calls"] < max_calls:
+        if all(w["done"] for w in walkers.values()):
+            report["stopped"] = "sources exhausted"
+            break
+        name = names[idx % len(names)]
+        idx += 1
+        w = walkers[name]
+        if w["done"]:
+            continue
+        try:
+            raws, cursor = w["adapter"].walk_batch(batch, w["cursor"])
+        except Exception as e:  # noqa: BLE001 - a dead page must not stop the refresh
+            report["errors"].append(f"{name}: {e}")
+            w["done"] = True
+            continue
+        report["calls"] += 1
+        w["calls"] += 1
+        w["cursor"] = cursor
+        _save_walk_state(data_dir, name, cursor)
+        if not cursor:
+            w["done"] = True
+        sel = select_candidates(raws, w["adapter"])
+        for k in ("rejected", "quality_rejected", "year_rejected",
+                  "born_digital"):
+            report[k] += sel[k]
+        pairs = []
+        for raw, norm in sel["pairs"]:
+            if admission.admit(norm):
+                pairs.append((raw, norm))
+            else:
+                report["capped"] += 1
+        if pairs:
+            res = _stage(data_dir, w["adapter"], pairs, date)
+            for k in ("added", "skipped", "refreshed", "downloaded"):
+                report[k] += res.get(k, 0)
+            w["added"] += res.get("added", 0)
+            report["per_source"][name]["added"] += res.get("added", 0)
+            report["failed"] += res.get("failed", [])
+            for _, norm in pairs[:max(0, 3 - len(report["examples"]))]:
+                report["examples"].append(norm.get("originalTitle", ""))
+        unused = list_sources(data_dir, unused=True)
+        if len(unused) >= target and pool_spread_ok(unused, parts):
+            report["stopped"] = "target reached and spread"
+            break
+    else:
+        report["stopped"] = report["stopped"] or "max calls reached"
+
+    after = status(data_dir)
+    unused = list_sources(data_dir, unused=True)
+    report["after"] = after
+    report["shortfall"] = max(0, target - after["unused"])
+    report["spread"] = spread_report(unused)
+    report["batch_spread"] = {
+        "repositories": _spread_shares(admission.repos, sum(admission.repos.values())),
+        "decades": _spread_shares(admission.decades, sum(admission.decades.values())),
+    }
+    for name, w in walkers.items():
+        report["per_source"][name] = {"calls": w["calls"], "added": w["added"]}
+    return report
+
+
 # ── Year measurement (ticket #1405) ────────────────────────────────────────
 
 def _decade(year: int) -> int:
@@ -1962,6 +2265,21 @@ def main(argv=None) -> int:
                     help=f"collection to walk (default {DEFAULT_TOPUP_SOURCE})")
     tu.add_argument("--date", default=None)
 
+    rf = sub.add_parser("refresh",
+                        help="fill the pool with a spread across sources and "
+                             "decades (ticket #1533)")
+    rf.add_argument("--target", type=int, default=DEFAULT_TOPUP_TARGET,
+                    help="unused sources to aim for")
+    rf.add_argument("--batch", type=int, default=DEFAULT_TOPUP_BATCH,
+                    help="candidates per page")
+    rf.add_argument("--max-calls", type=int, default=DEFAULT_TOPUP_CALLS,
+                    help="pages per run")
+    rf.add_argument("--sources", default=",".join(DEFAULT_REFRESH_SOURCES),
+                    help="comma-separated collections (round-robin)")
+    rf.add_argument("--parts", type=int, default=SPREAD_PARTS,
+                    help="per-bucket share (1/parts of the batch)")
+    rf.add_argument("--date", default=None)
+
     my = sub.add_parser("measure-years",
                         help="read-only year-filter audit (walk sample + pool)")
     my.add_argument("--sample", type=int, default=200, help="files to sample")
@@ -2001,6 +2319,14 @@ def main(argv=None) -> int:
         rep = top_up(data_dir, target=args.target, batch=args.batch, date=date,
                      max_calls=args.max_calls, source=args.source,
                      log=lambda m: print(m, file=sys.stderr))
+        print(json.dumps(rep, indent=2))
+        return 0
+    if args.cmd == "refresh":
+        names = [n.strip() for n in str(args.sources).split(",") if n.strip()]
+        rep = refresh_pool(data_dir, target=args.target, batch=args.batch,
+                           date=date, max_calls=args.max_calls,
+                           sources=names, parts=args.parts,
+                           log=lambda m: print(m, file=sys.stderr))
         print(json.dumps(rep, indent=2))
         return 0
     if args.cmd == "measure-years":
