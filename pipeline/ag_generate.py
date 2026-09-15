@@ -35,9 +35,12 @@ Per scene:
    or an element inherently too small to find. A finding spends one more
    proposal call naming the problem; a repeat that survives is kept and
    flagged for moderation.
-2. **Apply** (`image_edit`): one `google/gemini-2.5-flash-image` call that (#1447:
-   measured 42% cheaper and 24% faster than gemini-3.1-flash-image on six sources)
-   adds the anomaly. The generation prompt keeps the hard constraints (one
+2. **Apply** (`image_edit`): one image call that adds the anomaly. Default is
+   `google/gemini-3.1-flash-image` (Nano Banana 2, Evan 2026-09-15); the #1447
+   comparison had put `google/gemini-2.5-flash-image` in front (42% cheaper,
+   24% faster, higher scores on the six sources), so the switch back is a
+   deliberate quality-over-cost call, and re-measuring the two is open.
+   The generation prompt keeps the hard constraints (one
    dominant placement instruction, ONE numeric scale cap with a
    same-distance anchor, keep everything else, tone match, grain, no glow)
    and opens with a short, neutral purpose preamble (ticket #1439: this is a
@@ -210,7 +213,7 @@ import ag_verify  # noqa: E402
 # The three text/vision calls (proposal, coordinates, check) share one cheap
 # multimodal model; the image edit is the expensive call.
 MODEL = "deepseek/deepseek-v4.1-flash"
-IMAGE_MODEL = "google/gemini-2.5-flash-image"
+IMAGE_MODEL = "google/gemini-3.1-flash-image"
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 DEFAULT_IMAGE_SIZE = "1K"
 DEFAULT_MODEL_MAX_TOKENS = 900
