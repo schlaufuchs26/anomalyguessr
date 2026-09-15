@@ -32,6 +32,7 @@ Per scene:
    reworded label counts), a label the reviewer keeps rejecting (ticket
    #1537), an element that cannot sit in the scene's setting, an element
    whose host (an outboard motor's boat) is not in the source text (#1537),
+   an element that does not say what the photograph does (ticket #1540),
    or an element inherently too small to find. A finding spends one more
    proposal call naming the problem; a repeat that survives is kept and
    flagged for moderation.
@@ -303,6 +304,10 @@ REPEAT_LABEL_LIMIT = 15
 #   * a carrier requirement only proposes an element that needs a thing in
 #     the picture (an outboard motor needs a boat or water) when the source's
 #     own text names that thing.
+# Ticket #1540 adds Evan's rule that the element belongs to what the scene
+# does: the proposal names the photograph's activity first and only picks an
+# element from that activity, and when an element has its host in the frame
+# it must name that carrier too (a missing name is the one re-ask).
 # A final check that still fails a presentation requirement (subtlety, scale,
 # grain, identifiability) is a moderation-first finding; since #1476 the
 # same holds for a cue that stayed unreadable (9, "Anachronism visible").
@@ -621,7 +626,9 @@ def proposal_prompt(source: dict, recent=(), conflict=None, blocked=(),
     drops the shapes whose family keeps failing) and ``avoid_families``
     names the families the reviewer rejects. Ticket #1539: ``patterns`` is
     the anomaly-pattern catalogue; its active patterns become the capped
-    "this works / this fails" guidance before the style examples.
+    "this works / this fails" guidance before the style examples. Ticket
+    #1540: the element comes from the photograph's activity, so the answer
+    names the activity first (Evan's WD-40-next-to-an-engine rule).
     """
     year, field = ag_sources.source_year(source)
     _y, _f, year_source, year_raw = ag_sources.year_provenance(source)
@@ -656,6 +663,13 @@ def proposal_prompt(source: dict, recent=(), conflict=None, blocked=(),
         'there. A modification is welcome: describe it as adding a small '
         'object that sits on that surface ("a small sticker that sits on '
         'the sign"), never as modifying, covering or replacing the object.',
+        "- Name what this photograph shows and does BEFORE the element: one "
+        "short phrase for the setting and its activity (engine repair, "
+        "market stall, workshop, office desk, railway yard), then pick an "
+        "element that belongs to that activity. Only its era is wrong, never "
+        "its job: a WD-40 spray can beside the engine of a car, a jet ski "
+        "among the boats of a harbour. A motor dropped onto a car, a sled or "
+        "a street belongs to no activity here.",
         "- If the element only works attached to something specific, that "
         "thing must already be in THIS photograph: an outboard motor needs a "
         "boat and water, a solar panel needs a roof or a wall. Name it in "
@@ -703,11 +717,13 @@ def proposal_prompt(source: dict, recent=(), conflict=None, blocked=(),
     if conflict:
         lines.append(
             "Your previous proposal for this photograph was rejected: "
-            + conflict_reason(conflict)
-            + ". Propose a clearly different element that has no such "
-            "problem, for this same photograph.")
+            + conflict_reason(conflict) + ". "
+            + conflict_instruction(conflict))
     lines.append(
-        'Answer as strict JSON only, no prose: {"anomaly": "<short label>", '
+        'Answer as strict JSON only, no prose: {"activity": "<the setting and '
+        'what happens in this photograph, one short phrase, e.g. \\"engine '
+        'repair in a workshop\\"; the element you name must belong to it>", '
+        '"anomaly": "<short label>", '
         '"kind": "later-era"|"fictional-future", "exists_from": "<the year or '
         'era from which the element exists; for a futuristic element say '
         '\\"not real yet, a fictional future\\">", "not_today": "<for '
@@ -1065,7 +1081,7 @@ def normalize_proposal(proposal: dict) -> dict:
     out = dict(proposal)
     for key, limit in (("anomaly", 80), ("exists_from", 60),
                        ("visual_tell", 240), ("not_today", 400),
-                       ("carrier", 80),
+                       ("activity", 120), ("carrier", 80),
                        ("placement", 400), ("explanation", 400)):
         out[key] = ag_llm.clean_text(out.get(key), limit)
     out["title"] = clean_caption_title(out.get("title"))[:80]
@@ -1153,6 +1169,11 @@ def carrier_text(source) -> str:
                     for k in ("originalTitle", "description")).lower()
 
 
+def named_carrier(proposal) -> str:
+    """The host the proposal names ("the rowing boat"); "" when none (#1540)."""
+    return str((proposal or {}).get("carrier") or "").strip()
+
+
 def carrier_conflict(proposal, source, patterns=()) -> dict | None:
     """The element's missing host in the scene, None when it fits (#1537).
 
@@ -1162,15 +1183,24 @@ def carrier_conflict(proposal, source, patterns=()) -> dict | None:
     photograph does not show the thing the element attaches to, so the
     proposal is re-asked like a bad setting fit. An element without a carrier
     table entry is never judged here.
+
+    Ticket #1540: when the host *is* in the photograph, the proposal has to
+    name it in ``carrier``; that name is what the reviewer and the pattern
+    catalogue read to tell an element that belongs to the scene from one
+    dropped into it. ``reason`` says which half failed.
     """
     label = str((proposal or {}).get("anomaly") or "")
     required = required_carrier(label, patterns)
     if not required:
         return None
     text = carrier_text(source)
-    if any(word in text for word in required):
-        return None
-    return {"element": label, "requires": list(required)}
+    if not any(word in text for word in required):
+        return {"element": label, "requires": list(required),
+                "reason": "host_missing"}
+    if not named_carrier(proposal):
+        return {"element": label, "requires": list(required),
+                "reason": "unnamed"}
+    return None
 
 
 def setting_conflict(proposal, source) -> dict | None:
@@ -1217,10 +1247,14 @@ def proposal_conflicts(proposal, source, avoid, blocked=(),
     labels the reviewer's verdicts keep rejecting; ``avoid_families`` the
     families the feedback pass blocked (ticket #1538). ``patterns`` is the
     anomaly-pattern catalogue (ticket #1539): its carrier rules feed the
-    carrier gate and its ``small`` rule widens the too-small bar.
+    carrier gate and its ``small`` rule widens the too-small bar. Ticket
+    #1540: the proposal must name the photograph's activity, so an answer
+    that jumps straight to the element is a finding too.
     """
     label = str((proposal or {}).get("anomaly") or "")
     out = {}
+    if not str((proposal or {}).get("activity") or "").strip():
+        out["activity"] = label or "the proposal"
     repeat = avoid_conflict(label, avoid)
     if repeat:
         out["repeat"] = repeat
@@ -1249,6 +1283,10 @@ def proposal_conflicts(proposal, source, avoid, blocked=(),
 def conflict_reason(conflicts: dict) -> str:
     """One sentence naming every gate finding, for the re-ask prompt."""
     parts = []
+    if conflicts.get("activity"):
+        parts.append("the photograph's activity is not named: say what this "
+                     "photograph shows and does (engine repair, market stall, "
+                     "workshop), then pick the element from that activity")
     if conflicts.get("repeat"):
         parts.append(f"it repeats \"{conflicts['repeat']}\", an element a "
                      "recent scene already used")
@@ -1264,13 +1302,41 @@ def conflict_reason(conflicts: dict) -> str:
                      f"scene ({', '.join(setting['scene'])})")
     if conflicts.get("carrier"):
         carrier = conflicts["carrier"]
-        parts.append(f"\"{carrier['element']}\" needs one of "
-                     f"({', '.join(carrier['requires'][:5])}) in the "
-                     "photograph, and this scene shows none")
+        if carrier.get("reason") == "unnamed":
+            parts.append(f"\"{carrier['element']}\" attaches to "
+                         f"({', '.join(carrier['requires'][:5])}) and its "
+                         "carrier in this photograph is not named")
+        else:
+            parts.append(f"\"{carrier['element']}\" needs one of "
+                         f"({', '.join(carrier['requires'][:5])}) in the "
+                         "photograph, and this scene shows none")
     if conflicts.get("small"):
         parts.append(f"\"{conflicts['small']}\" is too small for a player to "
                      "find fairly in this photograph")
     return "; ".join(parts)
+
+
+# The re-ask sentences (tickets #1473, #1540): a finding that is only a
+# missing *name* is fixed by answering again with the name; asking for a
+# different element there would throw away a usable proposal.
+NO_ELEMENT_FINDINGS = ("activity", "carrier")
+
+
+def conflict_instruction(conflicts: dict) -> str:
+    """What the re-ask asks for: a different element, or the missing name.
+
+    Ticket #1540: a naming finding (no activity, or a carrier left unnamed
+    for an element that has its host in the frame) is answered again with the
+    same element; every other finding asks for a clearly different one.
+    """
+    only_names = bool(conflicts) and set(conflicts) <= set(NO_ELEMENT_FINDINGS)
+    if only_names and (conflicts.get("carrier") or {}).get("reason") != \
+            "host_missing":
+        return ("Answer again for this same photograph: name the activity "
+                "first and the carrier the element attaches to, and keep the "
+                "element itself.")
+    return ("Propose a clearly different element that has no such problem, "
+            "for this same photograph.")
 
 
 def enforce_proposal_gates(proposal, source_image, source, avoid, args,
@@ -1324,6 +1390,8 @@ def note_avoidance(stats, info) -> None:
         row["reasks"] += 1
     if "repeat" in findings:
         row["repeats"] += 1
+    if "activity" in findings:
+        row["activity_reasks"] += 1
     if "blocked" in findings:
         row["blocked_reasks"] += 1
     if "setting" in findings:
@@ -1338,7 +1406,8 @@ def note_avoidance(stats, info) -> None:
 
 def _blank_avoidance() -> dict:
     return {"scenes": 0, "findings": 0, "reasks": 0, "repeats": 0,
-            "blocked_reasks": 0, "setting_reasks": 0, "carrier_reasks": 0,
+            "activity_reasks": 0, "blocked_reasks": 0,
+            "setting_reasks": 0, "carrier_reasks": 0,
             "small_reasks": 0, "unresolved_repeats": 0}
 
 
@@ -1368,8 +1437,27 @@ def avoidance_summary(stats, added) -> dict:
     row["stopped"] = {"repeat": row["repeats"], "blocked":
                       row["blocked_reasks"], "setting": row["setting_reasks"],
                       "carrier": row["carrier_reasks"],
+                      "activity": row["activity_reasks"],
                       "small": row["small_reasks"]}
     return row
+
+
+def proposal_field_summary(added) -> dict:
+    """How often the shipped proposals named the activity and a carrier (#1540).
+
+    Evan's measurement over the next judged batch: the acceptance rate is
+    read against the 31 % baseline in the feedback report, and this line says
+    whether the proposal actually named what the photograph does and what the
+    element hangs on, so a rate change can be traced to the instruction.
+    """
+    scenes = [s for s in (added or ()) if isinstance(s, dict)]
+    return {
+        "scenes": len(scenes),
+        "activity_named": sum(1 for s in scenes
+                              if str(s.get("activity") or "").strip()),
+        "carrier_named": sum(1 for s in scenes
+                             if str(s.get("carrier") or "").strip()),
+    }
 
 
 # ── Model calls ────────────────────────────────────────────────────────────
@@ -3134,6 +3222,10 @@ def _run(args, data_dir: Path, lock) -> dict:
     # that survived) and the variety the run actually shipped, so "four
     # ballpoint pens" is a number, not a memory.
     report["avoidance"] = avoidance_summary(stats, report["added"])
+    # Ticket #1540: how often the shipped proposals named the photograph's
+    # activity and their element's carrier, next to the acceptance rate the
+    # feedback pass reports over the window.
+    report["proposal_fields"] = proposal_field_summary(report["added"])
     # The new flow's shape (ticket #1436): how many correction rounds the
     # checker asked for and what the click-target pass changed, so a run is
     # comparable without opening a trace.
@@ -4329,6 +4421,11 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
             "scene": entry["id"], "source": source["id"],
             "anomaly": entry["anomaly"], "kind": proposal["kind"],
             "visual_tell": proposal.get("visual_tell"),
+            # Ticket #1540: what the proposal said the photograph does and
+            # what the element hangs on, so the run's naming numbers are
+            # reconstructible from the report.
+            "activity": proposal.get("activity"),
+            "carrier": proposal.get("carrier"),
             "era": entry["year"], "place": entry["place"],
             "scene_time": st,
             "attempt": attempt, "answer": answer,

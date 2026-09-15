@@ -106,6 +106,7 @@ def source(sid=SOURCE_ID, title="Busy market street, 1905", place="",
 
 def proposal(**kw):
     p = {
+        "activity": "market stall work",
         "anomaly": "Plastic bottle (clear PET)", "kind": "later-era",
         "exists_from": "1973", "figure": False,
         "visual_tell": "clear ribbed plastic body and a screw cap",
@@ -1235,8 +1236,60 @@ class ProposalGateTest(unittest.TestCase):
     def test_a_clean_proposal_has_no_findings(self):
         self.assertEqual(
             g.proposal_conflicts(
-                {"anomaly": "Wheeled suitcase"},
+                {"anomaly": "Wheeled suitcase",
+                 "activity": "travellers waiting with their luggage"},
                 source(title="Busy market street", description=""), []), {})
+
+
+class ProposalActivityTest(unittest.TestCase):
+    """Ticket #1540: the element comes from the photograph's activity."""
+
+    def test_a_proposal_without_an_activity_is_a_finding(self):
+        findings = g.proposal_conflicts({"anomaly": "Traffic cone"},
+                                        source(), [])
+        self.assertIn("activity", findings)
+        self.assertIn("activity", g.conflict_reason(findings))
+        clean = g.proposal_conflicts(
+            {"anomaly": "Traffic cone",
+             "activity": "roadworks on a market street"}, source(), [])
+        self.assertNotIn("activity", clean)
+
+    def test_a_carrier_in_the_frame_must_be_named(self):
+        # the harbour text carries a boat, but the proposal names nothing
+        unnamed = g.carrier_conflict(
+            {"anomaly": OUTBOARD_LABEL, "activity": "boats in a harbour"},
+            source(title="Tripoli. Boats meeting steamer in harbour"))
+        self.assertEqual(unnamed["reason"], "unnamed")
+        self.assertEqual(unnamed["element"], OUTBOARD_LABEL)
+        # a street scene has no host at all: the older, element-level finding
+        missing = g.carrier_conflict({"anomaly": OUTBOARD_LABEL},
+                                     source(title="Voiture Delage"))
+        self.assertEqual(missing["reason"], "host_missing")
+
+    def test_the_reask_keeps_a_usable_element_when_only_a_name_is_missing(self):
+        names = g.proposal_conflicts(
+            {"anomaly": OUTBOARD_LABEL},
+            source(title="Tripoli. Boats meeting steamer in harbour"), [])
+        self.assertIn("keep the element", g.conflict_instruction(names))
+        different = g.conflict_instruction({"repeat": "outboard motor"})
+        self.assertIn("clearly different element", different)
+
+    def test_the_prompt_asks_for_the_activity_first(self):
+        prompt = g.proposal_prompt(source())
+        self.assertIn('"activity"', prompt)
+        self.assertIn("engine repair", prompt)
+        self.assertIn("WD-40", prompt)      # AG-122, accepted
+        self.assertIn("jet ski", prompt)    # AG-156, accepted
+        self.assertIn("sled", prompt)       # the outboard motor's rejections
+
+    def test_the_report_line_counts_the_named_fields(self):
+        summary = g.proposal_field_summary([
+            {"activity": "engine repair", "carrier": ""},
+            {"activity": "boats in a harbour", "carrier": "the rowing boat"},
+            {"activity": "", "carrier": ""},
+        ])
+        self.assertEqual(summary, {"scenes": 3, "activity_named": 2,
+                                   "carrier_named": 1})
 
 
 class LabelBlockTest(unittest.TestCase):
@@ -1285,9 +1338,10 @@ class LabelBlockTest(unittest.TestCase):
             conflict = g.carrier_conflict({"anomaly": OUTBOARD_LABEL},
                                           source(title=title))
             self.assertEqual(conflict["element"], OUTBOARD_LABEL)
-        # the harbour scene names boats, so the carrier fits there
+        # the harbour scene names boats, so the carrier fits there once the
+        # proposal names it (ticket #1540)
         self.assertIsNone(g.carrier_conflict(
-            {"anomaly": OUTBOARD_LABEL},
+            {"anomaly": OUTBOARD_LABEL, "carrier": "the rowing boat"},
             source(title="Tripoli. Boats meeting steamer in harbour")))
 
     def test_carrier_gate_leaves_an_element_without_a_table_entry_alone(self):
@@ -1342,9 +1396,10 @@ class AnomalyPatternsTest(unittest.TestCase):
                                       source(title="Voiture Delage"),
                                       patterns=[pattern])
         self.assertEqual(conflict["element"], "Hot air balloon")
-        # a scene whose own text names a field carries it
+        # a scene whose own text names a field carries it once the proposal
+        # names that carrier (ticket #1540)
         self.assertIsNone(g.carrier_conflict(
-            {"anomaly": "Hot air balloon"},
+            {"anomaly": "Hot air balloon", "carrier": "the meadow below"},
             source(title="A meadow near the village"), patterns=[pattern]))
 
     def test_the_seeded_carrier_rule_flags_a_bare_street_scene(self):
@@ -2790,6 +2845,9 @@ class RunTest(TempDataMixin, unittest.TestCase):
         self.assertEqual(report["click_target_corrected"], 0)
         self.assertIn("cost_per_scene", report)
         self.assertIn("moderation", report)
+        # ticket #1540: the report line names how often the proposals did
+        self.assertEqual(report["proposal_fields"],
+                         {"scenes": 1, "activity_named": 1, "carrier_named": 0})
         self.assertEqual(report["checker_scores"], [g.REQUIREMENTS_TOTAL])
         status = json.loads(g.status_path(self.data_dir).read_text())
         self.assertEqual(status["state"], "done")
