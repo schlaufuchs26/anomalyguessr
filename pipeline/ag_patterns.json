@@ -1,0 +1,258 @@
+{
+  "version": 1,
+  "updatedAt": "2026-09-15",
+  "lifecycle": "Patterns enter as \"observe\". The proposal prompt reads only the \"active\" ones; a pattern whose rule is machine-checkable also feeds the deterministic gate. The nightly feedback pass (pipeline/ag_feedback.py, ticket #1538) refreshes the counts of every pattern that carries \"matches\" and proposes a status change; it never promotes or retires a pattern by itself. A pattern is retired by setting \"status\": \"retired\" and a \"retired\" date, never by deleting the entry, so the catalogue does not silently become a rulebook.",
+  "label_map_note": "Pattern membership comes from the label itself via each pattern's \"matches\" keywords, never from the model's own family bucket: \"other\" holds 66 decided scenes and the plastic/drinks buckets overlap.",
+  "evidence": {
+    "source": "reviewer verdicts in data/anomalyguessr/feedback.json matched to data/anomalyguessr/state.json",
+    "window": "all decided scenes as of 2026-09-15",
+    "decided": 201,
+    "accepted": 63,
+    "rejected": 138,
+    "commented": 128
+  },
+  "patterns": [
+    {
+      "id": "integrated-element",
+      "title": "Wrong era, right function: the element belongs to what the photo shows",
+      "kind": "positive",
+      "status": "active",
+      "added": "2026-09-15",
+      "updated": "2026-09-15",
+      "summary": "The more integrated and the more relevant the element is to what the scene actually does, the better the scene. A spray can is exactly the sort of thing one finds next to an engine; a jet ski belongs among the boats. Only the date disqualifies the element, nothing about its function.",
+      "requirement": {
+        "element": "an object or person that belongs to the activity the photograph shows (engine bay, market stall, workshop bench, office desk, railway yard, harbor)",
+        "placement": "next to, on or against the thing the scene is about, not floating in it",
+        "rendering": "same medium as the photo, subtle, not a focal point",
+        "subject": "any"
+      },
+      "prompt": "Works best: the element belongs to what the photograph actually shows and only its era is wrong (a WD-40 spray can beside a car engine, AG-122; a jet ski among harbor boats, AG-156).",
+      "matches": [],
+      "evidence": {
+        "counted": false,
+        "note": "human-verified canonical cases; the positive side is a judgement, not a label bucket",
+        "counts": null,
+        "examples": {
+          "accepted": ["AG-122", "AG-156"],
+          "rejected": [
+            "AG-150",
+            "AG-151",
+            "AG-158",
+            "AG-168",
+            "AG-179",
+            "AG-193",
+            "AG-195"
+          ]
+        }
+      },
+      "rule": null
+    },
+    {
+      "id": "carrier-missing",
+      "title": "The element's host is not in the frame",
+      "kind": "negative",
+      "status": "active",
+      "added": "2026-09-15",
+      "updated": "2026-09-15",
+      "summary": "An element that only works attached to something (an outboard motor needs a boat, a solar panel a roof) is rejected when the photograph shows no such host: it has no carrier and does not belong to the activity at all. The accepted outboard motors were the two whose frame actually held a boat.",
+      "requirement": {
+        "element": "an element whose plausible host (boat, hull, water, roof, wall, mast, pole) is part of the scene",
+        "placement": "attached to or resting on that host, named in the proposal's carrier field",
+        "rendering": "the host is already in the photograph; the element does not invent one",
+        "subject": "objects that attach to a surface"
+      },
+      "prompt": "Fails: an element that needs a host the photograph does not show (an outboard motor on a street, a car or a sled; a solar panel with no roof or wall). Name the carrier from THIS photo, or pick another element.",
+      "matches": [
+        "outboard motor",
+        "outboard",
+        "solar panel",
+        "roof panel",
+        "roof antenna"
+      ],
+      "evidence": {
+        "counted": true,
+        "note": "0/7 in frames with no boat (AG-150, AG-151, AG-158, AG-168, AG-179, AG-193, AG-195) against 2/11 for the label overall",
+        "counts": { "decided": 11, "accepted": 2, "rejected": 9 },
+        "examples": {
+          "accepted": ["AG-140", "AG-155"],
+          "rejected": [
+            "AG-150",
+            "AG-151",
+            "AG-158",
+            "AG-168",
+            "AG-179",
+            "AG-193",
+            "AG-195"
+          ]
+        }
+      },
+      "rule": {
+        "type": "carrier",
+        "requirements": [
+          {
+            "element_any": ["outboard motor"],
+            "carrier_any": [
+              "boat",
+              "hull",
+              "water",
+              "canoe",
+              "dinghy",
+              "skiff",
+              "rowboat",
+              "kayak",
+              "lake",
+              "river",
+              "oar",
+              "marina",
+              "harbour",
+              "harbor"
+            ]
+          },
+          {
+            "element_any": ["solar panel"],
+            "carrier_any": [
+              "roof",
+              "rooftop",
+              "building",
+              "house",
+              "shed",
+              "barn",
+              "wall",
+              "mast",
+              "pole",
+              "field"
+            ]
+          },
+          {
+            "element_any": ["roof panel"],
+            "carrier_any": [
+              "roof",
+              "rooftop",
+              "building",
+              "house",
+              "shed",
+              "barn"
+            ]
+          },
+          {
+            "element_any": ["roof antenna"],
+            "carrier_any": [
+              "roof",
+              "rooftop",
+              "building",
+              "house",
+              "shed",
+              "barn"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "small-handheld",
+      "title": "A small modern object with no plausible holder",
+      "kind": "negative",
+      "status": "active",
+      "added": "2026-09-15",
+      "updated": "2026-09-15",
+      "summary": "Cups, cans, phones, watches and pens are either too tiny to find at a portrait or street scale, or, when the renderer makes them readable, a bright foreground object. With no hand or surface holding them, the reviewer reads them as pasted in.",
+      "requirement": {
+        "element": "an object large enough to be a fair search target at this scene's scale",
+        "placement": "held by, or sitting on, something already in the photograph",
+        "rendering": "about 2 percent of the image height, never a focal point",
+        "subject": "objects"
+      },
+      "prompt": "Fails: a small modern object with no plausible holder in a portrait- or street-scale photograph (paper coffee cup, drink can, smartphone, digital watch, ballpoint pen, plastic bottle).",
+      "matches": [
+        "coffee cup",
+        "drink can",
+        "smartphone",
+        "digital watch",
+        "smartwatch",
+        "ballpoint",
+        "plastic bottle"
+      ],
+      "evidence": {
+        "counted": true,
+        "note": "paper coffee cup 0/4, digital watch 0/3, smartphone 0/3, drink can 0/3, paper coffee cup with lid 1/7, plastic bottle 1/6, disposable ballpoint pen 1/5",
+        "counts": { "decided": 31, "accepted": 3, "rejected": 28 },
+        "examples": { "accepted": [], "rejected": [] }
+      },
+      "rule": {
+        "type": "small",
+        "keywords": [
+          "coffee cup",
+          "drink can",
+          "smartphone",
+          "digital watch",
+          "smartwatch",
+          "ballpoint",
+          "plastic bottle"
+        ]
+      }
+    },
+    {
+      "id": "prominent-element",
+      "title": "Prominent instead of tucked into the scene",
+      "kind": "negative",
+      "status": "active",
+      "added": "2026-09-15",
+      "updated": "2026-09-15",
+      "summary": "An element rendered big or as a focal point reads as pasted in. It is the single largest rejection class: 21 of the 76 commented rejections (27.6%) name size or prominence.",
+      "requirement": {
+        "element": "the same small element, whatever it is",
+        "placement": "partly hidden behind something in the frame, near the bottom edge or in shadow",
+        "rendering": "about 2 percent of the image height, never more than 3 percent; not a focal point",
+        "subject": "any"
+      },
+      "prompt": "Fails: an element rendered prominent or oversized instead of tucked into the scene. Its rendered height stays about 2 percent of the image, never a focal point.",
+      "matches": [],
+      "evidence": {
+        "counted": false,
+        "note": "size class 21 of 76 commented rejections (27.6%), measured 2026-09-14 (#1485); not a label bucket",
+        "counts": null,
+        "examples": { "accepted": [], "rejected": [] }
+      },
+      "rule": {
+        "type": "presentation",
+        "requirements": [2, 3, 5, 7],
+        "max_height_fraction": 0.03
+      }
+    },
+    {
+      "id": "works-print-cordage-street-furniture",
+      "title": "Printed matter, cordage and street furniture land",
+      "kind": "positive",
+      "status": "observe",
+      "added": "2026-09-15",
+      "updated": "2026-09-15",
+      "summary": "Print, cordage and street furniture were accepted at 75-50%. The samples are small (3-6 verdicts each), so the pattern stays on observation until the feedback pass sees more.",
+      "requirement": {
+        "element": "printed matter (poster, sticker, barcode), rope or cord, or street furniture (traffic cone, caution tape)",
+        "placement": "as found in the scene, attached to a surface or standing on the ground",
+        "rendering": "same medium as the photo, small and readable",
+        "subject": "flat and ground objects"
+      },
+      "prompt": "Works: printed matter, cordage and street furniture (posters, rope, traffic cones) landed at 75-50%.",
+      "matches": [
+        "poster",
+        "flyer",
+        "barcode",
+        "sticker",
+        "advertisement",
+        "rope",
+        "cord",
+        "sling",
+        "zip tie",
+        "traffic cone"
+      ],
+      "evidence": {
+        "counted": true,
+        "note": "print 3/4, cordage 3/4, street-furniture 3/6",
+        "counts": { "decided": 14, "accepted": 9, "rejected": 5 },
+        "examples": { "accepted": [], "rejected": [] }
+      },
+      "rule": null
+    }
+  ]
+}

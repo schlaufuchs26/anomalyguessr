@@ -16,6 +16,7 @@ from pathlib import Path
 import ag_catalog
 import ag_feedback as fb
 import ag_generate as g
+import ag_patterns as ap
 import ag_queue
 
 TODAY = datetime.date(2026, 9, 15)
@@ -274,6 +275,61 @@ class GeneratorWiringTest(unittest.TestCase):
         self.assertIn("Only example; a later-era object", prompt)
         self.assertNotIn("Plastic bottle (clear PET);", prompt)
         self.assertIn("families, the reviewer keeps rejecting", prompt)
+
+
+class PatternCountsTest(TempDataMixin, unittest.TestCase):
+    """Ticket #1539: the pass refreshes the catalogue's counts."""
+
+    def setUp(self):
+        super().setUp()
+        self.patterns = ap.load_patterns()
+
+    def test_pattern_counts_tally_label_matched_verdicts(self):
+        scenes, record = outboard_fixture()
+        counts = fb.pattern_count_rows(scenes, record, self.patterns,
+                                       today=TODAY)
+        row = counts["carrier-missing"]
+        self.assertEqual(row["accepted"], 2)
+        self.assertEqual(row["rejected"], 9)
+        self.assertEqual(row["decided"], 11)
+
+    def test_a_pattern_without_matches_is_never_counted(self):
+        scenes = {"s1": scene("s1", "Jet ski")}
+        counts = fb.pattern_count_rows(
+            scenes, verdicts(accepted=["s1"]), self.patterns, today=TODAY)
+        self.assertNotIn("integrated-element", counts)
+
+    def test_observe_pattern_with_evidence_is_proposed_for_promotion(self):
+        patterns = [{"id": "candidate", "kind": "positive",
+                     "status": ap.STATUS_OBSERVE, "matches": ["jet ski"]}]
+        counts = {"candidate": {"accepted": 5, "rejected": 0, "decided": 5,
+                                "rate": 1.0, "last": "2026-09-15"}}
+        changes = fb.pattern_change_rows(counts, patterns)
+        self.assertEqual(changes[0]["proposal"], "promote to active")
+
+    def test_active_pattern_that_stopped_holding_is_proposed_for_demotion(self):
+        patterns = [{"id": "was-good", "kind": "positive",
+                     "status": ap.STATUS_ACTIVE, "matches": ["poster"]}]
+        counts = {"was-good": {"accepted": 1, "rejected": 5, "decided": 6,
+                               "rate": 0.1667, "last": "2026-09-15"}}
+        changes = fb.pattern_change_rows(counts, patterns)
+        self.assertEqual(changes[0]["proposal"], "demote to observe")
+
+    def test_a_thin_sample_is_not_a_proposal(self):
+        patterns = [{"id": "candidate", "kind": "positive",
+                     "status": ap.STATUS_OBSERVE, "matches": ["jet ski"]}]
+        counts = {"candidate": {"accepted": 1, "rejected": 0, "decided": 1,
+                                "rate": 1.0, "last": "2026-09-15"}}
+        self.assertEqual(fb.pattern_change_rows(counts, patterns), [])
+
+    def test_run_writes_the_pattern_counts_file(self):
+        scenes, record = outboard_fixture()
+        self.write(scenes, record)
+        report = fb.run(self.data_dir, now=datetime.datetime(2026, 9, 15, 6, 0))
+        self.assertIn("carrier-missing", report["patternCounts"])
+        path = self.data_dir / fb.PATTERN_COUNTS_NAME
+        written = json.loads(path.read_text())
+        self.assertEqual(written["counts"]["carrier-missing"]["decided"], 11)
 
 
 if __name__ == "__main__":

@@ -206,6 +206,7 @@ if str(SCRIPT_DIR) not in sys.path:
 import ag_catalog  # noqa: E402
 import ag_checks  # noqa: E402
 import ag_llm  # noqa: E402
+import ag_patterns  # noqa: E402
 import ag_queue  # noqa: E402
 import ag_sources  # noqa: E402
 import ag_verify  # noqa: E402
@@ -353,6 +354,9 @@ FILLER_ADJECTIVES = ("modern", "contemporary", "futuristic", "fictional",
 # on cars, sleds, buses and a street scene, none of which can carry one. A
 # label whose words contain a table key needs one of the key's words in the
 # source title or description, else the proposal gets the one re-ask.
+# Ticket #1539: this is the fallback; the evidence home for these rules is
+# now ``pipeline/ag_patterns.json`` (read via ``ag_patterns``), whose carrier
+# rules are consulted first.
 CARRIER_REQUIREMENTS = (
     ("outboard motor", ("boat", "hull", "water", "canoe", "dinghy", "skiff",
                         "rowboat", "kayak", "lake", "river", "oar", "marina",
@@ -599,7 +603,7 @@ def anomaly_branch_lines(year) -> list[str]:
 
 
 def proposal_prompt(source: dict, recent=(), conflict=None, blocked=(),
-                    examples=None, avoid_families=()) -> str:
+                    examples=None, avoid_families=(), patterns=()) -> str:
     """Call 1's prompt: one anomaly, impossible in the catalogue year.
 
     Ticket #1430: the year is a fact the prompt *states*, never one the model
@@ -615,7 +619,9 @@ def proposal_prompt(source: dict, recent=(), conflict=None, blocked=(),
     names the ``carrier`` the element attaches to. Ticket #1538:
     ``examples`` overrides the built-in few-shot list (the feedback pass
     drops the shapes whose family keeps failing) and ``avoid_families``
-    names the families the reviewer rejects.
+    names the families the reviewer rejects. Ticket #1539: ``patterns`` is
+    the anomaly-pattern catalogue; its active patterns become the capped
+    "this works / this fails" guidance before the style examples.
     """
     year, field = ag_sources.source_year(source)
     _y, _f, year_source, year_raw = ag_sources.year_provenance(source)
@@ -672,8 +678,16 @@ def proposal_prompt(source: dict, recent=(), conflict=None, blocked=(),
         "Name the scene as well: one short, factual title for THIS photo "
         "(what a caption in a museum would say; no year, no file name, no "
         "archive or uploader metadata).",
-        "Style examples (do not copy them; they only show the shape):",
     ]
+    # Ticket #1539: the catalogue's active patterns are the measured
+    # "this works / this fails" guidance, capped before the style examples.
+    guidance = ag_patterns.prompt_guidance(patterns)
+    if guidance:
+        lines.append("Measured lessons from this game's reviewer, follow "
+                     "them:")
+        lines += [f"- {line}" for line in guidance]
+    lines.append("Style examples (do not copy them; they only show the "
+                 "shape):")
     shown = ag_catalog.inspiration_lines() if examples is None else list(examples)
     lines += [f"- {line}" for line in shown]
     if recent:
@@ -1114,16 +1128,20 @@ def blocked_conflict(label, blocked) -> str | None:
     return None
 
 
-def required_carrier(label) -> tuple:
+def required_carrier(label, patterns=()) -> tuple:
     """The carrier words an element needs in the photo, () when none apply.
 
     Ticket #1537: an element that attaches to something specific (an outboard
     motor to a boat) can only be proposed when that thing is in the scene.
+    Ticket #1539: the catalogue's carrier rules (``patterns``) are read first,
+    so the machine-checkable half of a pattern reaches this gate; the code
+    table below stays as the fallback for the elements it seeded.
     """
     words = set(normalized_label(label).split())
     if not words:
         return ()
-    for key, required in CARRIER_REQUIREMENTS:
+    table = ag_patterns.carrier_requirements(patterns) + CARRIER_REQUIREMENTS
+    for key, required in table:
         if set(normalized_label(key).split()) <= words:
             return required
     return ()
@@ -1135,17 +1153,18 @@ def carrier_text(source) -> str:
                     for k in ("originalTitle", "description")).lower()
 
 
-def carrier_conflict(proposal, source) -> dict | None:
+def carrier_conflict(proposal, source, patterns=()) -> dict | None:
     """The element's missing host in the scene, None when it fits (#1537).
 
-    An element that needs a carrier (``CARRIER_REQUIREMENTS``) is judged
-    against the source's own title and description: none of the required
-    words there means the photograph does not show the thing the element
-    attaches to, so the proposal is re-asked like a bad setting fit. An
-    element without a carrier table entry is never judged here.
+    An element that needs a carrier (``CARRIER_REQUIREMENTS``, plus the
+    catalogue's own carrier rules since #1539) is judged against the source's
+    own title and description: none of the required words there means the
+    photograph does not show the thing the element attaches to, so the
+    proposal is re-asked like a bad setting fit. An element without a carrier
+    table entry is never judged here.
     """
     label = str((proposal or {}).get("anomaly") or "")
-    required = required_carrier(label)
+    required = required_carrier(label, patterns)
     if not required:
         return None
     text = carrier_text(source)
@@ -1191,12 +1210,14 @@ def family_conflict(proposal, avoid_families) -> str | None:
 
 
 def proposal_conflicts(proposal, source, avoid, blocked=(),
-                       avoid_families=()) -> dict:
+                       avoid_families=(), patterns=()) -> dict:
     """The proposal-time gate findings (tickets #1473, #1537), {} when clean.
 
     ``avoid`` is the run's recent window (used labels); ``blocked`` the
     labels the reviewer's verdicts keep rejecting; ``avoid_families`` the
-    families the feedback pass blocked (ticket #1538).
+    families the feedback pass blocked (ticket #1538). ``patterns`` is the
+    anomaly-pattern catalogue (ticket #1539): its carrier rules feed the
+    carrier gate and its ``small`` rule widens the too-small bar.
     """
     label = str((proposal or {}).get("anomaly") or "")
     out = {}
@@ -1212,10 +1233,15 @@ def proposal_conflicts(proposal, source, avoid, blocked=(),
     setting = setting_conflict(proposal, source)
     if setting:
         out["setting"] = setting
-    carrier = carrier_conflict(proposal, source)
+    carrier = carrier_conflict(proposal, source, patterns)
     if carrier:
         out["carrier"] = carrier
-    if ag_catalog.inherently_small(label):
+    # Ticket #1539: the catalogue's small rule widens the noun fallback for
+    # model-invented labels only; a catalog entry keeps its own scale budget,
+    # which the catalog deliberately set above the smallness floor.
+    if ag_catalog.inherently_small(label) or (
+            ag_catalog.entry_for_label(label) is None
+            and ag_patterns.matches_rule(patterns, "small", label)):
         out["small"] = label
     return out
 
@@ -1249,7 +1275,8 @@ def conflict_reason(conflicts: dict) -> str:
 
 def enforce_proposal_gates(proposal, source_image, source, avoid, args,
                            api_key, attempt, data_dir, trace, totals,
-                           blocked=(), examples=None, avoid_families=()):
+                           blocked=(), examples=None, avoid_families=(),
+                           patterns=()):
     """Make the avoid list a rule and re-ask once on a finding (#1473).
 
     Returns ``(proposal, info)``. ``info["findings"]`` is the first
@@ -1259,7 +1286,7 @@ def enforce_proposal_gates(proposal, source_image, source, avoid, args,
     survives is kept, never dropped; the caller flags it for moderation.
     """
     findings = proposal_conflicts(proposal, source, avoid, blocked,
-                                  avoid_families)
+                                  avoid_families, patterns)
     info = {"findings": findings, "reask": False, "repeated": None,
             "resolved": not findings}
     if not findings:
@@ -1268,14 +1295,16 @@ def enforce_proposal_gates(proposal, source_image, source, avoid, args,
     retry, call, errors = _attempt_proposal(source_image, source, avoid, args,
                                             api_key, conflict=findings,
                                             blocked=blocked, examples=examples,
-                                            avoid_families=avoid_families)
+                                            avoid_families=avoid_families,
+                                            patterns=patterns)
     record_call(data_dir, trace, {"stage": "proposal-retry",
                                   "attempt": attempt, **_call_trace(call)})
     ag_llm.add_usage(totals, call.get("usage"))
     if errors:
         info["reask_error"] = "; ".join(errors)
         return proposal, info
-    after = proposal_conflicts(retry, source, avoid, blocked, avoid_families)
+    after = proposal_conflicts(retry, source, avoid, blocked, avoid_families,
+                               patterns)
     if after.get("repeat"):
         info["repeated"] = str(after["repeat"])
     info["resolved"] = not after
@@ -1389,17 +1418,18 @@ def _run_call(prompt: str, image: Path | None, api_key: str, model: str,
 def propose_anomaly(image: Path, source: dict, recent, api_key: str,
                     model: str, base_url: str, max_tokens: int, timeout: int,
                     temperature: float | None, conflict=None, blocked=(),
-                    examples=None, avoid_families=()) -> dict:
+                    examples=None, avoid_families=(), patterns=()) -> dict:
     """Call 1: the creative proposal (era judgement + anomaly + placement).
 
     ``conflict`` is the gate finding of a rejected proposal (ticket #1473):
     the re-ask names it so the model changes what the pipeline objected to.
     ``blocked`` are the labels the reviewer keeps rejecting (ticket #1537),
     named as an avoid line. ``examples``/``avoid_families`` come from the
-    feedback pass (ticket #1538).
+    feedback pass (ticket #1538). ``patterns`` is the anomaly-pattern
+    catalogue (ticket #1539), read for the prompt's measured guidance.
     """
     prompt = proposal_prompt(source, recent, conflict, blocked, examples,
-                             avoid_families)
+                             avoid_families, patterns)
     result = _run_call(prompt, image, api_key, model, base_url, max_tokens,
                        timeout, temperature)
     proposal = result["parsed"]
@@ -2986,6 +3016,10 @@ def _run(args, data_dir: Path, lock) -> dict:
                      or REPEAT_WINDOW_DAYS)
     examples = adaptation.get("examples") or None
     avoid_families = [str(f) for f in (adaptation.get("avoidFamilies") or ())]
+    # Ticket #1539: the anomaly-pattern catalogue. Read once per run and
+    # handed to every proposal call (its active patterns become the prompt's
+    # measured guidance) and to the gates (its carrier and small rules).
+    patterns = ag_patterns.load_patterns()
     recent = recent_labels(data_dir, day, days=adapt_days)
     # Ticket #1439: elements the provider refused keep out of the proposal
     # pool for the repeat window, so a refusal is not re-proposed next run.
@@ -3009,6 +3043,9 @@ def _run(args, data_dir: Path, lock) -> dict:
         "avoid_labels": len(adaptation.get("avoidLabels") or []),
         "avoid_families": avoid_families,
         "example_count": len(examples) if examples else None,
+        "pattern_count": len(patterns),
+        "active_patterns": [p["id"] for p in ag_patterns.active_patterns(
+            patterns)],
     }
     stats = _blank_stats()
 
@@ -3019,7 +3056,8 @@ def _run(args, data_dir: Path, lock) -> dict:
              "place": scene_place(s),
              "proposal_prompt": proposal_prompt(s, recent, blocked=blocked,
                                                 examples=examples,
-                                                avoid_families=avoid_families),
+                                                avoid_families=avoid_families,
+                                                patterns=patterns),
              "edit_prompt_template": edit_prompt({"anomaly": "<anomaly>",
                                                   "placement": "<placement>",
                                                   "figure": False})}
@@ -3064,7 +3102,8 @@ def _run(args, data_dir: Path, lock) -> dict:
                                       recent + sorted(used_prompts), totals,
                                       emit, index, len(picked), stats=stats,
                                       blocked=blocked, examples=examples,
-                                      avoid_families=avoid_families)
+                                      avoid_families=avoid_families,
+                                      patterns=patterns)
         if scene is not None:
             report["added"].append(scene["report"])
             used_prompts.add(scene["label"])
@@ -3897,7 +3936,7 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
                   out_dir: Path, recent: list, totals: dict, emit,
                   scene_index: int = 1, scene_total: int = 1,
                   stats: dict | None = None, blocked=(), examples=None,
-                  avoid_families=()) -> tuple:
+                  avoid_families=(), patterns=()) -> tuple:
     """One source through the whole flow; returns (scene|None, failure|None).
 
     Ticket #1436: a source yields exactly one scene, drawn as exactly one
@@ -3907,7 +3946,8 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
     any draw, a coordinate-less scene with no diff hotspot) is reported as
     failed. ``stats`` carries the run's refusal accounting (ticket #1439);
     ``blocked`` the labels the reviewer keeps rejecting (ticket #1537);
-    ``examples``/``avoid_families`` the feedback pass's adjustments (#1538).
+    ``examples``/``avoid_families`` the feedback pass's adjustments (#1538);
+    ``patterns`` the anomaly-pattern catalogue (ticket #1539).
     """
     api_key = os.environ.get("OPENROUTER_API_KEY", "")
     source_image = ag_sources.sources_dir(data_dir) / source["image"]
@@ -3953,7 +3993,8 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
         progress("proposing")
         proposal, proposal_call, errors = _attempt_proposal(
             source_image, source, recent, args, api_key, blocked=blocked,
-            examples=examples, avoid_families=avoid_families)
+            examples=examples, avoid_families=avoid_families,
+            patterns=patterns)
         record_call(data_dir, trace, {"stage": "proposal", "attempt": attempt,
                                       **_call_trace(proposal_call)})
         ag_llm.add_usage(totals, proposal_call.get("usage"))
@@ -3969,7 +4010,7 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
         proposal, gate = enforce_proposal_gates(
             proposal, source_image, source, recent, args, api_key, attempt,
             data_dir, trace, totals, blocked=blocked, examples=examples,
-            avoid_families=avoid_families)
+            avoid_families=avoid_families, patterns=patterns)
         note_avoidance(stats, gate)
         gate_review = ""
         if gate.get("repeated"):
@@ -4311,7 +4352,7 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
 
 def _attempt_proposal(source_image: Path, source: dict, recent: list, args,
                       api_key: str, conflict=None, blocked=(), examples=None,
-                      avoid_families=()):
+                      avoid_families=(), patterns=()):
     """Call 1 with its error handling; returns (proposal, call, errors)."""
     try:
         result = propose_anomaly(source_image, source, recent, api_key,
@@ -4319,11 +4360,12 @@ def _attempt_proposal(source_image: Path, source: dict, recent: list, args,
                                  args.model_max_tokens, args.model_timeout,
                                  args.temperature, conflict=conflict,
                                  blocked=blocked, examples=examples,
-                                 avoid_families=avoid_families)
+                                 avoid_families=avoid_families,
+                                 patterns=patterns)
     except ag_llm.LLMError as e:
         call = {"model": args.model,
                 "prompt": proposal_prompt(source, recent, conflict, blocked,
-                                          examples, avoid_families),
+                                          examples, avoid_families, patterns),
                 "answer": "", "usage": ag_llm.zero_usage(), "error": str(e),
                 "duration_s": 0.0}
         return None, call, [str(e)]

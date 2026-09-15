@@ -21,6 +21,7 @@ import ag_catalog
 import ag_checks
 import ag_generate as g
 import ag_llm
+import ag_patterns as ap
 import ag_queue
 import ag_sources
 import ag_verify
@@ -1309,6 +1310,59 @@ class LabelBlockTest(unittest.TestCase):
         self.assertIn("reviewer keeps rejecting", prompt)
         self.assertIn(OUTBOARD_LABEL, prompt)
         self.assertIn('"carrier"', prompt)
+
+
+class AnomalyPatternsTest(unittest.TestCase):
+    """Ticket #1539: the pattern catalogue reaches the prompt and the gate."""
+
+    def setUp(self):
+        self.patterns = ap.load_patterns()
+
+    def test_an_active_pattern_reaches_the_proposal_prompt(self):
+        prompt = g.proposal_prompt(source(), patterns=self.patterns)
+        self.assertIn("Measured lessons", prompt)
+        # the canonical positive case, first thing the guidance says
+        self.assertIn("WD-40", prompt)
+        self.assertIn("jet ski", prompt)
+        # an observe pattern stays out of the prompt until evidence promotes it
+        self.assertNotIn("printed matter", prompt)
+
+    def test_no_patterns_leaves_the_prompt_unchanged(self):
+        self.assertNotIn("Measured lessons", g.proposal_prompt(source()))
+
+    def test_a_machine_checkable_pattern_reaches_the_carrier_gate(self):
+        pattern = {
+            "id": "balloon-needs-open-sky", "kind": "negative",
+            "status": ap.STATUS_ACTIVE, "matches": ["hot air balloon"],
+            "rule": {"type": "carrier", "requirements": [
+                {"element_any": ["hot air balloon"],
+                 "carrier_any": ["sky", "field", "meadow"]}]}}
+        # a street scene carries no field: the gate flags the element
+        conflict = g.carrier_conflict({"anomaly": "Hot air balloon"},
+                                      source(title="Voiture Delage"),
+                                      patterns=[pattern])
+        self.assertEqual(conflict["element"], "Hot air balloon")
+        # a scene whose own text names a field carries it
+        self.assertIsNone(g.carrier_conflict(
+            {"anomaly": "Hot air balloon"},
+            source(title="A meadow near the village"), patterns=[pattern]))
+
+    def test_the_seeded_carrier_rule_flags_a_bare_street_scene(self):
+        conflict = g.carrier_conflict({"anomaly": OUTBOARD_LABEL},
+                                      source(title="Voiture Delage"),
+                                      patterns=self.patterns)
+        self.assertEqual(conflict["element"], OUTBOARD_LABEL)
+
+    def test_the_small_rule_flags_a_model_invented_label_only(self):
+        # a model-invented small object is re-asked ...
+        findings = g.proposal_conflicts({"anomaly": "Paper coffee cup"},
+                                        source(), [], patterns=self.patterns)
+        self.assertIn("small", findings)
+        # ... a catalog entry keeps its own scale budget (the bottle is a
+        # curated entry the catalog deliberately made findable)
+        self.assertNotIn("small", g.proposal_conflicts(
+            {"anomaly": "Plastic bottle (clear PET)"}, source(), [],
+            patterns=self.patterns))
 
 
 class LabelVerdictsTest(TempDataMixin, unittest.TestCase):

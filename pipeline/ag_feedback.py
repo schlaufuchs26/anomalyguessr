@@ -46,6 +46,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ag_catalog  # noqa: E402  (sibling module, resolved via sys.path)
 import ag_generate as g  # noqa: E402
+import ag_patterns  # noqa: E402
 import ag_queue  # noqa: E402
 import ag_sources  # noqa: E402
 import ag_verify  # noqa: E402
@@ -80,6 +81,24 @@ DEFAULT_EXAMPLE_COUNT = 6
 REGRESSION_REJECT_SHARE = 0.5
 # How many "top movers" the DM digest names.
 DIGEST_MOVERS = 3
+
+# The anomaly-pattern catalogue (ticket #1539): the pass refreshes the
+# acceptance record of every pattern that carries ``matches`` and writes it
+# next to adaptation.json; the counts never change a pattern's status by
+# themselves, they only back a proposal for Evan. A pattern is promoted from
+# "observe" once this many verdicts back it and its record points the way the
+# pattern claims; an active pattern that turned the other way is proposed for
+# demotion.
+PATTERN_COUNTS_NAME = "pattern_counts.json"
+PATTERN_MIN_SAMPLE = 5
+# A positive pattern is promoted when at least this share of its scenes was
+# accepted; a negative one when at most this share was.
+PATTERN_POSITIVE_PROMOTE = 0.5
+PATTERN_NEGATIVE_PROMOTE = 0.4
+# An active pattern that fell below (positive) or rose above (negative) these
+# shares is proposed for demotion, not applied.
+PATTERN_POSITIVE_DEMOTE = 0.3
+PATTERN_NEGATIVE_DEMOTE = 0.7
 
 DIMS = ("labels", "families", "archives", "decades", "placements")
 _YEAR_RE = re.compile(r"(?<!\d)(1[89]\d{2}|20\d{2})(?!\d)")
@@ -415,6 +434,79 @@ def proposals(stats) -> list:
     return out
 
 
+# ── Anomaly-pattern counts (ticket #1539) ─────────────────────────────────
+
+def pattern_count_rows(scenes, feedback, patterns,
+                       window_days: int = DEFAULT_WINDOW_DAYS,
+                       today=None) -> dict:
+    """Acceptance record of every label-matched pattern over the window.
+
+    Only patterns that carry ``matches`` are counted; a pattern judged by
+    hand (the integrated-element and prominent-element ones) keeps the seed
+    numbers in the catalogue. A label can belong to more than one pattern, so
+    this is not the ``_dimension`` shape.
+    """
+    day = today or datetime.date.today()
+    cutoff = (day - datetime.timedelta(days=window_days)).isoformat()
+    rows: dict = {}
+    for verdicts, field in (((feedback.get("accepted") or {}), "accepted"),
+                            ((feedback.get("rejected") or {}), "rejected")):
+        for scene_id, at in verdicts.items():
+            when = str(at or "")[:10]
+            if when < cutoff:
+                continue
+            scene = (scenes or {}).get(scene_id)
+            if not scene:
+                continue
+            label = str(scene.get("anomaly") or "")
+            for pid in ag_patterns.patterns_for_label(label, patterns):
+                row = rows.setdefault(pid, {"pattern": pid, "accepted": 0,
+                                            "rejected": 0, "last": ""})
+                row[field] += 1
+                if when > row["last"]:
+                    row["last"] = when
+    for row in rows.values():
+        row["decided"] = row["accepted"] + row["rejected"]
+        row["rate"] = _rate(row["accepted"], row["rejected"])
+    return rows
+
+
+def pattern_change_rows(counts, patterns,
+                        min_sample: int = PATTERN_MIN_SAMPLE) -> list:
+    """Status changes the pass proposes but never applies (ticket #1539).
+
+    A pattern that meets the evidence bar and points the way its ``kind``
+    claims is proposed for promotion from ``observe``; an active pattern
+    whose record turned the other way is proposed for demotion. Both are
+    one-line findings in the DM digest, so Evan decides.
+    """
+    out = []
+    for pattern in patterns or ():
+        pid = str(pattern.get("id") or "")
+        row = (counts or {}).get(pid)
+        if not row or int(row.get("decided") or 0) < min_sample:
+            continue
+        rate = float(row.get("rate") or 0.0)
+        kind = str(pattern.get("kind") or "")
+        status = str(pattern.get("status") or "")
+        positive = kind == "positive"
+        good = rate >= PATTERN_POSITIVE_PROMOTE if positive \
+            else rate <= PATTERN_NEGATIVE_PROMOTE
+        bad = rate < PATTERN_POSITIVE_DEMOTE if positive \
+            else rate >= PATTERN_NEGATIVE_DEMOTE
+        record = (f"{row['accepted']}/{row['decided']} accepted over the "
+                  f"window")
+        if status == ag_patterns.STATUS_OBSERVE and good:
+            out.append({"kind": "pattern", "key": pid,
+                        "proposal": "promote to active",
+                        "reason": f"{record}; the evidence backs it"})
+        elif status == ag_patterns.STATUS_ACTIVE and bad:
+            out.append({"kind": "pattern", "key": pid,
+                        "proposal": "demote to observe",
+                        "reason": f"{record}; the pattern stopped holding"})
+    return out
+
+
 # ── Digest + run ───────────────────────────────────────────────────────────
 
 def top_movers(stats, n: int = DIGEST_MOVERS) -> list:
@@ -494,6 +586,13 @@ def run(data_dir, window_days: int = DEFAULT_WINDOW_DAYS, dry_run: bool = False,
     stats = acceptance_stats(state.get("scenes") or {}, feedback,
                              window_days, today=now.date())
     applied = adapt(stats, previous_knobs=previous.get("knobs"))
+    # Ticket #1539: refresh the anomaly-pattern counts and propose any status
+    # change. The counts are the pass's own output, written next to
+    # adaptation.json; the catalogue file in the repo stays the seed.
+    patterns = ag_patterns.load_patterns()
+    counts = pattern_count_rows(state.get("scenes") or {}, feedback, patterns,
+                                window_days, today=now.date())
+    pattern_proposals = pattern_change_rows(counts, patterns)
     report = {
         "version": 1,
         "generatedAt": now.isoformat(timespec="seconds"),
@@ -507,10 +606,16 @@ def run(data_dir, window_days: int = DEFAULT_WINDOW_DAYS, dry_run: bool = False,
         "droppedExamples": applied["droppedExamples"],
         "knobs": applied["knobs"],
         "changes": applied["changes"],
-        "proposals": applied["proposals"],
+        "proposals": applied["proposals"] + pattern_proposals,
+        "patternCounts": counts,
     }
     if not dry_run:
         _atomic_json(data_dir / g.ADAPTATION_NAME, report)
+        _atomic_json(data_dir / PATTERN_COUNTS_NAME, {
+            "generatedAt": report["generatedAt"],
+            "windowDays": int(window_days),
+            "counts": counts,
+        })
     return report
 
 
