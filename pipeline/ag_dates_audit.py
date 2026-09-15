@@ -316,9 +316,52 @@ def sample_wellcome(sample: int) -> list:
     return rows
 
 
+# ── National Library of Norway probe (ticket #1535) ────────────────────────
+#
+# Sesam REST API; ``metadata.dateCreated`` is the library's catalogue date,
+# ``accessInfo`` carries the licence, and the IIIF ``info.json`` the served
+# image size. The probe measures the same photograph query the pool's NB walk
+# uses (``ag_sources.NB_WALK_QUERIES[0]``).
+
+NB_ITEMS = "https://api.nb.no/catalog/v1/items"
+
+
+def nb_row(item: dict) -> dict:
+    """One Sesam search item -> audit row."""
+    meta = item.get("metadata") or {}
+    access = item.get("accessInfo") or {}
+    urn = (meta.get("identifiers") or {}).get("urn") or ""
+    w, h = ag_sources.nb_size(urn) if urn else (0, 0)
+    return {"title": meta.get("title") or "",
+            # The compact YYYYMMDD/YYYYMM form is expanded so the shared
+            # single-year rule reads the same shape for every item.
+            "date": ag_sources.nb_date_text(meta.get("dateCreated")),
+            "date_field": "metadata.dateCreated",
+            "license_ok": bool(access.get("isPublicDomain")) and
+            ag_sources.license_ok(str(access.get("license") or "")),
+            "width": w, "height": h,
+            "url": f"{ag_sources.NB_ITEM}/{urn}" if urn else ""}
+
+
+def sample_nb(sample: int) -> list:
+    rows, page = [], 0
+    while len(rows) < sample:
+        params = {"q": ag_sources.NB_WALK_QUERIES[0],
+                  "size": str(min(100, max(1, sample - len(rows)))),
+                  "page": str(page), "filter": ag_sources.NB_MEDIA_FILTER}
+        data = _http_json(NB_ITEMS + "?" + urllib.parse.urlencode(params))
+        items = (data.get("_embedded") or {}).get("items") or []
+        if not items:
+            break
+        rows.extend(nb_row(i) for i in items)
+        page += 1
+    return rows[:sample]
+
+
 PROBES = {
     "commons": sample_commons,
     "gallica": sample_gallica,
+    "nb": sample_nb,
     "wellcome": sample_wellcome,
 }
 

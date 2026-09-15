@@ -774,6 +774,127 @@ class GallicaTest(unittest.TestCase):
             s.gallica_size = old_size
 
 
+class NbTest(unittest.TestCase):
+    """National Library of Norway adapter (ticket #1535)."""
+
+    def test_catalog_date_forms_become_one_year(self):
+        # Sesam stores the date compactly: YYYY, YYYYMM or YYYYMMDD.
+        self.assertEqual(s.nb_date_text("1899"), "1899")
+        self.assertEqual(s.nb_date_text("189312"), "1893-12")
+        self.assertEqual(s.nb_date_text("18990101"), "1899-01-01")
+        self.assertEqual(s.nb_catalog_year("1899"), (1899, "1899"))
+        self.assertEqual(s.nb_catalog_year("189312"), (1893, "1893-12"))
+        self.assertEqual(s.nb_catalog_year("18990101"), (1899, "1899-01-01"))
+        # Empty, range, decade and circa values are not a single year.
+        for value in ("", "1900-1910", "1900s", "ca. 1900", "19th century"):
+            self.assertIsNone(s.nb_catalog_year(value)[0])
+
+    def test_normalize_stores_the_catalog_year_and_capped_size(self):
+        adapter = s.NbAdapter()
+        entry = adapter.normalize(nb_raw(date="18990101", width=8000,
+                                         height=5300))
+        self.assertEqual(entry["repository"], "National Library of Norway")
+        self.assertEqual(entry["year"], 1899)
+        self.assertEqual(entry["year_field"], "catalog")
+        self.assertEqual(entry["year_source"], "metadata.dateCreated")
+        self.assertEqual(entry["year_raw"], "18990101")
+        self.assertEqual(entry["date"], "1899-01-01")
+        self.assertEqual(entry["license"], "Public domain")
+        # The stored size is the served (capped) copy, not the 8000 px original.
+        self.assertEqual(entry["width"], s.NB_IMAGE_WIDTH)
+        self.assertLess(entry["height"], 5300)
+        self.assertEqual(entry["fileUrl"],
+                         f"{s.NB_ITEM}/{NAMED_URN}")
+        self.assertEqual(s.entry_reject_reason(entry), "")
+        # The catalogue's "Ukjent" placeholder is not a maker.
+        self.assertEqual(entry["raw"]["creator"], "")
+
+    def test_normalize_rejects_non_photo_non_pd_and_no_year(self):
+        adapter = s.NbAdapter()
+        # "bilder" also holds maps/books; only the digifoto URN is photos.
+        self.assertIsNone(adapter.normalize(
+            nb_raw(urn="URN:NBN:no-nb_digibok_20200101_0001")))
+        self.assertIsNone(adapter.normalize(nb_raw(urn="")))
+        self.assertIsNone(adapter.normalize(nb_raw(pd=False,
+                                                   license="ccbysa")))
+        self.assertIsNone(adapter.normalize(nb_raw(pd=False,
+                                                   license="copyrighted")))
+        self.assertIsNone(adapter.normalize(nb_raw(width=800, height=600)))
+        # A range or circa value has no single year; the entry carries none
+        # and the pool's year gate refuses it.
+        ranged = adapter.normalize(nb_raw(date="1900-1910"))
+        self.assertIsNone(ranged["year"])
+        self.assertEqual(ranged["year_field"], "")
+        self.assertIn("year", s.entry_reject_reason(ranged))
+
+    def test_image_url_caps_the_width(self):
+        self.assertEqual(s.nb_image_url("URN:x", 8000),
+                         f"{s.NB_IMAGE}/URN:x/full/2000,/0/native.jpg")
+        self.assertEqual(s.nb_image_url("URN:x", 900),
+                         f"{s.NB_IMAGE}/URN:x/full/900,/0/native.jpg")
+        self.assertIn("/full/full/", s.nb_image_url("URN:x", 0))
+
+    def test_walk_rotates_through_the_query_list(self):
+        adapter = s.NbAdapter()
+        seen = []
+
+        def fake_search(query, limit, page):
+            seen.append((query, page))
+            if query == s.NB_WALK_QUERIES[0]:
+                return [nb_raw(title=f"Gate {page}")], 100
+            return [], 0
+
+        old_search, old_size = adapter._search_page, s.nb_size
+        adapter._search_page = fake_search
+        s.nb_size = lambda urn: (2000, 1500)  # no network
+        try:
+            raws, cursor = adapter.walk_batch(1, None)
+            self.assertEqual(len(raws), 1)
+            # One page from the first term, then the walk moves on, so the
+            # next call samples a different subject.
+            self.assertEqual(cursor["query"], 1)
+            self.assertEqual(cursor["pages"], {"0": 1})
+            raws2, _cursor2 = adapter.walk_batch(1, cursor)
+            self.assertEqual(len(raws2), 1)
+            self.assertIn(s.NB_WALK_QUERIES[1], [q for q, _ in seen])
+        finally:
+            adapter._search_page = old_search
+            s.nb_size = old_size
+
+    def test_walk_parks_queries_and_ends_when_all_are_done(self):
+        adapter = s.NbAdapter()
+        old_search = adapter._search_page
+        adapter._search_page = staticmethod(lambda query, limit, page: ([], 0))
+        try:
+            raws, cursor = adapter.walk_batch(2, None)
+            self.assertEqual(raws, [])
+            self.assertIsNone(cursor)
+        finally:
+            adapter._search_page = old_search
+
+
+NAMED_URN = "URN:NBN:no-nb_digifoto_20150807_00158_bldsa_PK06252"
+
+
+def nb_raw(title="Rosenkrantz gate", date="1899", urn=NAMED_URN,
+           license="publicdomain", pd=True, width=8000, height=5300,
+           creators=("Ukjent",)):
+    """One Sesam item shaped like the live API's search response."""
+    return {
+        "metadata": {
+            "title": title,
+            "dateCreated": date,
+            "creators": list(creators),
+            "identifiers": {"urn": urn},
+            "geographic": {"placeString": "Norge;Oslo;Oslo;;;"},
+            "originInfo": "",
+        },
+        "accessInfo": {"isPublicDomain": pd, "license": license},
+        "width": width, "height": height,
+        "query": "gate",
+    }
+
+
 class StubGallica(s.GallicaAdapter):
     """A GallicaAdapter whose walk comes from memory (no network)."""
 

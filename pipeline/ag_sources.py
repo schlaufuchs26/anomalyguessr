@@ -10,14 +10,18 @@ the photo depicts with no room for error"):
   four-digit year for the item (``year_field == "catalog"``). The measurement
   behind the source choice, including the collections that are unreachable
   from this host, is in ``pipeline/ag_dates_audit.py``.
-- **Default source: Gallica (BnF)**. The ticket's named collections (LOC,
-  DDB/Bundesarchiv, Deutsche Fotothek, Nationaal Archief, Smithsonian, NYPL,
-  Europeana) are blocked from this box (Cloudflare 403, API keys, robots.txt);
-  Gallica's SRU catalogue is reachable and its ``dc:date`` is the BnF's
-  statement about the item, not a scan or upload stamp. Commons "Quality
-  images" stays as an adapter and a diagnostic (``measure-years``,
-  ``measure-inception``), but its file-page declared date ("exif"/
-  "structured") fails the catalog gate, so it no longer fills the pool.
+- **Two reachable sources: Gallica (BnF) and the National Library of
+  Norway.** The collections #1430 named (LOC, DDB/Bundesarchiv, Deutsche
+  Fotothek, Nationaal Archief, Smithsonian, NYPL, Europeana) are blocked from
+  this box (Cloudflare 403, API keys, robots.txt). Gallica's SRU catalogue
+  answers and its ``dc:date`` is the BnF's statement about the item, not a
+  scan or upload stamp; the Nasjonalbiblioteket's Sesam API answers without a
+  key and its ``metadata.dateCreated`` is the library's own catalogue date
+  for the item, so the pool draws from two archives instead of one (#1535).
+  Commons "Quality images" stays as an adapter and a diagnostic
+  (``measure-years``, ``measure-inception``), but its file-page declared date
+  ("exif"/"structured") fails the catalog gate, so it no longer fills the
+  pool.
 - **No string heuristics.** Candidates are filtered on structured keys only:
   license, pixel dimensions, file size, and the catalogue year (below).
 - **A single unambiguous year is required** (ticket #1405). The game's claim
@@ -48,8 +52,8 @@ rule, backed up by scripts/backup.sh)::
 
 Commands::
 
-    ag_sources.py --data DIR top-up [--source gallica] [--target 30]
-    ag_sources.py --data DIR refresh [--target 30] [--sources gallica]
+    ag_sources.py --data DIR top-up [--source gallica|nb] [--target 30]
+    ag_sources.py --data DIR refresh [--target 30] [--sources gallica,nb]
     ag_sources.py --data DIR measure-years [--sample 200]      # Commons
     ag_sources.py --data DIR measure-inception [--sample 200]  # Commons
     ag_sources.py --data DIR status
@@ -145,8 +149,9 @@ QUALITY_CATEGORY = "Category:Quality images"
 DEFAULT_TOPUP_TARGET = 30
 DEFAULT_TOPUP_BATCH = 20
 DEFAULT_TOPUP_CALLS = 8
-# The default source since ticket #1430: Gallica is the only reachable
-# collection whose per-item date is a catalogue fact. Commons ("Quality
+# The default top-up source is Gallica (ticket #1430), one of the two
+# reachable collections whose per-item date is a catalogue fact (the other is
+# the Nasjonalbiblioteket, ``--source nb``, ticket #1535). Commons ("Quality
 # images") is no longer walked by default: its declared capture date cannot be
 # told apart from a scan/upload stamp (#1418), so it fails the pool's catalog
 # year gate. ``--source commons`` still runs the walk (diagnostics, tests).
@@ -955,6 +960,11 @@ def _get_bytes(url: str, timeout: int = 60) -> bytes:
     return _with_backoff(lambda: _read_all(req, timeout))
 
 
+def _get_json(url: str, timeout: int = 60) -> dict:
+    """``_get_bytes`` for a JSON API (throttled, retried like the rest)."""
+    return json.loads(_get_bytes(url, timeout).decode("utf-8", "replace"))
+
+
 def _read_all(req, timeout: int) -> bytes:
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return r.read()
@@ -1211,18 +1221,23 @@ def parse_gallica_records(xml: str) -> list:
     return out
 
 
-def gallica_served_size(width, height) -> tuple:
-    """The pixel size of the copy the IIIF service will serve (capped)."""
+def served_size(width, height, cap: int) -> tuple:
+    """The pixel size of the copy an image service will serve (capped)."""
     try:
         w, h = int(width or 0), int(height or 0)
     except (TypeError, ValueError):
         return 0, 0
     if w <= 0 or h <= 0:
         return 0, 0
-    if w <= GALLICA_IMAGE_WIDTH:
+    if w <= cap:
         return w, h
-    scale = GALLICA_IMAGE_WIDTH / w
-    return GALLICA_IMAGE_WIDTH, max(1, int(round(h * scale)))
+    scale = cap / w
+    return cap, max(1, int(round(h * scale)))
+
+
+def gallica_served_size(width, height) -> tuple:
+    """The pixel size of the copy the IIIF service will serve (capped)."""
+    return served_size(width, height, GALLICA_IMAGE_WIDTH)
 
 
 def gallica_image_url(ark: str, width=None) -> str:
@@ -1397,6 +1412,252 @@ def gallica_size(ark: str) -> tuple:
         return 0, 0
 
 
+# ── National Library of Norway adapter (ticket #1535) ──────────────────────
+#
+# The second reachable catalogue. Every collection #1430 names is blocked
+# from this host (Cloudflare 403, API keys, robots.txt) and Commons' file-page
+# date cannot be told apart from a scan stamp, so the pool was one archive
+# (Gallica) and the repository cap in ``refresh_pool`` was reported, not
+# enforced. Measured 2026-09-15 (``ag_dates_audit.py --source nb``): the
+# Nasjonalbiblioteket's Sesam catalogue answers a public REST API without a
+# key, ``metadata.dateCreated`` is the library's own catalogue date for the
+# item, the licence sits per item in ``accessInfo`` (public domain vs
+# ``ccbysa``/``copyrighted``) and the image service is IIIF 2.0 with an
+# ``info.json``. Its ``digifoto`` collection is documentary photography
+# (streets, quays, squares, railways) with the town in the title, which is
+# the game's genre.
+NB_API = "https://api.nb.no/catalog/v1/items"
+NB_ITEM = "https://www.nb.no/items"
+NB_IMAGE = "https://www.nb.no/services/image/resolver"
+NB_RIGHTS_URL = "https://www.nb.no/en/terms-of-use/"
+# The photo collection inside the catalogue: ``mediatype:bilder`` also holds
+# digitized maps, posters and music manuscripts, and only the ``digifoto``
+# URN family is the photograph collection (1818 of 1894 sampled items over
+# ten queries). A non-photo item has no place in the pool.
+NB_PHOTO_URN = "digifoto"
+NB_MEDIA_FILTER = "mediatype:bilder"
+# The served copy is capped like Gallica's: originals run to 14000 px and the
+# generator base64-encodes every image into a model call, while the pool only
+# requires >= 1000 px.
+NB_IMAGE_WIDTH = 2000
+
+# The walk queries (Norwegian subject terms for documentary scenes), one page
+# per query in rotation like the Gallica walk, so a refresh samples the whole
+# collection instead of draining one term. Measured 2026-09-15 against the
+# live API: gate 6903, havn 3788, torg 1380, jernbane 2054, marked 78,
+# brygge 1222, bru 2481, kirke 26083, skole 5551, fabrikk 1510, trikk 424,
+# bryllup 974.
+NB_WALK_QUERIES = (
+    "gate", "havn", "torg", "jernbane", "brygge", "marked", "bru", "fabrikk",
+    "trikk", "skole", "kirke", "bryllup",
+)
+
+
+def nb_date_text(value) -> str:
+    """NB's catalogue date as a ``single_year``-readable string.
+
+    Sesam stores the item date compactly as ``YYYY``, ``YYYYMM`` or
+    ``YYYYMMDD`` (measured 2026-09-15 over 300 items: 259 ``YYYY``, 13
+    ``YYYYMMDD``, 8 ``YYYYMM``, 21 empty). The compact forms are expanded to
+    ``YYYY-MM``/``YYYY-MM-DD`` so the shared single-year rule reads one
+    shape for every item; a free-text value is passed through unchanged and
+    rejected by that rule as usual.
+    """
+    s = str(value or "").strip()
+    if re.fullmatch(r"\d{8}", s):
+        return f"{s[:4]}-{s[4:6]}-{s[6:]}"
+    if re.fullmatch(r"\d{6}", s):
+        return f"{s[:4]}-{s[4:]}"
+    return s
+
+
+def nb_catalog_year(value) -> tuple:
+    """``(year, text)`` when NB's catalogue date names exactly one year.
+
+    ``(None, text)`` for an empty, range, decade or circa value, i.e. the
+    same single-year rule as every other adapter. The second element is the
+    expanded date text, so the caller stores a value its own year rule can
+    re-read.
+    """
+    text = nb_date_text(value)
+    return single_year(text), text
+
+
+def nb_image_url(urn: str, width=None) -> str:
+    """The IIIF URL for an NB item's image, capped at ``width``."""
+    try:
+        w = int(width or 0)
+    except (TypeError, ValueError):
+        w = 0
+    size = f"{min(w, NB_IMAGE_WIDTH)}," if 0 < w <= NB_IMAGE_WIDTH \
+        else (f"{NB_IMAGE_WIDTH}," if w else "full")
+    return f"{NB_IMAGE}/{urn}/full/{size}/0/native.jpg"
+
+
+def nb_size(urn: str) -> tuple:
+    """``(width, height)`` of an NB item's image, (0, 0) on error.
+
+    The IIIF ``info.json`` is the library's own statement of the served
+    image size; an item whose info call fails is unusable, not a crash.
+    """
+    if not urn:
+        return 0, 0
+    try:
+        info = _get_json(f"{NB_IMAGE}/{urn}/info.json")
+    except (urllib.error.URLError, ValueError):
+        return 0, 0
+    try:
+        return int(info.get("width") or 0), int(info.get("height") or 0)
+    except (TypeError, ValueError):
+        return 0, 0
+
+
+def _nb_creator(creators) -> str:
+    """The catalogue's maker names, without the "Ukjent" placeholder."""
+    names = [str(c).strip() for c in (creators or []) if str(c).strip()]
+    names = [n for n in names if n.lower() not in ("ukjent", "unknown")]
+    return ", ".join(names)
+
+
+class NbAdapter(SourceAdapter):
+    """Nasjonalbiblioteket (National Library of Norway), Sesam catalogue.
+
+    The item date comes from the library's own catalogue
+    (``metadata.dateCreated``) and is stored as a catalog fact; the licence
+    must be public domain (``accessInfo.isPublicDomain``) and the image is
+    fetched from the IIIF image service, capped at ``NB_IMAGE_WIDTH``.
+    """
+
+    repo = "National Library of Norway"
+    repo_tag = "nb"
+
+    def search(self, query: str, limit: int, offset: int = 0):
+        items, _total = self._search_page(query, limit, offset)
+        return items
+
+    @staticmethod
+    def _search_page(query: str, limit: int, page: int) -> tuple:
+        params = {"q": query, "size": str(max(1, int(limit))),
+                  "page": str(max(0, int(page))),
+                  "filter": NB_MEDIA_FILTER}
+        data = _get_json(NB_API + "?" + urllib.parse.urlencode(params))
+        items = (data.get("_embedded") or {}).get("items") or []
+        total_pages = int((data.get("page") or {}).get("totalPages") or 0)
+        return items, total_pages
+
+    def walk_batch(self, limit: int, cursor=None) -> tuple:
+        """One page of walk candidates with dimensions; (raws, next_cursor).
+
+        ``cursor`` is ``{"query": i, "pages": {...}, "parked": [...]}`` and
+        the walk visits ``NB_WALK_QUERIES`` round-robin: one page from the
+        current term, then the next one on the following call, so a refresh
+        samples streets, quays and squares instead of draining one term. A
+        term is parked once its page count passes ``totalPages``; when every
+        term is parked the returned cursor is None and the walk restarts on
+        the next run. Dimensions come from each item's IIIF ``info.json``,
+        one call per candidate, exactly like the Gallica walk.
+        """
+        state = dict(cursor or {})
+        pages = {int(k): int(v) for k, v in (state.get("pages") or {}).items()}
+        parked = {int(i) for i in (state.get("parked") or [])}
+        n = len(NB_WALK_QUERIES)
+        qi = int(state.get("query") or 0) % n
+        raws = []
+        for _ in range(n):
+            if len(raws) >= limit:
+                break
+            if qi in parked:
+                qi = (qi + 1) % n
+                continue
+            query = NB_WALK_QUERIES[qi]
+            page = int(pages.get(qi) or 0)
+            items, total_pages = self._search_page(
+                query, max(1, limit - len(raws)), page)
+            if items:
+                pages[qi] = page + 1
+                if total_pages and page + 1 >= total_pages:
+                    parked.add(qi)
+                for item in items:
+                    item["query"] = query
+                    urn = _nb_urn(item)
+                    item["width"], item["height"] = nb_size(urn)
+                    raws.append(item)
+            else:
+                parked.add(qi)
+            qi = (qi + 1) % n
+        next_cursor = None if len(parked) >= n else {
+            "query": qi,
+            "pages": {str(k): v for k, v in pages.items()},
+            "parked": sorted(parked),
+        }
+        return raws, next_cursor
+
+    def normalize(self, raw) -> dict | None:
+        meta = raw.get("metadata") or {}
+        access = raw.get("accessInfo") or {}
+        urn = _nb_urn(raw)
+        if not urn:
+            return None
+        # The photograph collection only (see NB_PHOTO_URN): "bilder" also
+        # holds maps, posters and manuscripts.
+        if NB_PHOTO_URN not in urn.lower():
+            return None
+        if not access.get("isPublicDomain"):
+            return None
+        # "publicdomain" is the token for PD items; the module allowlist also
+        # admits CC-BY/CC-BY-SA on other repositories, but here CC items are
+        # flagged not-public-domain and stay out, matching Gallica's
+        # public-domain-only rule.
+        if not license_ok(str(access.get("license") or "")):
+            return None
+        width, height = served_size(raw.get("width"), raw.get("height"),
+                                    NB_IMAGE_WIDTH)
+        if not dimensions_ok(width, height):
+            return None
+        # A range/decade/circa value leaves ``year`` None; the entry is still
+        # returned so the pool's year gate reports a year rejection rather
+        # than an adapter rejection (same as Gallica).
+        year, date_text = nb_catalog_year(meta.get("dateCreated"))
+        title = _strip_html(str(meta.get("title") or "")) or f"NB {urn}"
+        place = (meta.get("geographic") or {}).get("placeString")
+        return {
+            "repository": self.repo,
+            "fileUrl": f"{NB_ITEM}/{urn}",
+            "originalTitle": title,
+            "date": date_text,
+            "place": "",
+            "license": "Public domain",
+            "licenseUrl": NB_RIGHTS_URL,
+            "description": _strip_html(str(meta.get("originInfo") or "")),
+            "width": width,
+            "height": height,
+            "mime": "image/jpeg",
+            "year": year,
+            "year_field": "catalog" if year is not None else "",
+            "year_source": "metadata.dateCreated",
+            "year_raw": str(meta.get("dateCreated") or ""),
+            "raw": {
+                "urn": urn,
+                "title": meta.get("title"),
+                "dateCreated": meta.get("dateCreated"),
+                "creator": _nb_creator(meta.get("creators")),
+                "placeString": place,
+                "query": raw.get("query"),
+                "sourceWidth": raw.get("width"),
+                "sourceHeight": raw.get("height"),
+            },
+        }
+
+    def download_url(self, raw) -> str:
+        return nb_image_url(_nb_urn(raw), raw.get("width"))
+
+
+def _nb_urn(item) -> str:
+    """The item's URN (the image service's key), or "" when it has none."""
+    meta = (item or {}).get("metadata") or {}
+    return str((meta.get("identifiers") or {}).get("urn") or "")
+
+
 # ── Library of Congress adapter (query/manual escape hatch) ────────────────
 
 LOC_SEARCH = "https://www.loc.gov/search/"
@@ -1533,6 +1794,7 @@ class ManualAdapter(SourceAdapter):
 ADAPTERS = {
     "commons": CommonsAdapter,
     "gallica": GallicaAdapter,
+    "nb": NbAdapter,
     "loc": LocAdapter,
     "manual": ManualAdapter,
 }
@@ -1878,13 +2140,13 @@ def top_up(data_dir: Path, target: int = DEFAULT_TOPUP_TARGET,
            source: str = DEFAULT_TOPUP_SOURCE) -> dict:
     """Grow the pool from ``source`` until ``target`` unused sources exist.
 
-    The default source is Gallica (ticket #1430): the only reachable
-    collection whose per-item date is a catalogue fact, so the pool gate can
-    require a catalog year. Repeatable and idempotent: each call resumes at
-    the persisted paging token, merging is by deterministic id, and ``used``
-    is never reset. Stops early when the pool is healthy, when the source's
-    walk is exhausted, or after ``max_calls`` pages. Returns a JSON-able
-    report.
+    The default source is Gallica (ticket #1430), one of the two reachable
+    collections whose per-item date is a catalogue fact (the other is the
+    Nasjonalbiblioteket, ``--source nb``). Repeatable and idempotent: each
+    call resumes at the persisted paging token, merging is by deterministic
+    id, and ``used`` is never reset. Stops early when the pool is healthy,
+    when the source's walk is exhausted, or after ``max_calls`` pages.
+    Returns a JSON-able report.
     """
     say = log or (lambda *a, **k: None)
     date = date or _date_today()
@@ -1957,12 +2219,13 @@ def top_up(data_dir: Path, target: int = DEFAULT_TOPUP_TARGET,
 # more than a third of them; until then the refresh keeps drawing from the
 # under-represented buckets.
 #
-# Only Gallica is reachable from this host and passes the catalog-year gate
-# (#1430), so the repository cap is reported, not enforced, while one
-# repository is all there is: enforcing it would starve the pool. The decade
-# cap is enforced, and Gallica's subject queries above supply the decades.
-
-DEFAULT_REFRESH_SOURCES = ("gallica",)
+# Only Gallica and the Nasjonalbiblioteket are reachable from this host and
+# pass the catalog-year gate (#1430/#1535), so those two fill the pool and
+# the repository cap is now real: with two archives in the walk, the pool
+# refuses to let one of them exceed its share. A single-repository pool still
+# reports rather than enforces it, since enforcing it there would starve the
+# pool.
+DEFAULT_REFRESH_SOURCES = ("gallica", "nb")
 
 
 def pool_spread_ok(entries, parts: int = SPREAD_PARTS) -> bool:
