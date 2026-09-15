@@ -327,6 +327,12 @@ REFUSED_ELEMENTS_NAME = "refused_elements.json"
 # persisted next to the refusal list, so the next run's proposals leave a
 # label the reviewer keeps rejecting alone.
 LABEL_VERDICTS_NAME = "label_verdicts.json"
+
+# The feedback pass's output (ticket #1538): the nightly ag_feedback.py run
+# writes the window's acceptance rates plus the bounded adjustments the
+# generator reads (avoid labels/families, the few-shot examples, a couple of
+# numeric knobs). Missing file = no adaptation; the run's defaults hold.
+ADAPTATION_NAME = "adaptation.json"
 # A label is blocked when the tally is lopsided enough that another proposal
 # is a bad bet: at least three verdicts with a rejection share above
 # BLOCK_REJECT_SHARE, or two rejections and no acceptance at all.
@@ -592,7 +598,8 @@ def anomaly_branch_lines(year) -> list[str]:
     ]
 
 
-def proposal_prompt(source: dict, recent=(), conflict=None, blocked=()) -> str:
+def proposal_prompt(source: dict, recent=(), conflict=None, blocked=(),
+                    examples=None, avoid_families=()) -> str:
     """Call 1's prompt: one anomaly, impossible in the catalogue year.
 
     Ticket #1430: the year is a fact the prompt *states*, never one the model
@@ -605,7 +612,10 @@ def proposal_prompt(source: dict, recent=(), conflict=None, blocked=()) -> str:
     rejected proposal's gate finding, named in the re-ask so the model knows
     what to change. Ticket #1537: ``blocked`` labels are the ones the
     reviewer keeps rejecting, named as an avoid line, and the answer now
-    names the ``carrier`` the element attaches to.
+    names the ``carrier`` the element attaches to. Ticket #1538:
+    ``examples`` overrides the built-in few-shot list (the feedback pass
+    drops the shapes whose family keeps failing) and ``avoid_families``
+    names the families the reviewer rejects.
     """
     year, field = ag_sources.source_year(source)
     _y, _f, year_source, year_raw = ag_sources.year_provenance(source)
@@ -664,13 +674,18 @@ def proposal_prompt(source: dict, recent=(), conflict=None, blocked=()) -> str:
         "archive or uploader metadata).",
         "Style examples (do not copy them; they only show the shape):",
     ]
-    lines += [f"- {line}" for line in ag_catalog.inspiration_lines()]
+    shown = ag_catalog.inspiration_lines() if examples is None else list(examples)
+    lines += [f"- {line}" for line in shown]
     if recent:
         lines.append("Avoid these anomalies used by recent scenes: "
                      + "; ".join(str(r) for r in recent) + ".")
     if blocked:
         lines.append("Avoid these anomalies, the reviewer keeps rejecting "
                      "them: " + "; ".join(str(b) for b in blocked) + ".")
+    if avoid_families:
+        lines.append("Avoid these anomaly families, the reviewer keeps "
+                     "rejecting them: "
+                     + "; ".join(str(f) for f in avoid_families) + ".")
     if conflict:
         lines.append(
             "Your previous proposal for this photograph was rejected: "
@@ -1159,11 +1174,29 @@ def setting_conflict(proposal, source) -> dict | None:
     return {"element": label, "scene": list(scene), "allowed": list(allowed)}
 
 
-def proposal_conflicts(proposal, source, avoid, blocked=()) -> dict:
+def family_conflict(proposal, avoid_families) -> str | None:
+    """The avoided family a proposal falls in, None when it is new (#1538).
+
+    The feedback pass blocks a family when its own verdict record is lopsided
+    (ag_feedback.blocked_family_rows); a proposal in that family gets the one
+    re-ask, the same as a blocked label.
+    """
+    family = ag_catalog.family_of(str((proposal or {}).get("anomaly") or ""))
+    if not family:
+        return None
+    for other in avoid_families or ():
+        if family == str(other):
+            return family
+    return None
+
+
+def proposal_conflicts(proposal, source, avoid, blocked=(),
+                       avoid_families=()) -> dict:
     """The proposal-time gate findings (tickets #1473, #1537), {} when clean.
 
     ``avoid`` is the run's recent window (used labels); ``blocked`` the
-    labels the reviewer's verdicts keep rejecting.
+    labels the reviewer's verdicts keep rejecting; ``avoid_families`` the
+    families the feedback pass blocked (ticket #1538).
     """
     label = str((proposal or {}).get("anomaly") or "")
     out = {}
@@ -1173,6 +1206,9 @@ def proposal_conflicts(proposal, source, avoid, blocked=()) -> dict:
     blocked_hit = blocked_conflict(label, blocked)
     if blocked_hit:
         out["blocked"] = blocked_hit
+    family = family_conflict(proposal, avoid_families)
+    if family:
+        out["family"] = family
     setting = setting_conflict(proposal, source)
     if setting:
         out["setting"] = setting
@@ -1193,6 +1229,9 @@ def conflict_reason(conflicts: dict) -> str:
     if conflicts.get("blocked"):
         parts.append(f"\"{conflicts['blocked']}\" is an element the reviewer "
                      "keeps rejecting, so it is out")
+    if conflicts.get("family"):
+        parts.append(f"\"{conflicts['family']}\" is a family the reviewer "
+                     "keeps rejecting, so it is out")
     if conflicts.get("setting"):
         setting = conflicts["setting"]
         parts.append(f"\"{setting['element']}\" cannot plausibly sit in this "
@@ -1210,7 +1249,7 @@ def conflict_reason(conflicts: dict) -> str:
 
 def enforce_proposal_gates(proposal, source_image, source, avoid, args,
                            api_key, attempt, data_dir, trace, totals,
-                           blocked=()):
+                           blocked=(), examples=None, avoid_families=()):
     """Make the avoid list a rule and re-ask once on a finding (#1473).
 
     Returns ``(proposal, info)``. ``info["findings"]`` is the first
@@ -1219,7 +1258,8 @@ def enforce_proposal_gates(proposal, source_image, source, avoid, args,
     an element the run (or the recent window) already used. A repeat that
     survives is kept, never dropped; the caller flags it for moderation.
     """
-    findings = proposal_conflicts(proposal, source, avoid, blocked)
+    findings = proposal_conflicts(proposal, source, avoid, blocked,
+                                  avoid_families)
     info = {"findings": findings, "reask": False, "repeated": None,
             "resolved": not findings}
     if not findings:
@@ -1227,14 +1267,15 @@ def enforce_proposal_gates(proposal, source_image, source, avoid, args,
     info["reask"] = True
     retry, call, errors = _attempt_proposal(source_image, source, avoid, args,
                                             api_key, conflict=findings,
-                                            blocked=blocked)
+                                            blocked=blocked, examples=examples,
+                                            avoid_families=avoid_families)
     record_call(data_dir, trace, {"stage": "proposal-retry",
                                   "attempt": attempt, **_call_trace(call)})
     ag_llm.add_usage(totals, call.get("usage"))
     if errors:
         info["reask_error"] = "; ".join(errors)
         return proposal, info
-    after = proposal_conflicts(retry, source, avoid, blocked)
+    after = proposal_conflicts(retry, source, avoid, blocked, avoid_families)
     if after.get("repeat"):
         info["repeated"] = str(after["repeat"])
     info["resolved"] = not after
@@ -1347,15 +1388,18 @@ def _run_call(prompt: str, image: Path | None, api_key: str, model: str,
 
 def propose_anomaly(image: Path, source: dict, recent, api_key: str,
                     model: str, base_url: str, max_tokens: int, timeout: int,
-                    temperature: float | None, conflict=None, blocked=()) -> dict:
+                    temperature: float | None, conflict=None, blocked=(),
+                    examples=None, avoid_families=()) -> dict:
     """Call 1: the creative proposal (era judgement + anomaly + placement).
 
     ``conflict`` is the gate finding of a rejected proposal (ticket #1473):
     the re-ask names it so the model changes what the pipeline objected to.
     ``blocked`` are the labels the reviewer keeps rejecting (ticket #1537),
-    named as an avoid line.
+    named as an avoid line. ``examples``/``avoid_families`` come from the
+    feedback pass (ticket #1538).
     """
-    prompt = proposal_prompt(source, recent, conflict, blocked)
+    prompt = proposal_prompt(source, recent, conflict, blocked, examples,
+                             avoid_families)
     result = _run_call(prompt, image, api_key, model, base_url, max_tokens,
                        timeout, temperature)
     proposal = result["parsed"]
@@ -2093,6 +2137,10 @@ def build_entry(source: dict, proposal: dict, answer: dict, date: str,
         "description": build_description(source, title, place),
         "anomaly": proposal["anomaly"],
         "family": family,
+        # How the element enters the scene (ticket #1538): the feedback pass
+        # splits its acceptance rates by placement kind, so the proposal's
+        # kind travels with the scene. Older scenes have no field.
+        "placement_kind": placement_kind(proposal),
         "answer": answer,
         "explanation": explanation,
         "references": refs,
@@ -2632,6 +2680,23 @@ def label_verdicts_path(data_dir: Path) -> Path:
     return Path(data_dir) / LABEL_VERDICTS_NAME
 
 
+def adaptation_path(data_dir: Path) -> Path:
+    return Path(data_dir) / ADAPTATION_NAME
+
+
+def load_adaptation(data_dir: Path) -> dict:
+    """The feedback pass's last adaptation (ticket #1538), {} when missing.
+
+    ag_feedback.py owns the file; the generator only reads it. Every field
+    is optional: a run without the pass behaves exactly as before.
+    """
+    try:
+        data = json.loads(adaptation_path(data_dir).read_text())
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
 def load_label_verdicts(data_dir: Path) -> dict:
     """The persisted reviewer tally, {} when the file is missing (#1537)."""
     try:
@@ -2910,19 +2975,41 @@ def _run(args, data_dir: Path, lock) -> dict:
     spread_note = ag_sources.spread_warning(report["spread"])
     if spread_note:
         report["spread"]["warning"] = spread_note
-    recent = recent_labels(data_dir, datetime.date.fromisoformat(date))
+    # Ticket #1538: the feedback pass's last adaptation. A missing file
+    # leaves every default in place (adapt_days = REPEAT_WINDOW_DAYS, no
+    # extra avoid list, the built-in examples). ``repeat_window_days`` is
+    # the one knob the runner reads directly; the avoid lists and the
+    # example list travel with the proposal calls.
+    day = datetime.date.fromisoformat(date)
+    adaptation = load_adaptation(data_dir)
+    adapt_days = int((adaptation.get("knobs") or {}).get("repeat_window_days")
+                     or REPEAT_WINDOW_DAYS)
+    examples = adaptation.get("examples") or None
+    avoid_families = [str(f) for f in (adaptation.get("avoidFamilies") or ())]
+    recent = recent_labels(data_dir, day, days=adapt_days)
     # Ticket #1439: elements the provider refused keep out of the proposal
     # pool for the repeat window, so a refusal is not re-proposed next run.
-    for label in refused_labels(data_dir, datetime.date.fromisoformat(date)):
+    for label in refused_labels(data_dir, day, days=adapt_days):
         if label not in recent:
             recent.append(label)
     # Ticket #1537: labels the reviewer keeps rejecting are blocked for the
     # same window, so a run cannot keep proposing the element Evan already
     # threw out. The tally is rebuilt from state.json + feedback.json and
-    # persisted next to refused_elements.json.
-    tally = refresh_label_verdicts(data_dir, datetime.date.fromisoformat(date))
+    # persisted next to refused_elements.json. Ticket #1538 adds the labels
+    # the feedback pass blocked over its own window.
+    tally = refresh_label_verdicts(data_dir, day)
     blocked = blocked_labels(tally)
+    for label in adaptation.get("avoidLabels") or ():
+        if label not in blocked:
+            blocked.append(label)
     report["blocked_labels"] = blocked
+    report["adaptation"] = {
+        "generatedAt": adaptation.get("generatedAt"),
+        "knobs": adaptation.get("knobs") or {},
+        "avoid_labels": len(adaptation.get("avoidLabels") or []),
+        "avoid_families": avoid_families,
+        "example_count": len(examples) if examples else None,
+    }
     stats = _blank_stats()
 
     if args.dry_run:
@@ -2930,7 +3017,9 @@ def _run(args, data_dir: Path, lock) -> dict:
         report["plan"] = [
             {"source": s["id"], "title": clean_title(s),
              "place": scene_place(s),
-             "proposal_prompt": proposal_prompt(s, recent, blocked=blocked),
+             "proposal_prompt": proposal_prompt(s, recent, blocked=blocked,
+                                                examples=examples,
+                                                avoid_families=avoid_families),
              "edit_prompt_template": edit_prompt({"anomaly": "<anomaly>",
                                                   "placement": "<placement>",
                                                   "figure": False})}
@@ -2974,7 +3063,8 @@ def _run(args, data_dir: Path, lock) -> dict:
         scene, failed = _generate_one(source, args, data_dir, date, out_dir,
                                       recent + sorted(used_prompts), totals,
                                       emit, index, len(picked), stats=stats,
-                                      blocked=blocked)
+                                      blocked=blocked, examples=examples,
+                                      avoid_families=avoid_families)
         if scene is not None:
             report["added"].append(scene["report"])
             used_prompts.add(scene["label"])
@@ -3806,7 +3896,8 @@ def _independent_draws(source_image: Path, source: dict, proposal: dict,
 def _generate_one(source: dict, args, data_dir: Path, date: str,
                   out_dir: Path, recent: list, totals: dict, emit,
                   scene_index: int = 1, scene_total: int = 1,
-                  stats: dict | None = None, blocked=()) -> tuple:
+                  stats: dict | None = None, blocked=(), examples=None,
+                  avoid_families=()) -> tuple:
     """One source through the whole flow; returns (scene|None, failure|None).
 
     Ticket #1436: a source yields exactly one scene, drawn as exactly one
@@ -3815,7 +3906,8 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
     mechanical failure (the source image missing, the API refusing to produce
     any draw, a coordinate-less scene with no diff hotspot) is reported as
     failed. ``stats`` carries the run's refusal accounting (ticket #1439);
-    ``blocked`` the labels the reviewer keeps rejecting (ticket #1537).
+    ``blocked`` the labels the reviewer keeps rejecting (ticket #1537);
+    ``examples``/``avoid_families`` the feedback pass's adjustments (#1538).
     """
     api_key = os.environ.get("OPENROUTER_API_KEY", "")
     source_image = ag_sources.sources_dir(data_dir) / source["image"]
@@ -3860,7 +3952,8 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
     for attempt in range(1, args.max_attempts + 1):
         progress("proposing")
         proposal, proposal_call, errors = _attempt_proposal(
-            source_image, source, recent, args, api_key, blocked=blocked)
+            source_image, source, recent, args, api_key, blocked=blocked,
+            examples=examples, avoid_families=avoid_families)
         record_call(data_dir, trace, {"stage": "proposal", "attempt": attempt,
                                       **_call_trace(proposal_call)})
         ag_llm.add_usage(totals, proposal_call.get("usage"))
@@ -3875,7 +3968,8 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
         # #1537 adds the reviewer's block list and the carrier check.
         proposal, gate = enforce_proposal_gates(
             proposal, source_image, source, recent, args, api_key, attempt,
-            data_dir, trace, totals, blocked=blocked)
+            data_dir, trace, totals, blocked=blocked, examples=examples,
+            avoid_families=avoid_families)
         note_avoidance(stats, gate)
         gate_review = ""
         if gate.get("repeated"):
@@ -4216,17 +4310,20 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
     return None, last_error or {"id": source["id"], "reason": "no attempt ran"}
 
 def _attempt_proposal(source_image: Path, source: dict, recent: list, args,
-                      api_key: str, conflict=None, blocked=()):
+                      api_key: str, conflict=None, blocked=(), examples=None,
+                      avoid_families=()):
     """Call 1 with its error handling; returns (proposal, call, errors)."""
     try:
         result = propose_anomaly(source_image, source, recent, api_key,
                                  args.model, args.base_url,
                                  args.model_max_tokens, args.model_timeout,
                                  args.temperature, conflict=conflict,
-                                 blocked=blocked)
+                                 blocked=blocked, examples=examples,
+                                 avoid_families=avoid_families)
     except ag_llm.LLMError as e:
         call = {"model": args.model,
-                "prompt": proposal_prompt(source, recent, conflict, blocked),
+                "prompt": proposal_prompt(source, recent, conflict, blocked,
+                                          examples, avoid_families),
                 "answer": "", "usage": ag_llm.zero_usage(), "error": str(e),
                 "duration_s": 0.0}
         return None, call, [str(e)]

@@ -69,7 +69,8 @@ SOURCE_KEYS = (
 )
 ENTRY_KEYS = (
     "id", "title", "title_source", "place", "year", "credit", "sourceUrl",
-    "source", "anomaly", "family", "explanation", "references", "description",
+    "source", "anomaly", "family", "placement_kind", "explanation",
+    "references", "description",
     "answer", "answer_before", "shortId", "checker", "needs_review",
 )
 
@@ -774,6 +775,9 @@ def write_manifest(repo: Path, date: str, scenes: list) -> None:
         # family is queue-side variety metadata (ticket #1232): the game's
         # manifest.ts has no use for it, so it does not leak into the manifest.
         out.pop("family", None)
+        # The placement kind (ticket #1538) is feedback-pass metadata too; the
+        # game only sees the scene, not how the element was entered.
+        out.pop("placement_kind", None)
         # Hints were removed in ticket #1407; stored scenes may still carry
         # the field, and the manifest must not.
         out.pop("hints", None)
