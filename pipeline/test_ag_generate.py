@@ -7,6 +7,7 @@ preflight and the pixel gates are monkeypatched; images are real files
 created with ImageMagick so the queue's landscape check runs for real.
 """
 
+import datetime
 import json
 import math
 import os
@@ -25,6 +26,24 @@ import ag_sources
 import ag_verify
 
 SOURCE_ID = "commons-market-street-2013-10-24-abc123"
+
+# The 11 stored scenes whose anomaly label was "Modern outboard motor"
+# (ticket #1537): 9 rejected, 2 accepted. The titles are the real catalogue
+# names, used as the source's own text for the carrier gate.
+OUTBOARD_LABEL = "Modern outboard motor"
+OUTBOARD_SCENE_TITLES = (
+    "Tripoli. Boats meeting steamer in harbour. LOC matpc.02119",
+    "S. S. Alexandria in Picton Harbour",
+    "Monte Carlo [vue générale]",
+    "Yacht Portia",
+    "[Deux hommes discutant dans la rue]",
+    "Yacht de l'empereur François-Joseph",
+    "25-1-14, Chamonix, traîneau",
+    "Voiture Delage",
+    "Fêtes du 15 août, Paris désert",
+    "Autobus à roues pneumatiques",
+    "Moss - Øvre Torg",
+)
 
 
 def make_img(path: Path, w=1200, h=800, color="gray"):
@@ -1219,10 +1238,131 @@ class ProposalGateTest(unittest.TestCase):
                 source(title="Busy market street", description=""), []), {})
 
 
+class LabelBlockTest(unittest.TestCase):
+    """Ticket #1537: the reviewer block list, the label match and carriers."""
+
+    def test_normalized_label_drops_filler_and_qualifiers(self):
+        self.assertEqual(g.normalized_label("Modern outboard motor"),
+                         "outboard motor")
+        self.assertEqual(g.normalized_label("Plastic bottle (clear PET)"),
+                         "plastic bottle")
+
+    def test_normalized_label_match_catches_the_same_wording(self):
+        self.assertEqual(
+            g.avoid_conflict("outboard motor", ["Modern outboard motor"]),
+            "Modern outboard motor")
+
+    def test_a_label_blocks_after_the_observed_rejection_pattern(self):
+        # 9 rejections against 2 accepts is the outboard motor's real record.
+        self.assertTrue(g.label_blocked({"accepted": 2, "rejected": 9}))
+        self.assertIn("Modern outboard motor",
+                      g.blocked_labels({"outboard motor": {
+                          "label": "Modern outboard motor", "accepted": 2,
+                          "rejected": 9, "last": "2026-09-15"}}))
+
+    def test_an_acceptance_reopens_a_blocked_label(self):
+        self.assertTrue(g.label_blocked({"accepted": 0, "rejected": 2}))
+        self.assertFalse(g.label_blocked({"accepted": 1, "rejected": 2}))
+
+    def test_a_clean_label_is_not_blocked(self):
+        self.assertFalse(g.label_blocked({"accepted": 3, "rejected": 1}))
+        self.assertFalse(g.label_blocked({"accepted": 0, "rejected": 1}))
+
+    def test_the_real_outboard_scenes_are_caught(self):
+        # The 11 real scenes that carried the label; label gate or carrier
+        # gate must flag at least 8 of them (ticket #1537).
+        hits = [title for title in OUTBOARD_SCENE_TITLES
+                if g.proposal_conflicts({"anomaly": OUTBOARD_LABEL},
+                                        source(title=title), [],
+                                        [OUTBOARD_LABEL])]
+        self.assertGreaterEqual(len(hits), 8)
+
+    def test_carrier_gate_needs_water_or_a_boat(self):
+        for title in ("Voiture Delage", "25-1-14, Chamonix, traîneau",
+                      "Autobus à roues pneumatiques",
+                      "[Deux hommes discutant dans la rue]"):
+            conflict = g.carrier_conflict({"anomaly": OUTBOARD_LABEL},
+                                          source(title=title))
+            self.assertEqual(conflict["element"], OUTBOARD_LABEL)
+        # the harbour scene names boats, so the carrier fits there
+        self.assertIsNone(g.carrier_conflict(
+            {"anomaly": OUTBOARD_LABEL},
+            source(title="Tripoli. Boats meeting steamer in harbour")))
+
+    def test_carrier_gate_leaves_an_element_without_a_table_entry_alone(self):
+        self.assertEqual(g.required_carrier("Wheeled suitcase"), ())
+        self.assertIsNone(g.carrier_conflict({"anomaly": "Wheeled suitcase"},
+                                             source(title="Busy market")))
+
+    def test_conflict_reason_names_the_block_and_the_carrier(self):
+        findings = g.proposal_conflicts({"anomaly": OUTBOARD_LABEL},
+                                        source(title="Voiture Delage"), [],
+                                        [OUTBOARD_LABEL])
+        self.assertIn("blocked", findings)
+        self.assertIn("carrier", findings)
+        reason = g.conflict_reason(findings)
+        self.assertIn("rejecting", reason)
+        self.assertIn("boat", reason)
+
+    def test_the_prompt_names_the_blocked_labels_and_the_carrier(self):
+        prompt = g.proposal_prompt(source(), blocked=[OUTBOARD_LABEL])
+        self.assertIn("reviewer keeps rejecting", prompt)
+        self.assertIn(OUTBOARD_LABEL, prompt)
+        self.assertIn('"carrier"', prompt)
+
+
+class LabelVerdictsTest(TempDataMixin, unittest.TestCase):
+    """Ticket #1537: the tally rebuilt from state.json + feedback.json."""
+
+    def write_verdicts(self, scenes, accepted, rejected):
+        ag_queue.save_state(self.data_dir, {"version": 1, "scenes": scenes})
+        (self.data_dir / "feedback.json").write_text(json.dumps(
+            {"version": 1, "accepted": accepted, "rejected": rejected}))
+
+    def test_refresh_tallies_the_verdicts_and_persists_them(self):
+        # Three verdicts on one element, in two wordings: the tally merges
+        # them under the normalized label.
+        self.write_verdicts(
+            {"a": {"id": "a", "anomaly": "Modern outboard motor"},
+             "b": {"id": "b", "anomaly": "outboard motor"},
+             "c": {"id": "c", "anomaly": "Modern outboard motor"}},
+            {"c": "2026-09-12T10:00:00Z"},
+            {"a": "2026-09-11T10:00:00Z", "b": "2026-09-12T09:00:00Z"})
+        tally = g.refresh_label_verdicts(
+            self.data_dir, today=datetime.date(2026, 9, 12))
+        self.assertEqual(tally["outboard motor"]["accepted"], 1)
+        self.assertEqual(tally["outboard motor"]["rejected"], 2)
+        self.assertEqual(tally["outboard motor"]["label"],
+                         "Modern outboard motor")
+        # one acceptance against two rejections is 67 %, under the block line
+        self.assertEqual(g.blocked_labels(tally), [])
+        self.assertTrue((self.data_dir / "label_verdicts.json").exists())
+        self.assertEqual(g.load_label_verdicts(self.data_dir)["outboard motor"],
+                         tally["outboard motor"])
+
+    def test_a_label_blocks_with_rejections_and_no_acceptance(self):
+        self.write_verdicts(
+            {"a": {"id": "a", "anomaly": "Modern outboard motor"},
+             "b": {"id": "b", "anomaly": "Modern outboard motor"}},
+            {}, {"a": "2026-09-11T10:00:00Z", "b": "2026-09-12T09:00:00Z"})
+        tally = g.refresh_label_verdicts(
+            self.data_dir, today=datetime.date(2026, 9, 12))
+        self.assertEqual(g.blocked_labels(tally), ["Modern outboard motor"])
+
+    def test_verdicts_outside_the_window_are_dropped(self):
+        self.write_verdicts(
+            {"a": {"id": "a", "anomaly": "Modern outboard motor"}},
+            {}, {"a": "2026-08-01T10:00:00Z"})
+        tally = g.refresh_label_verdicts(
+            self.data_dir, today=datetime.date(2026, 9, 12))
+        self.assertEqual(tally, {})
+        self.assertEqual(g.blocked_labels(tally), [])
+
+
 class GenerateOneTest(TempDataMixin, unittest.TestCase):
     def run_one(self, *, propose=None, locate=None, check=None, edit=None,
                 click_target=None, reconcile=None, count=1, src=None,
-                recent=None, stats=None, **argkw):
+                recent=None, stats=None, blocked=None, **argkw):
         self.write_source(src)
         g.propose_anomaly = propose or stub_propose()
         g.locate_anomaly = locate or stub_locate()
@@ -1237,7 +1377,8 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
                                         "2026-09-12",
                                         self._tmp / "out",
                                         list(recent or []), totals,
-                                        lambda *a, **kw: None, stats=stats)
+                                        lambda *a, **kw: None, stats=stats,
+                                        blocked=list(blocked or []))
         return scene, failed, totals
 
     def shipped_bytes(self, scene) -> bytes:
@@ -2127,6 +2268,42 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
         self.assertIn("repeats", scene["report"]["review"])
         self.assertEqual(scene["report"]["avoidance"]["repeated"],
                          "Plastic bottle (clear PET)")
+
+    def test_a_blocked_element_triggers_a_reask(self):
+        # #1537: the reviewer kept rejecting this label, so the first
+        # proposal is re-asked even though the family match would not fire.
+        calls = {"n": 0}
+
+        def propose(*a, **kw):
+            calls["n"] += 1
+            p = proposal(
+                anomaly=OUTBOARD_LABEL,
+                explanation="Outboard motors postdate 1905.",
+                references=[{"label": "Outboard motor",
+                             "url": "https://en.wikipedia.org/wiki/Outboard_"
+                                    "motor"}]) if calls["n"] == 1 else proposal()
+            return {"proposal": p, "errors": [],
+                    "call": call(prompt="proposal-prompt")}
+
+        scene, failed, _ = self.run_one(
+            propose=propose, blocked=[OUTBOARD_LABEL])
+        self.assertIsNone(failed)
+        self.assertEqual(calls["n"], 2)
+        findings = scene["report"]["avoidance"]["findings"]
+        self.assertEqual(findings["blocked"], OUTBOARD_LABEL)
+        self.assertEqual(scene["report"]["anomaly"],
+                         "Plastic bottle (clear PET)")
+
+    def test_the_report_names_each_gate_stop(self):
+        stats = {}
+        g.note_avoidance(stats, {"findings": {"blocked": "Modern outboard "
+                                                         "motor",
+                                              "carrier": {"element": "x"}},
+                                 "reask": True, "repeated": None})
+        summary = g.avoidance_summary(stats, [{"anomaly": "Bottle"}])
+        self.assertEqual(summary["stopped"]["blocked"], 1)
+        self.assertEqual(summary["stopped"]["carrier"], 1)
+        self.assertEqual(summary["stopped"]["repeat"], 0)
 
     def test_a_setting_mismatch_triggers_a_reask_naming_the_setting(self):
         # A pen proposed for a harbor panorama: the element's settings and

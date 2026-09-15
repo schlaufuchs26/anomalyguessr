@@ -27,11 +27,14 @@ Per scene:
    `ag_catalog.INSPIRATION` supplies
    few-shot shape examples; recently used labels are passed in to avoid
    repeats. Ticket #1473: that avoid list is enforced, not requested. Before
-   any image call the proposal passes three gates (`enforce_proposal_gates`):
-   a repeat (matched by element family, so a reworded label counts), an
-   element that cannot sit in the scene's setting, or an element inherently
-   too small to find. A finding spends one more proposal call naming the
-   problem; a repeat that survives is kept and flagged for moderation.
+   any image call the proposal passes the gates (`enforce_proposal_gates`):
+   a repeat (matched by element family and now by the normalized label, so a
+   reworded label counts), a label the reviewer keeps rejecting (ticket
+   #1537), an element that cannot sit in the scene's setting, an element
+   whose host (an outboard motor's boat) is not in the source text (#1537),
+   or an element inherently too small to find. A finding spends one more
+   proposal call naming the problem; a repeat that survives is kept and
+   flagged for moderation.
 2. **Apply** (`image_edit`): one `google/gemini-2.5-flash-image` call that (#1447:
    measured 42% cheaper and 24% faster than gemini-3.1-flash-image on six sources)
    adds the anomaly. The generation prompt keeps the hard constraints (one
@@ -283,6 +286,19 @@ REPEAT_LABEL_LIMIT = 15
 # small to find gets one re-ask naming the problem. A repeat that survives
 # the re-ask is kept (nothing is dropped) but flagged for moderation.
 # A re-ask is a proposal call, so it never touches the image-call budget.
+#
+# Two more gates (ticket #1537) close the leaks the outboard-motor label
+# showed: "Modern outboard motor" was proposed 11 times and rejected 9 times,
+# including on a car, a sled, a bus and a street scene. The family match
+# misses a reworded label, the human verdicts never reached the proposal, and
+# nothing checked that the element's host is in the photo. So:
+#   * a normalized-label match (filler adjectives dropped) makes the same
+#     wording collide even when the family bucket differs;
+#   * a block list built from the reviewer's accepts and rejections keeps a
+#     label that keeps failing out of the pool;
+#   * a carrier requirement only proposes an element that needs a thing in
+#     the picture (an outboard motor needs a boat or water) when the source's
+#     own text names that thing.
 # A final check that still fails a presentation requirement (subtlety, scale,
 # grain, identifiability) is a moderation-first finding; since #1476 the
 # same holds for a cue that stayed unreadable (9, "Anachronism visible").
@@ -302,6 +318,41 @@ TRACE_DIRNAME = "traces"
 # so the next proposals avoid them for a while instead of re-proposing the
 # element the provider just blocked.
 REFUSED_ELEMENTS_NAME = "refused_elements.json"
+
+# The reviewer-verdict block list (ticket #1537): the accepts and rejections
+# from feedback.json tallied per normalized label over the repeat window and
+# persisted next to the refusal list, so the next run's proposals leave a
+# label the reviewer keeps rejecting alone.
+LABEL_VERDICTS_NAME = "label_verdicts.json"
+# A label is blocked when the tally is lopsided enough that another proposal
+# is a bad bet: at least three verdicts with a rejection share above
+# BLOCK_REJECT_SHARE, or two rejections and no acceptance at all.
+BLOCK_MIN_VERDICTS = 3
+BLOCK_REJECT_SHARE = 0.7
+BLOCK_MIN_REJECTIONS = 2
+
+# Filler adjectives dropped before two labels are compared, so "Modern
+# outboard motor" and "outboard motor" read as the same element (ticket
+# #1537). Qualifiers in parentheses ("Plastic bottle (clear PET)") go too.
+FILLER_ADJECTIVES = ("modern", "contemporary", "futuristic", "fictional",
+                     "imaginary", "small", "large", "big", "tiny", "extra",
+                     "sci-fi", "scifi")
+
+# Element -> the words that must appear in the source's own text for the
+# element to have a host in the photograph (ticket #1537). The table starts
+# with the repeat offender that motivated it: an outboard motor was proposed
+# on cars, sleds, buses and a street scene, none of which can carry one. A
+# label whose words contain a table key needs one of the key's words in the
+# source title or description, else the proposal gets the one re-ask.
+CARRIER_REQUIREMENTS = (
+    ("outboard motor", ("boat", "hull", "water", "canoe", "dinghy", "skiff",
+                        "rowboat", "kayak", "lake", "river", "oar", "marina",
+                        "harbour", "harbor")),
+    ("solar panel", ("roof", "rooftop", "building", "house", "shed", "barn",
+                     "wall", "mast", "pole", "field")),
+    ("roof panel", ("roof", "rooftop", "building", "house", "shed", "barn")),
+    ("roof antenna", ("roof", "rooftop", "building", "house", "shed", "barn")),
+)
 
 
 class GenerationError(RuntimeError):
@@ -538,7 +589,7 @@ def anomaly_branch_lines(year) -> list[str]:
     ]
 
 
-def proposal_prompt(source: dict, recent=(), conflict=None) -> str:
+def proposal_prompt(source: dict, recent=(), conflict=None, blocked=()) -> str:
     """Call 1's prompt: one anomaly, impossible in the catalogue year.
 
     Ticket #1430: the year is a fact the prompt *states*, never one the model
@@ -549,7 +600,9 @@ def proposal_prompt(source: dict, recent=(), conflict=None) -> str:
     (``anomaly_branch_lines``) instead of asking the model to pick between a
     self-contradictory pair of era branches. Ticket #1473: ``conflict`` is a
     rejected proposal's gate finding, named in the re-ask so the model knows
-    what to change.
+    what to change. Ticket #1537: ``blocked`` labels are the ones the
+    reviewer keeps rejecting, named as an avoid line, and the answer now
+    names the ``carrier`` the element attaches to.
     """
     year, field = ag_sources.source_year(source)
     _y, _f, year_source, year_raw = ag_sources.year_provenance(source)
@@ -584,6 +637,11 @@ def proposal_prompt(source: dict, recent=(), conflict=None) -> str:
         'there. A modification is welcome: describe it as adding a small '
         'object that sits on that surface ("a small sticker that sits on '
         'the sign"), never as modifying, covering or replacing the object.',
+        "- If the element only works attached to something specific, that "
+        "thing must already be in THIS photograph: an outboard motor needs a "
+        "boat and water, a solar panel needs a roof or a wall. Name it in "
+        "carrier (\"the rowing boat\") and pick another element when this "
+        "photograph shows nothing it can attach to.",
         "- Pure fantasy is out: no flying saucers, dragons, unicorns, ghosts "
         "or magic. Everything must read as a thing from another time.",
         "- Keep it subtle: findable, but not obvious.",
@@ -607,6 +665,9 @@ def proposal_prompt(source: dict, recent=(), conflict=None) -> str:
     if recent:
         lines.append("Avoid these anomalies used by recent scenes: "
                      + "; ".join(str(r) for r in recent) + ".")
+    if blocked:
+        lines.append("Avoid these anomalies, the reviewer keeps rejecting "
+                     "them: " + "; ".join(str(b) for b in blocked) + ".")
     if conflict:
         lines.append(
             "Your previous proposal for this photograph was rejected: "
@@ -623,13 +684,16 @@ def proposal_prompt(source: dict, recent=(), conflict=None) -> str:
         'that dates this element to another era, a shape a player sees at '
         'once; for a smartphone \\"flat dark glass rectangle with a lit '
         'screen, no buttons\\", for a QR code \\"square of high-contrast '
-        'pixelated pattern\\">", "title": "<short human title of the scene, '
-        'at most 8 words>", "figure": true|false, "placement_kind": '
-        '"standalone"|"modification", "placement": "<one sentence: '
-        'where in THIS photo it sits, how it is partly hidden, and how large '
-        'it should look next to things at the same distance>", "explanation": '
-        '"<one sentence: why it cannot exist in the scene\'s year>", '
-        '"references": [{"label": "<source name>", "url": "https://..."}]}')
+        'pixelated pattern\\">", "carrier": "<the object in THIS photograph '
+        'the element attaches to or sits on, e.g. \\"the rowing boat\\"; '
+        'empty string when it stands on its own>", "title": "<short human '
+        'title of the scene, at most 8 words>", "figure": true|false, '
+        '"placement_kind": "standalone"|"modification", "placement": "<one '
+        'sentence: where in THIS photo it sits, how it is partly hidden, and '
+        'how large it should look next to things at the same distance>", '
+        '"explanation": "<one sentence: why it cannot exist in the scene\'s '
+        'year>", "references": [{"label": "<source name>", "url": '
+        '"https://..."}]}')
     return "\n".join(lines)
 
 
@@ -969,6 +1033,7 @@ def normalize_proposal(proposal: dict) -> dict:
     out = dict(proposal)
     for key, limit in (("anomaly", 80), ("exists_from", 60),
                        ("visual_tell", 240), ("not_today", 400),
+                       ("carrier", 80),
                        ("placement", 400), ("explanation", 400)):
         out[key] = ag_llm.clean_text(out.get(key), limit)
     out["title"] = clean_caption_title(out.get("title"))[:80]
@@ -995,15 +1060,80 @@ def element_key(label) -> str:
                                           str(label or "").lower()))
 
 
+def normalized_label(label) -> str:
+    """The label lowercased with filler adjectives and qualifiers dropped.
+
+    Ticket #1537: the family match above can miss a repeat when the model's
+    wording changes the bucket; comparing the normalized label catches the
+    same wording ("Modern outboard motor" vs "outboard motor") regardless.
+    """
+    text = re.sub(r"\([^)]*\)", " ", str(label or "")).lower()
+    words = [w for w in re.findall(r"[a-z0-9]+", text)
+             if w not in FILLER_ADJECTIVES]
+    return " ".join(words)
+
+
 def avoid_conflict(label, avoid) -> str | None:
     """The avoid-list entry ``label`` collides with, None when it is new."""
     key = element_key(label)
     if not key:
         return None
+    norm = normalized_label(label)
     for other in avoid or ():
-        if key == element_key(other):
+        if key == element_key(other) or (norm and norm == normalized_label(other)):
             return str(other)
     return None
+
+
+def blocked_conflict(label, blocked) -> str | None:
+    """The blocked label ``label`` collides with, None when it is new (#1537)."""
+    norm = normalized_label(label)
+    if not norm:
+        return None
+    for other in blocked or ():
+        if norm == normalized_label(other):
+            return str(other)
+    return None
+
+
+def required_carrier(label) -> tuple:
+    """The carrier words an element needs in the photo, () when none apply.
+
+    Ticket #1537: an element that attaches to something specific (an outboard
+    motor to a boat) can only be proposed when that thing is in the scene.
+    """
+    words = set(normalized_label(label).split())
+    if not words:
+        return ()
+    for key, required in CARRIER_REQUIREMENTS:
+        if set(normalized_label(key).split()) <= words:
+            return required
+    return ()
+
+
+def carrier_text(source) -> str:
+    """The source's own text, the only evidence a carrier is read from."""
+    return " ".join(str((source or {}).get(k) or "")
+                    for k in ("originalTitle", "description")).lower()
+
+
+def carrier_conflict(proposal, source) -> dict | None:
+    """The element's missing host in the scene, None when it fits (#1537).
+
+    An element that needs a carrier (``CARRIER_REQUIREMENTS``) is judged
+    against the source's own title and description: none of the required
+    words there means the photograph does not show the thing the element
+    attaches to, so the proposal is re-asked like a bad setting fit. An
+    element without a carrier table entry is never judged here.
+    """
+    label = str((proposal or {}).get("anomaly") or "")
+    required = required_carrier(label)
+    if not required:
+        return None
+    text = carrier_text(source)
+    if any(word in text for word in required):
+        return None
+    return {"element": label, "requires": list(required)}
 
 
 def setting_conflict(proposal, source) -> dict | None:
@@ -1026,16 +1156,26 @@ def setting_conflict(proposal, source) -> dict | None:
     return {"element": label, "scene": list(scene), "allowed": list(allowed)}
 
 
-def proposal_conflicts(proposal, source, avoid) -> dict:
-    """The proposal-time gate findings (ticket #1473), {} when it clears."""
+def proposal_conflicts(proposal, source, avoid, blocked=()) -> dict:
+    """The proposal-time gate findings (tickets #1473, #1537), {} when clean.
+
+    ``avoid`` is the run's recent window (used labels); ``blocked`` the
+    labels the reviewer's verdicts keep rejecting.
+    """
     label = str((proposal or {}).get("anomaly") or "")
     out = {}
     repeat = avoid_conflict(label, avoid)
     if repeat:
         out["repeat"] = repeat
+    blocked_hit = blocked_conflict(label, blocked)
+    if blocked_hit:
+        out["blocked"] = blocked_hit
     setting = setting_conflict(proposal, source)
     if setting:
         out["setting"] = setting
+    carrier = carrier_conflict(proposal, source)
+    if carrier:
+        out["carrier"] = carrier
     if ag_catalog.inherently_small(label):
         out["small"] = label
     return out
@@ -1047,10 +1187,18 @@ def conflict_reason(conflicts: dict) -> str:
     if conflicts.get("repeat"):
         parts.append(f"it repeats \"{conflicts['repeat']}\", an element a "
                      "recent scene already used")
+    if conflicts.get("blocked"):
+        parts.append(f"\"{conflicts['blocked']}\" is an element the reviewer "
+                     "keeps rejecting, so it is out")
     if conflicts.get("setting"):
         setting = conflicts["setting"]
         parts.append(f"\"{setting['element']}\" cannot plausibly sit in this "
                      f"scene ({', '.join(setting['scene'])})")
+    if conflicts.get("carrier"):
+        carrier = conflicts["carrier"]
+        parts.append(f"\"{carrier['element']}\" needs one of "
+                     f"({', '.join(carrier['requires'][:5])}) in the "
+                     "photograph, and this scene shows none")
     if conflicts.get("small"):
         parts.append(f"\"{conflicts['small']}\" is too small for a player to "
                      "find fairly in this photograph")
@@ -1058,7 +1206,8 @@ def conflict_reason(conflicts: dict) -> str:
 
 
 def enforce_proposal_gates(proposal, source_image, source, avoid, args,
-                           api_key, attempt, data_dir, trace, totals):
+                           api_key, attempt, data_dir, trace, totals,
+                           blocked=()):
     """Make the avoid list a rule and re-ask once on a finding (#1473).
 
     Returns ``(proposal, info)``. ``info["findings"]`` is the first
@@ -1067,21 +1216,22 @@ def enforce_proposal_gates(proposal, source_image, source, avoid, args,
     an element the run (or the recent window) already used. A repeat that
     survives is kept, never dropped; the caller flags it for moderation.
     """
-    findings = proposal_conflicts(proposal, source, avoid)
+    findings = proposal_conflicts(proposal, source, avoid, blocked)
     info = {"findings": findings, "reask": False, "repeated": None,
             "resolved": not findings}
     if not findings:
         return proposal, info
     info["reask"] = True
     retry, call, errors = _attempt_proposal(source_image, source, avoid, args,
-                                            api_key, conflict=findings)
+                                            api_key, conflict=findings,
+                                            blocked=blocked)
     record_call(data_dir, trace, {"stage": "proposal-retry",
                                   "attempt": attempt, **_call_trace(call)})
     ag_llm.add_usage(totals, call.get("usage"))
     if errors:
         info["reask_error"] = "; ".join(errors)
         return proposal, info
-    after = proposal_conflicts(retry, source, avoid)
+    after = proposal_conflicts(retry, source, avoid, blocked)
     if after.get("repeat"):
         info["repeated"] = str(after["repeat"])
     info["resolved"] = not after
@@ -1101,8 +1251,12 @@ def note_avoidance(stats, info) -> None:
         row["reasks"] += 1
     if "repeat" in findings:
         row["repeats"] += 1
+    if "blocked" in findings:
+        row["blocked_reasks"] += 1
     if "setting" in findings:
         row["setting_reasks"] += 1
+    if "carrier" in findings:
+        row["carrier_reasks"] += 1
     if "small" in findings:
         row["small_reasks"] += 1
     if info.get("repeated"):
@@ -1111,7 +1265,8 @@ def note_avoidance(stats, info) -> None:
 
 def _blank_avoidance() -> dict:
     return {"scenes": 0, "findings": 0, "reasks": 0, "repeats": 0,
-            "setting_reasks": 0, "small_reasks": 0, "unresolved_repeats": 0}
+            "blocked_reasks": 0, "setting_reasks": 0, "carrier_reasks": 0,
+            "small_reasks": 0, "unresolved_repeats": 0}
 
 
 def avoidance_summary(stats, added) -> dict:
@@ -1120,7 +1275,8 @@ def avoidance_summary(stats, added) -> dict:
     ``distinct_labels``/``distinct_families`` describe what the run actually
     shipped; ``min_families`` is the variety floor (``MIN_RUN_FAMILIES``, or
     the scene count when smaller) and ``min_families_met`` says whether the
-    run reached it.
+    run reached it. Since #1537 ``stopped`` names how many first proposals
+    each gate stopped, so a run reports which lever did the work.
     """
     row = dict((stats or {}).get("avoidance") or _blank_avoidance())
     labels = [str(s.get("anomaly") or "") for s in added]
@@ -1136,6 +1292,10 @@ def avoidance_summary(stats, added) -> dict:
     row["min_families"] = min(len(added), MIN_RUN_FAMILIES) if added else 0
     row["min_families_met"] = (row["distinct_families"]
                                >= row["min_families"])
+    row["stopped"] = {"repeat": row["repeats"], "blocked":
+                      row["blocked_reasks"], "setting": row["setting_reasks"],
+                      "carrier": row["carrier_reasks"],
+                      "small": row["small_reasks"]}
     return row
 
 
@@ -1184,13 +1344,15 @@ def _run_call(prompt: str, image: Path | None, api_key: str, model: str,
 
 def propose_anomaly(image: Path, source: dict, recent, api_key: str,
                     model: str, base_url: str, max_tokens: int, timeout: int,
-                    temperature: float | None, conflict=None) -> dict:
+                    temperature: float | None, conflict=None, blocked=()) -> dict:
     """Call 1: the creative proposal (era judgement + anomaly + placement).
 
     ``conflict`` is the gate finding of a rejected proposal (ticket #1473):
     the re-ask names it so the model changes what the pipeline objected to.
+    ``blocked`` are the labels the reviewer keeps rejecting (ticket #1537),
+    named as an avoid line.
     """
-    prompt = proposal_prompt(source, recent, conflict)
+    prompt = proposal_prompt(source, recent, conflict, blocked)
     result = _run_call(prompt, image, api_key, model, base_url, max_tokens,
                        timeout, temperature)
     proposal = result["parsed"]
@@ -2463,6 +2625,108 @@ def refused_labels(data_dir: Path, today=None,
     return [label for label, _ in rows][:REPEAT_LABEL_LIMIT]
 
 
+def label_verdicts_path(data_dir: Path) -> Path:
+    return Path(data_dir) / LABEL_VERDICTS_NAME
+
+
+def load_label_verdicts(data_dir: Path) -> dict:
+    """The persisted reviewer tally, {} when the file is missing (#1537)."""
+    try:
+        data = json.loads(label_verdicts_path(data_dir).read_text())
+    except (OSError, ValueError):
+        return {}
+    labels = data.get("labels") if isinstance(data, dict) else None
+    return labels if isinstance(labels, dict) else {}
+
+
+def build_label_verdicts(scenes, accepted, rejected, today=None,
+                         days: int = REPEAT_WINDOW_DAYS) -> dict:
+    """Accepts and rejections per normalized label over the repeat window.
+
+    Ticket #1537: the human verdicts are the strongest signal the pipeline
+    has, but they only existed on the queue. Each verdict is matched to the
+    label its scene carries (``scenes`` = the queue state) and tallied under
+    the normalized label, so a rejection of one wording counts against the
+    next proposal of the same element. ``last`` is the newest verdict date;
+    the entry keeps that verdict's own label, so the prompt can name it.
+    """
+    day = today or datetime.date.today()
+    cutoff = (day - datetime.timedelta(days=days)).isoformat()
+    out = {}
+    for verdicts, field in ((accepted, "accepted"), (rejected, "rejected")):
+        for scene_id, at in (verdicts or {}).items():
+            when = str(at or "")[:10]
+            if when < cutoff:
+                continue
+            scene = (scenes or {}).get(scene_id) or {}
+            label = str(scene.get("anomaly") or "").strip()
+            norm = normalized_label(label)
+            if not norm:
+                continue
+            row = out.setdefault(norm, {"label": label, "accepted": 0,
+                                        "rejected": 0, "last": ""})
+            row[field] += 1
+            if when > row["last"]:
+                row["last"] = when
+                row["label"] = label
+    return out
+
+
+def label_blocked(row) -> bool:
+    """Whether a label's verdict tally blocks new proposals (#1537).
+
+    Two ways a label becomes a bad bet: two rejections with no acceptance at
+    all, or a longer record (``BLOCK_MIN_VERDICTS``) that is still rejected
+    more than ``BLOCK_REJECT_SHARE`` of the time. An acceptance is what
+    re-opens a label blocked by the no-acceptance rule, and enough
+    acceptances pull the share back under the threshold.
+    """
+    accepted = int((row or {}).get("accepted") or 0)
+    rejected = int((row or {}).get("rejected") or 0)
+    total = accepted + rejected
+    if rejected >= BLOCK_MIN_REJECTIONS and accepted == 0:
+        return True
+    return total >= BLOCK_MIN_VERDICTS and rejected / total > BLOCK_REJECT_SHARE
+
+
+def blocked_labels(tally) -> list:
+    """The reader-facing labels a tally blocks, newest verdict first."""
+    rows = [(str(row.get("label") or ""), row)
+            for row in (tally or {}).values() if label_blocked(row)]
+    rows.sort(key=lambda r: str(r[1].get("last") or ""), reverse=True)
+    return [label for label, _ in rows if label]
+
+
+def refresh_label_verdicts(data_dir: Path, today=None,
+                           days: int = REPEAT_WINDOW_DAYS) -> dict:
+    """Rebuild the label tally from state.json + feedback.json, persist it.
+
+    Ticket #1537: the same "learn from the past" move as the refused-element
+    list, but from the reviewer instead of the image provider. The file is
+    observability plus a cache; a failed write must not fail the run.
+    """
+    try:
+        state = ag_queue.load_state(data_dir)
+    except (OSError, ValueError):
+        state = {}
+    try:
+        feedback = ag_queue.load_feedback(data_dir)
+    except (OSError, ValueError):
+        feedback = {}
+    tally = build_label_verdicts(state.get("scenes") or {},
+                                 feedback.get("accepted") or {},
+                                 feedback.get("rejected") or {},
+                                 today=today, days=days)
+    now = datetime.datetime.now().astimezone()
+    try:
+        _atomic_json(label_verdicts_path(data_dir),
+                     {"updatedAt": now.isoformat(timespec="seconds"),
+                      "windowDays": days, "labels": tally})
+    except OSError:
+        pass
+    return tally
+
+
 def select_sources(data_dir: Path, count: int, seed=None) -> list:
     """Up to ``count`` unused sources with an image, spread by decade.
 
@@ -2649,6 +2913,13 @@ def _run(args, data_dir: Path, lock) -> dict:
     for label in refused_labels(data_dir, datetime.date.fromisoformat(date)):
         if label not in recent:
             recent.append(label)
+    # Ticket #1537: labels the reviewer keeps rejecting are blocked for the
+    # same window, so a run cannot keep proposing the element Evan already
+    # threw out. The tally is rebuilt from state.json + feedback.json and
+    # persisted next to refused_elements.json.
+    tally = refresh_label_verdicts(data_dir, datetime.date.fromisoformat(date))
+    blocked = blocked_labels(tally)
+    report["blocked_labels"] = blocked
     stats = _blank_stats()
 
     if args.dry_run:
@@ -2656,7 +2927,7 @@ def _run(args, data_dir: Path, lock) -> dict:
         report["plan"] = [
             {"source": s["id"], "title": clean_title(s),
              "place": scene_place(s),
-             "proposal_prompt": proposal_prompt(s, recent),
+             "proposal_prompt": proposal_prompt(s, recent, blocked=blocked),
              "edit_prompt_template": edit_prompt({"anomaly": "<anomaly>",
                                                   "placement": "<placement>",
                                                   "figure": False})}
@@ -2699,7 +2970,8 @@ def _run(args, data_dir: Path, lock) -> dict:
             continue
         scene, failed = _generate_one(source, args, data_dir, date, out_dir,
                                       recent + sorted(used_prompts), totals,
-                                      emit, index, len(picked), stats=stats)
+                                      emit, index, len(picked), stats=stats,
+                                      blocked=blocked)
         if scene is not None:
             report["added"].append(scene["report"])
             used_prompts.add(scene["label"])
@@ -3531,7 +3803,7 @@ def _independent_draws(source_image: Path, source: dict, proposal: dict,
 def _generate_one(source: dict, args, data_dir: Path, date: str,
                   out_dir: Path, recent: list, totals: dict, emit,
                   scene_index: int = 1, scene_total: int = 1,
-                  stats: dict | None = None) -> tuple:
+                  stats: dict | None = None, blocked=()) -> tuple:
     """One source through the whole flow; returns (scene|None, failure|None).
 
     Ticket #1436: a source yields exactly one scene, drawn as exactly one
@@ -3539,7 +3811,8 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
     drives up to two correction rounds plus a final click-target pass. Only a
     mechanical failure (the source image missing, the API refusing to produce
     any draw, a coordinate-less scene with no diff hotspot) is reported as
-    failed. ``stats`` carries the run's refusal accounting (ticket #1439).
+    failed. ``stats`` carries the run's refusal accounting (ticket #1439);
+    ``blocked`` the labels the reviewer keeps rejecting (ticket #1537).
     """
     api_key = os.environ.get("OPENROUTER_API_KEY", "")
     source_image = ag_sources.sources_dir(data_dir) / source["image"]
@@ -3584,7 +3857,7 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
     for attempt in range(1, args.max_attempts + 1):
         progress("proposing")
         proposal, proposal_call, errors = _attempt_proposal(
-            source_image, source, recent, args, api_key)
+            source_image, source, recent, args, api_key, blocked=blocked)
         record_call(data_dir, trace, {"stage": "proposal", "attempt": attempt,
                                       **_call_trace(proposal_call)})
         ag_llm.add_usage(totals, proposal_call.get("usage"))
@@ -3596,9 +3869,10 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
             continue
         # #1473: the avoid list, the setting fit and the smallness bar are
         # enforced here, before any image call; a finding runs one re-ask.
+        # #1537 adds the reviewer's block list and the carrier check.
         proposal, gate = enforce_proposal_gates(
             proposal, source_image, source, recent, args, api_key, attempt,
-            data_dir, trace, totals)
+            data_dir, trace, totals, blocked=blocked)
         note_avoidance(stats, gate)
         gate_review = ""
         if gate.get("repeated"):
@@ -3939,16 +4213,17 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
     return None, last_error or {"id": source["id"], "reason": "no attempt ran"}
 
 def _attempt_proposal(source_image: Path, source: dict, recent: list, args,
-                      api_key: str, conflict=None):
+                      api_key: str, conflict=None, blocked=()):
     """Call 1 with its error handling; returns (proposal, call, errors)."""
     try:
         result = propose_anomaly(source_image, source, recent, api_key,
                                  args.model, args.base_url,
                                  args.model_max_tokens, args.model_timeout,
-                                 args.temperature, conflict=conflict)
+                                 args.temperature, conflict=conflict,
+                                 blocked=blocked)
     except ag_llm.LLMError as e:
         call = {"model": args.model,
-                "prompt": proposal_prompt(source, recent, conflict),
+                "prompt": proposal_prompt(source, recent, conflict, blocked),
                 "answer": "", "usage": ag_llm.zero_usage(), "error": str(e),
                 "duration_s": 0.0}
         return None, call, [str(e)]
