@@ -1,56 +1,20 @@
 {
   "version": 2,
-  "date": "2026-09-15",
+  "date": "2026-09-16",
   "scenes": [
     {
-      "id": "commons-jaywalkers-central-in-the-southern-capital-2011-cad900-nylon-rope-colored",
-      "title": "Jaywalkers Central in the southern capital",
-      "place": "",
-      "year": "1900",
-      "description": "Jaywalkers Central in the southern capital, circa 1900, from the Wikimedia Commons catalogue.",
-      "anomaly": "Nylon rope (colored)",
+      "id": "porta-capuana-naples",
+      "title": "Market in Porta Capuana, Naples (unknown date), by Franz Theodor Aerni",
+      "place": "Naples, Italy",
+      "year": "1918",
+      "description": "A street market near the Porta Capuana gate in Naples, Italy, painted by Franz Theodor Aerni, before 1918.",
+      "anomaly": "Plastic water bottle (PET)",
       "answer": {
-        "x": 0.38,
-        "y": 0.78,
-        "r": 0.06
+        "x": 0.3515,
+        "y": 0.9645,
+        "r": 0.0808
       },
-      "explanation": "Bright synthetic nylon rope only replaced natural fibre rope in the mid-20th century, after this photo.",
-      "references": [
-        {
-          "label": "Nylon",
-          "url": "https://en.wikipedia.org/wiki/Nylon"
-        }
-      ],
-      "source": {
-        "repository": "Wikimedia Commons",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:Jaywalkers_Central_in_the_southern_capital.jpg",
-        "originalTitle": "Jaywalkers Central in the southern capital",
-        "date": "circa 1900",
-        "place": "",
-        "license": "No restrictions",
-        "description": "A lively scene on the quays in Cork is today's image from the seldom visited O'Connor Collection. The rules of the road are being abused left, right and centre with one man reading his paper as he walks along. In the meantime some dockers are busy watching the action in the boats below the quay wall! Photographer: Fergus O’Connor Collection: Fergus O’Connor Collection Date: Circa 1900 - 1920 NLI Ref: OCO 314 You can also view this image, and many thousands of others, on the NLI’s catalogue at catalogue.nli.ie"
-      },
-      "credit": "National Library of Ireland on The Commons via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Jaywalkers_Central_in_the_southern_capital.jpg",
-      "added": "2026-09-11",
-      "shown": "2026-09-15",
-      "title_source": "catalog",
-      "image": "scenes/commons-jaywalkers-central-in-the-southern-capital-2011-cad900-nylon-rope-colored.jpg",
-      "original": "scenes/commons-jaywalkers-central-in-the-southern-capital-2011-cad900-nylon-rope-colored-original.jpg"
-    },
-    {
-      "id": "commons-scenes-of-modern-new-york-1906-14589549118-1906-d174dd-plastic-bottle-clear-pet",
-      "title": "Scenes of modern New York. (14589549118)",
-      "place": "Trinity Church (Manhattan)",
-      "year": "1906",
-      "description": "Scenes of modern New York. (14589549118) · Trinity Church (Manhattan) · Wikimedia Commons.",
-      "anomaly": "Plastic bottle (clear PET)",
-      "answer": {
-        "x": 0.5819,
-        "y": 0.9211,
-        "r": 0.0584
-      },
-      "explanation": "Clear PET plastic bottles only came into common use in the 1970s, decades after this photograph was taken.",
+      "explanation": "Disposable plastic (PET) water bottles only became widespread in the 1970s, so one could not have been in this pre-1918 market scene.",
       "references": [
         {
           "label": "Polyethylene terephthalate",
@@ -59,132 +23,164 @@
       ],
       "source": {
         "repository": "Wikimedia Commons",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:Scenes_of_modern_New_York._(1906)_(14589549118).jpg",
-        "originalTitle": "Scenes of modern New York. (1906) (14589549118)",
-        "date": "1906",
-        "place": "Trinity Church (Manhattan)",
-        "license": "No restrictions",
-        "description": "Identifier : scenesofmodernne00durs ( find matches ) Title : Scenes of modern New York. Year : 1906 ( 1900s ) Authors : Durst, Seymour B., 1913-, former owner. NNC L.H. Nelson Company Subjects : Publisher : Portland, Me. : L.H. Nelson Contributing Library : Columbia University Libraries Digitizing Sponsor : The Durst Organization View Book Page : Book Viewer About This Book : Catalog Entry View All Images : All Images From Book Click here to view book online to see this illustration in context in a browseable online version of this book. Text Appearing Before Image: seats, a rest house and fountains are provided for the comfort and pleasure of the people. BATTERY PARK is the name applied to the triangular green at the southern extremity of the city. From here a fine view of the bay may be obtained. TheBattery Park contains twenty-one acres, is shaded by many trees, and has a broad walk along the sea wall. It is always thronged with immigrants and loungers. BROADWAY AT 32d STREET. At no other point inthe city^except perhaps at the entrance to Brooklyn Bridge is street traffic so congested from time to timeas at this busy corner. Surface cars moving in rapid succession on both Broadway and Sixth Avenue and the vast army of pedestrians and vehicles make this oneof the most difficult crossings in New York. The view shows a station of the elevated road with entrances and exits and separate platforms for up-town and down-town trains. The elevated roads are now operated by electricity(and consist of fourjnain double-track lines and a few short branches. Text Appearing After Image: BROADWAY FROM CHAMBERS STREET. The great avenue of New Yorks WALL STREET. The money center of America, the text for political tirades, the business life. No cither street iii America pan show such activity, such a variety of target for many a sermon. Fortunes made or lost every hour of the business day. architecture, such throngs of people. The surface cars follow each other in a never- In the (tenter of the view is Trinity Church, at which point Wall Street begins, ex- ending procession. Broadway starts at Bowling Green and extends to Yonkers, a tending to the East Kiver. The low building at the right is the U. S. Suli-treasury; distance of 14 miles. the skyscraper beyond, the Gillender Building. Note About Images Please note that these images are extracted from scanned page images that may have been digitally enhanced for readability - coloration and appearance of these illustrations may not perfectly resemble the original work."
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:Market_in_Porta_Capuana,_Naples_(unknown_date),_by_Franz_Theodor_Aerni.jpg",
+        "originalTitle": "File:Market in Porta Capuana, Naples (unknown date), by Franz Theodor Aerni.jpg",
+        "date": "by 1918 style=\"display: none;\">date QS:P",
+        "place": "",
+        "license": "Public domain",
+        "description": "<div class=\"description\">\nMarket in Porta Capuana, Naples (unknown date), by Franz Theodor Aerni</div>"
       },
-      "credit": "Internet Archive Book Images via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Scenes_of_modern_New_York._(1906)_(14589549118).jpg",
+      "credit": "Franz Theodor Aerni via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Market_in_Porta_Capuana,_Naples_(unknown_date),_by_Franz_Theodor_Aerni.jpg",
       "added": "2026-09-11",
-      "shown": "2026-09-15",
+      "shown": "2026-09-16",
       "title_source": "catalog",
-      "image": "scenes/commons-scenes-of-modern-new-york-1906-14589549118-1906-d174dd-plastic-bottle-clear-pet.jpg",
-      "original": "scenes/commons-scenes-of-modern-new-york-1906-14589549118-1906-d174dd-plastic-bottle-clear-pet-original.jpg"
+      "image": "scenes/porta-capuana-naples.jpg",
+      "original": "scenes/porta-capuana-naples-original.jpg"
     },
     {
-      "id": "commons-stand-still-it-s-candid-camera-flickr-national-l-2bee4c-e-scooter",
-      "title": "Stand still, it's candid camera",
+      "id": "commons-cabbage-market-label-qs-len-cabbage-market-1900-73814c-time-traveler-schoolgirl",
+      "title": "Cabbage market",
       "place": "",
-      "year": "1890",
-      "description": "Stand still, it's candid camera · Wikimedia Commons.",
-      "anomaly": "E-scooter",
-      "answer": {
-        "x": 0.4965,
-        "y": 0.781,
-        "r": 0.1344
-      },
-      "explanation": "Electric kick scooters only appeared in the 2010s, over a century after this photograph.",
-      "references": [
-        {
-          "label": "Motorized scooter",
-          "url": "https://en.wikipedia.org/wiki/Motorized_scooter"
-        }
-      ],
-      "source": {
-        "repository": "Wikimedia Commons",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:Stand_still,_it%27s_candid_camera_-_Flickr_-_National_Library_of_Ireland_on_The_Commons.jpg",
-        "originalTitle": "Stand still, it's candid camera - Flickr - National Library of Ireland on The Commons",
-        "date": "1890",
-        "place": "52.8436, -8.9879",
-        "license": "No restrictions",
-        "description": "While everybody else stands still at Mr. French’s request, the lone dog looks disapprovingly at the carter who puts a “ghost” into the photograph! A fine, busy scene on Mill Street, Ennis with lots of people, mostly men and boys, about. The scene has changed somewhat but for the most part remains the same today! Photographer: Robert French Collection: Lawrence Photograph Collection Date: Circa 1890-1900 NLI Ref: L_ROY_04486 You can also view this image, and many thousands of others, on the NLI’s catalogue at catalogue.nli.ie"
-      },
-      "credit": "Robert French via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Stand_still,_it%27s_candid_camera_-_Flickr_-_National_Library_of_Ireland_on_The_Commons.jpg",
-      "added": "2026-09-11",
-      "shown": "2026-09-15",
-      "title_source": "catalog",
-      "image": "scenes/commons-stand-still-it-s-candid-camera-flickr-national-l-2bee4c-e-scooter.jpg",
-      "original": "scenes/commons-stand-still-it-s-candid-camera-flickr-national-l-2bee4c-e-scooter-original.jpg"
-    },
-    {
-      "id": "commons-statelibqld-2-52164-birt-and-co-s-brisbane-marke-f4a111-time-traveler-young-woma",
-      "title": "StateLibQld 2 52164 Birt and Co's Brisbane Markets on Stanley Street, South Brisbane",
-      "place": "Australia",
       "year": "1900",
-      "description": "StateLibQld 2 52164 Birt and Co's Brisbane Markets on Stanley Street, South Brisbane · Australia · Wikimedia Commons.",
-      "anomaly": "Time traveler: young woman with modern accessories",
+      "description": "Cabbage market · Wikimedia Commons.",
+      "anomaly": "Time traveler: schoolgirl with headphones",
       "answer": {
-        "x": 0.309,
-        "y": 0.6715,
+        "x": 0.6125,
+        "y": 0.44,
         "r": 0.15
       },
-      "explanation": "Her plastic sunglasses and nylon bag with plastic fittings are later-20th-century items, not yet in use here.",
+      "explanation": "Headphones and modern athletic shoes are 20th-century products that did not exist in this scene's era.",
       "references": [
         {
-          "label": "Sunglasses",
-          "url": "https://en.wikipedia.org/wiki/Sunglasses"
-        },
-        {
-          "label": "Nylon",
-          "url": "https://en.wikipedia.org/wiki/Nylon"
+          "label": "Headphones",
+          "url": "https://en.wikipedia.org/wiki/Headphones"
         }
       ],
       "source": {
         "repository": "Wikimedia Commons",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:StateLibQld_2_52164_Birt_and_Co%27s_Brisbane_Markets_on_Stanley_Street,_South_Brisbane,_1900.jpg",
-        "originalTitle": "StateLibQld 2 52164 Birt and Co's Brisbane Markets on Stanley Street, South Brisbane, 1900",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:Bartlett_-_Cabbage_market_watercolor_1900.jpg",
+        "originalTitle": "Cabbage market label QS:Len,\"Cabbage market\"",
         "date": "1900",
-        "place": "Australia",
+        "place": "",
         "license": "Public domain",
-        "description": "Birt and Co's Brisbane Markets on Stanley Street, South Brisbane, 1900."
+        "description": ""
       },
-      "credit": "Contributor(s): The Queenslander via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:StateLibQld_2_52164_Birt_and_Co%27s_Brisbane_Markets_on_Stanley_Street,_South_Brisbane,_1900.jpg",
-      "added": "2026-09-11",
-      "shown": "2026-09-15",
+      "credit": "Charles William Bartlett via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Bartlett_-_Cabbage_market_watercolor_1900.jpg",
+      "added": "2026-09-12",
+      "shown": "2026-09-16",
       "title_source": "catalog",
-      "image": "scenes/commons-statelibqld-2-52164-birt-and-co-s-brisbane-marke-f4a111-time-traveler-young-woma.jpg",
-      "original": "scenes/commons-statelibqld-2-52164-birt-and-co-s-brisbane-marke-f4a111-time-traveler-young-woma-original.jpg"
+      "image": "scenes/commons-cabbage-market-label-qs-len-cabbage-market-1900-73814c-time-traveler-schoolgirl.jpg",
+      "original": "scenes/commons-cabbage-market-label-qs-len-cabbage-market-1900-73814c-time-traveler-schoolgirl-original.jpg"
     },
     {
-      "id": "commons-the-old-city-market-or-the-city-produce-market-n-4d6b9c-shipping-container",
-      "title": "The Old City Market (or the City Produce Market?), near Central Avenue and 3rd Street, ca. (CHS-5083)",
-      "place": "Los Angeles",
+      "id": "commons-great-western-railway-station-reading-c-1900-190-266f1e-modern-advertising-poste",
+      "title": "Great Western Railway Station, Reading",
+      "place": "England",
       "year": "1900",
-      "description": "The Old City Market (or the City Produce Market?), near Central Avenue and 3rd Street, ca. (CHS-5083) · Los Angeles · Wikimedia Commons.",
-      "anomaly": "Shipping container",
+      "description": "Great Western Railway Station, Reading · England · Wikimedia Commons.",
+      "anomaly": "Modern advertising poster",
       "answer": {
-        "x": 0.4642,
-        "y": 0.443,
-        "r": 0.095
+        "x": 0.482,
+        "y": 0.6365,
+        "r": 0.0864
       },
-      "explanation": "Standardized steel shipping containers only appeared in the 1950s, after this photograph.",
+      "explanation": "Offset-printed advertising posters with modern typography belong to a later era than this photo.",
       "references": [
         {
-          "label": "Intermodal container",
-          "url": "https://en.wikipedia.org/wiki/Intermodal_container"
+          "label": "Poster",
+          "url": "https://en.wikipedia.org/wiki/Poster"
         }
       ],
       "source": {
         "repository": "Wikimedia Commons",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:The_Old_City_Market_(or_the_City_Produce_Market%3F),_near_Central_Avenue_and_3rd_Street,_ca.1900_(CHS-5083).jpg",
-        "originalTitle": "The Old City Market (or the City Produce Market?), near Central Avenue and 3rd Street, ca.1900 (CHS-5083)",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:Great_Western_Railway_Station,_Reading,_c._1900.jpg",
+        "originalTitle": "Great Western Railway Station, Reading, c. 1900",
         "date": "1900",
-        "place": "Los Angeles",
+        "place": "England",
         "license": "Public domain",
-        "description": "The Old City Market (or the City Produce Market?), near Central Avenue and 3rd Street, ca.1900 Photograph of the Old City Market (or the City Produce Market?), near Central Avenue and 3rd Street, ca.1900. Horse-drawn wagons, loaded with crates of food, fill the square (foreground). Numerous more wagons are lined up along the dirt road (upper left). Legible signs include: \"Keystone Building\", \"importers and exporters\", \"onions [...], apples and bananas, oranges and lemons, green and [...], nuts and honey, chiles and [...], fresh [...]\", \"Keystone Produce Co., Incorporated\", \"headquarters, Moneta and Gardena\", \"Central Rooms\", \"Marston &amp; Martin, berries, fruits, and produce\". Call number : CHS-5083 Filename : CHS-5083 Coverage date : circa 1900 Part of collection : California Historical Society Collection, 1860-1960 Format : glass plate negatives Type : images Geographic subject (city or populated place) : Los Angeles Repository name : USC Libraries Special Collections Accession number : 5083 Microfiche number : 1-63- Archival file : chs_Volume51/CHS-5083.tiff Part of subcollection : Title Insurance and Trust, and C.C. Pierce Photography Collection, 1860-1960 Repository address : Doheny Memorial Library, Los Angeles, CA 90089-0189 Geographic subject (country) : USA Format (aacr2) : 2 photographs : glass photonegative, photonegatvie, b&amp;w ; 21 x 26 cm. Rights : Digitally reproduced by the USC Digital Library; From the California Historical Society Collection at the University of Southern California Subject (adlf) : commercial sites Repository email : specol@usc.edu Contributing entity : California Historical Society Date created : circa 1900 Publisher (of the digital version) : University of Southern California. Libraries Format (aat) : negatives (photographic); photographs Geographic subject (state) : California Legacy record ID : chs-m5967 Access conditions : Send requests to address or e-mail given. Phone (213) 821-2366; fax (213) 740-2343. Geographic subject (county) : Los Angeles Geographic subject (roadway) : Central Avenue; 3rd Street Subject (lcsh) : Markets; Horses; Wagons"
+        "description": "Roof-top view of the Great Western Railway Station, Reading, looking westwards, c. 1900. Two trains are visible at the platforms. In the distance, in Greyfriars Road, the premises of Patience, Son and Company, builders, can be seen on one side of the road, with the Tudor Arms pub (later the Malt House), before its front was cement rendered, on the other side. In Station Hill, the sign of Beecroft and Son, printers, is visible. 1900-1909 : photograph by Walton Adams."
       },
-      "credit": "Unknown author Unknown author via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:The_Old_City_Market_(or_the_City_Produce_Market%3F),_near_Central_Avenue_and_3rd_Street,_ca.1900_(CHS-5083).jpg",
-      "added": "2026-09-11",
-      "shown": "2026-09-15",
+      "credit": "Walton Adams via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Great_Western_Railway_Station,_Reading,_c._1900.jpg",
+      "added": "2026-09-12",
+      "shown": "2026-09-16",
       "title_source": "catalog",
-      "image": "scenes/commons-the-old-city-market-or-the-city-produce-market-n-4d6b9c-shipping-container.jpg",
-      "original": "scenes/commons-the-old-city-market-or-the-city-produce-market-n-4d6b9c-shipping-container-original.jpg"
+      "image": "scenes/commons-great-western-railway-station-reading-c-1900-190-266f1e-modern-advertising-poste.jpg",
+      "original": "scenes/commons-great-western-railway-station-reading-c-1900-190-266f1e-modern-advertising-poste-original.jpg"
+    },
+    {
+      "id": "nb-oslo-havn-palibryggen-1880-25e8f8-modern-cargo-pallet",
+      "title": "Oslo havn. Palibryggen.",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1880",
+      "description": "Oslo havn. Palibryggen · National Library of Norway.",
+      "anomaly": "modern cargo pallet",
+      "answer": {
+        "x": 0.635,
+        "y": 0.617,
+        "r": 0.22
+      },
+      "explanation": "Standardized wooden pallets with forklift slots did not exist in 1880, as cargo was moved by hand and barrel hooks.",
+      "references": [
+        {
+          "label": "National Library of Norway",
+          "url": "https://www.nb.no"
+        }
+      ],
+      "source": {
+        "repository": "National Library of Norway",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20130402_00114_NB_MS_G4_0393",
+        "originalTitle": "Oslo havn. Palibryggen.",
+        "date": "1880",
+        "place": "",
+        "license": "Public domain",
+        "description": "{'firstIndexTime': '2025-08-19T09:24:10.849Z', 'firstDigitalContentTime': '2025-08-19T10:24:49.341Z', 'indexLastModified': '2025-08-19T10:24:49.341Z'}"
+      },
+      "credit": "Skøien, Marthinius via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20130402_00114_NB_MS_G4_0393",
+      "added": "2026-09-15",
+      "shown": "2026-09-16",
+      "image": "scenes/nb-oslo-havn-palibryggen-1880-25e8f8-modern-cargo-pallet.jpg",
+      "original": "scenes/nb-oslo-havn-palibryggen-1880-25e8f8-modern-cargo-pallet-original.jpg"
+    },
+    {
+      "id": "gallica-h-licopt-re-espagnol-1923-photographie-de-presse-d9b889-modern-quadcopter-drone",
+      "title": "Hélicoptère espagnol",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1923",
+      "description": "Hélicoptère espagnol · Bibliothèque nationale de France (Gallica).",
+      "anomaly": "Modern quadcopter drone",
+      "answer": {
+        "x": 0.808,
+        "y": 0.333,
+        "r": 0.22
+      },
+      "explanation": "Multi-rotor drones did not exist in 1923, so a hovering quadcopter could not appear in this photograph.",
+      "references": [
+        {
+          "label": "Wikipedia: Quadcopter",
+          "url": "https://en.wikipedia.org/wiki/Quadcopter"
+        }
+      ],
+      "source": {
+        "repository": "Bibliothèque nationale de France (Gallica)",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53239907b",
+        "originalTitle": "Hélicoptère espagnol, 1923 : [photographie de presse] / [Agence Meurisse]",
+        "date": "1923",
+        "place": "",
+        "license": "Public domain",
+        "description": "Référence bibliographique : Meurisse, 9530 A Appartient à l’ensemble documentaire : Pho20Meu Image de presse"
+      },
+      "credit": "Agence de presse Meurisse. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53239907b",
+      "added": "2026-09-14",
+      "shown": "2026-09-16",
+      "image": "scenes/gallica-h-licopt-re-espagnol-1923-photographie-de-presse-d9b889-modern-quadcopter-drone.jpg",
+      "original": "scenes/gallica-h-licopt-re-espagnol-1923-photographie-de-presse-d9b889-modern-quadcopter-drone-original.jpg"
     }
   ]
 }
