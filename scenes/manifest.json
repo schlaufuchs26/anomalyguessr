@@ -1,186 +1,186 @@
 {
   "version": 2,
-  "date": "2026-09-16",
+  "date": "2026-09-17",
   "scenes": [
     {
-      "id": "porta-capuana-naples",
-      "title": "Market in Porta Capuana, Naples (unknown date), by Franz Theodor Aerni",
-      "place": "Naples, Italy",
-      "year": "1918",
-      "description": "A street market near the Porta Capuana gate in Naples, Italy, painted by Franz Theodor Aerni, before 1918.",
-      "anomaly": "Plastic water bottle (PET)",
+      "id": "soulard-eighth-1910",
+      "title": "Pedestrians walk on South Eighth Street in Soulard",
+      "place": "Soulard, St. Louis, Missouri, United States",
+      "year": "1910",
+      "description": "Pedestrians walk along the sidewalk on South Eighth Street in the Soulard neighborhood of St. Louis, Missouri, around 1910.",
+      "anomaly": "Paper coffee cup with lid",
       "answer": {
-        "x": 0.3515,
-        "y": 0.9645,
-        "r": 0.0808
+        "x": 0.77,
+        "y": 0.91,
+        "r": 0.05
       },
-      "explanation": "Disposable plastic (PET) water bottles only became widespread in the 1970s, so one could not have been in this pre-1918 market scene.",
+      "explanation": "Disposable paper coffee cups with lids only became common takeaway items in the 20th century and did not exist at a 1910 sidewalk.",
       "references": [
         {
-          "label": "Polyethylene terephthalate",
-          "url": "https://en.wikipedia.org/wiki/Polyethylene_terephthalate"
+          "label": "Paper cup",
+          "url": "https://en.wikipedia.org/wiki/Paper_cup"
         }
       ],
       "source": {
         "repository": "Wikimedia Commons",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:Market_in_Porta_Capuana,_Naples_(unknown_date),_by_Franz_Theodor_Aerni.jpg",
-        "originalTitle": "File:Market in Porta Capuana, Naples (unknown date), by Franz Theodor Aerni.jpg",
-        "date": "by 1918 style=\"display: none;\">date QS:P",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:Pedestrians_walk_on_South_Eighth_Street_in_Soulard.jpg",
+        "originalTitle": "File:Pedestrians walk on South Eighth Street in Soulard.jpg",
+        "date": "circa 1910 style=\"display: none;\">date Q",
         "place": "",
         "license": "Public domain",
-        "description": "<div class=\"description\">\nMarket in Porta Capuana, Naples (unknown date), by Franz Theodor Aerni</div>"
+        "description": "Horizontal, black and white photograph pedestrians walking the sidewalk. Brick buildings line the sidewalk and a man leans against a wooden fence.<br>Title: Pedestrians walk on South Eighth Street in Soulard."
       },
-      "credit": "Franz Theodor Aerni via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Market_in_Porta_Capuana,_Naples_(unknown_date),_by_Franz_Theodor_Aerni.jpg",
+      "credit": "Missouri History Museum via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Pedestrians_walk_on_South_Eighth_Street_in_Soulard.jpg",
       "added": "2026-09-11",
-      "shown": "2026-09-16",
+      "shown": "2026-09-17",
       "title_source": "catalog",
-      "image": "scenes/porta-capuana-naples.jpg",
-      "original": "scenes/porta-capuana-naples-original.jpg"
+      "image": "scenes/soulard-eighth-1910.jpg",
+      "original": "scenes/soulard-eighth-1910-original.jpg"
     },
     {
-      "id": "commons-cabbage-market-label-qs-len-cabbage-market-1900-73814c-time-traveler-schoolgirl",
-      "title": "Cabbage market",
+      "id": "commons-market-restaurant-and-street-tepec-mexico-ca-190-862585-plastic-bucket",
+      "title": "Market restaurant and street, Tepec, Mexico, ca. (CHS-617)",
       "place": "",
       "year": "1900",
-      "description": "Cabbage market · Wikimedia Commons.",
-      "anomaly": "Time traveler: schoolgirl with headphones",
+      "description": "Market restaurant and street, Tepec, Mexico, ca. (CHS-617) · Wikimedia Commons.",
+      "anomaly": "Plastic bucket",
       "answer": {
-        "x": 0.6125,
-        "y": 0.44,
-        "r": 0.15
+        "x": 0.427,
+        "y": 0.616,
+        "r": 0.0473
       },
-      "explanation": "Headphones and modern athletic shoes are 20th-century products that did not exist in this scene's era.",
+      "explanation": "Moulded plastic buckets only replaced metal and wood containers in the mid-20th century.",
       "references": [
         {
-          "label": "Headphones",
-          "url": "https://en.wikipedia.org/wiki/Headphones"
+          "label": "Bucket",
+          "url": "https://en.wikipedia.org/wiki/Bucket"
         }
       ],
       "source": {
         "repository": "Wikimedia Commons",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:Bartlett_-_Cabbage_market_watercolor_1900.jpg",
-        "originalTitle": "Cabbage market label QS:Len,\"Cabbage market\"",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:Market_restaurant_and_street,_Tepec,_Mexico,_ca.1900_(CHS-617).jpg",
+        "originalTitle": "Market restaurant and street, Tepec, Mexico, ca.1900 (CHS-617)",
         "date": "1900",
         "place": "",
         "license": "Public domain",
-        "description": ""
+        "description": "Market restaurant and street, Tepec, Mexico, ca.1900 Photograph of market restaurant and street, Tepec, Mexico, ca.1900. A dozen or more people, most wearing sombreros and ponchos, are standing on the sidewalk, the dirt road, or sitting in the open air restaurant. The building has a tile roof, and a small sign can be seen extending from the building to the right. To the left of the building, a small road can be seen. Call number : CHS-617 Filename : CHS-617 Coverage date : circa 1900 Part of collection : California Historical Society Collection, 1860-1960 Type : images Part of subcollection : Title Insurance and Trust, and C.C. Pierce Photography Collection, 1860-1960 Repository name : USC Libraries Special Collections Format : glass plate negatives Microfiche number : 1-224- Archival file : chs_Volume89/CHS-617.tiff Geographic subject (city or populated place) : Tepec Repository address : Doheny Memorial Library, Los Angeles, CA 90089-0189 Subject (adlf) : buildings Geographic subject (country) : Mexico Format (aacr2) : 2 photographs : glass photonegative, photoprint, b&amp;w ; 13 x 20 cm., 21 x 26 cm. Rights : Digitally reproduced by the USC Digital Library; From the California Historical Society Collection at the University of Southern California Project : USC Accession number : 617 Repository email : specol@usc.edu Contributing entity : California Historical Society Date created : circa 1900 Publisher (of the digital version) : University of Southern California. Libraries Format (aat) : photographic prints; photographs Legacy record ID : chs-m14521; USC-1-1-1-14155 Access conditions : Send requests to address or e-mail given. Phone (213) 821-2366; fax (213) 740-2343. Subject (file heading) : Mexico -- Zacateca Subject (lcsh) : Streets; Markets"
       },
-      "credit": "Charles William Bartlett via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Bartlett_-_Cabbage_market_watercolor_1900.jpg",
+      "credit": "Unknown author Unknown author via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Market_restaurant_and_street,_Tepec,_Mexico,_ca.1900_(CHS-617).jpg",
       "added": "2026-09-12",
-      "shown": "2026-09-16",
+      "shown": "2026-09-17",
       "title_source": "catalog",
-      "image": "scenes/commons-cabbage-market-label-qs-len-cabbage-market-1900-73814c-time-traveler-schoolgirl.jpg",
-      "original": "scenes/commons-cabbage-market-label-qs-len-cabbage-market-1900-73814c-time-traveler-schoolgirl-original.jpg"
+      "image": "scenes/commons-market-restaurant-and-street-tepec-mexico-ca-190-862585-plastic-bucket.jpg",
+      "original": "scenes/commons-market-restaurant-and-street-tepec-mexico-ca-190-862585-plastic-bucket-original.jpg"
     },
     {
-      "id": "commons-great-western-railway-station-reading-c-1900-190-266f1e-modern-advertising-poste",
-      "title": "Great Western Railway Station, Reading",
-      "place": "England",
+      "id": "commons-paris-exposition-street-scene-unidentified-paris-411670-modern-bicycle",
+      "title": "Paris Exposition- street scene, unidentified, Paris, France, (correction- Rue Gomboust near Saint Honoré Market)",
+      "place": "",
       "year": "1900",
-      "description": "Great Western Railway Station, Reading · England · Wikimedia Commons.",
-      "anomaly": "Modern advertising poster",
+      "description": "Paris Exposition- street scene, unidentified, Paris, France, (correction- Rue Gomboust near Saint Honoré Market) · Wikimedia Commons.",
+      "anomaly": "Modern bicycle",
       "answer": {
-        "x": 0.482,
-        "y": 0.6365,
-        "r": 0.0864
+        "x": 0.868,
+        "y": 0.778,
+        "r": 0.22
       },
-      "explanation": "Offset-printed advertising posters with modern typography belong to a later era than this photo.",
+      "explanation": "Derailleur-geared modern bicycles are a later-20th-century development that this photo predates.",
       "references": [
         {
-          "label": "Poster",
-          "url": "https://en.wikipedia.org/wiki/Poster"
+          "label": "Bicycle",
+          "url": "https://en.wikipedia.org/wiki/Bicycle"
         }
       ],
       "source": {
         "repository": "Wikimedia Commons",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:Great_Western_Railway_Station,_Reading,_c._1900.jpg",
-        "originalTitle": "Great Western Railway Station, Reading, c. 1900",
-        "date": "1900",
-        "place": "England",
-        "license": "Public domain",
-        "description": "Roof-top view of the Great Western Railway Station, Reading, looking westwards, c. 1900. Two trains are visible at the platforms. In the distance, in Greyfriars Road, the premises of Patience, Son and Company, builders, can be seen on one side of the road, with the Tudor Arms pub (later the Malt House), before its front was cement rendered, on the other side. In Station Hill, the sign of Beecroft and Son, printers, is visible. 1900-1909 : photograph by Walton Adams."
-      },
-      "credit": "Walton Adams via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Great_Western_Railway_Station,_Reading,_c._1900.jpg",
-      "added": "2026-09-12",
-      "shown": "2026-09-16",
-      "title_source": "catalog",
-      "image": "scenes/commons-great-western-railway-station-reading-c-1900-190-266f1e-modern-advertising-poste.jpg",
-      "original": "scenes/commons-great-western-railway-station-reading-c-1900-190-266f1e-modern-advertising-poste-original.jpg"
-    },
-    {
-      "id": "nb-oslo-havn-palibryggen-1880-25e8f8-modern-cargo-pallet",
-      "title": "Oslo havn. Palibryggen.",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1880",
-      "description": "Oslo havn. Palibryggen · National Library of Norway.",
-      "anomaly": "modern cargo pallet",
-      "answer": {
-        "x": 0.635,
-        "y": 0.617,
-        "r": 0.22
-      },
-      "explanation": "Standardized wooden pallets with forklift slots did not exist in 1880, as cargo was moved by hand and barrel hooks.",
-      "references": [
-        {
-          "label": "National Library of Norway",
-          "url": "https://www.nb.no"
-        }
-      ],
-      "source": {
-        "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20130402_00114_NB_MS_G4_0393",
-        "originalTitle": "Oslo havn. Palibryggen.",
-        "date": "1880",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:Paris_Exposition-_street_scene,_unidentified,_Paris,_France,_1900_(correction-_Rue_Gomboust_near_Saint_Honor%C3%A9_Market).jpg",
+        "originalTitle": "Paris Exposition- street scene, unidentified, Paris, France, 1900 (correction- Rue Gomboust near Saint Honoré Market)",
+        "date": "circa 1900",
         "place": "",
-        "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-08-19T09:24:10.849Z', 'firstDigitalContentTime': '2025-08-19T10:24:49.341Z', 'indexLastModified': '2025-08-19T10:24:49.341Z'}"
+        "license": "No restrictions",
+        "description": "Paris Exposition: street scene, unidentified, Paris, France, 1900. View looking down a street with people. A carriage reads 'Glacieres de Paris / siege social / 23 rue Taitbout'. Brooklyn Museum Archives, Goodyear Archival Collection (S03_06_01_015 image 2059). Update: Rue Gomboust near Saint Honoré Market"
       },
-      "credit": "Skøien, Marthinius via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20130402_00114_NB_MS_G4_0393",
-      "added": "2026-09-15",
-      "shown": "2026-09-16",
-      "image": "scenes/nb-oslo-havn-palibryggen-1880-25e8f8-modern-cargo-pallet.jpg",
-      "original": "scenes/nb-oslo-havn-palibryggen-1880-25e8f8-modern-cargo-pallet-original.jpg"
+      "credit": "Brooklyn Museum via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Paris_Exposition-_street_scene,_unidentified,_Paris,_France,_1900_(correction-_Rue_Gomboust_near_Saint_Honor%C3%A9_Market).jpg",
+      "added": "2026-09-12",
+      "shown": "2026-09-17",
+      "title_source": "catalog",
+      "image": "scenes/commons-paris-exposition-street-scene-unidentified-paris-411670-modern-bicycle.jpg",
+      "original": "scenes/commons-paris-exposition-street-scene-unidentified-paris-411670-modern-bicycle-original.jpg"
     },
     {
-      "id": "gallica-h-licopt-re-espagnol-1923-photographie-de-presse-d9b889-modern-quadcopter-drone",
-      "title": "Hélicoptère espagnol",
+      "id": "gallica-canon-de-280-allemand-expos-la-gare-du-champs-de-46bbfd-modern-telescoping-selfi",
+      "title": "Canon de 280, allemand, exposé à la gare du Champs de Mars",
       "title_source": "catalog",
       "place": "",
-      "year": "1923",
-      "description": "Hélicoptère espagnol · Bibliothèque nationale de France (Gallica).",
-      "anomaly": "Modern quadcopter drone",
+      "year": "1918",
+      "description": "Canon de 280, allemand, exposé à la gare du Champs de Mars · Bibliothèque nationale de France (Gallica).",
+      "anomaly": "Modern telescoping selfie stick",
       "answer": {
-        "x": 0.808,
-        "y": 0.333,
+        "x": 0.672,
+        "y": 0.585,
         "r": 0.22
       },
-      "explanation": "Multi-rotor drones did not exist in 1923, so a hovering quadcopter could not appear in this photograph.",
+      "explanation": "Telescoping selfie sticks with phone mounts did not exist in 1918, so this object could not be present at this wartime display.",
       "references": [
         {
-          "label": "Wikipedia: Quadcopter",
-          "url": "https://en.wikipedia.org/wiki/Quadcopter"
+          "label": "Wikipedia: Selfie stick",
+          "url": "https://en.wikipedia.org/wiki/Selfie_stick"
         }
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53239907b",
-        "originalTitle": "Hélicoptère espagnol, 1923 : [photographie de presse] / [Agence Meurisse]",
-        "date": "1923",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b90311387",
+        "originalTitle": "Canon de 280, allemand, exposé à la gare du Champs de Mars : [photographie de presse] / Agence Meurisse",
+        "date": "1918",
         "place": "",
         "license": "Public domain",
-        "description": "Référence bibliographique : Meurisse, 9530 A Appartient à l’ensemble documentaire : Pho20Meu Image de presse"
+        "description": "Référence bibliographique : Meurisse, 68885 Appartient à l’ensemble documentaire : Pho20Meu Image de presse"
       },
       "credit": "Agence de presse Meurisse. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53239907b",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b90311387",
+      "added": "2026-09-17",
+      "shown": "2026-09-17",
+      "image": "scenes/gallica-canon-de-280-allemand-expos-la-gare-du-champs-de-46bbfd-modern-telescoping-selfi.jpg",
+      "original": "scenes/gallica-canon-de-280-allemand-expos-la-gare-du-champs-de-46bbfd-modern-telescoping-selfi-original.jpg"
+    },
+    {
+      "id": "gallica-inauguration-du-monument-charles-floquet-7-mars-561bc1-handheld-electric-megaph",
+      "title": "[Inauguration du] monument Charles Floquet, 7 mars",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1909",
+      "description": "[Inauguration du] monument Charles Floquet, 7 mars · Bibliothèque nationale de France (Gallica).",
+      "anomaly": "Handheld electric megaphone",
+      "answer": {
+        "x": 0.365,
+        "y": 0.655,
+        "r": 0.22
+      },
+      "explanation": "Battery-powered electric megaphones did not exist in 1909, so no one in this crowd could be holding one.",
+      "references": [
+        {
+          "label": "Bibliothèque nationale de France (Gallica)",
+          "url": "https://gallica.bnf.fr/"
+        }
+      ],
+      "source": {
+        "repository": "Bibliothèque nationale de France (Gallica)",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53109620p",
+        "originalTitle": "[Inauguration du] monument Charles Floquet, 7 mars 1909 : [photographie de presse] / [Agence Rol]",
+        "date": "1909",
+        "place": "",
+        "license": "Public domain",
+        "description": "Référence bibliographique : Rol, 3426 Appartient à l’ensemble documentaire : Pho20Rol"
+      },
+      "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53109620p",
       "added": "2026-09-14",
-      "shown": "2026-09-16",
-      "image": "scenes/gallica-h-licopt-re-espagnol-1923-photographie-de-presse-d9b889-modern-quadcopter-drone.jpg",
-      "original": "scenes/gallica-h-licopt-re-espagnol-1923-photographie-de-presse-d9b889-modern-quadcopter-drone-original.jpg"
+      "shown": "2026-09-17",
+      "image": "scenes/gallica-inauguration-du-monument-charles-floquet-7-mars-561bc1-handheld-electric-megaph.jpg",
+      "original": "scenes/gallica-inauguration-du-monument-charles-floquet-7-mars-561bc1-handheld-electric-megaph-original.jpg"
     }
   ]
 }
