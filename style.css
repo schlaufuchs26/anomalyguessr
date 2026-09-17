@@ -511,6 +511,40 @@ main {
   margin: 0.3rem 0 1.2rem;
 }
 
+/* On-demand generation control (#1210/#1584). It lives in the empty state and
+   in the populated moderation view's meta block; the actions row keeps the
+   button, the buffer count and the optional Reload on one line. */
+.gen-control {
+  margin: 0 auto 1rem;
+  max-width: 720px;
+}
+
+.gen-control .empty-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  justify-content: center;
+}
+
+.gen-control .buffer {
+  color: var(--ink-dim);
+  font-size: 0.9rem;
+}
+
+/* In the populated moderation view the control takes its own row under the
+   scene meta, so the button stays visible next to the queue count. */
+.meta .gen-control {
+  flex-basis: 100%;
+  margin: 0.4rem 0 0;
+  max-width: none;
+  text-align: left;
+}
+
+.meta .gen-control .empty-actions {
+  justify-content: flex-start;
+}
+
 /* frontpage mode select (ticket #1214): big clickable game modes */
 .home {
   text-align: center;

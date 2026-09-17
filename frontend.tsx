@@ -12,6 +12,7 @@ import {
   postTag,
 } from "./src/api";
 import { buildEndData } from "./src/endView";
+import { GenerateControl } from "./src/GenerateControl";
 import { resolveGuess } from "./src/guess";
 import { isDeliberateNavigation } from "./src/leaveGuard";
 import { ModerationEmpty } from "./src/ModerationEmpty";
@@ -434,6 +435,25 @@ export function App() {
     void loadRef.current();
   }, []);
 
+  /**
+   * Merge the scenes the queue does not carry yet after an on-demand run
+   * finished (ticket #1584). The order and the index of the queue Evan is
+   * working through stay untouched; new scenes only append, so triggering a
+   * generation mid-run cannot drop or reorder what is already in review.
+   */
+  const mergeQueue = async () => {
+    try {
+      const { manifest: loaded } = await loadManifest(parseManifest);
+      setQueue((current) => {
+        const seen = new Set(current.map((s) => s.id));
+        const fresh = loaded.scenes.filter((s) => !seen.has(s.id));
+        return fresh.length ? [...current, ...fresh] : current;
+      });
+    } catch (err) {
+      console.error("queue refresh failed", err);
+    }
+  };
+
   /** Reset every piece of per-scene state (guess, markers, reveal, mod box). */
   const resetSceneState = () => {
     setMisses(0);
@@ -734,6 +754,9 @@ export function App() {
           <span id="scene-progress" className="progress">
             {`${index + 1} / ${queue.length}`}
           </span>
+          {moderation && process.env.NODE_ENV !== "production" ? (
+            <GenerateControl onFinished={() => void mergeQueue()} />
+          ) : null}
         </div>
         <p id="scene-desc" className="scene-desc">
           {scene?.description}

@@ -1287,6 +1287,93 @@ describe("on-demand generation from the empty queue (#1210)", () => {
   });
 });
 
+describe("generate control in the populated moderation view (#1584)", () => {
+  const SCENE_C = makeScene({
+    id: "c",
+    title: "Scene C",
+    x: 0.3,
+    y: 0.3,
+    r: 0.05,
+  });
+  const running = {
+    state: "running",
+    running: true,
+    buffer: 0,
+    count: 5,
+    planned: 5,
+    added: 1,
+    failed: 0,
+    imageCalls: 2,
+  };
+
+  test("the button and the buffer count show with scenes queued", async () => {
+    payload = { ...MANIFEST, moderation: true };
+    generateStatus = { ...running, running: false, state: "idle", buffer: 4 };
+    await renderGame("moderation");
+
+    expect(
+      screen.getByRole("button", { name: "Generate more" }),
+    ).not.toBeDisabled();
+    expect(
+      await screen.findByText("4 scenes ready for the daily"),
+    ).toBeInTheDocument();
+  });
+
+  test("a daily run gets no generate control", async () => {
+    await renderGame("daily");
+    expect(screen.queryByRole("button", { name: "Generate more" })).toBeNull();
+  });
+
+  test("starting a run keeps the queue and disables the button", async () => {
+    payload = { ...MANIFEST, moderation: true };
+    await renderGame("moderation");
+
+    generateStatus = running;
+    startResponse = running;
+    fireEvent.click(screen.getByRole("button", { name: "Generate more" }));
+    await waitFor(() => expect(startCalls).toBe(1));
+
+    // the queue in review is untouched: same scene, same position
+    expect(screen.getByText("Scene A")).toBeInTheDocument();
+    expect(screen.getByText("1 / 2")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Generating… 1 / 5", {}, { timeout: 4000 }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Generating…" })).toBeDisabled();
+  });
+
+  test("a finished run appends its scenes without restarting the queue", async () => {
+    payload = { ...MANIFEST, moderation: true };
+    await renderGame("moderation");
+
+    generateStatus = running;
+    startResponse = running;
+    fireEvent.click(screen.getByRole("button", { name: "Generate more" }));
+    await waitFor(() => expect(startCalls).toBe(1));
+
+    // The run lands one new scene; the queue grows, the current scene stays.
+    payload = {
+      ...MANIFEST,
+      moderation: true,
+      scenes: [SCENE_A, SCENE_B, SCENE_C],
+    };
+    generateStatus = {
+      state: "done",
+      running: false,
+      buffer: 1,
+      count: 5,
+      planned: 5,
+      added: 1,
+      failed: 0,
+      imageCalls: 3,
+    };
+    expect(
+      await screen.findByText("1 / 3", {}, { timeout: 4000 }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Scene A")).toBeInTheDocument();
+  });
+});
+
 describe("mode URLs (#1223)", () => {
   /** Render at a deep-linked path and wait for the first scene. */
   async function renderDeepLink(path: string): Promise<HTMLElement> {
