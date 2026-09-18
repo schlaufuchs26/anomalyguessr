@@ -203,8 +203,10 @@ class TempDataMixin:
         g.check_click_target = stub_click_target()
         self._old_presence = g.presence_check
         g.presence_check = stub_presence()
+        self._old_select_sources = g.select_sources
 
     def tearDown(self):
+        g.select_sources = self._old_select_sources
         g.presence_check = self._old_presence
         g.check_click_target = self._old_click_target
         g.candidate_gate = self._old_candidate_gate
@@ -2911,6 +2913,65 @@ class RunTest(TempDataMixin, unittest.TestCase):
         self.assertEqual(avoid["families"], ["drinks"])
         self.assertEqual(avoid["min_families"], 1)
         self.assertTrue(avoid["min_families_met"])
+
+    def test_a_batch_never_ships_the_same_element_twice(self):
+        # #1622: two proposals with one element key in one batch; the second
+        # is never shipped. The gate's fallback (keep and flag) is the recency
+        # window's rule, not the batch's, so the scene drops with no spare
+        # source left and the report names the reason.
+        sa = self.write_source(src=source(sid="src-a",
+                                          image="images/src-a.jpg"))
+        sb = self.write_source(src=source(sid="src-b",
+                                          image="images/src-b.jpg"))
+        g.select_sources = lambda *a, **kw: [sa, sb]
+        g.propose_anomaly = stub_propose()
+        g.locate_anomaly = stub_locate()
+        g.check_scene = stub_check()
+        g.image_edit = lambda *a, **kw: img_bytes()
+        report = g.run(self.make_args(count=2))
+        self.assertEqual(len(report["added"]), 1)
+        dropped = [f for f in report["failed"]
+                   if f.get("stage") == "batch-duplicate"]
+        self.assertEqual(len(dropped), 1)
+        self.assertIn("batch", dropped[0]["reason"])
+        self.assertEqual(report["batch"]["target"], 2)
+        self.assertEqual(report["batch"]["kept"], 1)
+        self.assertEqual(report["batch"]["replaced"], 0)
+        self.assertEqual(len(report["batch"]["element_keys"]), 1)
+        # the duplicate never reached the queue
+        state = ag_queue.load_state(self.data_dir)
+        self.assertEqual(len(state["scenes"]), 1)
+
+    def test_a_batch_replaces_the_source_when_the_element_repeats(self):
+        # #1622: the collision survives every attempt, so the run pulls the
+        # one spare source and generates a replacement, keeping the count.
+        sa = self.write_source(src=source(sid="src-a",
+                                          image="images/src-a.jpg"))
+        sb = self.write_source(src=source(sid="src-b",
+                                          image="images/src-b.jpg"))
+        sc = self.write_source(src=source(sid="src-c",
+                                          image="images/src-c.jpg"))
+        g.select_sources = lambda *a, **kw: [sa, sb]
+
+        def propose(source_image, src, recent, *a, **kw):
+            label = ("Plastic bottle (clear PET)" if src["id"] in ("src-a",
+                                                                   "src-b")
+                     else "Hovering transport pod")
+            return {"proposal": proposal(anomaly=label), "errors": [],
+                    "call": call(prompt="proposal-prompt")}
+
+        g.propose_anomaly = propose
+        g.locate_anomaly = stub_locate()
+        g.check_scene = stub_check()
+        g.image_edit = lambda *a, **kw: img_bytes()
+        report = g.run(self.make_args(count=2))
+        self.assertEqual(len(report["added"]), 2)
+        self.assertEqual([s["anomaly"] for s in report["added"]],
+                         ["Plastic bottle (clear PET)",
+                          "Hovering transport pod"])
+        self.assertEqual(report["batch"]["replaced"], 1)
+        self.assertEqual(report["batch"]["kept"], 2)
+        self.assertEqual(report["batch"]["dropped"], [])
 
     def test_dry_run_calls_nothing(self):
         self.write_source()

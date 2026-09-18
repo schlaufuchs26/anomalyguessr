@@ -1133,6 +1133,20 @@ def avoid_conflict(label, avoid) -> str | None:
     return None
 
 
+def batch_key_conflict(label, batch_keys) -> str | None:
+    """The batch label ``label`` collides with, None when it is new (#1622).
+
+    ``batch_keys`` maps each element key already shipped in this batch to the
+    label that shipped it. Unlike ``avoid_conflict`` (the recency window,
+    where a surviving repeat is flagged for moderation) this is the batch's
+    own hard rule: a collision is a retry, never a shipped scene.
+    """
+    key = element_key(label)
+    if not key or not batch_keys:
+        return None
+    return batch_keys.get(key)
+
+
 def blocked_conflict(label, blocked) -> str | None:
     """The blocked label ``label`` collides with, None when it is new (#1537)."""
     norm = normalized_label(label)
@@ -2990,6 +3004,27 @@ def select_sources(data_dir: Path, count: int, seed=None) -> list:
     return picked
 
 
+def select_spares(data_dir: Path, picked: list, limit: int) -> list:
+    """Unused sources outside ``picked`` for batch replacement (ticket #1622).
+
+    A batch that loses a scene to the uniqueness rule pulls one from here so
+    the day keeps its scene count. Same shape as ``select_sources`` (an image
+    present, source unused) but without the spread caps: a spare is an extra,
+    not a planned scene, so the fair-share rules do not apply.
+    """
+    chosen = {s["id"] for s in picked}
+    out = []
+    for s in ag_sources.list_sources(data_dir, unused=True):
+        if s["id"] in chosen or not s.get("image"):
+            continue
+        if not (ag_sources.sources_dir(data_dir) / s["image"]).exists():
+            continue
+        out.append(s)
+        if limit and len(out) >= limit:
+            break
+    return out
+
+
 def moderation_rate(data_dir: Path, last: int = 20) -> dict:
     """Acceptance rate of the most recently added scenes (the ground truth).
 
@@ -3206,7 +3241,19 @@ def _run(args, data_dir: Path, lock) -> dict:
     # it so the live view can open the finished trace sidecar, which the
     # pipeline renames from traces/pending/ to traces/<id>.json.
     last_scene_id = None
-    for index, source in enumerate(picked, 1):
+    # Ticket #1622: the batch's element keys are a hard rule. ``batch_keys``
+    # maps every shipped key to its label, so a repeat inside the same batch
+    # can never be flagged-and-shipped the way the recency window allows.
+    # When a source's scene is lost to a collision, a spare from the pool
+    # replaces it so the day keeps its target count.
+    batch_keys = {}
+    target = len(picked)
+    spares = select_spares(data_dir, picked, args.count)
+    work = list(picked)
+    index = 0
+    while work and len(report["added"]) < target:
+        source = work.pop(0)
+        index += 1
         if image_budget_left(args, totals) <= 0:
             report["failed"].append({"id": source["id"], "stage": "budget",
                                      "reason": "generation budget"})
@@ -3214,17 +3261,37 @@ def _run(args, data_dir: Path, lock) -> dict:
             continue
         scene, failed = _generate_one(source, args, data_dir, date, out_dir,
                                       recent + sorted(used_prompts), totals,
-                                      emit, index, len(picked), stats=stats,
+                                      emit, index, target, stats=stats,
                                       blocked=blocked, examples=examples,
                                       avoid_families=avoid_families,
-                                      patterns=patterns)
+                                      patterns=patterns, batch_keys=batch_keys)
         if scene is not None:
             report["added"].append(scene["report"])
             used_prompts.add(scene["label"])
+            key = scene.get("key") or element_key(scene["label"])
+            if key:
+                batch_keys[key] = scene["label"]
             last_scene_id = scene["report"]["scene"]
         elif failed is not None:
-            report["failed"].append(failed)
+            if failed.get("stage") == "batch-duplicate" and spares:
+                # Never ship the duplicate: replace the scene's source with
+                # another photograph and try again for the same slot.
+                spare = spares.pop(0)
+                work.append(spare)
+                report.setdefault("batch_replaced", []).append(
+                    {"source": source["id"], "replacement": spare["id"],
+                     "reason": failed.get("reason")})
+            else:
+                report["failed"].append(failed)
         emit(phase="scene-done", scene=source["id"], sceneId=last_scene_id)
+    report["batch"] = {
+        "target": target,
+        "element_keys": sorted(batch_keys),
+        "kept": len(report["added"]),
+        "replaced": len(report.get("batch_replaced") or []),
+        "dropped": [f for f in report["failed"]
+                    if f.get("stage") == "batch-duplicate"],
+    }
 
     report["duration_s"] = round(time.time() - started, 1)
     report["image_calls"] = int(totals.get("image_calls", 0))
@@ -4054,7 +4121,7 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
                   out_dir: Path, recent: list, totals: dict, emit,
                   scene_index: int = 1, scene_total: int = 1,
                   stats: dict | None = None, blocked=(), examples=None,
-                  avoid_families=(), patterns=()) -> tuple:
+                  avoid_families=(), patterns=(), batch_keys=None) -> tuple:
     """One source through the whole flow; returns (scene|None, failure|None).
 
     Ticket #1436: a source yields exactly one scene, drawn as exactly one
@@ -4065,7 +4132,11 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
     failed. ``stats`` carries the run's refusal accounting (ticket #1439);
     ``blocked`` the labels the reviewer keeps rejecting (ticket #1537);
     ``examples``/``avoid_families`` the feedback pass's adjustments (#1538);
-    ``patterns`` the anomaly-pattern catalogue (ticket #1539).
+    ``patterns`` the anomaly-pattern catalogue (ticket #1539). Ticket #1622:
+    ``batch_keys`` maps the element keys already shipped in this batch to
+    their labels; a proposal whose element key collides with one is never
+    shipped, the attempts re-ask for another element and the caller replaces
+    the source when every attempt still collides.
     """
     api_key = os.environ.get("OPENROUTER_API_KEY", "")
     source_image = ag_sources.sources_dir(data_dir) / source["image"]
@@ -4130,6 +4201,21 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
             data_dir, trace, totals, blocked=blocked, examples=examples,
             avoid_families=avoid_families, patterns=patterns)
         note_avoidance(stats, gate)
+        # Ticket #1622: the batch's own element keys are a hard rule. The
+        # gate above already re-asks against the recency window (which
+        # carries the batch labels) but keeps a surviving repeat for
+        # moderation; inside one batch that fallback is a retry. Checking
+        # here, before any image call, is the cheap half; the check before
+        # the queue add below catches a rename afterward.
+        duplicate = batch_key_conflict(proposal.get("anomaly"), batch_keys)
+        if duplicate is not None:
+            last_error = {"id": source["id"], "stage": "batch-duplicate",
+                          "reason": (f"element already shipped in this batch "
+                                     f"({duplicate}); asking for another "
+                                     "element"),
+                          "attempt": attempt, "duplicate": duplicate}
+            set_trace_error(data_dir, trace, last_error["reason"])
+            continue
         gate_review = ""
         if gate.get("repeated"):
             gate_review = ("proposal still repeats an element already used "
@@ -4410,6 +4496,19 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
             check_summary.update(rubric_points(
                 check.get("failed"), int(check.get("total")
                                           or REQUIREMENTS_TOTAL)))
+        # Ticket #1622: the late half of the batch rule. The element may have
+        # been renamed to match the image (``reconcile_text``) after the
+        # early check passed; a collision that only appears now is still a
+        # retry, never a shipped scene.
+        duplicate = batch_key_conflict(proposal.get("anomaly"), batch_keys)
+        if duplicate is not None:
+            last_error = {"id": source["id"], "stage": "batch-duplicate",
+                          "reason": (f"element already shipped in this batch "
+                                     f"({duplicate}); asking for another "
+                                     "element"),
+                          "attempt": attempt, "duplicate": duplicate}
+            set_trace_error(data_dir, trace, last_error["reason"])
+            continue
         entry = build_entry(source, proposal, answer, date, scene=st,
                             checker=check_summary, review=review,
                             defects=(ag_checks.defect_flags(mechanical)
@@ -4470,7 +4569,8 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
                            if mechanical is not None else None),
             "mechanical_failures": failures,
         }
-        return {"report": scene_report, "label": entry["anomaly"]}, None
+        return {"report": scene_report, "label": entry["anomaly"],
+                "key": element_key(entry["anomaly"])}, None
     return None, last_error or {"id": source["id"], "reason": "no attempt ran"}
 
 def _attempt_proposal(source_image: Path, source: dict, recent: list, args,
