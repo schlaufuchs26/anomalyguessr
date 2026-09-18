@@ -209,6 +209,7 @@ import ag_checks  # noqa: E402
 import ag_llm  # noqa: E402
 import ag_patterns  # noqa: E402
 import ag_queue  # noqa: E402
+import ag_references  # noqa: E402
 import ag_sources  # noqa: E402
 import ag_verify  # noqa: E402
 
@@ -741,7 +742,12 @@ def proposal_prompt(source: dict, recent=(), conflict=None, blocked=(),
         'how large it should look next to things at the same distance>", '
         '"explanation": "<one sentence: why it cannot exist in the scene\'s '
         'year>", "references": [{"label": "<source name>", "url": '
-        '"https://..."}]}')
+        '"https://..."}]}. Every dated token in the explanation (a year, '
+        'decade or century) MUST be stated on the cited page: link the '
+        'specific page or section that carries it (a museum, patent, '
+        'manufacturer history or encyclopedia article), never a portal, '
+        'search page or the repository root. If no page states the claim, '
+        'do not assert it; weaken the sentence instead.')
     return "\n".join(lines)
 
 
@@ -4514,6 +4520,13 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
                             defects=(ag_checks.defect_flags(mechanical)
                                      if mechanical is not None else None),
                             answer_before=fixed_answer_before(mechanical))
+        # Ticket #1624: check that the entry's references actually support
+        # the dated claims in its explanation. The finding travels with the
+        # scene so moderation sees an unsupported or dead link instead of a
+        # silent pass. Deterministic, one fetch per reference; a failure
+        # never drops the scene (the links are ours to fix), it only flags.
+        entry["references_check"] = ag_references.reference_finding(
+            entry["explanation"], entry["references"])
         errs = ag_queue.validate_entry(entry)
         if errs:
             last_error = {"id": source["id"], "stage": "entry",

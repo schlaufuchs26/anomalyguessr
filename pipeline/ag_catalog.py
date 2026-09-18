@@ -42,7 +42,16 @@ An entry mirrors one catalog row:
                  Must agree with the largest percent number in the entry's
                  prose `scale`.
     explanation  English sentence for the scene's `explanation` field
-    references   [{label, url}] for every factual claim in the explanation
+    references   [{label, url}] for every factual claim in the explanation.
+                 A reference must be a deep link to a page (or section) that
+                 states the claim, ideally a primary or authoritative source
+                 (patent, museum, manufacturer history, archival record), not
+                 a portal, search page or repository root. Every dated token
+                 in the explanation (year, decade, century) has to appear on
+                 one of the cited pages; where no such source exists, the
+                 sentence must not assert the date (ticket #1624, checked by
+                 pipeline/ag_references.py and the audit
+                 pipeline/ag_reference_audit.py).
     tells        person/future only: the 1-2 modern tells in the prompt
     noun         short English noun for the prompt/hint text
 
@@ -114,10 +123,11 @@ _OBJECTS = [
          settings=("market", "street", "harbor"), recipe="ground",
          size="a clear PET water bottle, 20-30 cm tall", min_year=1970,
          risk="low",
-         explanation="Clear PET plastic bottles only came into common use in "
-                     "the 1970s, decades after this photograph was taken.",
-         references=[{"label": "Polyethylene terephthalate",
-                      "url": "https://en.wikipedia.org/wiki/Polyethylene_terephthalate"}]),
+         explanation="Clear PET plastic bottles date from Nathaniel Wyeth's "
+                     "1973 patent and only came into common use later, "
+                     "decades after this photograph was taken.",
+         references=[{"label": "Nathaniel Wyeth (PET bottle patent, 1973)",
+                      "url": "https://en.wikipedia.org/wiki/Nathaniel_Wyeth_(inventor)"}]),
     dict(label="Paper coffee cup with lid", type="object", family="drinks",
          settings=("market", "street"), recipe="stall",
          size="a white paper takeaway coffee cup with a lid, 10-12 cm tall",
@@ -137,10 +147,10 @@ _OBJECTS = [
          settings=("market", "street", "harbor"), recipe="ground",
          size="a matte aluminium drink can, about 12 cm tall", min_year=1950,
          risk="high",
-         explanation="Aluminium beverage cans only appeared in the 1950s; "
-                     "one could not have been in this photograph.",
-         references=[{"label": "Beverage can",
-                      "url": "https://en.wikipedia.org/wiki/Beverage_can"}]),
+         explanation="Aluminium beverage cans only appeared in 1958; one "
+                     "could not have been in this photograph.",
+         references=[{"label": "History of aluminium (drinks cans from 1958)",
+                      "url": "https://en.wikipedia.org/wiki/History_of_aluminium"}]),
     dict(label="Plastic bag (white, with handles)", type="object", family="plastic",
          settings=("market", "street"), recipe="ground_mid",
          size="a white plastic carrier bag with handles, 40-50 cm",
@@ -153,10 +163,10 @@ _OBJECTS = [
          settings=("market", "street"), recipe="stall",
          size="a white polystyrene cup, 10-12 cm tall", min_year=1950,
          risk="medium",
-         explanation="Expanded polystyrene cups only exist since the mid-20th "
-                     "century and are out of place in this photograph.",
-         references=[{"label": "Polystyrene",
-                      "url": "https://en.wikipedia.org/wiki/Polystyrene"}]),
+         explanation="Expanded polystyrene foam cups were first mass-produced "
+                     "in 1960, so one cannot belong to this photograph.",
+         references=[{"label": "Museum of Design in Plastics: the EPS cup",
+                      "url": "https://www.modip.ac.uk/blog/2020/09/dart-and-humble-disposable-eps-cup"}]),
     dict(label="Chip bag with logo", type="object", family="packaging",
          settings=("market", "street"), recipe="stall",
          size="a printed snack bag, 25-30 cm", min_year=1950, risk="medium",
@@ -168,10 +178,11 @@ _OBJECTS = [
          settings=("market", "street"), recipe="stall",
          size="a laminated carton drink box, about 20 cm", min_year=1950,
          risk="medium",
-         explanation="Laminated carton drink boxes were introduced in the "
-                     "mid-20th century, after this photograph was taken.",
-         references=[{"label": "Carton",
-                      "url": "https://en.wikipedia.org/wiki/Carton"}]),
+         explanation="Laminated carton drink boxes go back to Tetra Pak's "
+                     "first filling machine in 1952, after this photograph "
+                     "was taken.",
+         references=[{"label": "Tetra Pak (first carton 1952)",
+                      "url": "https://en.wikipedia.org/wiki/Tetra_Pak"}]),
     dict(label="Barcode price tag", type="object", family="print",
          settings=("market",), recipe="stall",
          size="a small printed price tag with a barcode, 6-8 cm", min_year=1975,
@@ -186,10 +197,11 @@ _OBJECTS = [
          size="an orange traffic cone, 45-70 cm tall", min_year=1940,
          scale="roughly 2-3 percent of the image height, never more than 4 percent",
          scale_max=0.04, risk="medium",
-         explanation="Traffic cones are a mid-20th-century invention; this "
-                     "scene predates them.",
-         references=[{"label": "Traffic cone",
-                      "url": "https://en.wikipedia.org/wiki/Traffic_cone"}]),
+         explanation="Traffic cones are a road-safety marker; the moulded "
+                     "cones in use today were first made in the 1940s, after "
+                     "this scene.",
+         references=[{"label": "The History of Traffic Cones",
+                      "url": "https://transportationhistory.org/2020/04/20/national-work-zone-awareness-week-nwzaw-the-history-of-traffic-cones/"}]),
     dict(label="Modern bicycle", type="object", family="street-furniture",
          settings=("street", "market"), recipe="wall",
          size="a modern road bicycle, about 110 cm tall", min_year=1975,
@@ -204,10 +216,10 @@ _OBJECTS = [
          size="a blue plastic tarpaulin, 1-2 m across", min_year=1950,
          scale="roughly 3-5 percent of the image height, never more than 6 percent",
          scale_max=0.06, risk="medium",
-         explanation="Woven plastic tarpaulins only became common in the "
-                     "mid-20th century, after this photograph.",
-         references=[{"label": "Tarpaulin",
-                      "url": "https://en.wikipedia.org/wiki/Tarpaulin"}]),
+         explanation="Woven polyethylene tarpaulins only appeared in the "
+                     "1950s, after this photograph.",
+         references=[{"label": "The History of the Modern Tarp",
+                      "url": "https://tarps.com/blogs/news/where-did-tarps-come-from"}]),
     dict(label="Modern advertising poster", type="object", family="print",
          settings=("street", "market"), recipe="wall",
          size="a modern printed advertising poster, 50-80 cm", min_year=1960,
@@ -222,10 +234,10 @@ _OBJECTS = [
          size="a roll of yellow-black barrier tape", min_year=1950,
          scale="a thin ribbon, at most 2 percent of the image height",
          scale_max=0.02, risk="high",
-         explanation="Plastic barrier tape is a 20th-century safety product "
-                     "that did not exist when this photo was taken.",
-         references=[{"label": "Barrier tape",
-                      "url": "https://en.wikipedia.org/wiki/Barrier_tape"}]),
+         explanation="Plastic barricade tape is a 1960s safety product that "
+                     "did not exist when this photo was taken.",
+         references=[{"label": "A Brief History of Police Tape",
+                      "url": "https://www.atlasobscura.com/articles/a-brief-history-of-police-tape-or-why-humans-ignore-warnings"}]),
     dict(label="E-scooter", type="object", family="vehicle",
          settings=("street",), recipe="wall",
          size="a shared electric kick scooter, about 110 cm tall", min_year=2015,
@@ -277,18 +289,18 @@ _OBJECTS = [
          settings=("harbor",), recipe="deck",
          size="a plastic cooler box, 50-60 cm", min_year=1950, risk="medium",
          scale="roughly 2-4 percent of the image height", scale_max=0.04,
-         explanation="Moulded plastic cooler boxes are a mid-20th-century "
-                     "product and cannot belong to this scene.",
-         references=[{"label": "Cooler",
+         explanation="Moulded plastic cooler boxes are a 1950s product and "
+                     "cannot belong to this scene.",
+         references=[{"label": "Cooler (portable cooler, 1950s)",
                       "url": "https://en.wikipedia.org/wiki/Cooler"}]),
     dict(label="Nylon rope (colored)", type="object", family="cordage",
          settings=("harbor",), recipe="deck",
          size="a coil of brightly colored synthetic rope, 30-40 cm across",
          min_year=1940, risk="medium",
          scale="roughly 2-3 percent of the image height", scale_max=0.03,
-         explanation="Bright synthetic nylon rope only replaced natural fibre "
-                     "rope in the mid-20th century, after this photo.",
-         references=[{"label": "Nylon",
+         explanation="Nylon, first made in 1935, only replaced natural-fibre "
+                     "rope later; it cannot belong to this scene.",
+         references=[{"label": "Nylon (first made 1935)",
                       "url": "https://en.wikipedia.org/wiki/Nylon"}]),
     # Household / consumer goods (ticket #1328: the catalog was thin outside
     # drinks/luggage, so those families dominated every run).
@@ -296,34 +308,36 @@ _OBJECTS = [
          settings=("market", "street"), recipe="stall",
          size="a small disposable cigarette lighter, about 8 cm", min_year=1970,
          risk="medium",
-         explanation="Disposable lighters are a 1970s mass-market product and "
-                     "cannot belong to this scene.",
-         references=[{"label": "Lighter",
+         explanation="Disposable lighters are a later-20th-century "
+                     "mass-market product and cannot belong to this scene.",
+         references=[{"label": "Lighter (disposable lighters, 20th century)",
                       "url": "https://en.wikipedia.org/wiki/Lighter"}]),
     dict(label="Folding nylon umbrella", type="object", family="household",
          settings=("street", "market", "station"), recipe="ground_mid",
          size="a folded nylon umbrella, about 60 cm long", min_year=1950,
          risk="medium",
          explanation="Lightweight nylon umbrellas with steel ribs are a "
-                     "mid-20th-century product, later than this photo.",
-         references=[{"label": "Umbrella",
+                     "1950s product, later than this photo.",
+         references=[{"label": "Umbrella (nylon folding umbrella, 1950s)",
                       "url": "https://en.wikipedia.org/wiki/Umbrella"}]),
     dict(label="Plastic bucket", type="object", family="container",
          settings=("market", "harbor", "street"), recipe="ground_mid",
          size="a moulded plastic bucket, about 30 cm tall", min_year=1950,
          risk="medium",
-         explanation="Moulded plastic buckets only replaced metal and wood "
-                     "containers in the mid-20th century.",
-         references=[{"label": "Bucket",
-                      "url": "https://en.wikipedia.org/wiki/Bucket"}]),
+         explanation="Moulded plastic buckets belong to the plastics age: "
+                     "cheap plastic containers only spread in the 1950s, "
+                     "after this photograph.",
+         references=[{"label": "The Age of Plastic (Science Museum)",
+                      "url": "https://www.sciencemuseum.org.uk/objects-and-stories/chemistry/age-plastic-parkesine-pollution"}]),
     dict(label="Stackable plastic crate", type="object", family="container",
          settings=("market", "harbor"), recipe="ground_mid",
-         size="a stackable plastic crate, about 30 cm tall", min_year=1960,
+         size="a stackable plastic crate, about 30 cm tall", min_year=1950,
          risk="medium",
-         explanation="Stackable plastic crates are a 1960s shipping and "
-                     "retail product, not yet in use in this photo.",
-         references=[{"label": "Crate",
-                      "url": "https://en.wikipedia.org/wiki/Crate"}]),
+         explanation="Stackable plastic crates go back to the injection-"
+                     "moulded milk crate of the 1950s, not yet in use in "
+                     "this photo.",
+         references=[{"label": "Milk crate (injection-moulded, 1950s)",
+                      "url": "https://en.wikipedia.org/wiki/Milk_crate"}]),
     # Sports and electronics: distinct silhouettes, none of them a bottle.
     dict(label="Bicycle helmet", type="object", family="sports",
          settings=("street", "station"), recipe="ground_mid",
@@ -369,10 +383,11 @@ _OBJECTS = [
          settings=("market", "station"), recipe="stall",
          size="a printed plastic payment card, about 9 cm wide", min_year=1950,
          risk="high",
-         explanation="Plastic payment cards only appeared in the 1950s, so "
-                     "one cannot belong to this scene.",
-         references=[{"label": "Payment card",
-                      "url": "https://en.wikipedia.org/wiki/Payment_card"}]),
+         explanation="Plastic payment cards only appeared in the 1950s; "
+                     "Bank of America's BankAmericard came in 1958, so one "
+                     "cannot belong to this scene.",
+         references=[{"label": "Credit card (BankAmericard, 1958)",
+                      "url": "https://en.wikipedia.org/wiki/Credit_card"}]),
     dict(label="Steel vacuum flask", type="object", family="container",
          settings=("market", "station", "street"), recipe="stall",
          size="a steel vacuum flask, about 25 cm tall", min_year=1904,
@@ -388,8 +403,8 @@ _OBJECTS = [
          min_year=1960, risk="medium",
          explanation="Bright foam-filled synthetic life jackets are a "
                      "mid-20th-century safety product, not yet in use here.",
-         references=[{"label": "Life jacket",
-                      "url": "https://en.wikipedia.org/wiki/Life_jacket"}]),
+         references=[{"label": "All about life jackets (synthetic foams)",
+                      "url": "https://www.martide.com/en/blog/all-about-life-jackets"}]),
 ]
 
 # Numeric twin of the prompt's scale budget (ticket #1328): the maximum
@@ -455,9 +470,9 @@ _PERSONS = [
          min_year=1960, risk="medium",
          noun="schoolgirl in a period dress and coat",
          tells="over-ear headphones around her neck and modern sneakers",
-         explanation="Headphones and modern athletic shoes are 20th-century "
-                     "products that did not exist in this scene's era.",
-         references=[{"label": "Headphones",
+         explanation="Over-ear headphones for personal listening only became "
+                     "common in the 1960s, later than this scene's era.",
+         references=[{"label": "Headphones (personal listening, 1960s)",
                       "url": "https://en.wikipedia.org/wiki/Headphones"}]),
 ]
 
