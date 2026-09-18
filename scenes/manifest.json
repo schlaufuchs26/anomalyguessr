@@ -1,90 +1,18 @@
 {
   "version": 2,
-  "date": "2026-09-17",
+  "date": "2026-09-18",
   "scenes": [
     {
-      "id": "soulard-eighth-1910",
-      "title": "Pedestrians walk on South Eighth Street in Soulard",
-      "place": "Soulard, St. Louis, Missouri, United States",
-      "year": "1910",
-      "description": "Pedestrians walk along the sidewalk on South Eighth Street in the Soulard neighborhood of St. Louis, Missouri, around 1910.",
-      "anomaly": "Paper coffee cup with lid",
-      "answer": {
-        "x": 0.77,
-        "y": 0.91,
-        "r": 0.05
-      },
-      "explanation": "Disposable paper coffee cups with lids only became common takeaway items in the 20th century and did not exist at a 1910 sidewalk.",
-      "references": [
-        {
-          "label": "Paper cup",
-          "url": "https://en.wikipedia.org/wiki/Paper_cup"
-        }
-      ],
-      "source": {
-        "repository": "Wikimedia Commons",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:Pedestrians_walk_on_South_Eighth_Street_in_Soulard.jpg",
-        "originalTitle": "File:Pedestrians walk on South Eighth Street in Soulard.jpg",
-        "date": "circa 1910 style=\"display: none;\">date Q",
-        "place": "",
-        "license": "Public domain",
-        "description": "Horizontal, black and white photograph pedestrians walking the sidewalk. Brick buildings line the sidewalk and a man leans against a wooden fence.<br>Title: Pedestrians walk on South Eighth Street in Soulard."
-      },
-      "credit": "Missouri History Museum via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Pedestrians_walk_on_South_Eighth_Street_in_Soulard.jpg",
-      "added": "2026-09-11",
-      "shown": "2026-09-17",
-      "title_source": "catalog",
-      "image": "scenes/soulard-eighth-1910.jpg",
-      "original": "scenes/soulard-eighth-1910-original.jpg"
-    },
-    {
-      "id": "commons-market-restaurant-and-street-tepec-mexico-ca-190-862585-plastic-bucket",
-      "title": "Market restaurant and street, Tepec, Mexico, ca. (CHS-617)",
-      "place": "",
+      "id": "commons-postcard-of-town-square-in-ljubljana-1900s-1900-bb03ef-modern-bicycle",
+      "title": "Postcard of Town Square in Ljubljana",
+      "place": "Ljubljana",
       "year": "1900",
-      "description": "Market restaurant and street, Tepec, Mexico, ca. (CHS-617) · Wikimedia Commons.",
-      "anomaly": "Plastic bucket",
-      "answer": {
-        "x": 0.427,
-        "y": 0.616,
-        "r": 0.0473
-      },
-      "explanation": "Moulded plastic buckets only replaced metal and wood containers in the mid-20th century.",
-      "references": [
-        {
-          "label": "Bucket",
-          "url": "https://en.wikipedia.org/wiki/Bucket"
-        }
-      ],
-      "source": {
-        "repository": "Wikimedia Commons",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:Market_restaurant_and_street,_Tepec,_Mexico,_ca.1900_(CHS-617).jpg",
-        "originalTitle": "Market restaurant and street, Tepec, Mexico, ca.1900 (CHS-617)",
-        "date": "1900",
-        "place": "",
-        "license": "Public domain",
-        "description": "Market restaurant and street, Tepec, Mexico, ca.1900 Photograph of market restaurant and street, Tepec, Mexico, ca.1900. A dozen or more people, most wearing sombreros and ponchos, are standing on the sidewalk, the dirt road, or sitting in the open air restaurant. The building has a tile roof, and a small sign can be seen extending from the building to the right. To the left of the building, a small road can be seen. Call number : CHS-617 Filename : CHS-617 Coverage date : circa 1900 Part of collection : California Historical Society Collection, 1860-1960 Type : images Part of subcollection : Title Insurance and Trust, and C.C. Pierce Photography Collection, 1860-1960 Repository name : USC Libraries Special Collections Format : glass plate negatives Microfiche number : 1-224- Archival file : chs_Volume89/CHS-617.tiff Geographic subject (city or populated place) : Tepec Repository address : Doheny Memorial Library, Los Angeles, CA 90089-0189 Subject (adlf) : buildings Geographic subject (country) : Mexico Format (aacr2) : 2 photographs : glass photonegative, photoprint, b&amp;w ; 13 x 20 cm., 21 x 26 cm. Rights : Digitally reproduced by the USC Digital Library; From the California Historical Society Collection at the University of Southern California Project : USC Accession number : 617 Repository email : specol@usc.edu Contributing entity : California Historical Society Date created : circa 1900 Publisher (of the digital version) : University of Southern California. Libraries Format (aat) : photographic prints; photographs Legacy record ID : chs-m14521; USC-1-1-1-14155 Access conditions : Send requests to address or e-mail given. Phone (213) 821-2366; fax (213) 740-2343. Subject (file heading) : Mexico -- Zacateca Subject (lcsh) : Streets; Markets"
-      },
-      "credit": "Unknown author Unknown author via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Market_restaurant_and_street,_Tepec,_Mexico,_ca.1900_(CHS-617).jpg",
-      "added": "2026-09-12",
-      "shown": "2026-09-17",
-      "title_source": "catalog",
-      "image": "scenes/commons-market-restaurant-and-street-tepec-mexico-ca-190-862585-plastic-bucket.jpg",
-      "original": "scenes/commons-market-restaurant-and-street-tepec-mexico-ca-190-862585-plastic-bucket-original.jpg"
-    },
-    {
-      "id": "commons-paris-exposition-street-scene-unidentified-paris-411670-modern-bicycle",
-      "title": "Paris Exposition- street scene, unidentified, Paris, France, (correction- Rue Gomboust near Saint Honoré Market)",
-      "place": "",
-      "year": "1900",
-      "description": "Paris Exposition- street scene, unidentified, Paris, France, (correction- Rue Gomboust near Saint Honoré Market) · Wikimedia Commons.",
+      "description": "Postcard of Town Square in Ljubljana · Wikimedia Commons.",
       "anomaly": "Modern bicycle",
       "answer": {
-        "x": 0.868,
-        "y": 0.778,
-        "r": 0.22
+        "x": 0.292,
+        "y": 0.677,
+        "r": 0.0544
       },
       "explanation": "Derailleur-geared modern bicycles are a later-20th-century development that this photo predates.",
       "references": [
@@ -95,92 +23,164 @@
       ],
       "source": {
         "repository": "Wikimedia Commons",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:Paris_Exposition-_street_scene,_unidentified,_Paris,_France,_1900_(correction-_Rue_Gomboust_near_Saint_Honor%C3%A9_Market).jpg",
-        "originalTitle": "Paris Exposition- street scene, unidentified, Paris, France, 1900 (correction- Rue Gomboust near Saint Honoré Market)",
-        "date": "circa 1900",
-        "place": "",
-        "license": "No restrictions",
-        "description": "Paris Exposition: street scene, unidentified, Paris, France, 1900. View looking down a street with people. A carriage reads 'Glacieres de Paris / siege social / 23 rue Taitbout'. Brooklyn Museum Archives, Goodyear Archival Collection (S03_06_01_015 image 2059). Update: Rue Gomboust near Saint Honoré Market"
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:Postcard_of_Town_Square_in_Ljubljana_1900s.jpg",
+        "originalTitle": "Postcard of Town Square in Ljubljana 1900s",
+        "date": "1900",
+        "place": "Ljubljana",
+        "license": "Public domain",
+        "description": "Postcard of Town Square in Ljubljana."
       },
-      "credit": "Brooklyn Museum via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Paris_Exposition-_street_scene,_unidentified,_Paris,_France,_1900_(correction-_Rue_Gomboust_near_Saint_Honor%C3%A9_Market).jpg",
+      "credit": "Unknown author Unknown author via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Postcard_of_Town_Square_in_Ljubljana_1900s.jpg",
       "added": "2026-09-12",
-      "shown": "2026-09-17",
+      "shown": "2026-09-18",
       "title_source": "catalog",
-      "image": "scenes/commons-paris-exposition-street-scene-unidentified-paris-411670-modern-bicycle.jpg",
-      "original": "scenes/commons-paris-exposition-street-scene-unidentified-paris-411670-modern-bicycle-original.jpg"
+      "image": "scenes/commons-postcard-of-town-square-in-ljubljana-1900s-1900-bb03ef-modern-bicycle.jpg",
+      "original": "scenes/commons-postcard-of-town-square-in-ljubljana-1900s-1900-bb03ef-modern-bicycle-original.jpg"
     },
     {
-      "id": "gallica-canon-de-280-allemand-expos-la-gare-du-champs-de-46bbfd-modern-telescoping-selfi",
-      "title": "Canon de 280, allemand, exposé à la gare du Champs de Mars",
-      "title_source": "catalog",
+      "id": "commons-rannes-railway-station-1900-1950-1900-1950-1950-0955fb-orange-traffic-cone",
+      "title": "Rannes railway station",
       "place": "",
-      "year": "1918",
-      "description": "Canon de 280, allemand, exposé à la gare du Champs de Mars · Bibliothèque nationale de France (Gallica).",
-      "anomaly": "Modern telescoping selfie stick",
+      "year": "1910",
+      "description": "Rannes railway station · Wikimedia Commons.",
+      "anomaly": "Orange traffic cone",
       "answer": {
         "x": 0.672,
-        "y": 0.585,
-        "r": 0.22
+        "y": 0.725,
+        "r": 0.1805
       },
-      "explanation": "Telescoping selfie sticks with phone mounts did not exist in 1918, so this object could not be present at this wartime display.",
+      "explanation": "Bright orange plastic traffic cones were not manufactured until the mid-20th century, so one cannot exist at this early-20th-century rural railway station.",
       "references": [
         {
-          "label": "Wikipedia: Selfie stick",
-          "url": "https://en.wikipedia.org/wiki/Selfie_stick"
+          "label": "Wikipedia: Traffic cone",
+          "url": "https://en.wikipedia.org/wiki/Traffic_cone"
         }
       ],
       "source": {
-        "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b90311387",
-        "originalTitle": "Canon de 280, allemand, exposé à la gare du Champs de Mars : [photographie de presse] / Agence Meurisse",
-        "date": "1918",
-        "place": "",
+        "repository": "Wikimedia Commons",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:Rannes_railway_station,_1900-1950.jpg",
+        "originalTitle": "Rannes railway station, 1900-1950",
+        "date": "1900",
+        "place": "-24.1035, 150.1182",
         "license": "Public domain",
-        "description": "Référence bibliographique : Meurisse, 68885 Appartient à l’ensemble documentaire : Pho20Meu Image de presse"
+        "description": "Rannes railway station, 1900-1950 (dates refer to possible date of photo, not lifetime of station)"
       },
-      "credit": "Agence de presse Meurisse. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b90311387",
-      "added": "2026-09-17",
-      "shown": "2026-09-17",
-      "image": "scenes/gallica-canon-de-280-allemand-expos-la-gare-du-champs-de-46bbfd-modern-telescoping-selfi.jpg",
-      "original": "scenes/gallica-canon-de-280-allemand-expos-la-gare-du-champs-de-46bbfd-modern-telescoping-selfi-original.jpg"
+      "credit": "Unknown author Unknown author via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Rannes_railway_station,_1900-1950.jpg",
+      "added": "2026-09-12",
+      "shown": "2026-09-18",
+      "title_source": "catalog",
+      "image": "scenes/commons-rannes-railway-station-1900-1950-1900-1950-1950-0955fb-orange-traffic-cone.jpg",
+      "original": "scenes/commons-rannes-railway-station-1900-1950-1900-1950-1950-0955fb-orange-traffic-cone-original.jpg"
     },
     {
-      "id": "gallica-inauguration-du-monument-charles-floquet-7-mars-561bc1-handheld-electric-megaph",
-      "title": "[Inauguration du] monument Charles Floquet, 7 mars",
-      "title_source": "catalog",
+      "id": "gallica-12-3-12-mi-car-me-pr-paration-des-personnages-de-2f3bd9-modern-bicycle-helmet",
+      "title": "12-3-12, Mi-Carême [préparation des personnages de Carnaval]",
       "place": "",
-      "year": "1909",
-      "description": "[Inauguration du] monument Charles Floquet, 7 mars · Bibliothèque nationale de France (Gallica).",
-      "anomaly": "Handheld electric megaphone",
+      "year": "1912",
+      "description": "12-3-12, Mi-Carême [préparation des personnages de Carnaval] · Bibliothèque nationale de France (Gallica).",
+      "anomaly": "Modern bicycle helmet",
       "answer": {
-        "x": 0.365,
-        "y": 0.655,
+        "x": 0.767,
+        "y": 0.797,
         "r": 0.22
       },
-      "explanation": "Battery-powered electric megaphones did not exist in 1909, so no one in this crowd could be holding one.",
+      "explanation": "The modern aerodynamic cycling helmet with its distinctive elongated shape and ventilation slots did not exist in 1912.",
       "references": [
         {
-          "label": "Bibliothèque nationale de France (Gallica)",
-          "url": "https://gallica.bnf.fr/"
+          "label": "Bicycle helmet history",
+          "url": "https://en.wikipedia.org/wiki/Bicycle_helmet"
         }
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53109620p",
-        "originalTitle": "[Inauguration du] monument Charles Floquet, 7 mars 1909 : [photographie de presse] / [Agence Rol]",
-        "date": "1909",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53113358m",
+        "originalTitle": "12-3-12, Mi-Carême [préparation des personnages de Carnaval] : [photographie de presse] / [Agence Rol]",
+        "date": "1912",
         "place": "",
         "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 3426 Appartient à l’ensemble documentaire : Pho20Rol"
+        "description": "Référence bibliographique : Rol, 19058 Appartient à l’ensemble documentaire : Pho20Rol"
+      },
+      "credit": "Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53113358m",
+      "added": "2026-09-13",
+      "shown": "2026-09-18",
+      "title_source": "catalog",
+      "image": "scenes/gallica-12-3-12-mi-car-me-pr-paration-des-personnages-de-2f3bd9-modern-bicycle-helmet.jpg",
+      "original": "scenes/gallica-12-3-12-mi-car-me-pr-paration-des-personnages-de-2f3bd9-modern-bicycle-helmet-original.jpg"
+    },
+    {
+      "id": "nb-badeplass-ved-brygge-1960-4d0636-modern-telescoping-selfi",
+      "title": "[Badeplass ved brygge]",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1960",
+      "description": "[Badeplass ved brygge] · National Library of Norway.",
+      "anomaly": "Modern telescoping selfie stick",
+      "answer": {
+        "x": 0.625,
+        "y": 0.315,
+        "r": 0.22
+      },
+      "explanation": "Telescoping selfie sticks did not exist in 1960, so one cannot appear in this lakeside scene.",
+      "references": [
+        {
+          "label": "National Library of Norway",
+          "url": "https://www.nb.no"
+        }
+      ],
+      "source": {
+        "repository": "National Library of Norway",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20171102_00033_NB_MIT_24_078",
+        "originalTitle": "[Badeplass ved brygge]",
+        "date": "1960",
+        "place": "",
+        "license": "Public domain",
+        "description": "{'firstIndexTime': '2025-08-26T13:43:29.715Z', 'firstDigitalContentTime': '2025-08-26T13:53:01.859Z', 'indexLastModified': '2025-08-26T13:53:01.859Z'}"
+      },
+      "credit": "Mittet & Co. AS via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20171102_00033_NB_MIT_24_078",
+      "added": "2026-09-17",
+      "shown": "2026-09-18",
+      "image": "scenes/nb-badeplass-ved-brygge-1960-4d0636-modern-telescoping-selfi.jpg",
+      "original": "scenes/nb-badeplass-ved-brygge-1960-4d0636-modern-telescoping-selfi-original.jpg"
+    },
+    {
+      "id": "gallica-marengo-tableau-par-sigriste-photographie-de-pre-5098be-helicopter-drone",
+      "title": "Marengo [tableau] par Sigriste",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1908",
+      "description": "Marengo [tableau] par Sigriste · Bibliothèque nationale de France (Gallica).",
+      "anomaly": "Helicopter drone",
+      "answer": {
+        "x": 0.475,
+        "y": 0.155,
+        "r": 0.22
+      },
+      "explanation": "Quadcopter drones did not exist in 1908, making them impossible in this scene.",
+      "references": [
+        {
+          "label": "Britannica - Unmanned aerial vehicle",
+          "url": "https://www.britannica.com/technology/unmanned-aerial-vehicle"
+        }
+      ],
+      "source": {
+        "repository": "Bibliothèque nationale de France (Gallica)",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53109372h",
+        "originalTitle": "Marengo [tableau] par Sigriste : [photographie de presse] / [Agence Rol]",
+        "date": "1908",
+        "place": "",
+        "license": "Public domain",
+        "description": "Référence bibliographique : Rol, 2998 Appartient à l’ensemble documentaire : Pho20Rol"
       },
       "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53109620p",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53109372h",
       "added": "2026-09-14",
-      "shown": "2026-09-17",
-      "image": "scenes/gallica-inauguration-du-monument-charles-floquet-7-mars-561bc1-handheld-electric-megaph.jpg",
-      "original": "scenes/gallica-inauguration-du-monument-charles-floquet-7-mars-561bc1-handheld-electric-megaph-original.jpg"
+      "shown": "2026-09-18",
+      "image": "scenes/gallica-marengo-tableau-par-sigriste-photographie-de-pre-5098be-helicopter-drone.jpg",
+      "original": "scenes/gallica-marengo-tableau-par-sigriste-photographie-de-pre-5098be-helicopter-drone-original.jpg"
     }
   ]
 }
