@@ -1,18 +1,18 @@
 {
   "version": 2,
-  "date": "2026-09-18",
+  "date": "2026-09-19",
   "scenes": [
     {
-      "id": "commons-postcard-of-town-square-in-ljubljana-1900s-1900-bb03ef-modern-bicycle",
-      "title": "Postcard of Town Square in Ljubljana",
-      "place": "Ljubljana",
-      "year": "1900",
-      "description": "Postcard of Town Square in Ljubljana · Wikimedia Commons.",
+      "id": "commons-the-counties-of-england-their-story-and-antiquit-5b5cb1-modern-bicycle",
+      "title": "The counties of England, their story and antiquities (14578262038)",
+      "place": "",
+      "year": "1912",
+      "description": "The counties of England, their story and antiquities (14578262038) · Wikimedia Commons.",
       "anomaly": "Modern bicycle",
       "answer": {
-        "x": 0.292,
-        "y": 0.677,
-        "r": 0.0544
+        "x": 0.9045,
+        "y": 0.7315,
+        "r": 0.072
       },
       "explanation": "Derailleur-geared modern bicycles are a later-20th-century development that this photo predates.",
       "references": [
@@ -23,164 +23,164 @@
       ],
       "source": {
         "repository": "Wikimedia Commons",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:Postcard_of_Town_Square_in_Ljubljana_1900s.jpg",
-        "originalTitle": "Postcard of Town Square in Ljubljana 1900s",
-        "date": "1900",
-        "place": "Ljubljana",
-        "license": "Public domain",
-        "description": "Postcard of Town Square in Ljubljana."
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:The_counties_of_England,_their_story_and_antiquities_(1912)_(14578262038).jpg",
+        "originalTitle": "The counties of England, their story and antiquities (1912) (14578262038)",
+        "date": "1912",
+        "place": "",
+        "license": "No restrictions",
+        "description": "Identifier : countiesofenglan01ditc ( find matches ) Title : The counties of England, their story and antiquities Year : 1912 ( 1910s ) Authors : Ditchfield, P. H. (Peter Hampson), 1854-1930 Subjects : Great Britain -- History England -- Antiquities Publisher : London : G. Allen Contributing Library : University of California Libraries Digitizing Sponsor : MSN View Book Page : Book Viewer About This Book : Catalog Entry View All Images : All Images From Book Click here to view book online to see this illustration in context in a browseable online version of this book. Text Appearing Before Image: the war. The aspect of the University city was completely changed. Learning was forgotten, and the youths rushed to arms. New College and Christ Church echoed with the sounds of military drilling. Ammunition was stored in the cloisters of New College. Strange scenes were witnessed in the streets. Wounded troopers were carried along; now a company of Parliamentary prisoners is brought in. Against the wall of Merton poor Colonel Winchbank is placed to be shot for surrendering Bletchingdon. The Court lacks not gaiety. Plays are performed before the royal party, and during the interludes of war they hunt at Woodstock. Prince Rupert is busy harrying the enemy. In 1643 the battle of Chalgrove field is fought and Hampden slain. Waller and Essex press the city closer, and Charles leaves Oxford, passing throug hWolvercot and Yarnton, Handborough, Witney, and Burford, and so to Worcester. A little later he returns and fights at Cropredy Bridge. Banbury Castle is besieged by the Parliamentary forces under Colonel Text Appearing After Image: OLD HOUSES AND CAKE SHOP, BANBURY OXFORDSHIRE 365 Fiennes, who makes the grand old church, so wantonly destroyed in 1790, his headquarters, and plants his artillery in the churchyard. Shots are continually exchanged by the guns of the castle and the church. The fortress holds out bravely, and is at length relieved just when provisions have begun to fail. At length Naseby sounded the knell of the Royalist cause; Charles soon delivered himself to the Scots; and the war was over. By order of the King, the garrisons of Banbury, Oxford, and other places which had held out so long, marched out and were accorded all the honours of war, having earned the respect of both friend and foe. The havoc wrought in Oxfordshire by the war was terrible. Banbury had especially suffered, having been frequently pillaged by both parties. Thame suffered in the same way. Henley was plundered by the Royalists. Many old houses were destroyed. Banbury Castle was pulled down. Churches were defaced, stripped of the leaden roofs, which made excellent bullets, and dis- honoured by being used as barracks. Note About Images Please note that these images are extracted from scanned page images that may have been digitally enhanced for readability - coloration and appearance of these illustrations may not perfectly resemble the original work."
       },
-      "credit": "Unknown author Unknown author via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Postcard_of_Town_Square_in_Ljubljana_1900s.jpg",
+      "credit": "Internet Archive Book Images via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:The_counties_of_England,_their_story_and_antiquities_(1912)_(14578262038).jpg",
       "added": "2026-09-12",
-      "shown": "2026-09-18",
+      "shown": "2026-09-19",
       "title_source": "catalog",
-      "image": "scenes/commons-postcard-of-town-square-in-ljubljana-1900s-1900-bb03ef-modern-bicycle.jpg",
-      "original": "scenes/commons-postcard-of-town-square-in-ljubljana-1900s-1900-bb03ef-modern-bicycle-original.jpg"
+      "image": "scenes/commons-the-counties-of-england-their-story-and-antiquit-5b5cb1-modern-bicycle.jpg",
+      "original": "scenes/commons-the-counties-of-england-their-story-and-antiquit-5b5cb1-modern-bicycle-original.jpg"
     },
     {
-      "id": "commons-rannes-railway-station-1900-1950-1900-1950-1950-0955fb-orange-traffic-cone",
-      "title": "Rannes railway station",
+      "id": "commons-boats-moored-by-a-harbour-in-an-unknown-location-ac0ef9-plastic-safety-helmet-ha",
+      "title": "Boats moored by a harbour, in an unknown location (probably Schull, Co Cork) (21369499706)",
       "place": "",
-      "year": "1910",
-      "description": "Rannes railway station · Wikimedia Commons.",
-      "anomaly": "Orange traffic cone",
+      "year": "1900",
+      "description": "Boats moored by a harbour, in an unknown location (probably Schull, Co Cork) (21369499706) · Wikimedia Commons.",
+      "anomaly": "Plastic safety helmet (hard hat)",
       "answer": {
-        "x": 0.672,
-        "y": 0.725,
-        "r": 0.1805
+        "x": 0.762,
+        "y": 0.402,
+        "r": 0.22
       },
-      "explanation": "Bright orange plastic traffic cones were not manufactured until the mid-20th century, so one cannot exist at this early-20th-century rural railway station.",
+      "explanation": "High-visibility molded plastic hard hats did not exist in the 1900s; dock and railway workers of this era wore soft cloth caps or bowler hats.",
       "references": [
         {
-          "label": "Wikipedia: Traffic cone",
-          "url": "https://en.wikipedia.org/wiki/Traffic_cone"
+          "label": "Wikipedia: Hard hat",
+          "url": "https://en.wikipedia.org/wiki/Hard_hat"
         }
       ],
       "source": {
         "repository": "Wikimedia Commons",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:Rannes_railway_station,_1900-1950.jpg",
-        "originalTitle": "Rannes railway station, 1900-1950",
-        "date": "1900",
-        "place": "-24.1035, 150.1182",
-        "license": "Public domain",
-        "description": "Rannes railway station, 1900-1950 (dates refer to possible date of photo, not lifetime of station)"
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:Boats_moored_by_a_harbour,_in_an_unknown_location_(probably_Schull,_Co_Cork)_(21369499706).jpg",
+        "originalTitle": "Boats moored by a harbour, in an unknown location (probably Schull, Co Cork) (21369499706)",
+        "date": "1910",
+        "place": "51.5249, -9.5450",
+        "license": "No restrictions",
+        "description": "A summary note attached to this O'Connor shot adds a description: \"Two men, possibly fishermen or harbour workers, are posing for the camera. A railway line is visible in the foreground\" - but there's no expansion on the barrels, freight carriages or vessels in the background. The O'Connor collection has provided intruiging fodder for previous investigations into location and subject, so we were hopeful of expanding on the entry for this image. Very quickly [/photos/129555378@N07/ sharon.corbet] obliged (and [/photos/8468254@N02/ derangedlemur] confirmed) by establishing that we're probably at Schull harbour. While we've yet to firm-up the date (from the opening decades of the 20th century), the comments below suggest that the barrels likely contained herring or some other local fish product... Main author: Fergus O'Connor Contributor: O'Connor, Fergus Collection: Fergus O'Connor Collection Date: c. 1900-1920 NLI Ref: OCO 266 You can also view this image, and many thousands of others, on the NLI's catalogue at catalogue.nli.ie"
       },
-      "credit": "Unknown author Unknown author via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Rannes_railway_station,_1900-1950.jpg",
-      "added": "2026-09-12",
-      "shown": "2026-09-18",
+      "credit": "National Library of Ireland on The Commons via Wikimedia Commons",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Boats_moored_by_a_harbour,_in_an_unknown_location_(probably_Schull,_Co_Cork)_(21369499706).jpg",
+      "added": "2026-09-13",
+      "shown": "2026-09-19",
       "title_source": "catalog",
-      "image": "scenes/commons-rannes-railway-station-1900-1950-1900-1950-1950-0955fb-orange-traffic-cone.jpg",
-      "original": "scenes/commons-rannes-railway-station-1900-1950-1900-1950-1950-0955fb-orange-traffic-cone-original.jpg"
+      "image": "scenes/commons-boats-moored-by-a-harbour-in-an-unknown-location-ac0ef9-plastic-safety-helmet-ha.jpg",
+      "original": "scenes/commons-boats-moored-by-a-harbour-in-an-unknown-location-ac0ef9-plastic-safety-helmet-ha-original.jpg"
     },
     {
-      "id": "gallica-12-3-12-mi-car-me-pr-paration-des-personnages-de-2f3bd9-modern-bicycle-helmet",
-      "title": "12-3-12, Mi-Carême [préparation des personnages de Carnaval]",
+      "id": "gallica-prince-de-galles-accoud-un-meuble-photographie-d-68c17a-modern-flat-panel-comput",
+      "title": "Prince de Galles [accoudé à un meuble]",
       "place": "",
       "year": "1912",
-      "description": "12-3-12, Mi-Carême [préparation des personnages de Carnaval] · Bibliothèque nationale de France (Gallica).",
-      "anomaly": "Modern bicycle helmet",
+      "description": "Prince de Galles [accoudé à un meuble] · Bibliothèque nationale de France (Gallica).",
+      "anomaly": "Modern flat-panel computer monitor",
       "answer": {
-        "x": 0.767,
-        "y": 0.797,
+        "x": 0.635,
+        "y": 0.365,
         "r": 0.22
       },
-      "explanation": "The modern aerodynamic cycling helmet with its distinctive elongated shape and ventilation slots did not exist in 1912.",
+      "explanation": "Flat-panel LCD monitors did not exist in 1912; only bulky framed pictures and paper items were on desks then.",
       "references": [
         {
-          "label": "Bicycle helmet history",
-          "url": "https://en.wikipedia.org/wiki/Bicycle_helmet"
+          "label": "Computer monitor history",
+          "url": "https://en.wikipedia.org/wiki/Computer_monitor"
         }
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53113358m",
-        "originalTitle": "12-3-12, Mi-Carême [préparation des personnages de Carnaval] : [photographie de presse] / [Agence Rol]",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53113565f",
+        "originalTitle": "Prince de Galles [accoudé à un meuble] : [photographie de presse] / [Agence Rol]",
         "date": "1912",
         "place": "",
         "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 19058 Appartient à l’ensemble documentaire : Pho20Rol"
+        "description": "Référence bibliographique : Rol, 19365 Appartient à l’ensemble documentaire : Pho20Rol"
       },
       "credit": "Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53113358m",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53113565f",
       "added": "2026-09-13",
-      "shown": "2026-09-18",
+      "shown": "2026-09-19",
       "title_source": "catalog",
-      "image": "scenes/gallica-12-3-12-mi-car-me-pr-paration-des-personnages-de-2f3bd9-modern-bicycle-helmet.jpg",
-      "original": "scenes/gallica-12-3-12-mi-car-me-pr-paration-des-personnages-de-2f3bd9-modern-bicycle-helmet-original.jpg"
+      "image": "scenes/gallica-prince-de-galles-accoud-un-meuble-photographie-d-68c17a-modern-flat-panel-comput.jpg",
+      "original": "scenes/gallica-prince-de-galles-accoud-un-meuble-photographie-d-68c17a-modern-flat-panel-comput-original.jpg"
     },
     {
-      "id": "nb-badeplass-ved-brygge-1960-4d0636-modern-telescoping-selfi",
-      "title": "[Badeplass ved brygge]",
+      "id": "nb-gate-1954-7f38ff-modern-led-traffic-signa",
+      "title": "Gate",
       "title_source": "catalog",
       "place": "",
-      "year": "1960",
-      "description": "[Badeplass ved brygge] · National Library of Norway.",
-      "anomaly": "Modern telescoping selfie stick",
+      "year": "1954",
+      "description": "Gate · National Library of Norway.",
+      "anomaly": "Modern LED traffic signal head",
       "answer": {
-        "x": 0.625,
-        "y": 0.315,
+        "x": 0.705,
+        "y": 0.545,
         "r": 0.22
       },
-      "explanation": "Telescoping selfie sticks did not exist in 1960, so one cannot appear in this lakeside scene.",
+      "explanation": "LED traffic signal heads did not exist in 1954, when signals used incandescent lamps in simple round housings.",
       "references": [
         {
           "label": "National Library of Norway",
-          "url": "https://www.nb.no"
+          "url": "https://www.nb.no/"
         }
       ],
       "source": {
         "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20171102_00033_NB_MIT_24_078",
-        "originalTitle": "[Badeplass ved brygge]",
-        "date": "1960",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20190503_00042_NB_HS_54_00420",
+        "originalTitle": "Gate",
+        "date": "1954",
         "place": "",
         "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-08-26T13:43:29.715Z', 'firstDigitalContentTime': '2025-08-26T13:53:01.859Z', 'indexLastModified': '2025-08-26T13:53:01.859Z'}"
+        "description": "{'firstIndexTime': '2025-08-26T13:42:47.214Z', 'firstDigitalContentTime': '2025-08-26T13:58:37.037Z', 'indexLastModified': '2025-08-26T13:58:37.037Z'}"
       },
-      "credit": "Mittet & Co. AS via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20171102_00033_NB_MIT_24_078",
+      "credit": "Henriksen & Steen via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20190503_00042_NB_HS_54_00420",
       "added": "2026-09-17",
-      "shown": "2026-09-18",
-      "image": "scenes/nb-badeplass-ved-brygge-1960-4d0636-modern-telescoping-selfi.jpg",
-      "original": "scenes/nb-badeplass-ved-brygge-1960-4d0636-modern-telescoping-selfi-original.jpg"
+      "shown": "2026-09-19",
+      "image": "scenes/nb-gate-1954-7f38ff-modern-led-traffic-signa.jpg",
+      "original": "scenes/nb-gate-1954-7f38ff-modern-led-traffic-signa-original.jpg"
     },
     {
-      "id": "gallica-marengo-tableau-par-sigriste-photographie-de-pre-5098be-helicopter-drone",
-      "title": "Marengo [tableau] par Sigriste",
+      "id": "gallica-photographie-d-int-rieur-photographie-de-presse-4cc3f4-handheld-video-game-cons",
+      "title": "[photographie de presse]",
       "title_source": "catalog",
       "place": "",
-      "year": "1908",
-      "description": "Marengo [tableau] par Sigriste · Bibliothèque nationale de France (Gallica).",
-      "anomaly": "Helicopter drone",
+      "year": "1919",
+      "description": "[photographie de presse] · Bibliothèque nationale de France (Gallica).",
+      "anomaly": "Handheld video game console",
       "answer": {
-        "x": 0.475,
-        "y": 0.155,
-        "r": 0.22
+        "x": 0.785,
+        "y": 0.845,
+        "r": 0.061
       },
-      "explanation": "Quadcopter drones did not exist in 1908, making them impossible in this scene.",
+      "explanation": "Handheld electronic game consoles did not exist in 1919, as they require microprocessors and LCD screens developed decades later.",
       "references": [
         {
-          "label": "Britannica - Unmanned aerial vehicle",
-          "url": "https://www.britannica.com/technology/unmanned-aerial-vehicle"
+          "label": "Computer History Museum - Handheld Games",
+          "url": "https://www.computerhistory.org/revolution/computer-games/16/196"
         }
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53109372h",
-        "originalTitle": "Marengo [tableau] par Sigriste : [photographie de presse] / [Agence Rol]",
-        "date": "1908",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53016692g",
+        "originalTitle": "[Photographie d'intérieur] : [photographie de presse] / [Agence Rol]",
+        "date": "1919",
         "place": "",
         "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 2998 Appartient à l’ensemble documentaire : Pho20Rol"
+        "description": "Référence bibliographique : Rol, 52846 Appartient à l’ensemble documentaire : Pho20Rol Appartient à l’ensemble documentaire : GG14182 Image de presse"
       },
       "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53109372h",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53016692g",
       "added": "2026-09-14",
-      "shown": "2026-09-18",
-      "image": "scenes/gallica-marengo-tableau-par-sigriste-photographie-de-pre-5098be-helicopter-drone.jpg",
-      "original": "scenes/gallica-marengo-tableau-par-sigriste-photographie-de-pre-5098be-helicopter-drone-original.jpg"
+      "shown": "2026-09-19",
+      "image": "scenes/gallica-photographie-d-int-rieur-photographie-de-presse-4cc3f4-handheld-video-game-cons.jpg",
+      "original": "scenes/gallica-photographie-d-int-rieur-photographie-de-presse-4cc3f4-handheld-video-game-cons-original.jpg"
     }
   ]
 }
