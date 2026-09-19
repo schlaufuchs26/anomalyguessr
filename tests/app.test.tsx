@@ -19,6 +19,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { App } from "../frontend";
+import { REJECT_REASONS } from "../rejectReasons";
 import { makeScene } from "./fixtures";
 
 const SCENE_A = makeScene({
@@ -1474,4 +1475,42 @@ describe("mode URLs (#1223)", () => {
 
 afterEach(() => {
   globalThis.fetch = fetch;
+});
+
+describe("one-click rejection reasons (#1627)", () => {
+  test("a reason button rejects with the canonical reason plus typed note", async () => {
+    payload = { ...MANIFEST, moderation: true };
+    const container = await renderGame("moderation");
+    clickPhoto(container, 0.5, 0.5);
+
+    const feedback = screen.getByPlaceholderText(/Feedback for the pipeline/);
+    fireEvent.change(feedback, { target: { value: "  the car is huge  " } });
+    fireEvent.click(
+      screen.getByRole("button", { name: "scaling of anomaly is wrong" }),
+    );
+
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(posts[0]?.url).toBe("/anomalyguessr/api/scenes/a/moderate");
+    expect(posts[0]?.body).toEqual({
+      action: "reject",
+      reason: "scaling of anomaly is wrong",
+      feedback: "the car is huge",
+    });
+    expect(
+      await screen.findByText("✕ Rejected · scaling of anomaly is wrong"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "✓ Accept" })).toBeDisabled();
+  });
+
+  test("all five reason buttons are offered in the moderation box", async () => {
+    payload = { ...MANIFEST, moderation: true };
+    const container = await renderGame("moderation");
+    clickPhoto(container, 0.5, 0.5);
+    expect(screen.getAllByRole("button", { name: /./ }).length).toBeGreaterThan(
+      0,
+    );
+    for (const reason of REJECT_REASONS) {
+      expect(screen.getByRole("button", { name: reason })).toBeEnabled();
+    }
+  });
 });

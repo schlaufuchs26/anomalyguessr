@@ -2,6 +2,7 @@ import { type RefObject, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { DAILY_COUNT, dateFromKey, dateLabel, pickDaily } from "./daily";
 import { type Manifest, parseManifest, type Scene } from "./manifest";
+import { REJECT_REASONS } from "./rejectReasons";
 import { bearingTo, MISS_PENALTY, runningTotal } from "./scoring";
 import {
   loadDailyManifest,
@@ -596,13 +597,18 @@ export function App() {
    */
   const postModerationAction =
     process.env.NODE_ENV !== "production"
-      ? async (action: "accept" | "reject") => {
+      ? async (action: "accept" | "reject", reason?: string) => {
           if (!scene || mod.busy || mod.done) return;
           setMod({ ...mod, busy: true, status: "Saving…" });
           try {
-            await postModeration(scene.id, action, modFeedback.trim());
+            await postModeration(scene.id, action, modFeedback.trim(), reason);
             setMod({
-              status: action === "accept" ? "✓ Accepted." : "✕ Rejected.",
+              status:
+                action === "accept"
+                  ? "✓ Accepted."
+                  : reason
+                    ? `✕ Rejected · ${reason}`
+                    : "✕ Rejected.",
               done: true,
               busy: false,
             });
@@ -869,6 +875,23 @@ export function App() {
                 value={modFeedback}
                 onChange={(e) => setModFeedback(e.target.value)}
               />
+              <span className="moderate-reasons-label">Reject reason</span>
+              <div className="moderate-reasons">
+                {REJECT_REASONS.map((reason) => (
+                  <button
+                    key={reason}
+                    type="button"
+                    className="btn ghost moderate-reason"
+                    disabled={mod.busy || mod.done}
+                    onClick={() =>
+                      void postModerationAction?.("reject", reason)
+                    }
+                    title={reason}
+                  >
+                    {reason}
+                  </button>
+                ))}
+              </div>
               <div className="moderate-actions">
                 <button
                   id="reject-btn"

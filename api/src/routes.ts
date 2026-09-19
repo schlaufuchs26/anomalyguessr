@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
+import { isRejectReason, type RejectReason } from "../../rejectReasons.ts";
 import {
   GenerateBusyError,
   type Generator,
@@ -256,9 +257,13 @@ export async function handle(
   ) {
     const id = await resolveSceneId(store, segs[1] ?? "");
     if (id === null) return notFound();
-    let body: { action?: string; feedback?: string };
+    let body: { action?: string; feedback?: string; reason?: string };
     try {
-      body = (await req.json()) as { action?: string; feedback?: string };
+      body = (await req.json()) as {
+        action?: string;
+        feedback?: string;
+        reason?: string;
+      };
     } catch {
       return badRequest("invalid JSON body");
     }
@@ -267,21 +272,34 @@ export async function handle(
       return badRequest("action must be one of: accept, reject");
     }
     const feedback = (body.feedback ?? "").trim();
-    if (feedback.length > MAX_COMMENT) {
+    const reason = (body.reason ?? "").trim();
+    // A canonical reason is stored structured (ticket #1627). Any other
+    // string stays a plain comment, so an older client or a typo never
+    // breaks a verdict.
+    const canonical = action === "reject" && isRejectReason(reason);
+    const comment = canonical
+      ? feedback
+      : [reason, feedback].filter(Boolean).join(": ");
+    if (comment.length > MAX_COMMENT) {
       return badRequest("feedback must be at most 2000 characters");
     }
     const fb = await store.feedback();
     const now = new Date().toISOString();
     if (action === "accept") {
       delete fb.rejected[id];
+      // An accepted scene carries no rejection reason any more.
+      delete fb.reasons[id];
       if (!(id in fb.accepted)) fb.accepted[id] = now;
     } else {
       delete fb.accepted[id];
       if (!(id in fb.rejected)) fb.rejected[id] = now;
+      if (canonical) {
+        fb.reasons[id] = { reason: reason as RejectReason, at: now };
+      }
     }
-    if (feedback !== "") {
+    if (comment !== "") {
       const comments = fb.comments[id] ?? [];
-      comments.push({ text: feedback, createdAt: now });
+      comments.push({ text: comment, createdAt: now });
       fb.comments[id] = comments;
     }
     await store.saveFeedback(fb);
@@ -362,6 +380,7 @@ export async function handle(
       if (!(id in fb.rejected)) fb.rejected[id] = new Date().toISOString();
     } else {
       delete fb.rejected[id];
+      delete fb.reasons[id];
     }
     await store.saveFeedback(fb);
     return json({ id, rejected: action === "reject" });

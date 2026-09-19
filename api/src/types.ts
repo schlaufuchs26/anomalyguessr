@@ -11,6 +11,8 @@
  * (documented in wiki/entries/anomalyguessr-queue.md) avoids lost updates.
  */
 
+import type { RejectReason } from "../../rejectReasons.ts";
+
 /** The last checker verdict the generator stored with a scene (#1436). */
 export interface SceneChecker {
   /** Requirements met, computed from the failed numbers. */
@@ -114,6 +116,14 @@ export interface Comment {
   createdAt: string;
 }
 
+/** One canonical rejection reason stored on a scene (ticket #1627). */
+export interface RejectReasonEntry {
+  /** One of the canonical reasons in `rejectReasons.ts` (REJECT_REASONS). */
+  reason: RejectReason;
+  /** When the reason was recorded (RFC3339). */
+  at: string;
+}
+
 export interface FeedbackFile {
   version: number;
   /** Scene id -> RFC3339 timestamp (written by this API). */
@@ -122,6 +132,12 @@ export interface FeedbackFile {
   excluded?: Record<string, string>;
   accepted: Record<string, string>;
   comments: Record<string, Comment[]>;
+  /**
+   * The canonical rejection reason per scene (ticket #1627): scene id ->
+   * {reason, at}. Written when a reject uses one of the five buttons; a
+   * legacy rejection, or one with free prose only, has no entry here.
+   */
+  reasons: Record<string, RejectReasonEntry>;
   /**
    * The optional "funny" moderation tag (ticket #1502): scene id -> RFC3339
    * timestamp. The labelled set the blind vision test needs before "funny"

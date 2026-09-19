@@ -369,3 +369,71 @@ class PatternCountsTest(TempDataMixin, unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RejectReasonTest(unittest.TestCase):
+    """Ticket #1627: reason-tagged and legacy prose rejections both read."""
+
+    def record(self, **kw):
+        base = {"version": 1, "accepted": {}, "rejected": {}, "comments": {}}
+        base.update(kw)
+        return base
+
+    def test_a_reason_tagged_rejection_is_read(self):
+        rec = self.record(
+            rejected={"s1": "2026-09-14T10:00:00Z"},
+            reasons={"s1": {"reason": "too easy",
+                            "at": "2026-09-14T10:00:00Z"}})
+        self.assertEqual(fb.reject_reason_entry(rec, "s1"), "too easy")
+        self.assertEqual(fb.rejection_kind(rec, "s1"), "reason")
+
+    def test_a_legacy_prose_rejection_is_read(self):
+        rec = self.record(rejected={"s1": "2026-09-14T10:00:00Z"},
+                          comments={"s1": [{"text": "too obvious"}]})
+        self.assertIsNone(fb.reject_reason_entry(rec, "s1"))
+        self.assertEqual(fb.rejection_kind(rec, "s1"), "prose")
+
+    def test_a_silent_rejection_has_no_kind(self):
+        rec = self.record(rejected={"s1": "2026-09-14T10:00:00Z"})
+        self.assertEqual(fb.rejection_kind(rec, "s1"), "none")
+
+    def test_the_window_counts_reasons_and_label_kinds(self):
+        rec = self.record(
+            rejected={
+                "r1": "2026-09-14T10:00:00Z",
+                "r2": "2026-09-14T10:00:00Z",
+                "p1": "2026-09-14T10:00:00Z",
+                "s1": "2026-09-14T10:00:00Z",
+                "old": "2026-01-01T10:00:00Z",
+            },
+            reasons={
+                "r1": {"reason": "too easy",
+                       "at": "2026-09-14T10:00:00Z"},
+                "r2": {"reason": "too easy",
+                       "at": "2026-09-14T10:00:00Z"},
+                "old": {"reason": "too easy",
+                        "at": "2026-01-01T10:00:00Z"},
+            },
+            comments={"p1": [{"text": "blurry"}]},
+        )
+        counts = fb.reason_counts(rec, today=TODAY)
+        self.assertEqual(counts["counts"]["too easy"], 2)
+        self.assertEqual(counts["tagged"], 2)
+        self.assertEqual(counts["prose"], 1)
+        self.assertEqual(counts["silent"], 1)
+        self.assertEqual(counts["rejected"], 4)
+
+
+class RejectReasonRunTest(TempDataMixin, unittest.TestCase):
+    def test_the_report_carries_the_reason_counts(self):
+        scenes, _ = outboard_fixture()
+        record = verdicts(rejected=["o2", "o3"])
+        record["reasons"] = {"o3": {"reason": "too easy",
+                                    "at": "2026-09-14T10:00:00Z"}}
+        self.write(scenes, record)
+        report = fb.run(self.data_dir, dry_run=True, now=datetime.datetime(
+            2026, 9, 15, 3, 15, tzinfo=datetime.timezone.utc))
+        self.assertEqual(report["rejectReasons"]["counts"]["too easy"], 1)
+        self.assertEqual(report["rejectReasons"]["tagged"], 1)
+        # o2 carries no comment, so it counts as a silent rejection.
+        self.assertEqual(report["rejectReasons"]["silent"], 1)

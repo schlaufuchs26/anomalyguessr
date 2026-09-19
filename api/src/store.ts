@@ -39,6 +39,7 @@ export class Store {
         rejected: {},
         accepted: {},
         comments: {},
+        reasons: {},
         funny: {},
         great: {},
       }),
@@ -90,6 +91,7 @@ export function normalizeFeedback(fb: FeedbackFile): FeedbackFile {
     rejected: { ...(fb.excluded ?? {}), ...(fb.rejected ?? {}) },
     accepted: fb.accepted ?? {},
     comments: fb.comments ?? {},
+    reasons: fb.reasons ?? {},
     funny: fb.funny ?? {},
     great: fb.great ?? {},
   };

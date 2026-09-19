@@ -185,6 +185,69 @@ def commented_scene_ids(feedback: dict) -> set:
             if comments}
 
 
+def reject_reason_entry(feedback: dict, scene_id) -> str | None:
+    """The canonical reason stored for a scene, or None (ticket #1627).
+
+    A reason-tagged rejection carries ``feedback["reasons"][id]`` =
+    ``{"reason": ..., "at": ...}``; a legacy one only has free prose in
+    ``comments``. Both stay readable, and the caller can tell which it saw
+    with ``rejection_kind``.
+    """
+    entry = (feedback.get("reasons") or {}).get(str(scene_id))
+    if not isinstance(entry, dict):
+        return None
+    reason = str(entry.get("reason") or "").strip()
+    return reason or None
+
+
+def rejection_kind(feedback: dict, scene_id) -> str:
+    """"reason", "prose" or "none" for a rejected scene (ticket #1627).
+
+    A structured entry wins over a prose comment: a button click that
+    combined a reason with a note stores both, and the reason is the
+    canonical signal.
+    """
+    if reject_reason_entry(feedback, scene_id):
+        return "reason"
+    if (feedback.get("comments") or {}).get(str(scene_id)):
+        return "prose"
+    return "none"
+
+
+def reason_counts(feedback: dict, window_days: int = DEFAULT_WINDOW_DAYS,
+                  today=None) -> dict:
+    """Rejections per canonical reason over the window (ticket #1627).
+
+    Also reports how the window's rejections were labelled: with a canonical
+    reason, with prose only, or silently, so the digest can say which it saw
+    and a run without reason-tagged rejections reads as such instead of as a
+    zero.
+    """
+    day = today or datetime.date.today()
+    cutoff = (day - datetime.timedelta(days=window_days)).isoformat()
+    counts = {reason: 0 for reason in ag_queue.REJECT_REASONS}
+    unknown = 0
+    tagged = prose = silent = 0
+    for scene_id, at in (feedback.get("rejected") or {}).items():
+        if str(at or "")[:10] < cutoff:
+            continue
+        kind = rejection_kind(feedback, scene_id)
+        if kind == "reason":
+            tagged += 1
+            reason = reject_reason_entry(feedback, scene_id)
+            if reason in counts:
+                counts[reason] += 1
+            else:
+                unknown += 1
+        elif kind == "prose":
+            prose += 1
+        else:
+            silent += 1
+    return {"counts": counts, "unknown": unknown, "tagged": tagged,
+            "prose": prose, "silent": silent,
+            "rejected": tagged + prose + silent}
+
+
 def _dimension(accepted, rejected, scenes, cutoff, pair_of,
                commented_ids) -> dict:
     rows: dict = {}
@@ -242,6 +305,7 @@ def acceptance_stats(scenes, feedback, window_days: int = DEFAULT_WINDOW_DAYS,
         "commentedAccepted": len(set(kept) & commented),
         "rate": _rate(len(kept), len(dropped)),
     }
+    out["reasons"] = reason_counts(feedback, window_days, day)
     return out
 
 
@@ -562,6 +626,16 @@ def digest(report: dict) -> str:
         lines.append("Worst records: " + "; ".join(
             f"{row['key']} {row['rejected']}/{row['total']} "
             f"({_pct(_reject_share(row))})" for row in movers))
+    reasons = report.get("rejectReasons") or {}
+    tagged = int(reasons.get("tagged") or 0)
+    prose = int(reasons.get("prose") or 0)
+    if tagged or prose:
+        counts = reasons.get("counts") or {}
+        top = sorted(((n, r) for r, n in counts.items() if n), reverse=True)
+        line = f"Reject reasons: {tagged} listed, {prose} prose-only"
+        if top:
+            line += f"; top: {top[0][1]} ({top[0][0]})"
+        lines.append(line)
     lines.append(_applied_line(report.get("changes") or []))
     props = report.get("proposals") or []
     if props:
@@ -625,6 +699,7 @@ def run(data_dir, window_days: int = DEFAULT_WINDOW_DAYS, dry_run: bool = False,
         "windowDays": int(window_days),
         "metric": "acceptance rate over the window (total = sample size)",
         "sample": stats["sample"],
+        "rejectReasons": stats["reasons"],
         "rates": {dim: stats[dim] for dim in DIMS},
         "avoidLabels": applied["avoidLabels"],
         "avoidFamilies": applied["avoidFamilies"],

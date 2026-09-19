@@ -123,16 +123,26 @@ export async function loadLiveManifest(
   return (await loadManifestFrom(LIVE_MANIFEST_URL, parse)).manifest;
 }
 
-/** POST a moderation verdict (dev instance only); throws on a non-2xx. */
+/**
+ * POST a moderation verdict (dev instance only); throws on a non-2xx.
+ *
+ * `reason` is one of the canonical rejection reasons (ticket #1627); when
+ * given it is sent alongside the free-text `feedback` (the note), so the API
+ * can store it structured. Without it the body stays the legacy
+ * {action, feedback} an accept or a prose-only reject sends.
+ */
 export async function postModeration(
   sceneId: string,
   action: "accept" | "reject",
   feedback: string,
+  reason?: string,
 ): Promise<void> {
   const res = await fetch(moderationUrl(sceneId), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action, feedback }),
+    body: JSON.stringify(
+      reason ? { action, feedback, reason } : { action, feedback },
+    ),
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
 }

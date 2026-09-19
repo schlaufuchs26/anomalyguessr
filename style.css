@@ -753,6 +753,23 @@ main {
   padding: 0.3em 0.6em;
   margin-top: 0.3em;
 }
+/* The five one-click rejection reasons (ticket #1627): one click rejects
+   with the canonical reason stored, no confirmation step. */
+.moderate-reasons-label {
+  display: block;
+  font-size: 0.85em;
+  margin-top: 0.4em;
+  opacity: 0.85;
+}
+.moderate-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4em;
+  margin-top: 0.3em;
+}
+.moderate-reason {
+  font-size: 0.85em;
+}
 .moderate-actions {
   display: flex;
   gap: 0.5em;
