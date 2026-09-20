@@ -1,186 +1,186 @@
 {
   "version": 2,
-  "date": "2026-09-19",
+  "date": "2026-09-20",
   "scenes": [
     {
-      "id": "commons-the-counties-of-england-their-story-and-antiquit-5b5cb1-modern-bicycle",
-      "title": "The counties of England, their story and antiquities (14578262038)",
+      "id": "gallica-19-6-11-jean-d-estray-photographie-de-presse-age-2d4deb-disposable-plastic-ballp",
+      "title": "19-6-11, Jean d'Estray",
       "place": "",
-      "year": "1912",
-      "description": "The counties of England, their story and antiquities (14578262038) · Wikimedia Commons.",
-      "anomaly": "Modern bicycle",
+      "year": "1911",
+      "description": "19-6-11, Jean d'Estray · Bibliothèque nationale de France (Gallica).",
+      "anomaly": "Disposable plastic ballpoint pen",
       "answer": {
-        "x": 0.9045,
-        "y": 0.7315,
-        "r": 0.072
+        "x": 0.5,
+        "y": 0.8,
+        "r": 0.1228
       },
-      "explanation": "Derailleur-geared modern bicycles are a later-20th-century development that this photo predates.",
+      "explanation": "The ballpoint pen was not commercially available until the mid-20th century, so it cannot exist in a 1911 photograph.",
       "references": [
         {
-          "label": "Bicycle",
-          "url": "https://en.wikipedia.org/wiki/Bicycle"
-        }
-      ],
-      "source": {
-        "repository": "Wikimedia Commons",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:The_counties_of_England,_their_story_and_antiquities_(1912)_(14578262038).jpg",
-        "originalTitle": "The counties of England, their story and antiquities (1912) (14578262038)",
-        "date": "1912",
-        "place": "",
-        "license": "No restrictions",
-        "description": "Identifier : countiesofenglan01ditc ( find matches ) Title : The counties of England, their story and antiquities Year : 1912 ( 1910s ) Authors : Ditchfield, P. H. (Peter Hampson), 1854-1930 Subjects : Great Britain -- History England -- Antiquities Publisher : London : G. Allen Contributing Library : University of California Libraries Digitizing Sponsor : MSN View Book Page : Book Viewer About This Book : Catalog Entry View All Images : All Images From Book Click here to view book online to see this illustration in context in a browseable online version of this book. Text Appearing Before Image: the war. The aspect of the University city was completely changed. Learning was forgotten, and the youths rushed to arms. New College and Christ Church echoed with the sounds of military drilling. Ammunition was stored in the cloisters of New College. Strange scenes were witnessed in the streets. Wounded troopers were carried along; now a company of Parliamentary prisoners is brought in. Against the wall of Merton poor Colonel Winchbank is placed to be shot for surrendering Bletchingdon. The Court lacks not gaiety. Plays are performed before the royal party, and during the interludes of war they hunt at Woodstock. Prince Rupert is busy harrying the enemy. In 1643 the battle of Chalgrove field is fought and Hampden slain. Waller and Essex press the city closer, and Charles leaves Oxford, passing throug hWolvercot and Yarnton, Handborough, Witney, and Burford, and so to Worcester. A little later he returns and fights at Cropredy Bridge. Banbury Castle is besieged by the Parliamentary forces under Colonel Text Appearing After Image: OLD HOUSES AND CAKE SHOP, BANBURY OXFORDSHIRE 365 Fiennes, who makes the grand old church, so wantonly destroyed in 1790, his headquarters, and plants his artillery in the churchyard. Shots are continually exchanged by the guns of the castle and the church. The fortress holds out bravely, and is at length relieved just when provisions have begun to fail. At length Naseby sounded the knell of the Royalist cause; Charles soon delivered himself to the Scots; and the war was over. By order of the King, the garrisons of Banbury, Oxford, and other places which had held out so long, marched out and were accorded all the honours of war, having earned the respect of both friend and foe. The havoc wrought in Oxfordshire by the war was terrible. Banbury had especially suffered, having been frequently pillaged by both parties. Thame suffered in the same way. Henley was plundered by the Royalists. Many old houses were destroyed. Banbury Castle was pulled down. Churches were defaced, stripped of the leaden roofs, which made excellent bullets, and dis- honoured by being used as barracks. Note About Images Please note that these images are extracted from scanned page images that may have been digitally enhanced for readability - coloration and appearance of these illustrations may not perfectly resemble the original work."
-      },
-      "credit": "Internet Archive Book Images via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:The_counties_of_England,_their_story_and_antiquities_(1912)_(14578262038).jpg",
-      "added": "2026-09-12",
-      "shown": "2026-09-19",
-      "title_source": "catalog",
-      "image": "scenes/commons-the-counties-of-england-their-story-and-antiquit-5b5cb1-modern-bicycle.jpg",
-      "original": "scenes/commons-the-counties-of-england-their-story-and-antiquit-5b5cb1-modern-bicycle-original.jpg"
-    },
-    {
-      "id": "commons-boats-moored-by-a-harbour-in-an-unknown-location-ac0ef9-plastic-safety-helmet-ha",
-      "title": "Boats moored by a harbour, in an unknown location (probably Schull, Co Cork) (21369499706)",
-      "place": "",
-      "year": "1900",
-      "description": "Boats moored by a harbour, in an unknown location (probably Schull, Co Cork) (21369499706) · Wikimedia Commons.",
-      "anomaly": "Plastic safety helmet (hard hat)",
-      "answer": {
-        "x": 0.762,
-        "y": 0.402,
-        "r": 0.22
-      },
-      "explanation": "High-visibility molded plastic hard hats did not exist in the 1900s; dock and railway workers of this era wore soft cloth caps or bowler hats.",
-      "references": [
-        {
-          "label": "Wikipedia: Hard hat",
-          "url": "https://en.wikipedia.org/wiki/Hard_hat"
-        }
-      ],
-      "source": {
-        "repository": "Wikimedia Commons",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:Boats_moored_by_a_harbour,_in_an_unknown_location_(probably_Schull,_Co_Cork)_(21369499706).jpg",
-        "originalTitle": "Boats moored by a harbour, in an unknown location (probably Schull, Co Cork) (21369499706)",
-        "date": "1910",
-        "place": "51.5249, -9.5450",
-        "license": "No restrictions",
-        "description": "A summary note attached to this O'Connor shot adds a description: \"Two men, possibly fishermen or harbour workers, are posing for the camera. A railway line is visible in the foreground\" - but there's no expansion on the barrels, freight carriages or vessels in the background. The O'Connor collection has provided intruiging fodder for previous investigations into location and subject, so we were hopeful of expanding on the entry for this image. Very quickly [/photos/129555378@N07/ sharon.corbet] obliged (and [/photos/8468254@N02/ derangedlemur] confirmed) by establishing that we're probably at Schull harbour. While we've yet to firm-up the date (from the opening decades of the 20th century), the comments below suggest that the barrels likely contained herring or some other local fish product... Main author: Fergus O'Connor Contributor: O'Connor, Fergus Collection: Fergus O'Connor Collection Date: c. 1900-1920 NLI Ref: OCO 266 You can also view this image, and many thousands of others, on the NLI's catalogue at catalogue.nli.ie"
-      },
-      "credit": "National Library of Ireland on The Commons via Wikimedia Commons",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Boats_moored_by_a_harbour,_in_an_unknown_location_(probably_Schull,_Co_Cork)_(21369499706).jpg",
-      "added": "2026-09-13",
-      "shown": "2026-09-19",
-      "title_source": "catalog",
-      "image": "scenes/commons-boats-moored-by-a-harbour-in-an-unknown-location-ac0ef9-plastic-safety-helmet-ha.jpg",
-      "original": "scenes/commons-boats-moored-by-a-harbour-in-an-unknown-location-ac0ef9-plastic-safety-helmet-ha-original.jpg"
-    },
-    {
-      "id": "gallica-prince-de-galles-accoud-un-meuble-photographie-d-68c17a-modern-flat-panel-comput",
-      "title": "Prince de Galles [accoudé à un meuble]",
-      "place": "",
-      "year": "1912",
-      "description": "Prince de Galles [accoudé à un meuble] · Bibliothèque nationale de France (Gallica).",
-      "anomaly": "Modern flat-panel computer monitor",
-      "answer": {
-        "x": 0.635,
-        "y": 0.365,
-        "r": 0.22
-      },
-      "explanation": "Flat-panel LCD monitors did not exist in 1912; only bulky framed pictures and paper items were on desks then.",
-      "references": [
-        {
-          "label": "Computer monitor history",
-          "url": "https://en.wikipedia.org/wiki/Computer_monitor"
+          "label": "Wikipedia: Ballpoint pen",
+          "url": "https://en.wikipedia.org/wiki/Ballpoint_pen"
         }
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53113565f",
-        "originalTitle": "Prince de Galles [accoudé à un meuble] : [photographie de presse] / [Agence Rol]",
-        "date": "1912",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b69157767",
+        "originalTitle": "19-6-11, Jean d'Estray : [photographie de presse] / [Agence Rol]",
+        "date": "1911",
         "place": "",
         "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 19365 Appartient à l’ensemble documentaire : Pho20Rol"
+        "description": "Référence bibliographique : Rol, 14507 Appartient à l’ensemble documentaire : Pho20Rol"
       },
       "credit": "Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53113565f",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b69157767",
       "added": "2026-09-13",
-      "shown": "2026-09-19",
+      "shown": "2026-09-20",
       "title_source": "catalog",
-      "image": "scenes/gallica-prince-de-galles-accoud-un-meuble-photographie-d-68c17a-modern-flat-panel-comput.jpg",
-      "original": "scenes/gallica-prince-de-galles-accoud-un-meuble-photographie-d-68c17a-modern-flat-panel-comput-original.jpg"
+      "image": "scenes/gallica-19-6-11-jean-d-estray-photographie-de-presse-age-2d4deb-disposable-plastic-ballp.jpg",
+      "original": "scenes/gallica-19-6-11-jean-d-estray-photographie-de-presse-age-2d4deb-disposable-plastic-ballp-original.jpg"
     },
     {
-      "id": "nb-gate-1954-7f38ff-modern-led-traffic-signa",
-      "title": "Gate",
+      "id": "gallica-hanlon-contre-ren-roc-boxe-photographie-de-press-2b4354-modern-boxing-glove-with",
+      "title": "Hanlon contre [René] Roc [boxe]",
       "title_source": "catalog",
       "place": "",
-      "year": "1954",
-      "description": "Gate · National Library of Norway.",
-      "anomaly": "Modern LED traffic signal head",
+      "year": "1911",
+      "description": "Hanlon contre [René] Roc [boxe] · Bibliothèque nationale de France (Gallica).",
+      "anomaly": "Modern boxing glove with Velcro wrist strap",
       "answer": {
-        "x": 0.705,
-        "y": 0.545,
+        "x": 0.545,
+        "y": 0.305,
         "r": 0.22
       },
-      "explanation": "LED traffic signal heads did not exist in 1954, when signals used incandescent lamps in simple round housings.",
+      "explanation": "Velcro fasteners were not used on boxing gloves until the 1970s, so this strap cannot exist in a 1911 photograph.",
+      "references": [
+        {
+          "label": "Wikipedia - Hook-and-loop fastener",
+          "url": "https://en.wikipedia.org/wiki/Hook-and-loop_fastener"
+        }
+      ],
+      "source": {
+        "repository": "Bibliothèque nationale de France (Gallica)",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53112798f",
+        "originalTitle": "Hanlon contre [René] Roc [boxe] : [photographie de presse] / [Agence Rol]",
+        "date": "1911",
+        "place": "",
+        "license": "Public domain",
+        "description": "Référence bibliographique : Rol, 17579 Appartient à l’ensemble documentaire : Pho20Rol"
+      },
+      "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53112798f",
+      "added": "2026-09-14",
+      "shown": "2026-09-20",
+      "image": "scenes/gallica-hanlon-contre-ren-roc-boxe-photographie-de-press-2b4354-modern-boxing-glove-with.jpg",
+      "original": "scenes/gallica-hanlon-contre-ren-roc-boxe-photographie-de-press-2b4354-modern-boxing-glove-with-original.jpg"
+    },
+    {
+      "id": "gallica-nevers-porte-du-croux-photographie-de-presse-age-e6bfaf-modern-plastic-wheelie-b",
+      "title": "Nevers, Porte du Croux",
+      "place": "",
+      "year": "1914",
+      "description": "Nevers, Porte du Croux · Bibliothèque nationale de France (Gallica).",
+      "anomaly": "Modern plastic wheelie bin",
+      "answer": {
+        "x": 0.911,
+        "y": 0.802,
+        "r": 0.22
+      },
+      "explanation": "Wheeled plastic refuse bins did not exist in 1914, as household waste collection used metal or wicker containers.",
+      "references": [
+        {
+          "label": "Bibliothèque nationale de France (Gallica)",
+          "url": "https://gallica.bnf.fr"
+        }
+      ],
+      "source": {
+        "repository": "Bibliothèque nationale de France (Gallica)",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6929760w",
+        "originalTitle": "Nevers, Porte du Croux : [photographie de presse] / [Agence Rol]",
+        "date": "1914",
+        "place": "",
+        "license": "Public domain",
+        "description": "Référence bibliographique : Rol, 39015 Appartient à l’ensemble documentaire : Pho20Rol"
+      },
+      "credit": "Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6929760w",
+      "added": "2026-09-14",
+      "shown": "2026-09-20",
+      "title_source": "catalog",
+      "image": "scenes/gallica-nevers-porte-du-croux-photographie-de-presse-age-e6bfaf-modern-plastic-wheelie-b.jpg",
+      "original": "scenes/gallica-nevers-porte-du-croux-photographie-de-presse-age-e6bfaf-modern-plastic-wheelie-b-original.jpg"
+    },
+    {
+      "id": "nb-gate-i-stavanger-1900-ecd48b-modern-plastic-hula-hoop",
+      "title": "[Gate i Stavanger]",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1900",
+      "description": "[Gate i Stavanger] · National Library of Norway.",
+      "anomaly": "Modern plastic hula hoop",
+      "answer": {
+        "x": 0.527,
+        "y": 0.797,
+        "r": 0.1901
+      },
+      "explanation": "The plastic hula hoop was not invented until 1958, so it cannot appear in a photograph taken in 1900.",
       "references": [
         {
           "label": "National Library of Norway",
-          "url": "https://www.nb.no/"
+          "url": "https://www.nb.no"
         }
       ],
       "source": {
         "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20190503_00042_NB_HS_54_00420",
-        "originalTitle": "Gate",
-        "date": "1954",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20171204_00012_NB_NS_NM_05708",
+        "originalTitle": "[Gate i Stavanger]",
+        "date": "1900",
         "place": "",
         "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-08-26T13:42:47.214Z', 'firstDigitalContentTime': '2025-08-26T13:58:37.037Z', 'indexLastModified': '2025-08-26T13:58:37.037Z'}"
+        "description": "{'firstIndexTime': '2025-08-26T13:42:17.084Z', 'firstDigitalContentTime': '2025-08-26T13:54:25.514Z', 'indexLastModified': '2025-08-26T13:54:25.514Z'}"
       },
-      "credit": "Henriksen & Steen via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20190503_00042_NB_HS_54_00420",
+      "credit": "Skarpmoen, Narve via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20171204_00012_NB_NS_NM_05708",
       "added": "2026-09-17",
-      "shown": "2026-09-19",
-      "image": "scenes/nb-gate-1954-7f38ff-modern-led-traffic-signa.jpg",
-      "original": "scenes/nb-gate-1954-7f38ff-modern-led-traffic-signa-original.jpg"
+      "shown": "2026-09-20",
+      "image": "scenes/nb-gate-i-stavanger-1900-ecd48b-modern-plastic-hula-hoop.jpg",
+      "original": "scenes/nb-gate-i-stavanger-1900-ecd48b-modern-plastic-hula-hoop-original.jpg"
     },
     {
-      "id": "gallica-photographie-d-int-rieur-photographie-de-presse-4cc3f4-handheld-video-game-cons",
-      "title": "[photographie de presse]",
+      "id": "gallica-cuirass-su-dois-photographie-de-presse-agence-ro-95340e-modern-wind-turbine",
+      "title": "Cuirassé suédois",
       "title_source": "catalog",
       "place": "",
-      "year": "1919",
-      "description": "[photographie de presse] · Bibliothèque nationale de France (Gallica).",
-      "anomaly": "Handheld video game console",
+      "year": "1930",
+      "description": "Cuirassé suédois · Bibliothèque nationale de France (Gallica).",
+      "anomaly": "Modern wind turbine",
       "answer": {
-        "x": 0.785,
-        "y": 0.845,
-        "r": 0.061
+        "x": 0.818,
+        "y": 0.532,
+        "r": 0.1931
       },
-      "explanation": "Handheld electronic game consoles did not exist in 1919, as they require microprocessors and LCD screens developed decades later.",
+      "explanation": "Wind turbines of this type did not exist in 1930, so one mounted on a 1930 battleship is impossible.",
       "references": [
         {
-          "label": "Computer History Museum - Handheld Games",
-          "url": "https://www.computerhistory.org/revolution/computer-games/16/196"
+          "label": "Wind turbine history",
+          "url": "https://en.wikipedia.org/wiki/Wind_turbine"
         }
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53016692g",
-        "originalTitle": "[Photographie d'intérieur] : [photographie de presse] / [Agence Rol]",
-        "date": "1919",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53231511s",
+        "originalTitle": "Cuirassé suédois : [photographie de presse] / [Agence Rol] ; [d'après une photographie originale de provenance inconnue]",
+        "date": "1930",
         "place": "",
         "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 52846 Appartient à l’ensemble documentaire : Pho20Rol Appartient à l’ensemble documentaire : GG14182 Image de presse"
+        "description": "Référence bibliographique : Rol, 146915 Appartient à l’ensemble documentaire : Pho20Rol Image de presse"
       },
       "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53016692g",
-      "added": "2026-09-14",
-      "shown": "2026-09-19",
-      "image": "scenes/gallica-photographie-d-int-rieur-photographie-de-presse-4cc3f4-handheld-video-game-cons.jpg",
-      "original": "scenes/gallica-photographie-d-int-rieur-photographie-de-presse-4cc3f4-handheld-video-game-cons-original.jpg"
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53231511s",
+      "added": "2026-09-15",
+      "shown": "2026-09-20",
+      "image": "scenes/gallica-cuirass-su-dois-photographie-de-presse-agence-ro-95340e-modern-wind-turbine.jpg",
+      "original": "scenes/gallica-cuirass-su-dois-photographie-de-presse-agence-ro-95340e-modern-wind-turbine-original.jpg"
     }
   ]
 }
