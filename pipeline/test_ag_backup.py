@@ -158,11 +158,27 @@ class RetentionTest(unittest.TestCase):
 class RunTest(unittest.TestCase):
     """The whole command with a faked gh: no network, no release."""
 
-    def fake_gh(self, calls, releases=(), view=None):
-        """Fake gh: release view answers ``view`` (None = no release)."""
+    def fake_gh(self, calls, releases=(), view=None, report_size=None):
+        """Fake gh: ``view`` answers the isDraft question (None = no release),
+        and the asset query reports the size of the file that was uploaded
+        (or ``report_size`` when a test wants a mismatch)."""
+        uploaded = {"name": "", "size": 0}
+
         def run(*args, check=True):
             calls.append(args)
+            if args[:2] == ("release", "upload"):
+                path = Path(args[3])
+                uploaded.update(name=path.name, size=path.stat().st_size)
+                return subprocess.CompletedProcess(args, 0, "", "")
             if args[:2] == ("release", "view"):
+                if "assets" in args:
+                    assets = ([{"name": uploaded["name"],
+                                "size": report_size
+                                if report_size is not None
+                                else uploaded["size"]}]
+                              if uploaded["name"] else [])
+                    return subprocess.CompletedProcess(
+                        args, 0, json.dumps({"assets": assets}), "")
                 if view is None:
                     return subprocess.CompletedProcess(args, 1, "", "not found")
                 return subprocess.CompletedProcess(
@@ -230,6 +246,20 @@ class RunTest(unittest.TestCase):
             self.assertEqual(rc, 1)
             self.assertEqual([c for c in calls if c[:2] == ("release", "upload")],
                              [])
+
+    def test_main_fails_when_the_release_lacks_the_asset(self):
+        # The #1801 shape: the release exists, the tarball never arrived.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            data = write_data(root, [scene("fresh")])
+            calls = []
+            with mock.patch.object(b, "gh",
+                                   self.fake_gh(calls, report_size=0)), \
+                 mock.patch.dict(os.environ, {"GH_TOKEN": "test"}):
+                rc = b.main(["--data", str(data), "--date", "2026-09-22",
+                             "--work-dir", str(root / "work"),
+                             "--slug", "acme/game"])
+            self.assertEqual(rc, 1)
 
     def test_local_builds_the_tarball_without_gh(self):
         with tempfile.TemporaryDirectory() as tmp:

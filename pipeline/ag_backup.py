@@ -297,6 +297,19 @@ def sweep_stale(work: Path, max_age: int = STALE_WORK_AGE) -> list:
     return removed
 
 
+def uploaded_bytes(slug: str, tag: str, name: str) -> int:
+    """Size of the named asset on the release, or -1 when it is not there.
+
+    Ticket #1801's failure was a release without its asset, noticed a day
+    later; every run checks its own upload the same way.
+    """
+    out = gh("release", "view", tag, "--json", "assets", "-R", slug).stdout
+    for asset in json.loads(out or "{}").get("assets", []):
+        if asset.get("name") == name:
+            return int(asset.get("size") or 0)
+    return -1
+
+
 def fail(args, message: str) -> int:
     """Alert (stderr + Discord) and return a non-zero exit for the cron."""
     alert(args, f"AnomalyGuessr: {message}")
@@ -349,6 +362,11 @@ def cmd_backup(args) -> int:
                  f"~/projects/anomalyguessr")
         publish_draft(tarball, tag, args.slug, notes)
         print(f"[backup] uploaded draft release {tag} to {args.slug}")
+        remote = uploaded_bytes(args.slug, tag, tarball.name)
+        if remote != size:
+            return fail(args, f"release {tag} carries {remote} bytes for "
+                              f"{tarball.name}, expected {size}; the asset is "
+                              f"missing or truncated")
         for old in prune(args.slug, datetime.date.fromisoformat(date)):
             print(f"[backup] pruned old release {old}")
         over = [e for e in plan["skipped"] if e["reason"] == "over-cap"]
