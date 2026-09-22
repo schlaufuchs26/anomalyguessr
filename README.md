@@ -76,8 +76,11 @@ the default `/home/exedev/.nix-profile/bin/chromium` when it exists.
 | `data/` | runtime data the pipeline and the API share: `state.json`, `feedback.json`, image caches |
 
 `data/` is gitignored: it is a local cache (a few hundred MB of images) and
-this repo is public. The fuchs box back it up in its nightly
-`scripts/backup.sh` tarball.
+this repo is public. The fuchs box backs it up nightly with
+`pipeline/ag_backup.py` (ticket #1804): the queue JSONs and the pending
+scenes' images go into a **draft** release here (`ag-data-YYYY-MM-DD`). A
+draft asset stays out of public view, and git history already carries every
+shipped scene under `scenes/`.
 
 ```sh
 cd api && bun install && bun run checks   # API: format + tsc + biome + tests

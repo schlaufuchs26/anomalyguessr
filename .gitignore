@@ -15,7 +15,7 @@ playwright-report/
 # (state.json, feedback.json), image caches (library/, sources/, audit/,
 # ~370 MB). Written by the generator, the API and the ship step, never
 # tracked: it is a local cache, and the repo is public. Backed up by
-# fuchs' scripts/backup.sh instead.
+# pipeline/ag_backup.py into draft releases instead (tickets #1801, #1804).
 data/
 
 # Python bytecode from the pipeline suites (ticket #1261)
