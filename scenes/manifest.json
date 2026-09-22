@@ -1,186 +1,186 @@
 {
   "version": 2,
-  "date": "2026-09-21",
+  "date": "2026-09-22",
   "scenes": [
     {
-      "id": "gallica-1912-monte-carlo-vue-g-n-rale-photographie-de-pr-f9e4b9-modern-outboard-motor",
-      "title": "Monte Carlo [vue générale]",
+      "id": "gallica-boyer-coureur-cycliste-photographie-de-presse-ag-a9691f-modern-aerodynamic-cycli",
+      "title": "Boyer [coureur cycliste]",
       "place": "",
-      "year": "1912",
-      "description": "Monte Carlo [vue générale] · Bibliothèque nationale de France (Gallica).",
-      "anomaly": "Modern outboard motor",
+      "year": "1908",
+      "description": "Boyer [coureur cycliste] · Bibliothèque nationale de France (Gallica).",
+      "anomaly": "Modern aerodynamic cycling helmet",
       "answer": {
-        "x": 0.641,
-        "y": 0.857,
-        "r": 0.22
+        "x": 0.645,
+        "y": 0.235,
+        "r": 0.075
       },
-      "explanation": "Practical, mass-produced outboard motors for small boats did not exist in 1912, as the first commercially successful models appeared later.",
+      "explanation": "Aerodynamic cycling helmets did not exist in 1908; riders wore soft leather caps or rode bareheaded.",
       "references": [
         {
-          "label": "Outboard motor history",
-          "url": "https://en.wikipedia.org/wiki/Outboard_motor"
+          "label": "Bibliothèque nationale de France (Gallica)",
+          "url": "https://gallica.bnf.fr"
         }
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b531129126",
-        "originalTitle": "1912, Monte Carlo [vue générale] : [photographie de presse] / [Agence Rol]",
-        "date": "1912",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6910909z",
+        "originalTitle": "Boyer [coureur cycliste] : [photographie de presse] / [Agence Rol]",
+        "date": "1908",
         "place": "",
         "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 18917 Appartient à l’ensemble documentaire : Pho20Rol"
+        "description": "Référence bibliographique : Rol, 2455 Appartient à l’ensemble documentaire : Pho20Rol"
       },
       "credit": "Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b531129126",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6910909z",
       "added": "2026-09-13",
-      "shown": "2026-09-21",
+      "shown": "2026-09-22",
       "title_source": "catalog",
-      "image": "scenes/gallica-1912-monte-carlo-vue-g-n-rale-photographie-de-pr-f9e4b9-modern-outboard-motor.jpg",
-      "original": "scenes/gallica-1912-monte-carlo-vue-g-n-rale-photographie-de-pr-f9e4b9-modern-outboard-motor-original.jpg"
+      "image": "scenes/gallica-boyer-coureur-cycliste-photographie-de-presse-ag-a9691f-modern-aerodynamic-cycli.jpg",
+      "original": "scenes/gallica-boyer-coureur-cycliste-photographie-de-presse-ag-a9691f-modern-aerodynamic-cycli-original.jpg"
     },
     {
-      "id": "gallica-notre-dame-de-paris-photographie-de-presse-agenc-3a7bc3-solar-powered-led-street",
-      "title": "Notre-Dame [de Paris]",
+      "id": "gallica-st-louis-ballon-photographie-de-presse-agence-ro-d1856b-modern-cargo-container",
+      "title": "St Louis [ballon]",
       "title_source": "catalog",
       "place": "",
-      "year": "1912",
-      "description": "Notre-Dame [de Paris] · Bibliothèque nationale de France (Gallica).",
-      "anomaly": "Solar-powered LED street lamp",
+      "year": "1911",
+      "description": "St Louis [ballon] · Bibliothèque nationale de France (Gallica).",
+      "anomaly": "Modern cargo container",
       "answer": {
-        "x": 0.861,
-        "y": 0.3,
+        "x": 0.549,
+        "y": 0.773,
         "r": 0.22
       },
-      "explanation": "In 1912 street lamps along the Seine were gas or early electric and no lamp post had a solar panel or LED fixture, both of which are products of the late 20th and 21st centuries.",
+      "explanation": "Standardized intermodal shipping containers did not exist until 1956, so one cannot appear in a 1911 photograph.",
       "references": [
         {
-          "label": "Solar street light",
-          "url": "https://en.wikipedia.org/wiki/Solar_street_light"
+          "label": "Containerization history",
+          "url": "https://en.wikipedia.org/wiki/Containerization"
         }
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53114278d",
-        "originalTitle": "Notre-Dame [de Paris] : [photographie de presse] / [Agence Rol]",
-        "date": "1912",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6917496k",
+        "originalTitle": "St Louis [ballon] : [photographie de presse] / [Agence Rol]",
+        "date": "1911",
         "place": "",
         "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 20343 Appartient à l’ensemble documentaire : Pho20Rol"
+        "description": "Référence bibliographique : Rol, 16535 Appartient à l’ensemble documentaire : Pho20Rol"
       },
       "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53114278d",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6917496k",
       "added": "2026-09-14",
-      "shown": "2026-09-21",
-      "image": "scenes/gallica-notre-dame-de-paris-photographie-de-presse-agenc-3a7bc3-solar-powered-led-street.jpg",
-      "original": "scenes/gallica-notre-dame-de-paris-photographie-de-presse-agenc-3a7bc3-solar-powered-led-street-original.jpg"
+      "shown": "2026-09-22",
+      "image": "scenes/gallica-st-louis-ballon-photographie-de-presse-agence-ro-d1856b-modern-cargo-container.jpg",
+      "original": "scenes/gallica-st-louis-ballon-photographie-de-presse-agence-ro-d1856b-modern-cargo-container-original.jpg"
     },
     {
-      "id": "gallica-simon-portrait-du-boxeur-photographie-de-presse-3c7c44-modern-boxing-glove-with",
-      "title": "Simon [portrait du boxeur]",
-      "title_source": "catalog",
+      "id": "gallica-torpille-dirigeable-gabet-31-ao-t-1909-photograp-1a1005-gopro-style-action-camer",
+      "title": "Torpille dirigeable Gabet, 31 août",
       "place": "",
-      "year": "1914",
-      "description": "Simon [portrait du boxeur] · Bibliothèque nationale de France (Gallica).",
-      "anomaly": "Modern boxing glove with Velcro wrist strap",
+      "year": "1909",
+      "description": "Torpille dirigeable Gabet, 31 août · Bibliothèque nationale de France (Gallica).",
+      "anomaly": "GoPro-style action camera",
       "answer": {
-        "x": 0.835,
-        "y": 0.425,
-        "r": 0.09
+        "x": 0.5,
+        "y": 0.25,
+        "r": 0.22
       },
-      "explanation": "Velcro was not invented until the 1940s and did not appear on boxing gloves until decades later, so it cannot exist in a 1914 photograph.",
+      "explanation": "Compact digital action cameras did not exist in 1909, so this object could not be present at the launch of the Radio-Automatique torpedo.",
       "references": [
         {
-          "label": "Velcro history",
-          "url": "https://en.wikipedia.org/wiki/Hook-and-loop_fastener"
+          "label": "GoPro - Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/GoPro"
         }
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6929102c",
-        "originalTitle": "Simon [portrait du boxeur] : [photographie de presse] / [Agence Rol]",
-        "date": "1914",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6912353x",
+        "originalTitle": "Torpille dirigeable Gabet, 31 août 1909 : [photographie de presse] / [Agence Rol]",
+        "date": "1909",
         "place": "",
         "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 37468 Appartient à l’ensemble documentaire : Pho20Rol"
+        "description": "Référence bibliographique : Rol, 5070 Appartient à l’ensemble documentaire : Pho20Rol"
       },
-      "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6929102c",
+      "credit": "Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6912353x",
       "added": "2026-09-14",
-      "shown": "2026-09-21",
-      "image": "scenes/gallica-simon-portrait-du-boxeur-photographie-de-presse-3c7c44-modern-boxing-glove-with.jpg",
-      "original": "scenes/gallica-simon-portrait-du-boxeur-photographie-de-presse-3c7c44-modern-boxing-glove-with-original.jpg"
+      "shown": "2026-09-22",
+      "title_source": "catalog",
+      "image": "scenes/gallica-torpille-dirigeable-gabet-31-ao-t-1909-photograp-1a1005-gopro-style-action-camer.jpg",
+      "original": "scenes/gallica-torpille-dirigeable-gabet-31-ao-t-1909-photograp-1a1005-gopro-style-action-camer-original.jpg"
     },
     {
-      "id": "nb-lillestr-m-torg-1963-6567cb-modern-folding-camping-c",
-      "title": "Lillestrøm torg",
+      "id": "nb-trikk-avsporing-1946-c90ec0-modern-high-visibility-s",
+      "title": "Trikk-avsporing",
       "title_source": "catalog",
       "place": "",
-      "year": "1963",
-      "description": "Lillestrøm torg · National Library of Norway.",
-      "anomaly": "Modern folding camping chair",
+      "year": "1946",
+      "description": "Trikk-avsporing · National Library of Norway.",
+      "anomaly": "modern high-visibility safety vest",
       "answer": {
-        "x": 0.925,
-        "y": 0.855,
+        "x": 0.673,
+        "y": 0.548,
         "r": 0.22
       },
-      "explanation": "Compact folding camping chairs with tubular frames and fabric seats did not exist in 1963.",
+      "explanation": "High-visibility safety vests with fluorescent fabric and reflective stripes did not exist in 1946; they were developed later for road and rail workers.",
       "references": [
         {
-          "label": "National Library of Norway",
-          "url": "https://www.nb.no"
+          "label": "High-visibility clothing",
+          "url": "https://en.wikipedia.org/wiki/High-visibility_clothing"
         }
       ],
       "source": {
         "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20170619_00035_NB_MIT_KNR_1220_017",
-        "originalTitle": "Lillestrøm torg",
-        "date": "1963",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20171026_00085_NB_HS_46_00712",
+        "originalTitle": "Trikk-avsporing",
+        "date": "1946",
         "place": "",
         "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-08-19T10:32:32.197Z', 'firstDigitalContentTime': '2025-08-19T12:21:40.731Z', 'indexLastModified': '2025-08-19T12:21:40.731Z'}"
+        "description": "{'firstIndexTime': '2025-08-26T13:42:32.728Z', 'firstDigitalContentTime': '2025-08-26T13:56:53.891Z', 'indexLastModified': '2025-08-26T13:56:53.891Z'}"
       },
-      "credit": "Mittet & Co. AS via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20170619_00035_NB_MIT_KNR_1220_017",
-      "added": "2026-09-18",
-      "shown": "2026-09-21",
-      "image": "scenes/nb-lillestr-m-torg-1963-6567cb-modern-folding-camping-c.jpg",
-      "original": "scenes/nb-lillestr-m-torg-1963-6567cb-modern-folding-camping-c-original.jpg"
+      "credit": "Henriksen & Steen via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20171026_00085_NB_HS_46_00712",
+      "added": "2026-09-19",
+      "shown": "2026-09-22",
+      "image": "scenes/nb-trikk-avsporing-1946-c90ec0-modern-high-visibility-s.jpg",
+      "original": "scenes/nb-trikk-avsporing-1946-c90ec0-modern-high-visibility-s-original.jpg"
     },
     {
-      "id": "gallica-le-fils-fradin-affaire-glozel-photographie-de-pr-6203a1-modern-stapler",
-      "title": "Le fils Fradin, affaire Glozel",
+      "id": "gallica-m-doumer-et-mario-roustan-photographie-de-presse-f1d6c0-modern-led-pocket-flashl",
+      "title": "M. Doumer et Mario Roustan",
       "title_source": "catalog",
       "place": "",
       "year": "1932",
-      "description": "Le fils Fradin, affaire Glozel · Bibliothèque nationale de France (Gallica).",
-      "anomaly": "Modern stapler",
+      "description": "M. Doumer et Mario Roustan · Bibliothèque nationale de France (Gallica).",
+      "anomaly": "modern LED pocket flashlight",
       "answer": {
-        "x": 0.712,
-        "y": 0.833,
-        "r": 0.045
+        "x": 0.531,
+        "y": 0.632,
+        "r": 0.0484
       },
-      "explanation": "The desktop stapler with a curved top and flat base did not exist in 1932; early staplers were larger, cast-iron, and had a different shape.",
+      "explanation": "LED flashlights did not exist in 1932; only incandescent bulbs were available.",
       "references": [
         {
-          "label": "Stapler history",
-          "url": "https://en.wikipedia.org/wiki/Stapler"
+          "label": "LED flashlight history",
+          "url": "https://en.wikipedia.org/wiki/Flashlight#LED"
         }
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b90282305",
-        "originalTitle": "Le fils Fradin, affaire Glozel : [photographie de presse] / Agence Mondial",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b90527600",
+        "originalTitle": "M. Doumer et Mario Roustan : [photographie de presse] / Agence Mondial",
         "date": "1932",
         "place": "",
         "license": "Public domain",
-        "description": "Référence bibliographique : Mondial, 966 Appartient à l’ensemble documentaire : Pho20MPP Image de presse"
+        "description": "Référence bibliographique : Mondial, 1105 Appartient à l’ensemble documentaire : Pho20MPP Image de presse"
       },
       "credit": "Agence de presse Mondial Photo-Presse. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b90282305",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b90527600",
       "added": "2026-09-15",
-      "shown": "2026-09-21",
-      "image": "scenes/gallica-le-fils-fradin-affaire-glozel-photographie-de-pr-6203a1-modern-stapler.jpg",
-      "original": "scenes/gallica-le-fils-fradin-affaire-glozel-photographie-de-pr-6203a1-modern-stapler-original.jpg"
+      "shown": "2026-09-22",
+      "image": "scenes/gallica-m-doumer-et-mario-roustan-photographie-de-presse-f1d6c0-modern-led-pocket-flashl.jpg",
+      "original": "scenes/gallica-m-doumer-et-mario-roustan-photographie-de-presse-f1d6c0-modern-led-pocket-flashl-original.jpg"
     }
   ]
 }
