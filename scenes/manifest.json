@@ -1,186 +1,186 @@
 {
   "version": 2,
-  "date": "2026-09-22",
+  "date": "2026-09-23",
   "scenes": [
     {
-      "id": "gallica-boyer-coureur-cycliste-photographie-de-presse-ag-a9691f-modern-aerodynamic-cycli",
-      "title": "Boyer [coureur cycliste]",
+      "id": "gallica-chaudron-cycliste-photographie-de-presse-agence-15f66d-silicone-gel-bicycle-sad",
+      "title": "Chaudron [cycliste]",
       "place": "",
       "year": "1908",
-      "description": "Boyer [coureur cycliste] · Bibliothèque nationale de France (Gallica).",
-      "anomaly": "Modern aerodynamic cycling helmet",
+      "description": "Chaudron [cycliste] · Bibliothèque nationale de France (Gallica).",
+      "anomaly": "Silicone gel bicycle saddle cover",
       "answer": {
-        "x": 0.645,
-        "y": 0.235,
-        "r": 0.075
+        "x": 0.406,
+        "y": 0.393,
+        "r": 0.1397
       },
-      "explanation": "Aerodynamic cycling helmets did not exist in 1908; riders wore soft leather caps or rode bareheaded.",
+      "explanation": "Silicone gel saddle covers were not manufactured until the late 20th century, so this material cannot appear on a 1908 bicycle.",
       "references": [
         {
-          "label": "Bibliothèque nationale de France (Gallica)",
-          "url": "https://gallica.bnf.fr"
+          "label": "Silicone history",
+          "url": "https://en.wikipedia.org/wiki/Silicone"
         }
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6910909z",
-        "originalTitle": "Boyer [coureur cycliste] : [photographie de presse] / [Agence Rol]",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6910173c",
+        "originalTitle": "Chaudron [cycliste] : [photographie de presse] / [Agence Rol]",
         "date": "1908",
         "place": "",
         "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 2455 Appartient à l’ensemble documentaire : Pho20Rol"
+        "description": "Référence bibliographique : Rol, 929 Appartient à l’ensemble documentaire : Pho20Rol"
       },
       "credit": "Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6910909z",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6910173c",
       "added": "2026-09-13",
-      "shown": "2026-09-22",
+      "shown": "2026-09-23",
       "title_source": "catalog",
-      "image": "scenes/gallica-boyer-coureur-cycliste-photographie-de-presse-ag-a9691f-modern-aerodynamic-cycli.jpg",
-      "original": "scenes/gallica-boyer-coureur-cycliste-photographie-de-presse-ag-a9691f-modern-aerodynamic-cycli-original.jpg"
+      "image": "scenes/gallica-chaudron-cycliste-photographie-de-presse-agence-15f66d-silicone-gel-bicycle-sad.jpg",
+      "original": "scenes/gallica-chaudron-cycliste-photographie-de-presse-agence-15f66d-silicone-gel-bicycle-sad-original.jpg"
     },
     {
-      "id": "gallica-st-louis-ballon-photographie-de-presse-agence-ro-d1856b-modern-cargo-container",
-      "title": "St Louis [ballon]",
+      "id": "gallica-yacht-de-l-empereur-fran-ois-joseph-photographie-b41baf-modern-outboard-motor",
+      "title": "Yacht de l'empereur François-Joseph",
+      "place": "",
+      "year": "1908",
+      "description": "Yacht de l'empereur François-Joseph · Bibliothèque nationale de France (Gallica).",
+      "anomaly": "Modern outboard motor",
+      "answer": {
+        "x": 0.768,
+        "y": 0.75,
+        "r": 0.22
+      },
+      "explanation": "Outboard motors did not exist in 1908, so a small boat in this photograph could not be powered by one.",
+      "references": [
+        {
+          "label": "Bibliothèque nationale de France (Gallica)",
+          "url": "https://gallica.bnf.fr/"
+        }
+      ],
+      "source": {
+        "repository": "Bibliothèque nationale de France (Gallica)",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b531093801",
+        "originalTitle": "Yacht de l'empereur François-Joseph : [photographie de presse] / [Agence Rol]",
+        "date": "1908",
+        "place": "",
+        "license": "Public domain",
+        "description": "Référence bibliographique : Rol, 2926 Appartient à l’ensemble documentaire : Pho20Rol"
+      },
+      "credit": "Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b531093801",
+      "added": "2026-09-14",
+      "shown": "2026-09-23",
+      "title_source": "catalog",
+      "image": "scenes/gallica-yacht-de-l-empereur-fran-ois-joseph-photographie-b41baf-modern-outboard-motor.jpg",
+      "original": "scenes/gallica-yacht-de-l-empereur-fran-ois-joseph-photographie-b41baf-modern-outboard-motor-original.jpg"
+    },
+    {
+      "id": "gallica-incendie-for-t-de-fontainebleau-23-7-11-photogra-4fc811-quadcopter-drone",
+      "title": "Incendie forêt de Fontainebleau, 23/7/11",
       "title_source": "catalog",
       "place": "",
       "year": "1911",
-      "description": "St Louis [ballon] · Bibliothèque nationale de France (Gallica).",
-      "anomaly": "Modern cargo container",
+      "description": "Incendie forêt de Fontainebleau, 23/7/11 · Bibliothèque nationale de France (Gallica).",
+      "anomaly": "Quadcopter drone",
       "answer": {
-        "x": 0.549,
-        "y": 0.773,
+        "x": 0.375,
+        "y": 0.445,
         "r": 0.22
       },
-      "explanation": "Standardized intermodal shipping containers did not exist until 1956, so one cannot appear in a 1911 photograph.",
+      "explanation": "Multi-rotor drones did not exist in 1911, so no object of this shape could be flying in the scene.",
       "references": [
         {
-          "label": "Containerization history",
-          "url": "https://en.wikipedia.org/wiki/Containerization"
+          "label": "Bibliothèque nationale de France (Gallica)",
+          "url": "https://gallica.bnf.fr/"
         }
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6917496k",
-        "originalTitle": "St Louis [ballon] : [photographie de presse] / [Agence Rol]",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b69166499",
+        "originalTitle": "Incendie forêt de Fontainebleau, 23/7/11 : [photographie de presse] / [Agence Rol]",
         "date": "1911",
         "place": "",
         "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 16535 Appartient à l’ensemble documentaire : Pho20Rol"
+        "description": "Référence bibliographique : Rol, 15469 Appartient à l’ensemble documentaire : Pho20Rol"
       },
       "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6917496k",
-      "added": "2026-09-14",
-      "shown": "2026-09-22",
-      "image": "scenes/gallica-st-louis-ballon-photographie-de-presse-agence-ro-d1856b-modern-cargo-container.jpg",
-      "original": "scenes/gallica-st-louis-ballon-photographie-de-presse-agence-ro-d1856b-modern-cargo-container-original.jpg"
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b69166499",
+      "added": "2026-09-15",
+      "shown": "2026-09-23",
+      "image": "scenes/gallica-incendie-for-t-de-fontainebleau-23-7-11-photogra-4fc811-quadcopter-drone.jpg",
+      "original": "scenes/gallica-incendie-for-t-de-fontainebleau-23-7-11-photogra-4fc811-quadcopter-drone-original.jpg"
     },
     {
-      "id": "gallica-torpille-dirigeable-gabet-31-ao-t-1909-photograp-1a1005-gopro-style-action-camer",
-      "title": "Torpille dirigeable Gabet, 31 août",
+      "id": "gallica-15-4-11-inspection-sanitaire-d-un-mouton-la-vill-8688a0-modern-flea-collar",
+      "title": "15-4-11, inspection sanitaire [d'un mouton] à La Villette",
+      "title_source": "catalog",
       "place": "",
-      "year": "1909",
-      "description": "Torpille dirigeable Gabet, 31 août · Bibliothèque nationale de France (Gallica).",
-      "anomaly": "GoPro-style action camera",
+      "year": "1911",
+      "description": "15-4-11, inspection sanitaire [d'un mouton] à La Villette · Bibliothèque nationale de France (Gallica).",
+      "anomaly": "modern flea collar",
       "answer": {
-        "x": 0.5,
-        "y": 0.25,
+        "x": 0.573,
+        "y": 0.5,
         "r": 0.22
       },
-      "explanation": "Compact digital action cameras did not exist in 1909, so this object could not be present at the launch of the Radio-Automatique torpedo.",
+      "explanation": "Plastic flea collars with sustained-release insecticide were not available in 1911; they were introduced in the 1960s.",
       "references": [
         {
-          "label": "GoPro - Wikipedia",
-          "url": "https://en.wikipedia.org/wiki/GoPro"
+          "label": "Flea collar - Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Flea_collar"
         }
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6912353x",
-        "originalTitle": "Torpille dirigeable Gabet, 31 août 1909 : [photographie de presse] / [Agence Rol]",
-        "date": "1909",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6916103k",
+        "originalTitle": "15-4-11, inspection sanitaire [d'un mouton] à La Villette : [photographie de presse] / [Agence Rol]",
+        "date": "1911",
         "place": "",
         "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 5070 Appartient à l’ensemble documentaire : Pho20Rol"
+        "description": "[15-4-11, inspection sanitaire [d'un mouton] à La Villette. Rol, 13681français)] Référence bibliographique : Rol, 13681 Appartient à l’ensemble documentaire : Pho20Rol"
       },
-      "credit": "Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6912353x",
-      "added": "2026-09-14",
-      "shown": "2026-09-22",
-      "title_source": "catalog",
-      "image": "scenes/gallica-torpille-dirigeable-gabet-31-ao-t-1909-photograp-1a1005-gopro-style-action-camer.jpg",
-      "original": "scenes/gallica-torpille-dirigeable-gabet-31-ao-t-1909-photograp-1a1005-gopro-style-action-camer-original.jpg"
+      "credit": "Agence Rol. Agence photographique via Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6916103k",
+      "added": "2026-09-21",
+      "shown": "2026-09-23",
+      "image": "scenes/gallica-15-4-11-inspection-sanitaire-d-un-mouton-la-vill-8688a0-modern-flea-collar.jpg",
+      "original": "scenes/gallica-15-4-11-inspection-sanitaire-d-un-mouton-la-vill-8688a0-modern-flea-collar-original.jpg"
     },
     {
-      "id": "nb-trikk-avsporing-1946-c90ec0-modern-high-visibility-s",
-      "title": "Trikk-avsporing",
+      "id": "nb-moss-vre-torg-1946-01-01-fe2413-modern-push-lawnmower",
+      "title": "Moss - Øvre Torg",
       "title_source": "catalog",
       "place": "",
       "year": "1946",
-      "description": "Trikk-avsporing · National Library of Norway.",
-      "anomaly": "modern high-visibility safety vest",
+      "description": "Moss - Øvre Torg · National Library of Norway.",
+      "anomaly": "Modern push lawnmower",
       "answer": {
-        "x": 0.673,
-        "y": 0.548,
+        "x": 0.273,
+        "y": 0.925,
         "r": 0.22
       },
-      "explanation": "High-visibility safety vests with fluorescent fabric and reflective stripes did not exist in 1946; they were developed later for road and rail workers.",
+      "explanation": "The lightweight rotary push lawnmower with a red metal deck did not exist in 1946, when only heavy reel mowers were used.",
       "references": [
         {
-          "label": "High-visibility clothing",
-          "url": "https://en.wikipedia.org/wiki/High-visibility_clothing"
+          "label": "National Library of Norway",
+          "url": "https://www.nb.no/"
         }
       ],
       "source": {
         "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20171026_00085_NB_HS_46_00712",
-        "originalTitle": "Trikk-avsporing",
-        "date": "1946",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20190524_00240_NB_NKF_01_C_012",
+        "originalTitle": "Moss - Øvre Torg",
+        "date": "1946-01-01",
         "place": "",
         "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-08-26T13:42:32.728Z', 'firstDigitalContentTime': '2025-08-26T13:56:53.891Z', 'indexLastModified': '2025-08-26T13:56:53.891Z'}"
+        "description": "{'firstIndexTime': '2025-08-20T02:47:36.118Z', 'firstDigitalContentTime': '2025-08-20T05:32:11.321Z', 'indexLastModified': '2025-08-20T05:32:11.321Z'}"
       },
-      "credit": "Henriksen & Steen via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20171026_00085_NB_HS_46_00712",
-      "added": "2026-09-19",
-      "shown": "2026-09-22",
-      "image": "scenes/nb-trikk-avsporing-1946-c90ec0-modern-high-visibility-s.jpg",
-      "original": "scenes/nb-trikk-avsporing-1946-c90ec0-modern-high-visibility-s-original.jpg"
-    },
-    {
-      "id": "gallica-m-doumer-et-mario-roustan-photographie-de-presse-f1d6c0-modern-led-pocket-flashl",
-      "title": "M. Doumer et Mario Roustan",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1932",
-      "description": "M. Doumer et Mario Roustan · Bibliothèque nationale de France (Gallica).",
-      "anomaly": "modern LED pocket flashlight",
-      "answer": {
-        "x": 0.531,
-        "y": 0.632,
-        "r": 0.0484
-      },
-      "explanation": "LED flashlights did not exist in 1932; only incandescent bulbs were available.",
-      "references": [
-        {
-          "label": "LED flashlight history",
-          "url": "https://en.wikipedia.org/wiki/Flashlight#LED"
-        }
-      ],
-      "source": {
-        "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b90527600",
-        "originalTitle": "M. Doumer et Mario Roustan : [photographie de presse] / Agence Mondial",
-        "date": "1932",
-        "place": "",
-        "license": "Public domain",
-        "description": "Référence bibliographique : Mondial, 1105 Appartient à l’ensemble documentaire : Pho20MPP Image de presse"
-      },
-      "credit": "Agence de presse Mondial Photo-Presse. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b90527600",
+      "credit": "Normanns kunstforlag via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20190524_00240_NB_NKF_01_C_012",
       "added": "2026-09-15",
-      "shown": "2026-09-22",
-      "image": "scenes/gallica-m-doumer-et-mario-roustan-photographie-de-presse-f1d6c0-modern-led-pocket-flashl.jpg",
-      "original": "scenes/gallica-m-doumer-et-mario-roustan-photographie-de-presse-f1d6c0-modern-led-pocket-flashl-original.jpg"
+      "shown": "2026-09-23",
+      "image": "scenes/nb-moss-vre-torg-1946-01-01-fe2413-modern-push-lawnmower.jpg",
+      "original": "scenes/nb-moss-vre-torg-1946-01-01-fe2413-modern-push-lawnmower-original.jpg"
     }
   ]
 }
