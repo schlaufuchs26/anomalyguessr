@@ -1,186 +1,186 @@
 {
   "version": 2,
-  "date": "2026-09-23",
+  "date": "2026-09-24",
   "scenes": [
     {
-      "id": "gallica-chaudron-cycliste-photographie-de-presse-agence-15f66d-silicone-gel-bicycle-sad",
-      "title": "Chaudron [cycliste]",
+      "id": "gallica-christian-boxeur-photographie-de-presse-agence-r-14080e-silicone-gel-bicycle-sad",
+      "title": "Christian, boxeur",
       "place": "",
-      "year": "1908",
-      "description": "Chaudron [cycliste] · Bibliothèque nationale de France (Gallica).",
+      "year": "1911",
+      "description": "Christian, boxeur · Bibliothèque nationale de France (Gallica).",
       "anomaly": "Silicone gel bicycle saddle cover",
       "answer": {
-        "x": 0.406,
-        "y": 0.393,
-        "r": 0.1397
+        "x": 0.925,
+        "y": 0.955,
+        "r": 0.0753
       },
-      "explanation": "Silicone gel saddle covers were not manufactured until the late 20th century, so this material cannot appear on a 1908 bicycle.",
+      "explanation": "Silicone gel saddle covers did not exist in 1911, so this object could not be present in the studio.",
       "references": [
         {
-          "label": "Silicone history",
-          "url": "https://en.wikipedia.org/wiki/Silicone"
+          "label": "Silicone gel saddle covers history",
+          "url": "https://en.wikipedia.org/wiki/Bicycle_saddle"
         }
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6910173c",
-        "originalTitle": "Chaudron [cycliste] : [photographie de presse] / [Agence Rol]",
-        "date": "1908",
-        "place": "",
-        "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 929 Appartient à l’ensemble documentaire : Pho20Rol"
-      },
-      "credit": "Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6910173c",
-      "added": "2026-09-13",
-      "shown": "2026-09-23",
-      "title_source": "catalog",
-      "image": "scenes/gallica-chaudron-cycliste-photographie-de-presse-agence-15f66d-silicone-gel-bicycle-sad.jpg",
-      "original": "scenes/gallica-chaudron-cycliste-photographie-de-presse-agence-15f66d-silicone-gel-bicycle-sad-original.jpg"
-    },
-    {
-      "id": "gallica-yacht-de-l-empereur-fran-ois-joseph-photographie-b41baf-modern-outboard-motor",
-      "title": "Yacht de l'empereur François-Joseph",
-      "place": "",
-      "year": "1908",
-      "description": "Yacht de l'empereur François-Joseph · Bibliothèque nationale de France (Gallica).",
-      "anomaly": "Modern outboard motor",
-      "answer": {
-        "x": 0.768,
-        "y": 0.75,
-        "r": 0.22
-      },
-      "explanation": "Outboard motors did not exist in 1908, so a small boat in this photograph could not be powered by one.",
-      "references": [
-        {
-          "label": "Bibliothèque nationale de France (Gallica)",
-          "url": "https://gallica.bnf.fr/"
-        }
-      ],
-      "source": {
-        "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b531093801",
-        "originalTitle": "Yacht de l'empereur François-Joseph : [photographie de presse] / [Agence Rol]",
-        "date": "1908",
-        "place": "",
-        "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 2926 Appartient à l’ensemble documentaire : Pho20Rol"
-      },
-      "credit": "Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b531093801",
-      "added": "2026-09-14",
-      "shown": "2026-09-23",
-      "title_source": "catalog",
-      "image": "scenes/gallica-yacht-de-l-empereur-fran-ois-joseph-photographie-b41baf-modern-outboard-motor.jpg",
-      "original": "scenes/gallica-yacht-de-l-empereur-fran-ois-joseph-photographie-b41baf-modern-outboard-motor-original.jpg"
-    },
-    {
-      "id": "gallica-incendie-for-t-de-fontainebleau-23-7-11-photogra-4fc811-quadcopter-drone",
-      "title": "Incendie forêt de Fontainebleau, 23/7/11",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1911",
-      "description": "Incendie forêt de Fontainebleau, 23/7/11 · Bibliothèque nationale de France (Gallica).",
-      "anomaly": "Quadcopter drone",
-      "answer": {
-        "x": 0.375,
-        "y": 0.445,
-        "r": 0.22
-      },
-      "explanation": "Multi-rotor drones did not exist in 1911, so no object of this shape could be flying in the scene.",
-      "references": [
-        {
-          "label": "Bibliothèque nationale de France (Gallica)",
-          "url": "https://gallica.bnf.fr/"
-        }
-      ],
-      "source": {
-        "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b69166499",
-        "originalTitle": "Incendie forêt de Fontainebleau, 23/7/11 : [photographie de presse] / [Agence Rol]",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6917658k",
+        "originalTitle": "Christian, boxeur : [photographie de presse] / [Agence Rol]",
         "date": "1911",
         "place": "",
         "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 15469 Appartient à l’ensemble documentaire : Pho20Rol"
+        "description": "Référence bibliographique : Rol, 16775 Appartient à l’ensemble documentaire : Pho20Rol"
+      },
+      "credit": "Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6917658k",
+      "added": "2026-09-13",
+      "shown": "2026-09-24",
+      "title_source": "catalog",
+      "image": "scenes/gallica-christian-boxeur-photographie-de-presse-agence-r-14080e-silicone-gel-bicycle-sad.jpg",
+      "original": "scenes/gallica-christian-boxeur-photographie-de-presse-agence-r-14080e-silicone-gel-bicycle-sad-original.jpg"
+    },
+    {
+      "id": "gallica-11-2-12-obs-ques-d-aernoult-personnes-assises-da-76b201-modern-car-tire-with-dee",
+      "title": "11-2-12, obsèques d'Aernoult [personnes assises dans une voiture]",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1912",
+      "description": "11-2-12, obsèques d'Aernoult [personnes assises dans une voiture] · Bibliothèque nationale de France (Gallica).",
+      "anomaly": "Modern car tire with deep tread",
+      "answer": {
+        "x": 0.525,
+        "y": 0.775,
+        "r": 0.085
+      },
+      "explanation": "Pneumatic tires with deep tread patterns did not exist in 1912; early tires were smooth or had minimal tread.",
+      "references": [
+        {
+          "label": "Tire tread history",
+          "url": "https://en.wikipedia.org/wiki/Tire_tread"
+        }
+      ],
+      "source": {
+        "repository": "Bibliothèque nationale de France (Gallica)",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b69189170",
+        "originalTitle": "11-2-12, obsèques d'Aernoult [personnes assises dans une voiture] : [photographie de presse] / [Agence Rol]",
+        "date": "1912",
+        "place": "",
+        "license": "Public domain",
+        "description": "Référence bibliographique : Rol, 18387 Appartient à l’ensemble documentaire : Pho20Rol"
       },
       "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b69166499",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b69189170",
       "added": "2026-09-15",
-      "shown": "2026-09-23",
-      "image": "scenes/gallica-incendie-for-t-de-fontainebleau-23-7-11-photogra-4fc811-quadcopter-drone.jpg",
-      "original": "scenes/gallica-incendie-for-t-de-fontainebleau-23-7-11-photogra-4fc811-quadcopter-drone-original.jpg"
+      "shown": "2026-09-24",
+      "image": "scenes/gallica-11-2-12-obs-ques-d-aernoult-personnes-assises-da-76b201-modern-car-tire-with-dee.jpg",
+      "original": "scenes/gallica-11-2-12-obs-ques-d-aernoult-personnes-assises-da-76b201-modern-car-tire-with-dee-original.jpg"
     },
     {
-      "id": "gallica-15-4-11-inspection-sanitaire-d-un-mouton-la-vill-8688a0-modern-flea-collar",
-      "title": "15-4-11, inspection sanitaire [d'un mouton] à La Villette",
+      "id": "gallica-le-mirabeau-cuirass-photographie-de-presse-agenc-355430-modern-cargo-container",
+      "title": "Le Mirabeau [cuirassé]",
       "title_source": "catalog",
       "place": "",
       "year": "1911",
-      "description": "15-4-11, inspection sanitaire [d'un mouton] à La Villette · Bibliothèque nationale de France (Gallica).",
-      "anomaly": "modern flea collar",
+      "description": "Le Mirabeau [cuirassé] · Bibliothèque nationale de France (Gallica).",
+      "anomaly": "Modern cargo container",
       "answer": {
-        "x": 0.573,
-        "y": 0.5,
+        "x": 0.732,
+        "y": 0.665,
         "r": 0.22
       },
-      "explanation": "Plastic flea collars with sustained-release insecticide were not available in 1911; they were introduced in the 1960s.",
+      "explanation": "Intermodal steel shipping containers were not introduced until the mid-1950s, so none could exist on a 1911 warship.",
       "references": [
         {
-          "label": "Flea collar - Wikipedia",
-          "url": "https://en.wikipedia.org/wiki/Flea_collar"
+          "label": "Bibliothèque nationale de France (Gallica)",
+          "url": "https://gallica.bnf.fr/"
         }
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6916103k",
-        "originalTitle": "15-4-11, inspection sanitaire [d'un mouton] à La Villette : [photographie de presse] / [Agence Rol]",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53112003t",
+        "originalTitle": "Le Mirabeau [cuirassé] : [photographie de presse] / [Agence Rol]",
         "date": "1911",
         "place": "",
         "license": "Public domain",
-        "description": "[15-4-11, inspection sanitaire [d'un mouton] à La Villette. Rol, 13681français)] Référence bibliographique : Rol, 13681 Appartient à l’ensemble documentaire : Pho20Rol"
+        "description": "Référence bibliographique : Rol, 16016 Appartient à l’ensemble documentaire : Pho20Rol"
       },
-      "credit": "Agence Rol. Agence photographique via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6916103k",
-      "added": "2026-09-21",
-      "shown": "2026-09-23",
-      "image": "scenes/gallica-15-4-11-inspection-sanitaire-d-un-mouton-la-vill-8688a0-modern-flea-collar.jpg",
-      "original": "scenes/gallica-15-4-11-inspection-sanitaire-d-un-mouton-la-vill-8688a0-modern-flea-collar-original.jpg"
+      "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53112003t",
+      "added": "2026-09-15",
+      "shown": "2026-09-24",
+      "image": "scenes/gallica-le-mirabeau-cuirass-photographie-de-presse-agenc-355430-modern-cargo-container.jpg",
+      "original": "scenes/gallica-le-mirabeau-cuirass-photographie-de-presse-agenc-355430-modern-cargo-container-original.jpg"
     },
     {
-      "id": "nb-moss-vre-torg-1946-01-01-fe2413-modern-push-lawnmower",
-      "title": "Moss - Øvre Torg",
+      "id": "nb-oslo-havn-palibryggen-1880-25e8f8-modern-cargo-pallet",
+      "title": "Oslo havn. Palibryggen.",
       "title_source": "catalog",
       "place": "",
-      "year": "1946",
-      "description": "Moss - Øvre Torg · National Library of Norway.",
-      "anomaly": "Modern push lawnmower",
+      "year": "1880",
+      "description": "Oslo havn. Palibryggen · National Library of Norway.",
+      "anomaly": "modern cargo pallet",
       "answer": {
-        "x": 0.273,
-        "y": 0.925,
+        "x": 0.635,
+        "y": 0.617,
         "r": 0.22
       },
-      "explanation": "The lightweight rotary push lawnmower with a red metal deck did not exist in 1946, when only heavy reel mowers were used.",
+      "explanation": "Standardized wooden pallets with forklift slots did not exist in 1880, as cargo was moved by hand and barrel hooks.",
       "references": [
         {
           "label": "National Library of Norway",
-          "url": "https://www.nb.no/"
+          "url": "https://www.nb.no"
         }
       ],
       "source": {
         "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20190524_00240_NB_NKF_01_C_012",
-        "originalTitle": "Moss - Øvre Torg",
-        "date": "1946-01-01",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20130402_00114_NB_MS_G4_0393",
+        "originalTitle": "Oslo havn. Palibryggen.",
+        "date": "1880",
         "place": "",
         "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-08-20T02:47:36.118Z', 'firstDigitalContentTime': '2025-08-20T05:32:11.321Z', 'indexLastModified': '2025-08-20T05:32:11.321Z'}"
+        "description": "{'firstIndexTime': '2025-08-19T09:24:10.849Z', 'firstDigitalContentTime': '2025-08-19T10:24:49.341Z', 'indexLastModified': '2025-08-19T10:24:49.341Z'}"
       },
-      "credit": "Normanns kunstforlag via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20190524_00240_NB_NKF_01_C_012",
+      "credit": "Skøien, Marthinius via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20130402_00114_NB_MS_G4_0393",
       "added": "2026-09-15",
-      "shown": "2026-09-23",
-      "image": "scenes/nb-moss-vre-torg-1946-01-01-fe2413-modern-push-lawnmower.jpg",
-      "original": "scenes/nb-moss-vre-torg-1946-01-01-fe2413-modern-push-lawnmower-original.jpg"
+      "shown": "2026-09-24",
+      "image": "scenes/nb-oslo-havn-palibryggen-1880-25e8f8-modern-cargo-pallet.jpg",
+      "original": "scenes/nb-oslo-havn-palibryggen-1880-25e8f8-modern-cargo-pallet-original.jpg"
+    },
+    {
+      "id": "gallica-a-roplane-am-ricain-curtiss-1909-photographie-de-4c12bc-modern-quadcopter-drone",
+      "title": "Aéroplane américain Curtiss",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1909",
+      "description": "Aéroplane américain Curtiss · Bibliothèque nationale de France (Gallica).",
+      "anomaly": "Modern quadcopter drone",
+      "answer": {
+        "x": 0.642,
+        "y": 0.607,
+        "r": 0.22
+      },
+      "explanation": "Multi-rotor drones did not exist in 1909, so no one in this scene could have flown or photographed one.",
+      "references": [
+        {
+          "label": "Bibliothèque nationale de France (Gallica)",
+          "url": "https://gallica.bnf.fr/"
+        }
+      ],
+      "source": {
+        "repository": "Bibliothèque nationale de France (Gallica)",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53239800t",
+        "originalTitle": "Aéroplane américain Curtiss, 1909 : [photographie de presse] / [Agence Meurisse]",
+        "date": "1909",
+        "place": "",
+        "license": "Public domain",
+        "description": "Référence bibliographique : Meurisse, 2506 Appartient à l’ensemble documentaire : Pho20Meu Image de presse"
+      },
+      "credit": "Agence de presse Meurisse. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53239800t",
+      "added": "2026-09-16",
+      "shown": "2026-09-24",
+      "image": "scenes/gallica-a-roplane-am-ricain-curtiss-1909-photographie-de-4c12bc-modern-quadcopter-drone.jpg",
+      "original": "scenes/gallica-a-roplane-am-ricain-curtiss-1909-photographie-de-4c12bc-modern-quadcopter-drone-original.jpg"
     }
   ]
 }
