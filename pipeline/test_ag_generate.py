@@ -204,8 +204,13 @@ class TempDataMixin:
         self._old_presence = g.presence_check
         g.presence_check = stub_presence()
         self._old_select_sources = g.select_sources
+        # Ticket #1883: the description step is stubbed with the other model
+        # calls; an empty info keeps the run-total assertions exact.
+        self._old_describe = g.describe_entry
+        g.describe_entry = lambda entry, *a, **kw: (entry, {"status": "kept"})
 
     def tearDown(self):
+        g.describe_entry = self._old_describe
         g.select_sources = self._old_select_sources
         g.presence_check = self._old_presence
         g.check_click_target = self._old_click_target
@@ -1540,6 +1545,49 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
         self.assertFalse(
             g.pending_trace_path(self.data_dir,
                                  data["source"]).exists())
+
+    def test_the_description_step_replaces_the_caption(self):
+        # Ticket #1883: the record-derived English description lands on the
+        # entry, its call is billed and traced, and the report names it.
+        calls = []
+
+        def fake(entry, *a, **kw):
+            calls.append(entry["description"])
+            out = dict(entry,
+                       description="A market street with stalls in 1905.",
+                       description_source="catalog")
+            return out, {"status": "described", "fetched": True,
+                         "call": call(prompt="describe-prompt", cost=0.002)}
+
+        g.describe_entry = fake
+        scene, failed, totals = self.run_one()
+        self.assertIsNone(failed)
+        entry = next(iter(ag_queue.load_state(self.data_dir)["scenes"].values()))
+        self.assertEqual(entry["description"],
+                         "A market street with stalls in 1905.")
+        self.assertEqual(entry["description_source"], "catalog")
+        # the step sees the assembled caption it should replace
+        self.assertTrue(calls[0].startswith("Busy market street"))
+        # proposal + check + coordinates + description
+        self.assertEqual(totals["cost"], round(0.001 * 3 + 0.002, 12))
+        data = self.trace_of(scene)
+        self.assertEqual(data["calls"][-1]["stage"], "description")
+        self.assertEqual(data["description"]["status"], "described")
+        self.assertTrue(data["description"]["fetched"])
+        self.assertEqual(scene["report"]["description"]["status"],
+                         "described")
+
+    def test_a_describe_failure_keeps_the_caption(self):
+        def broken(entry, *a, **kw):
+            raise RuntimeError("offline")
+
+        g.describe_entry = broken
+        scene, failed, _ = self.run_one()
+        self.assertIsNone(failed)
+        entry = next(iter(ag_queue.load_state(self.data_dir)["scenes"].values()))
+        self.assertEqual(entry["description"],
+                         f"{entry['title']} · Wikimedia Commons.")
+        self.assertEqual(scene["report"]["description"]["status"], "error")
 
     def test_scene_time_catalogue_provenance_lands_in_the_trace(self):
         scene, _, _ = self.run_one()

@@ -70,7 +70,7 @@ SOURCE_KEYS = (
 ENTRY_KEYS = (
     "id", "title", "title_source", "place", "year", "credit", "sourceUrl",
     "source", "anomaly", "family", "placement_kind", "explanation",
-    "references", "description",
+    "references", "description", "description_source",
     "answer", "answer_before", "shortId", "checker", "needs_review",
 )
 
@@ -896,6 +896,9 @@ def write_manifest(repo: Path, date: str, scenes: list) -> None:
         # The moderation flag (ticket #1449) is dev-side too: the game shows
         # only accepted scenes, so the flag has no place in the manifest.
         out.pop("needs_review", None)
+        # How the description was derived (ticket #1883) is pipeline
+        # bookkeeping; the game renders the text, not its provenance.
+        out.pop("description_source", None)
         # The pre-fix click ellipse of a presence recompute (ticket #1504) is
         # gallery curation metadata: the game draws the corrected answer only.
         out.pop("answer_before", None)

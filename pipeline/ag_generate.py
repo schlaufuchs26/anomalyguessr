@@ -206,12 +206,16 @@ if str(SCRIPT_DIR) not in sys.path:
 
 import ag_catalog  # noqa: E402
 import ag_checks  # noqa: E402
+import ag_describe  # noqa: E402
 import ag_llm  # noqa: E402
 import ag_patterns  # noqa: E402
 import ag_queue  # noqa: E402
 import ag_references  # noqa: E402
 import ag_sources  # noqa: E402
 import ag_verify  # noqa: E402
+# The English-description step (ticket #1883) is a module-level name so tests
+# can stub it like the other model calls.
+from ag_describe import describe_entry  # noqa: E402
 
 # The three text/vision calls (proposal, coordinates, check) share one cheap
 # multimodal model; the image edit is the expensive call.
@@ -4520,6 +4524,30 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
                             defects=(ag_checks.defect_flags(mechanical)
                                      if mechanical is not None else None),
                             answer_before=fixed_answer_before(mechanical))
+        # Ticket #1883: replace the assembled caption with about two English
+        # sentences derived from the record's own text (translated or
+        # condensed, never invented). Best-effort: a failed call or a record
+        # without text keeps the caption, and a guard hit (a number, date or
+        # name the record does not state) flags the scene for moderation
+        # instead of shipping the outside fact.
+        try:
+            entry, describe_info = describe_entry(
+                entry, api_key, model=args.model, base_url=args.base_url,
+                max_tokens=ag_describe.DESCRIPTION_MAX_TOKENS,
+                timeout=args.model_timeout, fetch=ag_describe.http_fetch)
+        except Exception as e:  # noqa: BLE001 - the caption stays
+            describe_info = {"status": "error",
+                             "error": f"{type(e).__name__}: {e}"}
+        describe_call = describe_info.get("call")
+        if describe_call:
+            ag_llm.add_usage(totals, describe_call.get("usage"))
+            record_call(data_dir, trace, dict(describe_call,
+                                              stage="description"))
+        if describe_info.get("status") == "guarded":
+            entry["needs_review"] = True
+        trace["description"] = {k: describe_info[k] for k in
+                                ("status", "fetched", "facts", "error")
+                                if k in describe_info}
         # Ticket #1624: check that the entry's references actually support
         # the dated claims in its explanation. The finding travels with the
         # scene so moderation sees an unsupported or dead link instead of a
@@ -4577,6 +4605,12 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
             "needs_review": bool(entry.get("needs_review")),
             "review": review,
             "text_reconciliation": reconcile,
+            # Ticket #1883: whether the description came from the record and
+            # whether that needed a catalogue fetch; the guard's facts when it
+            # fired (then the caption stayed).
+            "description": {"status": describe_info.get("status"),
+                            "fetched": bool(describe_info.get("fetched")),
+                            "facts": describe_info.get("facts") or []},
             "click_target": click,
             "mechanical": (ag_checks.findings_summary(mechanical)
                            if mechanical is not None else None),
