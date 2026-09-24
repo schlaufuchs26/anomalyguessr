@@ -277,8 +277,8 @@ def record_text(source: dict, fetch=None) -> tuple:
 # ── Prompt and guard ───────────────────────────────────────────────────────
 
 
-def describe_prompt(record: str) -> str:
-    return (
+def describe_prompt(record: str, avoid=()) -> str:
+    base = (
         "You write the short description under a historical photograph in a "
         "spot-the-anachronism quiz.\n\n"
         "Catalogue record of the photograph:\n"
@@ -291,6 +291,15 @@ def describe_prompt(record: str) -> str:
         "that are not in it. Answer with the description alone, without "
         "quotes or a label."
     )
+    if avoid:
+        base += (
+            "\n\nThe previous attempt used words the record does not "
+            "contain: " + ", ".join(sorted(set(avoid))) + ". Write the "
+            "description again without them; keep place and personal names "
+            "exactly as the record spells them, and leave out anything the "
+            "record does not state."
+        )
+    return base
 
 
 def unsupported_facts(text: str, vocabulary: str) -> list:
@@ -342,9 +351,9 @@ def clean_description(text, limit: int = MAX_DESCRIPTION_CHARS) -> str:
 def describe_text(record: str, api_key: str, model: str,
                   base_url: str = DEFAULT_BASE_URL,
                   max_tokens: int = DESCRIPTION_MAX_TOKENS,
-                  timeout: int = 60) -> dict:
+                  timeout: int = 60, avoid=()) -> dict:
     """One text call; returns the trace-shaped call record."""
-    prompt = describe_prompt(record)
+    prompt = describe_prompt(record, avoid)
     started = time.time()
     body = ag_llm.chat([{"role": "user",
                          "content": [ag_llm.text_part(prompt)]}],
@@ -376,20 +385,42 @@ def describe_entry(entry: dict, api_key: str, model: str = DEFAULT_MODEL,
         return entry, {"status": "no_record"}
     # One broken call must never kill a pass over the whole queue: the entry
     # keeps what it had and the report names the scene.
+    calls = []
+
+    def _ask(avoid=()):
+        try:
+            call = describe_text(record, api_key, model, base_url, max_tokens,
+                                 timeout, avoid)
+        except Exception as e:  # noqa: BLE001
+            raise DescriptionError(f"{type(e).__name__}: {e}") from e
+        calls.append(call)
+        text = clean_description(call.get("answer"))
+        return text, (unsupported_facts(text, record) if text else [])
+
     try:
-        call = describe_text(record, api_key, model, base_url, max_tokens,
-                             timeout)
-    except Exception as e:  # noqa: BLE001
-        return entry, {"status": "error", "error": f"{type(e).__name__}: {e}"}
-    text = clean_description(call.get("answer"))
+        text, facts = _ask()
+    except DescriptionError as e:
+        return entry, {"status": "error", "error": str(e), "calls": calls}
+    # A translation of the record is allowed to render a French place name in
+    # English, but then the guard cannot tell it from a fabricated one. One
+    # re-ask names the offending words and asks for the record's own spelling;
+    # a scene that still leaks facts stays unchanged (and fails the pass).
+    if text and facts:
+        try:
+            retry_text, retry_facts = _ask(avoid=facts)
+        except DescriptionError:
+            retry_text = ""
+        if retry_text and len(retry_facts) < len(facts):
+            text, facts = retry_text, retry_facts
+    info = {"fetched": fetched, "record_chars": len(record), "calls": calls,
+            "call": calls[-1] if calls else None}
     if not text:
-        return entry, {"status": "empty", "call": call, "fetched": fetched}
-    info = {"status": "described", "call": call, "fetched": fetched,
-            "record_chars": len(record)}
-    facts = unsupported_facts(text, record)
+        info["status"] = "empty"
+        return entry, info
     if facts:
         info.update({"status": "guarded", "facts": facts})
         return entry, info
+    info["status"] = "described"
     out = dict(entry)
     out["description"] = text
     out["description_source"] = DESCRIPTION_SOURCE
@@ -454,8 +485,7 @@ def describe_state(data_dir: Path, api_key: str = "", model: str = DEFAULT_MODEL
         except Exception as e:  # noqa: BLE001 - one scene must not stop the pass
             described, info = scene, {"status": "error",
                                       "error": f"{type(e).__name__}: {e}"}
-        call = info.get("call")
-        if call:
+        for call in info.get("calls") or []:
             ag_llm.add_usage(totals, call.get("usage"))
         status = info.get("status")
         if status == "described":

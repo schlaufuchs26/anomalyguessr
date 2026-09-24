@@ -4538,8 +4538,9 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
         except Exception as e:  # noqa: BLE001 - the caption stays
             describe_info = {"status": "error",
                              "error": f"{type(e).__name__}: {e}"}
-        describe_call = describe_info.get("call")
-        if describe_call:
+        # Every call of the step is billed and traced; a guard retry is a
+        # second row.
+        for describe_call in describe_info.get("calls") or []:
             ag_llm.add_usage(totals, describe_call.get("usage"))
             record_call(data_dir, trace, dict(describe_call,
                                               stage="description"))

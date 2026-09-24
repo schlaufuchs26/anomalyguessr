@@ -208,6 +208,25 @@ class DescribeEntryTests(unittest.TestCase):
         self.assertEqual(info["facts"], ["Paris"])
         self.assertEqual(out["description"], "Christian, boxeur · Gallica.")
         self.assertNotIn("description_source", out)
+        # the guard hit triggered the re-ask, which leaked the same fact
+        self.assertEqual(len(info["calls"]), 2)
+
+    def test_a_guard_hit_is_repaired_by_the_reask(self):
+        answers = ["A boxer photographed in Paris in 1911.",
+                   "Christian, a boxer, photographed by Agence Rol in 1911."]
+        seen = []
+
+        def fake(record, api_key, model, base_url=None, max_tokens=0,
+                 timeout=0, avoid=()):
+            seen.append(tuple(avoid))
+            return call(answers[min(len(seen) - 1, 1)])
+
+        d.describe_text = fake
+        out, info = d.describe_entry(entry("Christian, boxeur · Gallica."),
+                                     "key")
+        self.assertEqual(info["status"], "described")
+        self.assertEqual(seen, [(), ("Paris",)])
+        self.assertIn("Christian, a boxer", out["description"])
 
     def test_an_english_description_is_left_alone(self):
         src = entry("A market street with stalls and shoppers in 1905.",

@@ -1556,8 +1556,9 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
             out = dict(entry,
                        description="A market street with stalls in 1905.",
                        description_source="catalog")
+            describe = call(prompt="describe-prompt", cost=0.002)
             return out, {"status": "described", "fetched": True,
-                         "call": call(prompt="describe-prompt", cost=0.002)}
+                         "call": describe, "calls": [describe]}
 
         g.describe_entry = fake
         scene, failed, totals = self.run_one()
