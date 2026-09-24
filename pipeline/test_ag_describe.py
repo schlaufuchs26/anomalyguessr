@@ -164,6 +164,13 @@ class GuardTests(unittest.TestCase):
             "The photograph shows a boxer. A print from the era.",
             self.VOCAB), [])
 
+    def test_institutional_words_are_not_names(self):
+        # "the New York Public Library" for a record that says "NYPL" adds
+        # no place or date; only the sourced words must clear the guard.
+        vocab = self.VOCAB + " New York 1900"
+        self.assertEqual(d.unsupported_facts(
+            "Held by the New York Public Library.", vocab), [])
+
     def test_clean_description_strips_fences_and_quotes(self):
         self.assertEqual(d.clean_description('```"A market in 1905."```'),
                          "A market in 1905.")
@@ -214,6 +221,16 @@ class DescribeEntryTests(unittest.TestCase):
         d.describe_text = lambda *a, **kw: call("   ")
         out, info = d.describe_entry(entry("Christian · Gallica."), "key")
         self.assertEqual(info["status"], "empty")
+        self.assertEqual(out["description"], "Christian · Gallica.")
+
+    def test_a_broken_call_is_an_error_not_a_crash(self):
+        def boom(*a, **kw):
+            raise TimeoutError("the read operation timed out")
+
+        d.describe_text = boom
+        out, info = d.describe_entry(entry("Christian · Gallica."), "key")
+        self.assertEqual(info["status"], "error")
+        self.assertIn("TimeoutError", info["error"])
         self.assertEqual(out["description"], "Christian · Gallica.")
 
 
@@ -276,6 +293,18 @@ class DescribeStateTests(unittest.TestCase):
         state = json.loads((self.data_dir / "state.json").read_text())
         self.assertEqual(state["scenes"]["gallica-a"]["description"],
                          "Christian · Gallica.")
+
+    def test_a_failing_scene_does_not_stop_the_pass(self):
+        self.write_state({"gallica-a": entry("Christian · Gallica.")})
+
+        def boom(*a, **kw):
+            raise TimeoutError("the read operation timed out")
+
+        d.describe_text = boom
+        report = d.describe_state(self.data_dir, "key",
+                                  fetch=lambda u: GALLICA_OAI)
+        self.assertEqual(report["described"], 0)
+        self.assertEqual(report["skipped"][0]["status"], "error")
 
     def test_dry_run_calls_nothing(self):
         self.write_state({"gallica-a": entry("Christian · Gallica.")})

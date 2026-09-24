@@ -74,13 +74,19 @@ _NUMBER_RE = re.compile(r"\d[\d.,:/–-]*\d|\d")
 _WORD_RE = re.compile(r"[^\W\d_][\w'’\-]*", re.UNICODE)
 
 # Common English words that are capitalised mid-sentence (titles, months,
-# the model's own prose) and must not read as outside facts.
+# the model's own prose) and must not read as outside facts. The second block
+# is institutional vocabulary: a model that expands "NYPL" to "the New York
+# Public Library" adds no place, date or number, and flagging "Library" only
+# threw away a good description.
 _COMMON_WORDS = frozenset("""
 a an the and or but of in on at to for from with by as is are was were be
 been being this that these those it its he she they them his her their a
 photograph photo image picture scene shows showing shown ca circa
 january february march april may june july august september october november
 december monday tuesday wednesday thursday friday saturday sunday
+library museum archive archives collection collections university society
+company publishing press institute department ministry government national
+public royal state city county
 """.split())
 
 _LANG_MARKERS = {
@@ -174,7 +180,7 @@ def http_fetch(url: str, timeout: int = 30) -> str:
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r:
             return r.read().decode("utf-8", "replace")
-    except (urllib.error.URLError, OSError) as e:
+    except (urllib.error.URLError, OSError, ValueError) as e:
         raise DescriptionError(f"fetch failed: {url}: {e}") from e
 
 
@@ -368,7 +374,13 @@ def describe_entry(entry: dict, api_key: str, model: str = DEFAULT_MODEL,
     record, fetched = record_text(source, fetch)
     if not record.strip():
         return entry, {"status": "no_record"}
-    call = describe_text(record, api_key, model, base_url, max_tokens, timeout)
+    # One broken call must never kill a pass over the whole queue: the entry
+    # keeps what it had and the report names the scene.
+    try:
+        call = describe_text(record, api_key, model, base_url, max_tokens,
+                             timeout)
+    except Exception as e:  # noqa: BLE001
+        return entry, {"status": "error", "error": f"{type(e).__name__}: {e}"}
     text = clean_description(call.get("answer"))
     if not text:
         return entry, {"status": "empty", "call": call, "fetched": fetched}
@@ -436,8 +448,12 @@ def describe_state(data_dir: Path, api_key: str = "", model: str = DEFAULT_MODEL
     for done, scene in enumerate(targets, 1):
         if dry_run:
             continue
-        described, info = describe_entry(scene, api_key, model, base_url,
-                                         fetch=fetch)
+        try:
+            described, info = describe_entry(scene, api_key, model, base_url,
+                                             fetch=fetch)
+        except Exception as e:  # noqa: BLE001 - one scene must not stop the pass
+            described, info = scene, {"status": "error",
+                                      "error": f"{type(e).__name__}: {e}"}
         call = info.get("call")
         if call:
             ag_llm.add_usage(totals, call.get("usage"))
