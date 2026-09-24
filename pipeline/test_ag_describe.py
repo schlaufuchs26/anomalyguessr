@@ -74,6 +74,11 @@ class CaptionTests(unittest.TestCase):
             "Market bustle on Pike Place in Seattle, c. 1907: farm wagons."),
             "en")
 
+    def test_a_quoted_foreign_title_does_not_decide_the_label(self):
+        self.assertEqual(d.language_guess(
+            'A press photograph titled "Tunis, le port", le port, taken by '
+            'Agence Rol in 1912, showing the harbour.'), "en")
+
     def test_needs_description_covers_empty_caption_and_foreign(self):
         self.assertTrue(d.needs_description(""))
         self.assertTrue(d.needs_description("Christian · Gallica."))

@@ -97,9 +97,14 @@ _LANG_MARKERS = {
            "auf ", "ß", "ü", "ö", "ä"),
     "no": (" og ", " ikke ", " på ", " med ", "gate", "havn", "brygge",
            "torg", "jernbane", "ø", "å", "æ", "fjord"),
-    "en": (" the ", " and ", " of ", " with ", "street", "market",
-           "photograph", "people", "were", "was ", "from ", "in the"),
+    "en": (" the ", " and ", " of ", " with ", " by ", " from ", " in ",
+           " is ", " was ", " were ", " are ", " taken ", " shows ",
+           "street", "market", "photograph", "people", "this ", "that "),
 }
+# A quoted archival title ("Christian, boxeur") is the record's language, not
+# the prose's; it must not decide the label (ticket #1883, the 59 "fr" labels
+# on English descriptions that quote a French original title).
+_QUOTED_RE = re.compile(r'"[^"]*"|«[^»]*»|“[^”]*”')
 
 
 class DescriptionError(RuntimeError):
@@ -125,7 +130,8 @@ def language_guess(text) -> str:
     the queue's captions ("Christian, boxeur · Bibliothèque nationale de
     France") from English prose, and it stays deterministic and offline.
     """
-    t = " " + re.sub(r"\s+", " ", str(text or "")).casefold() + " "
+    stripped = _QUOTED_RE.sub(" ", str(text or ""))
+    t = " " + re.sub(r"\s+", " ", stripped).casefold() + " "
     if len(t) < 8:
         return "unknown"
     scores = {lang: sum(1 for m in marks if m in t)
