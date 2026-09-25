@@ -747,18 +747,38 @@ main {
   display: block;
   margin-bottom: 0.3em;
 }
+/* The verdict row (ticket #1888): the two verdict buttons lead, the optional
+   tags trail; the six one-click reasons sit in their own compact group below. */
+.moderate-verdict {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5em;
+  margin-top: 0.3em;
+}
+.moderate-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6em;
+  margin-left: auto;
+}
+/* Secondary input (ticket #1888): reachable under the verdict, not part of
+   the primary decision. */
 .moderate-feedback {
   width: 100%;
   box-sizing: border-box;
   padding: 0.3em 0.6em;
-  margin-top: 0.3em;
+  margin-top: 0.6em;
+  font-size: 0.9em;
 }
-/* The five one-click rejection reasons (ticket #1627): one click rejects
+/* The six one-click rejection reasons (ticket #1627): one click rejects
    with the canonical reason stored, no confirmation step. */
+.moderate-reasons-group {
+  margin-top: 0.5em;
+}
 .moderate-reasons-label {
   display: block;
   font-size: 0.85em;
-  margin-top: 0.4em;
   opacity: 0.85;
 }
 .moderate-reasons {
@@ -770,12 +790,7 @@ main {
 .moderate-reason {
   font-size: 0.85em;
 }
-.moderate-actions {
-  display: flex;
-  gap: 0.5em;
-  margin-top: 0.4em;
-}
-.moderate-actions .btn.ghost {
+.moderate-verdict .btn.ghost {
   border-color: #b33;
   color: #e88;
 }

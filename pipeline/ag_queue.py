@@ -203,10 +203,13 @@ def load_feedback(data_dir: Path) -> dict:
 # The canonical rejection reasons (ticket #1627), mirrored from the
 # TypeScript list in rejectReasons.ts at the repo root. The moderation UI
 # stores one of these per rejected scene in feedback.json ("reasons"); an
-# older rejection only carries free prose in "comments".
+# older rejection only carries free prose in "comments". The mirror is
+# checked: tests/rejectReasons.test.ts reads this tuple back, so a one-sided
+# rename fails the suite.
 REJECT_REASONS = (
     "doesn't match style of image",
     "click area doesn't cover anomaly",
+    "click area too big",
     "scaling of anomaly is wrong",
     "anomaly doesn't make sense in context of image",
     "too easy",

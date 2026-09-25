@@ -6,7 +6,7 @@ import { handle } from "../src/routes.ts";
 import { makeEnv } from "./helpers.ts";
 
 /**
- * Canonical rejection reasons (ticket #1627): the moderation view's five
+ * Canonical rejection reasons (ticket #1627): the moderation view's six
  * one-click buttons post `{action: "reject", reason, feedback}`, and the API
  * stores the reason structured in feedback.json. An unknown string stays a
  * plain comment so an older client cannot break. Split from routes.test.ts
@@ -39,7 +39,7 @@ async function stored(dir: string): Promise<StoredFeedback> {
 }
 
 describe("rejection reasons (#1627)", () => {
-  test("all five canonical reasons are accepted and stored structured", async () => {
+  test("all six canonical reasons are accepted and stored structured", async () => {
     const { env, dir } = await makeEnv();
     for (const reason of REJECT_REASONS) {
       const res = await handle(

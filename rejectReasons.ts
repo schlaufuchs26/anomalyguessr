@@ -14,6 +14,7 @@
 export const REJECT_REASONS = [
   "doesn't match style of image",
   "click area doesn't cover anomaly",
+  "click area too big",
   "scaling of anomaly is wrong",
   "anomaly doesn't make sense in context of image",
   "too easy",
@@ -22,7 +23,7 @@ export const REJECT_REASONS = [
 /** One canonical rejection reason. */
 export type RejectReason = (typeof REJECT_REASONS)[number];
 
-/** Whether a string is one of the five canonical rejection reasons. */
+/** Whether a string is one of the six canonical rejection reasons. */
 export function isRejectReason(value: string): value is RejectReason {
   return (REJECT_REASONS as readonly string[]).includes(value);
 }

@@ -612,6 +612,9 @@ export function App() {
               done: true,
               busy: false,
             });
+            // A queue tool moves on by itself (ticket #1888). The last scene
+            // stays put so its status is readable and Next can end the run.
+            if (index < queue.length - 1) next();
           } catch (err) {
             setMod({
               status: `Save failed: ${String(err)}`,
@@ -863,45 +866,8 @@ export function App() {
           </div>
           {moderation && answered && process.env.NODE_ENV !== "production" ? (
             <div id="moderate" className="moderate">
-              <label className="moderate-label" htmlFor="moderate-feedback">
-                Moderation verdict
-              </label>
-              <input
-                id="moderate-feedback"
-                className="moderate-feedback"
-                type="text"
-                placeholder="Feedback for the pipeline (optional)…"
-                maxLength={2000}
-                value={modFeedback}
-                onChange={(e) => setModFeedback(e.target.value)}
-              />
-              <span className="moderate-reasons-label">Reject reason</span>
-              <div className="moderate-reasons">
-                {REJECT_REASONS.map((reason) => (
-                  <button
-                    key={reason}
-                    type="button"
-                    className="btn ghost moderate-reason"
-                    disabled={mod.busy || mod.done}
-                    onClick={() =>
-                      void postModerationAction?.("reject", reason)
-                    }
-                    title={reason}
-                  >
-                    {reason}
-                  </button>
-                ))}
-              </div>
-              <div className="moderate-actions">
-                <button
-                  id="reject-btn"
-                  className="btn ghost"
-                  type="button"
-                  disabled={mod.busy || mod.done}
-                  onClick={() => void postModerationAction?.("reject")}
-                >
-                  ✕ Reject
-                </button>
+              <span className="moderate-label">Moderation verdict</span>
+              <div className="moderate-verdict">
                 <button
                   id="accept-btn"
                   className="btn primary"
@@ -911,27 +877,67 @@ export function App() {
                 >
                   ✓ Accept
                 </button>
-                {TAGS.map(({ tag, label }) => (
-                  <label
-                    key={tag}
-                    className={`moderate-tag${tags[tag].tagged ? " active" : ""}`}
-                    title={
-                      tag === "funny"
-                        ? "Optional label: this scene is deliberately funny (ticket #1502)"
-                        : "Optional label: a scene worth keeping as a positive example (ticket #1541)"
-                    }
-                  >
-                    <input
-                      type="checkbox"
-                      checked={tags[tag].tagged}
-                      disabled={tags[tag].busy || tags[tag].tagged}
-                      onChange={() => void postTagAction?.(tag)}
-                      data-testid={`moderate-${tag}`}
-                    />
-                    {label}
-                  </label>
-                ))}
+                <button
+                  id="reject-btn"
+                  className="btn ghost"
+                  type="button"
+                  disabled={mod.busy || mod.done}
+                  onClick={() => void postModerationAction?.("reject")}
+                >
+                  ✕ Reject
+                </button>
+                <div className="moderate-tags">
+                  {TAGS.map(({ tag, label }) => (
+                    <label
+                      key={tag}
+                      className={`moderate-tag${tags[tag].tagged ? " active" : ""}`}
+                      title={
+                        tag === "funny"
+                          ? "Optional label: this scene is deliberately funny (ticket #1502)"
+                          : "Optional label: a scene worth keeping as a positive example (ticket #1541)"
+                      }
+                    >
+                      <input
+                        type="checkbox"
+                        checked={tags[tag].tagged}
+                        disabled={tags[tag].busy || tags[tag].tagged}
+                        onChange={() => void postTagAction?.(tag)}
+                        data-testid={`moderate-${tag}`}
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
               </div>
+              <div className="moderate-reasons-group">
+                <span className="moderate-reasons-label">Reject reason</span>
+                <div className="moderate-reasons">
+                  {REJECT_REASONS.map((reason) => (
+                    <button
+                      key={reason}
+                      type="button"
+                      className="btn ghost moderate-reason"
+                      disabled={mod.busy || mod.done}
+                      onClick={() =>
+                        void postModerationAction?.("reject", reason)
+                      }
+                      title={reason}
+                    >
+                      {reason}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <input
+                id="moderate-feedback"
+                className="moderate-feedback"
+                type="text"
+                aria-label="Feedback for the pipeline (optional)"
+                placeholder="Feedback for the pipeline (optional)…"
+                maxLength={2000}
+                value={modFeedback}
+                onChange={(e) => setModFeedback(e.target.value)}
+              />
               <p
                 id="moderate-status"
                 className="moderate-status"

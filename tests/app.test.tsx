@@ -962,14 +962,18 @@ describe("moderation mode (dev instance, #1163)", () => {
   test("accept posts the verdict and feedback, then goes inert", async () => {
     payload = { ...MANIFEST, moderation: true };
     const container = await renderGame("moderation");
+    // Work the last scene: earlier scenes auto-advance (#1888), so only here
+    // does the box stay put long enough to observe the inert state.
     clickPhoto(container, 0.5, 0.5);
+    fireEvent.click(screen.getByRole("button", { name: "Next →" }));
+    clickPhoto(container, 0.2, 0.8);
 
     const feedback = screen.getByPlaceholderText(/Feedback for the pipeline/);
     fireEvent.change(feedback, { target: { value: "  nice scene  " } });
     fireEvent.click(screen.getByRole("button", { name: "✓ Accept" }));
 
     await waitFor(() => expect(posts).toHaveLength(1));
-    expect(posts[0]?.url).toBe("/anomalyguessr/api/scenes/a/moderate");
+    expect(posts[0]?.url).toBe("/anomalyguessr/api/scenes/b/moderate");
     expect(posts[0]?.body).toEqual({
       action: "accept",
       feedback: "nice scene",
@@ -1496,21 +1500,33 @@ describe("one-click rejection reasons (#1627)", () => {
       reason: "scaling of anomaly is wrong",
       feedback: "the car is huge",
     });
-    expect(
-      await screen.findByText("✕ Rejected · scaling of anomaly is wrong"),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "✓ Accept" })).toBeDisabled();
   });
 
-  test("all five reason buttons are offered in the moderation box", async () => {
+  test("all six reason buttons are offered in one compact group", async () => {
     payload = { ...MANIFEST, moderation: true };
     const container = await renderGame("moderation");
     clickPhoto(container, 0.5, 0.5);
-    expect(screen.getAllByRole("button", { name: /./ }).length).toBeGreaterThan(
-      0,
-    );
     for (const reason of REJECT_REASONS) {
       expect(screen.getByRole("button", { name: reason })).toBeEnabled();
     }
+    const group = container.querySelector(".moderate-reasons");
+    expect(group).not.toBeNull();
+    expect(group?.querySelectorAll("button")).toHaveLength(
+      REJECT_REASONS.length,
+    );
+    expect(REJECT_REASONS).toHaveLength(6);
+  });
+
+  test("a verdict advances to the next scene automatically (#1888)", async () => {
+    payload = { ...MANIFEST, moderation: true };
+    const container = await renderGame("moderation");
+    clickPhoto(container, 0.5, 0.5);
+
+    fireEvent.click(screen.getByRole("button", { name: "✓ Accept" }));
+
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(posts[0]?.body).toEqual({ action: "accept", feedback: "" });
+    expect(await screen.findByText("Scene B")).toBeInTheDocument();
+    expect(screen.getByText("2 / 2")).toBeInTheDocument();
   });
 });
