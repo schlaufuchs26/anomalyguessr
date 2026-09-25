@@ -594,6 +594,8 @@ export function App() {
   /**
    * The moderation verdict (dev instance only, ticket #1163), compiled out of
    * the production bundle (#1374) together with the queue API prefix it calls.
+   * A landed verdict advances to the next scene (ticket #1888); only the last
+   * scene stays, so its status is readable and Next still ends the run.
    */
   const postModerationAction =
     process.env.NODE_ENV !== "production"
