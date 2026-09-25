@@ -1,93 +1,57 @@
 {
   "version": 2,
-  "date": "2026-09-24",
+  "date": "2026-09-25",
   "scenes": [
     {
-      "id": "gallica-christian-boxeur-photographie-de-presse-agence-r-14080e-silicone-gel-bicycle-sad",
-      "title": "Christian, boxeur",
-      "place": "",
-      "year": "1911",
-      "description": "Christian, boxeur · Bibliothèque nationale de France (Gallica).",
-      "anomaly": "Silicone gel bicycle saddle cover",
-      "answer": {
-        "x": 0.925,
-        "y": 0.955,
-        "r": 0.0753
-      },
-      "explanation": "Silicone gel saddle covers did not exist in 1911, so this object could not be present in the studio.",
-      "references": [
-        {
-          "label": "Silicone gel saddle covers history",
-          "url": "https://en.wikipedia.org/wiki/Bicycle_saddle"
-        }
-      ],
-      "source": {
-        "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6917658k",
-        "originalTitle": "Christian, boxeur : [photographie de presse] / [Agence Rol]",
-        "date": "1911",
-        "place": "",
-        "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 16775 Appartient à l’ensemble documentaire : Pho20Rol"
-      },
-      "credit": "Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6917658k",
-      "added": "2026-09-13",
-      "shown": "2026-09-24",
-      "title_source": "catalog",
-      "image": "scenes/gallica-christian-boxeur-photographie-de-presse-agence-r-14080e-silicone-gel-bicycle-sad.jpg",
-      "original": "scenes/gallica-christian-boxeur-photographie-de-presse-agence-r-14080e-silicone-gel-bicycle-sad-original.jpg"
-    },
-    {
-      "id": "gallica-11-2-12-obs-ques-d-aernoult-personnes-assises-da-76b201-modern-car-tire-with-dee",
-      "title": "11-2-12, obsèques d'Aernoult [personnes assises dans une voiture]",
-      "title_source": "catalog",
+      "id": "gallica-gobron-vue-d-un-moteur-photographie-de-presse-ag-4bc7be-spray-can-of-wd-40",
+      "title": "Gobron [vue d'un moteur]",
       "place": "",
       "year": "1912",
-      "description": "11-2-12, obsèques d'Aernoult [personnes assises dans une voiture] · Bibliothèque nationale de France (Gallica).",
-      "anomaly": "Modern car tire with deep tread",
+      "description": "A press photograph by Agence Rol from 1912, held by the Bibliothèque nationale de France (Estampes et photographie department, EI-13 (175)), showing a view of an engine of a Gobron. It is a negative glass plate photograph, 13 x 18 cm or larger, in the public domain.",
+      "anomaly": "Spray can of WD-40",
       "answer": {
-        "x": 0.525,
-        "y": 0.775,
-        "r": 0.085
+        "x": 0.861,
+        "y": 0.789,
+        "r": 0.22
       },
-      "explanation": "Pneumatic tires with deep tread patterns did not exist in 1912; early tires were smooth or had minimal tread.",
+      "explanation": "Aerosol spray cans with modern solvents and propellants did not exist in 1912, making this can impossible in the photograph.",
       "references": [
         {
-          "label": "Tire tread history",
-          "url": "https://en.wikipedia.org/wiki/Tire_tread"
+          "label": "WD-40 History",
+          "url": "https://www.wd40.com/history/"
         }
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b69189170",
-        "originalTitle": "11-2-12, obsèques d'Aernoult [personnes assises dans une voiture] : [photographie de presse] / [Agence Rol]",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6920467z",
+        "originalTitle": "Gobron [vue d'un moteur] : [photographie de presse] / [Agence Rol]",
         "date": "1912",
         "place": "",
         "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 18387 Appartient à l’ensemble documentaire : Pho20Rol"
+        "description": "Référence bibliographique : Rol, 21799 Appartient à l’ensemble documentaire : Pho20Rol"
       },
-      "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b69189170",
-      "added": "2026-09-15",
-      "shown": "2026-09-24",
-      "image": "scenes/gallica-11-2-12-obs-ques-d-aernoult-personnes-assises-da-76b201-modern-car-tire-with-dee.jpg",
-      "original": "scenes/gallica-11-2-12-obs-ques-d-aernoult-personnes-assises-da-76b201-modern-car-tire-with-dee-original.jpg"
+      "credit": "Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6920467z",
+      "added": "2026-09-13",
+      "shown": "2026-09-25",
+      "title_source": "catalog",
+      "image": "scenes/gallica-gobron-vue-d-un-moteur-photographie-de-presse-ag-4bc7be-spray-can-of-wd-40.jpg",
+      "original": "scenes/gallica-gobron-vue-d-un-moteur-photographie-de-presse-ag-4bc7be-spray-can-of-wd-40-original.jpg"
     },
     {
-      "id": "gallica-le-mirabeau-cuirass-photographie-de-presse-agenc-355430-modern-cargo-container",
-      "title": "Le Mirabeau [cuirassé]",
+      "id": "gallica-ligne-de-personnes-couch-es-le-long-des-berges-p-ca9d28-clear-plastic-water-bott",
+      "title": "[Ligne de personnes couchées le long des berges]",
       "title_source": "catalog",
       "place": "",
       "year": "1911",
-      "description": "Le Mirabeau [cuirassé] · Bibliothèque nationale de France (Gallica).",
-      "anomaly": "Modern cargo container",
+      "description": "A press photograph by Agence Rol, dated 1911, shows a line of people lying down along the banks of the Seine in France. The record identifies it as a bathing scene in Paris.",
+      "anomaly": "Clear plastic water bottle",
       "answer": {
-        "x": 0.732,
-        "y": 0.665,
+        "x": 0.105,
+        "y": 0.855,
         "r": 0.22
       },
-      "explanation": "Intermodal steel shipping containers were not introduced until the mid-1950s, so none could exist on a 1911 warship.",
+      "explanation": "Clear PET plastic bottles did not exist in 1911, so a transparent molded bottle with a screw cap could not be present.",
       "references": [
         {
           "label": "Bibliothèque nationale de France (Gallica)",
@@ -96,70 +60,34 @@
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53112003t",
-        "originalTitle": "Le Mirabeau [cuirassé] : [photographie de presse] / [Agence Rol]",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53111447f",
+        "originalTitle": "[Ligne de personnes couchées le long des berges] : [photographie de presse] / [Agence Rol]",
         "date": "1911",
         "place": "",
         "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 16016 Appartient à l’ensemble documentaire : Pho20Rol"
+        "description": "Référence bibliographique : Rol, 15691 Appartient à l’ensemble documentaire : Pho20Rol"
       },
       "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53112003t",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53111447f",
       "added": "2026-09-15",
-      "shown": "2026-09-24",
-      "image": "scenes/gallica-le-mirabeau-cuirass-photographie-de-presse-agenc-355430-modern-cargo-container.jpg",
-      "original": "scenes/gallica-le-mirabeau-cuirass-photographie-de-presse-agenc-355430-modern-cargo-container-original.jpg"
+      "shown": "2026-09-25",
+      "image": "scenes/gallica-ligne-de-personnes-couch-es-le-long-des-berges-p-ca9d28-clear-plastic-water-bott.jpg",
+      "original": "scenes/gallica-ligne-de-personnes-couch-es-le-long-des-berges-p-ca9d28-clear-plastic-water-bott-original.jpg"
     },
     {
-      "id": "nb-oslo-havn-palibryggen-1880-25e8f8-modern-cargo-pallet",
-      "title": "Oslo havn. Palibryggen.",
+      "id": "gallica-recueil-de-plusieurs-parties-d-architecture-de-d-e6bc51-modern-adhesive-barcode",
+      "title": "Recueil de plusieurs parties d'architecture de différents maîtres tant d'Italie que de France; Suite de ruines d'architecture mises au jour par le Sieur Dumont / [par G.-M. Dumont]",
       "title_source": "catalog",
       "place": "",
-      "year": "1880",
-      "description": "Oslo havn. Palibryggen · National Library of Norway.",
-      "anomaly": "modern cargo pallet",
+      "year": "1765",
+      "description": "Recueil de plusieurs parties d'architecture de différents maîtres tant d'Italie que de France; Suite de ruines d'architecture mises au jour par le Sieur Dumont / [par G.-M. Dumont] · Bibliothèque nationale de France (Gallica).",
+      "anomaly": "modern adhesive barcode label",
       "answer": {
-        "x": 0.635,
-        "y": 0.617,
-        "r": 0.22
+        "x": 0.906,
+        "y": 0.925,
+        "r": 0.035
       },
-      "explanation": "Standardized wooden pallets with forklift slots did not exist in 1880, as cargo was moved by hand and barrel hooks.",
-      "references": [
-        {
-          "label": "National Library of Norway",
-          "url": "https://www.nb.no"
-        }
-      ],
-      "source": {
-        "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20130402_00114_NB_MS_G4_0393",
-        "originalTitle": "Oslo havn. Palibryggen.",
-        "date": "1880",
-        "place": "",
-        "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-08-19T09:24:10.849Z', 'firstDigitalContentTime': '2025-08-19T10:24:49.341Z', 'indexLastModified': '2025-08-19T10:24:49.341Z'}"
-      },
-      "credit": "Skøien, Marthinius via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20130402_00114_NB_MS_G4_0393",
-      "added": "2026-09-15",
-      "shown": "2026-09-24",
-      "image": "scenes/nb-oslo-havn-palibryggen-1880-25e8f8-modern-cargo-pallet.jpg",
-      "original": "scenes/nb-oslo-havn-palibryggen-1880-25e8f8-modern-cargo-pallet-original.jpg"
-    },
-    {
-      "id": "gallica-a-roplane-am-ricain-curtiss-1909-photographie-de-4c12bc-modern-quadcopter-drone",
-      "title": "Aéroplane américain Curtiss",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1909",
-      "description": "Aéroplane américain Curtiss · Bibliothèque nationale de France (Gallica).",
-      "anomaly": "Modern quadcopter drone",
-      "answer": {
-        "x": 0.642,
-        "y": 0.607,
-        "r": 0.22
-      },
-      "explanation": "Multi-rotor drones did not exist in 1909, so no one in this scene could have flown or photographed one.",
+      "explanation": "Adhesive barcodes for retail and library tracking did not exist in 1765, so this label cannot belong to the book's original binding.",
       "references": [
         {
           "label": "Bibliothèque nationale de France (Gallica)",
@@ -168,19 +96,91 @@
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53239800t",
-        "originalTitle": "Aéroplane américain Curtiss, 1909 : [photographie de presse] / [Agence Meurisse]",
-        "date": "1909",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b8496561t",
+        "originalTitle": "Recueil de plusieurs parties d'architecture de différents maîtres tant d'Italie que de France ; Suite de ruines d'architecture mises au jour par le Sieur Dumont / [par G.-M. Dumont]",
+        "date": "1765",
         "place": "",
         "license": "Public domain",
-        "description": "Référence bibliographique : Meurisse, 2506 Appartient à l’ensemble documentaire : Pho20Meu Image de presse"
+        "description": ""
       },
-      "credit": "Agence de presse Meurisse. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53239800t",
+      "credit": "Dumont, Gabriel-Martin (1720-ca1790). Auteur du texte via Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b8496561t",
       "added": "2026-09-16",
-      "shown": "2026-09-24",
-      "image": "scenes/gallica-a-roplane-am-ricain-curtiss-1909-photographie-de-4c12bc-modern-quadcopter-drone.jpg",
-      "original": "scenes/gallica-a-roplane-am-ricain-curtiss-1909-photographie-de-4c12bc-modern-quadcopter-drone-original.jpg"
+      "shown": "2026-09-25",
+      "image": "scenes/gallica-recueil-de-plusieurs-parties-d-architecture-de-d-e6bc51-modern-adhesive-barcode.jpg",
+      "original": "scenes/gallica-recueil-de-plusieurs-parties-d-architecture-de-d-e6bc51-modern-adhesive-barcode-original.jpg"
+    },
+    {
+      "id": "gallica-variante-du-premier-projet-de-baldaquin-dessin-1-ebc514-modern-led-desk-lamp",
+      "title": "[Variante du premier projet de baldaquin]",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1705",
+      "description": "A 1705 drawing by Robert de Cotte, held by the Bibliothèque nationale de France, shows a variant of the first project for a baldachin, rendered in pen and brown ink with brown wash. It is an elevation from a collection of baldachins for the decoration of various unidentified altars.",
+      "anomaly": "Modern LED desk lamp",
+      "answer": {
+        "x": 0.535,
+        "y": 0.545,
+        "r": 0.22
+      },
+      "explanation": "LED desk lamps did not exist in 1705, as lighting relied on candles and oil lamps.",
+      "references": [
+        {
+          "label": "Bibliothèque nationale de France (Gallica)",
+          "url": "https://gallica.bnf.fr"
+        }
+      ],
+      "source": {
+        "repository": "Bibliothèque nationale de France (Gallica)",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6939242h",
+        "originalTitle": "[Variante du premier projet de baldaquin] : [dessin]",
+        "date": "1705",
+        "place": "",
+        "license": "Public domain",
+        "description": "Référence bibliographique : Robert de Cotte, 2247 Référence bibliographique : Fossier, 386 Appartient à l’ensemble documentaire : Des18Cotte Élévation"
+      },
+      "credit": "Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6939242h",
+      "added": "2026-09-16",
+      "shown": "2026-09-25",
+      "image": "scenes/gallica-variante-du-premier-projet-de-baldaquin-dessin-1-ebc514-modern-led-desk-lamp.jpg",
+      "original": "scenes/gallica-variante-du-premier-projet-de-baldaquin-dessin-1-ebc514-modern-led-desk-lamp-original.jpg"
+    },
+    {
+      "id": "gallica-17-9-22-concours-de-p-che-la-ligne-les-soci-t-s-7f1b7b-modern-telescoping-alumi",
+      "title": "17-9-22, concours de pêche à la ligne [les Sociétés de pêche défilant dans Paris]",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1922",
+      "description": "A press photograph by Agence Rol dated 17 September 1922 shows fishing societies parading in Paris during a fishing competition. The record identifies it as \"concours de pêche à la ligne [les Sociétés de pêche défilant dans Paris],\" meaning \"fishing competition [the fishing societies parading in Paris],\" and it is held by the Bibliothèque nationale de France.",
+      "anomaly": "modern telescoping aluminum selfie stick",
+      "answer": {
+        "x": 0.105,
+        "y": 0.235,
+        "r": 0.22
+      },
+      "explanation": "Telescoping aluminum selfie sticks with phone clamps did not exist in 1922, so this object cannot belong to the scene.",
+      "references": [
+        {
+          "label": "Selfie stick - Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Selfie_stick"
+        }
+      ],
+      "source": {
+        "repository": "Bibliothèque nationale de France (Gallica)",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b530940117",
+        "originalTitle": "17-9-22, concours de pêche à la ligne [les Sociétés de pêche défilant dans Paris] : [photographie de presse] / [Agence Rol]",
+        "date": "1922",
+        "place": "",
+        "license": "Public domain",
+        "description": "Référence bibliographique : Rol, 78133 Appartient à l’ensemble documentaire : Pho20Rol Image de presse"
+      },
+      "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b530940117",
+      "added": "2026-09-22",
+      "shown": "2026-09-25",
+      "image": "scenes/gallica-17-9-22-concours-de-p-che-la-ligne-les-soci-t-s-7f1b7b-modern-telescoping-alumi.jpg",
+      "original": "scenes/gallica-17-9-22-concours-de-p-che-la-ligne-les-soci-t-s-7f1b7b-modern-telescoping-alumi-original.jpg"
     }
   ]
 }
