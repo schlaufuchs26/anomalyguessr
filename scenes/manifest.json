@@ -1,186 +1,190 @@
 {
   "version": 2,
-  "date": "2026-09-25",
+  "date": "2026-09-26",
   "scenes": [
     {
-      "id": "gallica-gobron-vue-d-un-moteur-photographie-de-presse-ag-4bc7be-spray-can-of-wd-40",
-      "title": "Gobron [vue d'un moteur]",
+      "id": "gallica-mauritanie-n-titane-adrar-photographie-de-presse-41686e-clear-plastic-water-bott",
+      "title": "Mauritanie, N'Titane (Adrar)",
       "place": "",
-      "year": "1912",
-      "description": "A press photograph by Agence Rol from 1912, held by the Bibliothèque nationale de France (Estampes et photographie department, EI-13 (175)), showing a view of an engine of a Gobron. It is a negative glass plate photograph, 13 x 18 cm or larger, in the public domain.",
-      "anomaly": "Spray can of WD-40",
-      "answer": {
-        "x": 0.861,
-        "y": 0.789,
-        "r": 0.22
-      },
-      "explanation": "Aerosol spray cans with modern solvents and propellants did not exist in 1912, making this can impossible in the photograph.",
-      "references": [
-        {
-          "label": "WD-40 History",
-          "url": "https://www.wd40.com/history/"
-        }
-      ],
-      "source": {
-        "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6920467z",
-        "originalTitle": "Gobron [vue d'un moteur] : [photographie de presse] / [Agence Rol]",
-        "date": "1912",
-        "place": "",
-        "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 21799 Appartient à l’ensemble documentaire : Pho20Rol"
-      },
-      "credit": "Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6920467z",
-      "added": "2026-09-13",
-      "shown": "2026-09-25",
-      "title_source": "catalog",
-      "image": "scenes/gallica-gobron-vue-d-un-moteur-photographie-de-presse-ag-4bc7be-spray-can-of-wd-40.jpg",
-      "original": "scenes/gallica-gobron-vue-d-un-moteur-photographie-de-presse-ag-4bc7be-spray-can-of-wd-40-original.jpg"
-    },
-    {
-      "id": "gallica-ligne-de-personnes-couch-es-le-long-des-berges-p-ca9d28-clear-plastic-water-bott",
-      "title": "[Ligne de personnes couchées le long des berges]",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1911",
-      "description": "A press photograph by Agence Rol, dated 1911, shows a line of people lying down along the banks of the Seine in France. The record identifies it as a bathing scene in Paris.",
+      "year": "1908",
+      "description": "A press photograph from Agence Rol, taken in 1908, showing N'Titane in Adrar. It is held by the Bibliothèque nationale de France, département Estampes et photographie.",
       "anomaly": "Clear plastic water bottle",
       "answer": {
-        "x": 0.105,
-        "y": 0.855,
-        "r": 0.22
-      },
-      "explanation": "Clear PET plastic bottles did not exist in 1911, so a transparent molded bottle with a screw cap could not be present.",
-      "references": [
-        {
-          "label": "Bibliothèque nationale de France (Gallica)",
-          "url": "https://gallica.bnf.fr/"
-        }
-      ],
-      "source": {
-        "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53111447f",
-        "originalTitle": "[Ligne de personnes couchées le long des berges] : [photographie de presse] / [Agence Rol]",
-        "date": "1911",
-        "place": "",
-        "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 15691 Appartient à l’ensemble documentaire : Pho20Rol"
-      },
-      "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53111447f",
-      "added": "2026-09-15",
-      "shown": "2026-09-25",
-      "image": "scenes/gallica-ligne-de-personnes-couch-es-le-long-des-berges-p-ca9d28-clear-plastic-water-bott.jpg",
-      "original": "scenes/gallica-ligne-de-personnes-couch-es-le-long-des-berges-p-ca9d28-clear-plastic-water-bott-original.jpg"
-    },
-    {
-      "id": "gallica-recueil-de-plusieurs-parties-d-architecture-de-d-e6bc51-modern-adhesive-barcode",
-      "title": "Recueil de plusieurs parties d'architecture de différents maîtres tant d'Italie que de France; Suite de ruines d'architecture mises au jour par le Sieur Dumont / [par G.-M. Dumont]",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1765",
-      "description": "Recueil de plusieurs parties d'architecture de différents maîtres tant d'Italie que de France; Suite de ruines d'architecture mises au jour par le Sieur Dumont / [par G.-M. Dumont] · Bibliothèque nationale de France (Gallica).",
-      "anomaly": "modern adhesive barcode label",
-      "answer": {
-        "x": 0.906,
-        "y": 0.925,
+        "x": 0.728,
+        "y": 0.845,
         "r": 0.035
       },
-      "explanation": "Adhesive barcodes for retail and library tracking did not exist in 1765, so this label cannot belong to the book's original binding.",
+      "explanation": "Clear polyethylene terephthalate bottles did not exist in 1908, so no one in the scene could have owned or discarded one.",
       "references": [
         {
-          "label": "Bibliothèque nationale de France (Gallica)",
-          "url": "https://gallica.bnf.fr/"
+          "label": "Science History Institute: PET plastic",
+          "url": "https://www.sciencehistory.org/historical-profile/polyethylene-terephthalate-pet"
+        },
+        {
+          "label": "Britannica: plastic",
+          "url": "https://www.britannica.com/science/plastic"
         }
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b8496561t",
-        "originalTitle": "Recueil de plusieurs parties d'architecture de différents maîtres tant d'Italie que de France ; Suite de ruines d'architecture mises au jour par le Sieur Dumont / [par G.-M. Dumont]",
-        "date": "1765",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6910929q",
+        "originalTitle": "Mauritanie, N'Titane (Adrar) : [photographie de presse] / [Agence Rol]",
+        "date": "1908",
         "place": "",
         "license": "Public domain",
-        "description": ""
-      },
-      "credit": "Dumont, Gabriel-Martin (1720-ca1790). Auteur du texte via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b8496561t",
-      "added": "2026-09-16",
-      "shown": "2026-09-25",
-      "image": "scenes/gallica-recueil-de-plusieurs-parties-d-architecture-de-d-e6bc51-modern-adhesive-barcode.jpg",
-      "original": "scenes/gallica-recueil-de-plusieurs-parties-d-architecture-de-d-e6bc51-modern-adhesive-barcode-original.jpg"
-    },
-    {
-      "id": "gallica-variante-du-premier-projet-de-baldaquin-dessin-1-ebc514-modern-led-desk-lamp",
-      "title": "[Variante du premier projet de baldaquin]",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1705",
-      "description": "A 1705 drawing by Robert de Cotte, held by the Bibliothèque nationale de France, shows a variant of the first project for a baldachin, rendered in pen and brown ink with brown wash. It is an elevation from a collection of baldachins for the decoration of various unidentified altars.",
-      "anomaly": "Modern LED desk lamp",
-      "answer": {
-        "x": 0.535,
-        "y": 0.545,
-        "r": 0.22
-      },
-      "explanation": "LED desk lamps did not exist in 1705, as lighting relied on candles and oil lamps.",
-      "references": [
-        {
-          "label": "Bibliothèque nationale de France (Gallica)",
-          "url": "https://gallica.bnf.fr"
-        }
-      ],
-      "source": {
-        "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6939242h",
-        "originalTitle": "[Variante du premier projet de baldaquin] : [dessin]",
-        "date": "1705",
-        "place": "",
-        "license": "Public domain",
-        "description": "Référence bibliographique : Robert de Cotte, 2247 Référence bibliographique : Fossier, 386 Appartient à l’ensemble documentaire : Des18Cotte Élévation"
+        "description": "Référence bibliographique : Rol, 2492 Appartient à l’ensemble documentaire : Pho20Rol"
       },
       "credit": "Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6939242h",
-      "added": "2026-09-16",
-      "shown": "2026-09-25",
-      "image": "scenes/gallica-variante-du-premier-projet-de-baldaquin-dessin-1-ebc514-modern-led-desk-lamp.jpg",
-      "original": "scenes/gallica-variante-du-premier-projet-de-baldaquin-dessin-1-ebc514-modern-led-desk-lamp-original.jpg"
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6910929q",
+      "added": "2026-09-13",
+      "shown": "2026-09-26",
+      "title_source": "catalog",
+      "image": "scenes/gallica-mauritanie-n-titane-adrar-photographie-de-presse-41686e-clear-plastic-water-bott.jpg",
+      "original": "scenes/gallica-mauritanie-n-titane-adrar-photographie-de-presse-41686e-clear-plastic-water-bott-original.jpg"
     },
     {
-      "id": "gallica-17-9-22-concours-de-p-che-la-ligne-les-soci-t-s-7f1b7b-modern-telescoping-alumi",
-      "title": "17-9-22, concours de pêche à la ligne [les Sociétés de pêche défilant dans Paris]",
+      "id": "nb-trondheim-kongens-gate-1949-6db8c8-modern-kick-scooter",
+      "title": "Trondheim. Kongens gate",
       "title_source": "catalog",
       "place": "",
-      "year": "1922",
-      "description": "A press photograph by Agence Rol dated 17 September 1922 shows fishing societies parading in Paris during a fishing competition. The record identifies it as \"concours de pêche à la ligne [les Sociétés de pêche défilant dans Paris],\" meaning \"fishing competition [the fishing societies parading in Paris],\" and it is held by the Bibliothèque nationale de France.",
-      "anomaly": "modern telescoping aluminum selfie stick",
+      "year": "1949",
+      "description": "A photograph from the National Library of Norway shows Kongens gate in Trondheim in 1949. The record does not name the photographer.",
+      "anomaly": "Modern kick scooter",
       "answer": {
-        "x": 0.105,
-        "y": 0.235,
+        "x": 0.807,
+        "y": 0.777,
         "r": 0.22
       },
-      "explanation": "Telescoping aluminum selfie sticks with phone clamps did not exist in 1922, so this object cannot belong to the scene.",
+      "explanation": "The lightweight folding kick scooter with small wheels and a metal deck did not exist in 1949.",
       "references": [
         {
-          "label": "Selfie stick - Wikipedia",
-          "url": "https://en.wikipedia.org/wiki/Selfie_stick"
+          "label": "National Library of Norway",
+          "url": "https://www.nb.no/"
+        }
+      ],
+      "source": {
+        "repository": "National Library of Norway",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20171004_00074_NB_MIT_KNR_01961",
+        "originalTitle": "Trondheim. Kongens gate",
+        "date": "1949",
+        "place": "",
+        "license": "Public domain",
+        "description": "{'firstIndexTime': '2025-08-26T13:40:35.938Z', 'firstDigitalContentTime': '2025-08-26T13:55:21.777Z', 'indexLastModified': '2025-08-26T13:55:21.777Z'}"
+      },
+      "credit": "Mittet & Co. AS via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20171004_00074_NB_MIT_KNR_01961",
+      "added": "2026-09-17",
+      "shown": "2026-09-26",
+      "image": "scenes/nb-trondheim-kongens-gate-1949-6db8c8-modern-kick-scooter.jpg",
+      "original": "scenes/nb-trondheim-kongens-gate-1949-6db8c8-modern-kick-scooter-original.jpg"
+    },
+    {
+      "id": "gallica-25-6-27-spad-lorraine-du-lieutenant-challe-avion-ccbba9-modern-plastic-cable-tie",
+      "title": "25/6/27, Spad Lorraine du lieutenant Challe [avion]",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1927",
+      "description": "A press photograph from Agence Rol dated 25 June 1927 shows the Spad Lorraine aircraft of Lieutenant Challe. It is held by the Bibliothèque nationale de France, département Estampes et photographie, EI-13 (153).",
+      "anomaly": "modern plastic cable tie",
+      "answer": {
+        "x": 0.375,
+        "y": 0.575,
+        "r": 0.22
+      },
+      "explanation": "The one-piece nylon cable tie was patented in 1958, so no such strap could exist on an aircraft photographed in 1927.",
+      "references": [
+        {
+          "label": "Wikipedia: Cable tie",
+          "url": "https://en.wikipedia.org/wiki/Cable_tie"
         }
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b530940117",
-        "originalTitle": "17-9-22, concours de pêche à la ligne [les Sociétés de pêche défilant dans Paris] : [photographie de presse] / [Agence Rol]",
-        "date": "1922",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53114109k",
+        "originalTitle": "25/6/27, Spad Lorraine du lieutenant Challe [avion] : [photographie de presse] / [Agence Rol]",
+        "date": "1927",
         "place": "",
         "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 78133 Appartient à l’ensemble documentaire : Pho20Rol Image de presse"
+        "description": "Référence bibliographique : Rol, 20008 [bis] Appartient à l’ensemble documentaire : Pho20Rol"
       },
       "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b530940117",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53114109k",
+      "added": "2026-09-19",
+      "shown": "2026-09-26",
+      "image": "scenes/gallica-25-6-27-spad-lorraine-du-lieutenant-challe-avion-ccbba9-modern-plastic-cable-tie.jpg",
+      "original": "scenes/gallica-25-6-27-spad-lorraine-du-lieutenant-challe-avion-ccbba9-modern-plastic-cable-tie-original.jpg"
+    },
+    {
+      "id": "gallica-canon-dans-une-tranch-e-photographie-de-presse-a-c121bb-modern-solar-powered-led",
+      "title": "[Canon dans une tranchée]",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1917",
+      "description": "A press photograph by Agence Rol showing a cannon in a trench, dated April 1917. It is held by the Bibliothèque nationale de France, département Estampes et photographie, and relates to the Guerre de tranchées.",
+      "anomaly": "Modern solar-powered LED garden light",
+      "answer": {
+        "x": 0.738,
+        "y": 0.535,
+        "r": 0.22
+      },
+      "explanation": "Solar-powered LED garden lights did not exist in 1917; they only became common consumer products in the 1990s.",
+      "references": [
+        {
+          "label": "Wikipedia: Solar lamp",
+          "url": "https://en.wikipedia.org/wiki/Solar_lamp"
+        }
+      ],
+      "source": {
+        "repository": "Bibliothèque nationale de France (Gallica)",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53000367z",
+        "originalTitle": "[Canon dans une tranchée] : [photographie de presse] / [Agence Rol]",
+        "date": "1917",
+        "place": "",
+        "license": "Public domain",
+        "description": "Référence bibliographique : Rol, 49156 Appartient à l’ensemble documentaire : Pho20Rol Appartient à l’ensemble documentaire : GG14182 Image de presse"
+      },
+      "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53000367z",
+      "added": "2026-09-19",
+      "shown": "2026-09-26",
+      "image": "scenes/gallica-canon-dans-une-tranch-e-photographie-de-presse-a-c121bb-modern-solar-powered-led.jpg",
+      "original": "scenes/gallica-canon-dans-une-tranch-e-photographie-de-presse-a-c121bb-modern-solar-powered-led-original.jpg"
+    },
+    {
+      "id": "gallica-ligne-de-pau-oloron-pont-de-pau-novembre-1880-18-284674-modern-tower-crane",
+      "title": "Ligne de Pau à Oloron. Pont de Pau - Novembre",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1880",
+      "description": "A photograph from November 1880 shows the Pont de Pau on the railway line from Pau to Oloron, held by the Ecole nationale des ponts et chaussées (PH 272 P.2) and in the public domain via the Bibliothèque nationale de France. The record does not name a photographer.",
+      "anomaly": "modern tower crane",
+      "answer": {
+        "x": 0.267,
+        "y": 0.352,
+        "r": 0.22
+      },
+      "explanation": "The tower crane was not invented until the mid-20th century, so it cannot exist in an 1880 construction scene.",
+      "references": [
+        {
+          "label": "Tower crane history",
+          "url": "https://en.wikipedia.org/wiki/Tower_crane"
+        }
+      ],
+      "source": {
+        "repository": "Bibliothèque nationale de France (Gallica)",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b10481820f",
+        "originalTitle": "Ligne de Pau à Oloron. Pont de Pau - Novembre 1880",
+        "date": "1880",
+        "place": "",
+        "license": "Public domain",
+        "description": "Appartient à l’ensemble documentaire : EnPC000 Appartient à l’ensemble documentaire : EnPCthèm02 Appartient à l’ensemble documentaire : EnPCcorp17 Appartient à l’ensemble documentaire : EnPCtypo02"
+      },
+      "credit": "Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b10481820f",
       "added": "2026-09-22",
-      "shown": "2026-09-25",
-      "image": "scenes/gallica-17-9-22-concours-de-p-che-la-ligne-les-soci-t-s-7f1b7b-modern-telescoping-alumi.jpg",
-      "original": "scenes/gallica-17-9-22-concours-de-p-che-la-ligne-les-soci-t-s-7f1b7b-modern-telescoping-alumi-original.jpg"
+      "shown": "2026-09-26",
+      "image": "scenes/gallica-ligne-de-pau-oloron-pont-de-pau-novembre-1880-18-284674-modern-tower-crane.jpg",
+      "original": "scenes/gallica-ligne-de-pau-oloron-pont-de-pau-novembre-1880-18-284674-modern-tower-crane-original.jpg"
     }
   ]
 }
