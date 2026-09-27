@@ -1,190 +1,190 @@
 {
   "version": 2,
-  "date": "2026-09-26",
+  "date": "2026-09-27",
   "scenes": [
     {
-      "id": "gallica-mauritanie-n-titane-adrar-photographie-de-presse-41686e-clear-plastic-water-bott",
-      "title": "Mauritanie, N'Titane (Adrar)",
+      "id": "gallica-1912-villefranche-sur-mer-vue-g-n-rale-photograp-82b3c3-jet-ski",
+      "title": "Villefranche-sur-Mer [vue générale]",
       "place": "",
-      "year": "1908",
-      "description": "A press photograph from Agence Rol, taken in 1908, showing N'Titane in Adrar. It is held by the Bibliothèque nationale de France, département Estampes et photographie.",
-      "anomaly": "Clear plastic water bottle",
+      "year": "1912",
+      "description": "A general view of Villefranche-sur-Mer, taken in 1912 by the Agence Rol press photography agency. The record identifies it as a press photograph, a negative on glass measuring 13 x 18 cm, held by the Bibliothèque nationale de France (National Library of France).",
+      "anomaly": "Jet ski",
       "answer": {
-        "x": 0.728,
-        "y": 0.845,
-        "r": 0.035
+        "x": 0.4,
+        "y": 0.8,
+        "r": 0.22
       },
-      "explanation": "Clear polyethylene terephthalate bottles did not exist in 1908, so no one in the scene could have owned or discarded one.",
+      "explanation": "Personal watercraft like the jet ski were not invented until the 1970s, so one cannot appear in a 1912 harbor scene.",
       "references": [
         {
-          "label": "Science History Institute: PET plastic",
-          "url": "https://www.sciencehistory.org/historical-profile/polyethylene-terephthalate-pet"
+          "label": "Wikipedia: Jet ski",
+          "url": "https://en.wikipedia.org/wiki/Jet_ski"
         },
         {
-          "label": "Britannica: plastic",
-          "url": "https://www.britannica.com/science/plastic"
+          "label": "Bibliothèque nationale de France (Gallica)",
+          "url": "https://gallica.bnf.fr/"
         }
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6910929q",
-        "originalTitle": "Mauritanie, N'Titane (Adrar) : [photographie de presse] / [Agence Rol]",
-        "date": "1908",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53112902s",
+        "originalTitle": "1912, Villefranche-sur-Mer [vue générale] : [photographie de presse] / [Agence Rol]",
+        "date": "1912",
         "place": "",
         "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 2492 Appartient à l’ensemble documentaire : Pho20Rol"
+        "description": "Référence bibliographique : Rol, 18910 Appartient à l’ensemble documentaire : Pho20Rol"
       },
       "credit": "Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6910929q",
-      "added": "2026-09-13",
-      "shown": "2026-09-26",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53112902s",
+      "added": "2026-09-14",
+      "shown": "2026-09-27",
       "title_source": "catalog",
-      "image": "scenes/gallica-mauritanie-n-titane-adrar-photographie-de-presse-41686e-clear-plastic-water-bott.jpg",
-      "original": "scenes/gallica-mauritanie-n-titane-adrar-photographie-de-presse-41686e-clear-plastic-water-bott-original.jpg"
+      "image": "scenes/gallica-1912-villefranche-sur-mer-vue-g-n-rale-photograp-82b3c3-jet-ski.jpg",
+      "original": "scenes/gallica-1912-villefranche-sur-mer-vue-g-n-rale-photograp-82b3c3-jet-ski-original.jpg"
     },
     {
-      "id": "nb-trondheim-kongens-gate-1949-6db8c8-modern-kick-scooter",
-      "title": "Trondheim. Kongens gate",
+      "id": "nb-113-trondhjem-kongens-gate-1920-831f56-modern-kick-scooter",
+      "title": "113 Trondhjem. Kongens gate",
       "title_source": "catalog",
       "place": "",
-      "year": "1949",
-      "description": "A photograph from the National Library of Norway shows Kongens gate in Trondheim in 1949. The record does not name the photographer.",
+      "year": "1920",
+      "description": "A photograph titled 113 Trondhjem. Kongens gate, held by the National Library of Norway and in the public domain, shows Kongens gate in Trondhjem in 1920. The record does not name the photographer.",
       "anomaly": "Modern kick scooter",
       "answer": {
-        "x": 0.807,
-        "y": 0.777,
+        "x": 0.75,
+        "y": 0.833,
         "r": 0.22
       },
-      "explanation": "The lightweight folding kick scooter with small wheels and a metal deck did not exist in 1949.",
+      "explanation": "Kick scooters as a common personal transport did not exist in 1920.",
       "references": [
         {
           "label": "National Library of Norway",
-          "url": "https://www.nb.no/"
+          "url": "https://www.nb.no"
         }
       ],
       "source": {
         "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20171004_00074_NB_MIT_KNR_01961",
-        "originalTitle": "Trondheim. Kongens gate",
-        "date": "1949",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20150622_00428_bldsa_PK17352",
+        "originalTitle": "113 Trondhjem. Kongens gate",
+        "date": "1920",
         "place": "",
         "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-08-26T13:40:35.938Z', 'firstDigitalContentTime': '2025-08-26T13:55:21.777Z', 'indexLastModified': '2025-08-26T13:55:21.777Z'}"
+        "description": "{'firstIndexTime': '2025-08-19T00:33:11.181Z', 'firstDigitalContentTime': '2025-08-19T03:04:01.566Z', 'indexLastModified': '2025-09-03T08:59:37.982Z'}"
       },
       "credit": "Mittet & Co. AS via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20171004_00074_NB_MIT_KNR_01961",
-      "added": "2026-09-17",
-      "shown": "2026-09-26",
-      "image": "scenes/nb-trondheim-kongens-gate-1949-6db8c8-modern-kick-scooter.jpg",
-      "original": "scenes/nb-trondheim-kongens-gate-1949-6db8c8-modern-kick-scooter-original.jpg"
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20150622_00428_bldsa_PK17352",
+      "added": "2026-09-18",
+      "shown": "2026-09-27",
+      "image": "scenes/nb-113-trondhjem-kongens-gate-1920-831f56-modern-kick-scooter.jpg",
+      "original": "scenes/nb-113-trondhjem-kongens-gate-1920-831f56-modern-kick-scooter-original.jpg"
     },
     {
-      "id": "gallica-25-6-27-spad-lorraine-du-lieutenant-challe-avion-ccbba9-modern-plastic-cable-tie",
-      "title": "25/6/27, Spad Lorraine du lieutenant Challe [avion]",
+      "id": "gallica-penchot-voie-lot-gare-tunnel-4-juin-1898-1898-45b44c-modern-shipping-containe",
+      "title": "Penchot : voie, Lot, gare, tunnel, 4 juin",
       "title_source": "catalog",
       "place": "",
-      "year": "1927",
-      "description": "A press photograph from Agence Rol dated 25 June 1927 shows the Spad Lorraine aircraft of Lieutenant Challe. It is held by the Bibliothèque nationale de France, département Estampes et photographie, EI-13 (153).",
-      "anomaly": "modern plastic cable tie",
+      "year": "1898",
+      "description": "A photograph taken by Eugène Trutat on 4 June 1898 shows Penchot with its railway track, the Lot river, a station and a tunnel. The record identifies the location with Decazeville in Aveyron, France, and also lists subjects including a watercourse, a factory, hydraulic power, a riverbank, a railway, a station and a chimney.",
+      "anomaly": "Modern shipping container",
       "answer": {
-        "x": 0.375,
-        "y": 0.575,
-        "r": 0.22
-      },
-      "explanation": "The one-piece nylon cable tie was patented in 1958, so no such strap could exist on an aircraft photographed in 1927.",
-      "references": [
-        {
-          "label": "Wikipedia: Cable tie",
-          "url": "https://en.wikipedia.org/wiki/Cable_tie"
-        }
-      ],
-      "source": {
-        "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53114109k",
-        "originalTitle": "25/6/27, Spad Lorraine du lieutenant Challe [avion] : [photographie de presse] / [Agence Rol]",
-        "date": "1927",
-        "place": "",
-        "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 20008 [bis] Appartient à l’ensemble documentaire : Pho20Rol"
-      },
-      "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53114109k",
-      "added": "2026-09-19",
-      "shown": "2026-09-26",
-      "image": "scenes/gallica-25-6-27-spad-lorraine-du-lieutenant-challe-avion-ccbba9-modern-plastic-cable-tie.jpg",
-      "original": "scenes/gallica-25-6-27-spad-lorraine-du-lieutenant-challe-avion-ccbba9-modern-plastic-cable-tie-original.jpg"
-    },
-    {
-      "id": "gallica-canon-dans-une-tranch-e-photographie-de-presse-a-c121bb-modern-solar-powered-led",
-      "title": "[Canon dans une tranchée]",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1917",
-      "description": "A press photograph by Agence Rol showing a cannon in a trench, dated April 1917. It is held by the Bibliothèque nationale de France, département Estampes et photographie, and relates to the Guerre de tranchées.",
-      "anomaly": "Modern solar-powered LED garden light",
-      "answer": {
-        "x": 0.738,
+        "x": 0.845,
         "y": 0.535,
-        "r": 0.22
+        "r": 0.1288
       },
-      "explanation": "Solar-powered LED garden lights did not exist in 1917; they only became common consumer products in the 1990s.",
+      "explanation": "Intermodal steel shipping containers were not used in rail freight until the 1950s, so one cannot appear in an 1898 photograph.",
       "references": [
         {
-          "label": "Wikipedia: Solar lamp",
-          "url": "https://en.wikipedia.org/wiki/Solar_lamp"
+          "label": "Shipping container - Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Shipping_container"
         }
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53000367z",
-        "originalTitle": "[Canon dans une tranchée] : [photographie de presse] / [Agence Rol]",
-        "date": "1917",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b10577370n",
+        "originalTitle": "Penchot : voie, Lot, gare, tunnel, 4 juin 1898",
+        "date": "1898",
         "place": "",
         "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 49156 Appartient à l’ensemble documentaire : Pho20Rol Appartient à l’ensemble documentaire : GG14182 Image de presse"
+        "description": "Appartient à l’ensemble documentaire : RsAlis000 Appartient à l’ensemble documentaire : RsAlis014 Appartient à l’ensemble documentaire : RsAlis007"
       },
-      "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53000367z",
+      "credit": "Trutat, Eugène (1840-1910). Photographe via Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b10577370n",
       "added": "2026-09-19",
-      "shown": "2026-09-26",
-      "image": "scenes/gallica-canon-dans-une-tranch-e-photographie-de-presse-a-c121bb-modern-solar-powered-led.jpg",
-      "original": "scenes/gallica-canon-dans-une-tranch-e-photographie-de-presse-a-c121bb-modern-solar-powered-led-original.jpg"
+      "shown": "2026-09-27",
+      "image": "scenes/gallica-penchot-voie-lot-gare-tunnel-4-juin-1898-1898-45b44c-modern-shipping-containe.jpg",
+      "original": "scenes/gallica-penchot-voie-lot-gare-tunnel-4-juin-1898-1898-45b44c-modern-shipping-containe-original.jpg"
     },
     {
-      "id": "gallica-ligne-de-pau-oloron-pont-de-pau-novembre-1880-18-284674-modern-tower-crane",
-      "title": "Ligne de Pau à Oloron. Pont de Pau - Novembre",
+      "id": "nb-b-tst-h-vik-brygge-1920-67d7c5-modern-wind-turbine",
+      "title": "Båtstø, Høvik brygge",
       "title_source": "catalog",
       "place": "",
-      "year": "1880",
-      "description": "A photograph from November 1880 shows the Pont de Pau on the railway line from Pau to Oloron, held by the Ecole nationale des ponts et chaussées (PH 272 P.2) and in the public domain via the Bibliothèque nationale de France. The record does not name a photographer.",
-      "anomaly": "modern tower crane",
+      "year": "1920",
+      "description": "A photograph titled Båtstø, Høvik brygge, held by the National Library of Norway and in the public domain, dating from 1920. The record does not name a photographer.",
+      "anomaly": "modern wind turbine",
       "answer": {
-        "x": 0.267,
-        "y": 0.352,
+        "x": 0.688,
+        "y": 0.16,
         "r": 0.22
       },
-      "explanation": "The tower crane was not invented until the mid-20th century, so it cannot exist in an 1880 construction scene.",
+      "explanation": "Utility-scale wind turbines did not exist in 1920; the first modern multi-megawatt turbines were built in the 1980s.",
       "references": [
         {
-          "label": "Tower crane history",
-          "url": "https://en.wikipedia.org/wiki/Tower_crane"
+          "label": "Wind turbine - Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Wind_turbine"
+        }
+      ],
+      "source": {
+        "repository": "National Library of Norway",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20210429_00129_NB_RA_M2_B51_0008",
+        "originalTitle": "Båtstø, Høvik brygge",
+        "date": "1920",
+        "place": "",
+        "license": "Public domain",
+        "description": "{'firstIndexTime': '2025-08-29T07:04:52.106Z', 'firstDigitalContentTime': '2025-08-29T07:35:35.434Z', 'indexLastModified': '2025-08-29T07:35:35.434Z'}"
+      },
+      "credit": "Riksantikvaren via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20210429_00129_NB_RA_M2_B51_0008",
+      "added": "2026-09-22",
+      "shown": "2026-09-27",
+      "image": "scenes/nb-b-tst-h-vik-brygge-1920-67d7c5-modern-wind-turbine.jpg",
+      "original": "scenes/nb-b-tst-h-vik-brygge-1920-67d7c5-modern-wind-turbine-original.jpg"
+    },
+    {
+      "id": "gallica-manoeuvres-1912-officier-trangers-un-groupe-deva-bf7b5b-modern-telescoping-umbre",
+      "title": "Manoeuvres, officier étrangers [un groupe devant un train]",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1912",
+      "description": "A press photograph by Agence Rol showing a group of foreign officers in front of a train during the 1912 manoeuvres. Taken in France in September 1912, it is held by the Bibliothèque nationale de France (reference Rol, 23441).",
+      "anomaly": "Modern telescoping umbrella stroller",
+      "answer": {
+        "x": 0.902,
+        "y": 0.777,
+        "r": 0.055
+      },
+      "explanation": "Compact folding strollers with small wheels did not exist in 1912, so this object could not be present on the platform.",
+      "references": [
+        {
+          "label": "Bibliothèque nationale de France (Gallica)",
+          "url": "https://gallica.bnf.fr/"
         }
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b10481820f",
-        "originalTitle": "Ligne de Pau à Oloron. Pont de Pau - Novembre 1880",
-        "date": "1880",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6921378q",
+        "originalTitle": "Manoeuvres 1912, officier étrangers [un groupe devant un train] : [photographie de presse] / [Agence Rol]",
+        "date": "1912",
         "place": "",
         "license": "Public domain",
-        "description": "Appartient à l’ensemble documentaire : EnPC000 Appartient à l’ensemble documentaire : EnPCthèm02 Appartient à l’ensemble documentaire : EnPCcorp17 Appartient à l’ensemble documentaire : EnPCtypo02"
+        "description": "Référence bibliographique : Rol, 23441 Appartient à l’ensemble documentaire : Pho20Rol"
       },
-      "credit": "Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b10481820f",
-      "added": "2026-09-22",
-      "shown": "2026-09-26",
-      "image": "scenes/gallica-ligne-de-pau-oloron-pont-de-pau-novembre-1880-18-284674-modern-tower-crane.jpg",
-      "original": "scenes/gallica-ligne-de-pau-oloron-pont-de-pau-novembre-1880-18-284674-modern-tower-crane-original.jpg"
+      "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6921378q",
+      "added": "2026-09-18",
+      "shown": "2026-09-27",
+      "image": "scenes/gallica-manoeuvres-1912-officier-trangers-un-groupe-deva-bf7b5b-modern-telescoping-umbre.jpg",
+      "original": "scenes/gallica-manoeuvres-1912-officier-trangers-un-groupe-deva-bf7b5b-modern-telescoping-umbre-original.jpg"
     }
   ]
 }
