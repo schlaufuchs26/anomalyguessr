@@ -1,190 +1,186 @@
 {
   "version": 2,
-  "date": "2026-09-27",
+  "date": "2026-09-28",
   "scenes": [
     {
-      "id": "gallica-1912-villefranche-sur-mer-vue-g-n-rale-photograp-82b3c3-jet-ski",
-      "title": "Villefranche-sur-Mer [vue générale]",
+      "id": "gallica-coupe-natation-photographie-de-presse-agence-rol-2b23ea-modern-swimming-goggles",
+      "title": "Coupe [natation]",
+      "title_source": "catalog",
       "place": "",
-      "year": "1912",
-      "description": "A general view of Villefranche-sur-Mer, taken in 1912 by the Agence Rol press photography agency. The record identifies it as a press photograph, a negative on glass measuring 13 x 18 cm, held by the Bibliothèque nationale de France (National Library of France).",
-      "anomaly": "Jet ski",
+      "year": "1911",
+      "description": "A press photograph from 1911 by Agence Rol, held by the Bibliothèque nationale de France, département Estampes et photographie, EI-13 (108).",
+      "anomaly": "Modern swimming goggles",
       "answer": {
-        "x": 0.4,
-        "y": 0.8,
+        "x": 0.47,
+        "y": 0.532,
         "r": 0.22
       },
-      "explanation": "Personal watercraft like the jet ski were not invented until the 1970s, so one cannot appear in a 1912 harbor scene.",
+      "explanation": "While basic glass goggles existed, the modern rubber-strapped swimming goggle with a single band did not become a common, recognizable object until decades after 1911.",
       "references": [
         {
-          "label": "Wikipedia: Jet ski",
-          "url": "https://en.wikipedia.org/wiki/Jet_ski"
-        },
-        {
-          "label": "Bibliothèque nationale de France (Gallica)",
-          "url": "https://gallica.bnf.fr/"
+          "label": "Wikipedia - Swimming goggles",
+          "url": "https://en.wikipedia.org/wiki/Swimming_goggles"
         }
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53112902s",
-        "originalTitle": "1912, Villefranche-sur-Mer [vue générale] : [photographie de presse] / [Agence Rol]",
-        "date": "1912",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53111952h",
+        "originalTitle": "Coupe [natation] : [photographie de presse] / [Agence Rol]",
+        "date": "1911",
         "place": "",
         "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 18910 Appartient à l’ensemble documentaire : Pho20Rol"
-      },
-      "credit": "Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53112902s",
-      "added": "2026-09-14",
-      "shown": "2026-09-27",
-      "title_source": "catalog",
-      "image": "scenes/gallica-1912-villefranche-sur-mer-vue-g-n-rale-photograp-82b3c3-jet-ski.jpg",
-      "original": "scenes/gallica-1912-villefranche-sur-mer-vue-g-n-rale-photograp-82b3c3-jet-ski-original.jpg"
-    },
-    {
-      "id": "nb-113-trondhjem-kongens-gate-1920-831f56-modern-kick-scooter",
-      "title": "113 Trondhjem. Kongens gate",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1920",
-      "description": "A photograph titled 113 Trondhjem. Kongens gate, held by the National Library of Norway and in the public domain, shows Kongens gate in Trondhjem in 1920. The record does not name the photographer.",
-      "anomaly": "Modern kick scooter",
-      "answer": {
-        "x": 0.75,
-        "y": 0.833,
-        "r": 0.22
-      },
-      "explanation": "Kick scooters as a common personal transport did not exist in 1920.",
-      "references": [
-        {
-          "label": "National Library of Norway",
-          "url": "https://www.nb.no"
-        }
-      ],
-      "source": {
-        "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20150622_00428_bldsa_PK17352",
-        "originalTitle": "113 Trondhjem. Kongens gate",
-        "date": "1920",
-        "place": "",
-        "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-08-19T00:33:11.181Z', 'firstDigitalContentTime': '2025-08-19T03:04:01.566Z', 'indexLastModified': '2025-09-03T08:59:37.982Z'}"
-      },
-      "credit": "Mittet & Co. AS via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20150622_00428_bldsa_PK17352",
-      "added": "2026-09-18",
-      "shown": "2026-09-27",
-      "image": "scenes/nb-113-trondhjem-kongens-gate-1920-831f56-modern-kick-scooter.jpg",
-      "original": "scenes/nb-113-trondhjem-kongens-gate-1920-831f56-modern-kick-scooter-original.jpg"
-    },
-    {
-      "id": "gallica-penchot-voie-lot-gare-tunnel-4-juin-1898-1898-45b44c-modern-shipping-containe",
-      "title": "Penchot : voie, Lot, gare, tunnel, 4 juin",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1898",
-      "description": "A photograph taken by Eugène Trutat on 4 June 1898 shows Penchot with its railway track, the Lot river, a station and a tunnel. The record identifies the location with Decazeville in Aveyron, France, and also lists subjects including a watercourse, a factory, hydraulic power, a riverbank, a railway, a station and a chimney.",
-      "anomaly": "Modern shipping container",
-      "answer": {
-        "x": 0.845,
-        "y": 0.535,
-        "r": 0.1288
-      },
-      "explanation": "Intermodal steel shipping containers were not used in rail freight until the 1950s, so one cannot appear in an 1898 photograph.",
-      "references": [
-        {
-          "label": "Shipping container - Wikipedia",
-          "url": "https://en.wikipedia.org/wiki/Shipping_container"
-        }
-      ],
-      "source": {
-        "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b10577370n",
-        "originalTitle": "Penchot : voie, Lot, gare, tunnel, 4 juin 1898",
-        "date": "1898",
-        "place": "",
-        "license": "Public domain",
-        "description": "Appartient à l’ensemble documentaire : RsAlis000 Appartient à l’ensemble documentaire : RsAlis014 Appartient à l’ensemble documentaire : RsAlis007"
-      },
-      "credit": "Trutat, Eugène (1840-1910). Photographe via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b10577370n",
-      "added": "2026-09-19",
-      "shown": "2026-09-27",
-      "image": "scenes/gallica-penchot-voie-lot-gare-tunnel-4-juin-1898-1898-45b44c-modern-shipping-containe.jpg",
-      "original": "scenes/gallica-penchot-voie-lot-gare-tunnel-4-juin-1898-1898-45b44c-modern-shipping-containe-original.jpg"
-    },
-    {
-      "id": "nb-b-tst-h-vik-brygge-1920-67d7c5-modern-wind-turbine",
-      "title": "Båtstø, Høvik brygge",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1920",
-      "description": "A photograph titled Båtstø, Høvik brygge, held by the National Library of Norway and in the public domain, dating from 1920. The record does not name a photographer.",
-      "anomaly": "modern wind turbine",
-      "answer": {
-        "x": 0.688,
-        "y": 0.16,
-        "r": 0.22
-      },
-      "explanation": "Utility-scale wind turbines did not exist in 1920; the first modern multi-megawatt turbines were built in the 1980s.",
-      "references": [
-        {
-          "label": "Wind turbine - Wikipedia",
-          "url": "https://en.wikipedia.org/wiki/Wind_turbine"
-        }
-      ],
-      "source": {
-        "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20210429_00129_NB_RA_M2_B51_0008",
-        "originalTitle": "Båtstø, Høvik brygge",
-        "date": "1920",
-        "place": "",
-        "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-08-29T07:04:52.106Z', 'firstDigitalContentTime': '2025-08-29T07:35:35.434Z', 'indexLastModified': '2025-08-29T07:35:35.434Z'}"
-      },
-      "credit": "Riksantikvaren via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20210429_00129_NB_RA_M2_B51_0008",
-      "added": "2026-09-22",
-      "shown": "2026-09-27",
-      "image": "scenes/nb-b-tst-h-vik-brygge-1920-67d7c5-modern-wind-turbine.jpg",
-      "original": "scenes/nb-b-tst-h-vik-brygge-1920-67d7c5-modern-wind-turbine-original.jpg"
-    },
-    {
-      "id": "gallica-manoeuvres-1912-officier-trangers-un-groupe-deva-bf7b5b-modern-telescoping-umbre",
-      "title": "Manoeuvres, officier étrangers [un groupe devant un train]",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1912",
-      "description": "A press photograph by Agence Rol showing a group of foreign officers in front of a train during the 1912 manoeuvres. Taken in France in September 1912, it is held by the Bibliothèque nationale de France (reference Rol, 23441).",
-      "anomaly": "Modern telescoping umbrella stroller",
-      "answer": {
-        "x": 0.902,
-        "y": 0.777,
-        "r": 0.055
-      },
-      "explanation": "Compact folding strollers with small wheels did not exist in 1912, so this object could not be present on the platform.",
-      "references": [
-        {
-          "label": "Bibliothèque nationale de France (Gallica)",
-          "url": "https://gallica.bnf.fr/"
-        }
-      ],
-      "source": {
-        "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6921378q",
-        "originalTitle": "Manoeuvres 1912, officier étrangers [un groupe devant un train] : [photographie de presse] / [Agence Rol]",
-        "date": "1912",
-        "place": "",
-        "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 23441 Appartient à l’ensemble documentaire : Pho20Rol"
+        "description": "Référence bibliographique : Rol, 15999 Appartient à l’ensemble documentaire : Pho20Rol"
       },
       "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6921378q",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53111952h",
+      "added": "2026-09-14",
+      "shown": "2026-09-28",
+      "image": "scenes/gallica-coupe-natation-photographie-de-presse-agence-rol-2b23ea-modern-swimming-goggles.jpg",
+      "original": "scenes/gallica-coupe-natation-photographie-de-presse-agence-rol-2b23ea-modern-swimming-goggles-original.jpg"
+    },
+    {
+      "id": "nb-stavern-kirke-1964-cf48e5-modern-floating-solar-pa",
+      "title": "Stavern kirke",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1964",
+      "description": "A photograph from 1964 showing Stavern kirke, held by the National Library of Norway and in the public domain. The record does not name a photographer.",
+      "anomaly": "Modern floating solar panel",
+      "answer": {
+        "x": 0.683,
+        "y": 0.706,
+        "r": 0.22
+      },
+      "explanation": "Floating solar panels were not deployed until the 2010s, so one cannot exist in a 1964 photograph.",
+      "references": [
+        {
+          "label": "Floating solar",
+          "url": "https://en.wikipedia.org/wiki/Floating_solar"
+        }
+      ],
+      "source": {
+        "repository": "National Library of Norway",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20150116_00188_NB_MIT_FNR_21491",
+        "originalTitle": "Stavern kirke",
+        "date": "1964",
+        "place": "",
+        "license": "Public domain",
+        "description": "{'firstIndexTime': '2025-08-20T10:54:36.295Z', 'firstDigitalContentTime': '2025-08-20T10:56:18.116Z', 'indexLastModified': '2025-08-20T10:56:18.116Z'}"
+      },
+      "credit": "Mittet & Co. AS, Brun, Jacob Reidar via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20150116_00188_NB_MIT_FNR_21491",
+      "added": "2026-09-20",
+      "shown": "2026-09-28",
+      "image": "scenes/nb-stavern-kirke-1964-cf48e5-modern-floating-solar-pa.jpg",
+      "original": "scenes/nb-stavern-kirke-1964-cf48e5-modern-floating-solar-pa-original.jpg"
+    },
+    {
+      "id": "nb-sarpsborg-tekniske-skole-1968-38b9cb-modern-bicycle-helmet",
+      "title": "Sarpsborg tekniske skole",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1968",
+      "description": "A photograph from 1968, held by the National Library of Norway, shows Sarpsborg tekniske skole. The record does not name a photographer.",
+      "anomaly": "modern bicycle helmet",
+      "answer": {
+        "x": 0.575,
+        "y": 0.615,
+        "r": 0.22
+      },
+      "explanation": "Bicycle helmets of this hard-shell type were not in common use in 1968; they became widespread only in the 1970s and later.",
+      "references": [
+        {
+          "label": "Bicycle helmet history",
+          "url": "https://en.wikipedia.org/wiki/Bicycle_helmet"
+        }
+      ],
+      "source": {
+        "repository": "National Library of Norway",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20160210_00236_NB_MIT_FNR_25856",
+        "originalTitle": "Sarpsborg tekniske skole",
+        "date": "1968",
+        "place": "",
+        "license": "Public domain",
+        "description": "{'firstIndexTime': '2025-08-18T20:32:50.979Z', 'firstDigitalContentTime': '2025-08-18T23:05:23.196Z', 'indexLastModified': '2025-08-18T23:05:23.197Z'}"
+      },
+      "credit": "Mittet & Co. AS, Hilsen, Kristian via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20160210_00236_NB_MIT_FNR_25856",
+      "added": "2026-09-21",
+      "shown": "2026-09-28",
+      "image": "scenes/nb-sarpsborg-tekniske-skole-1968-38b9cb-modern-bicycle-helmet.jpg",
+      "original": "scenes/nb-sarpsborg-tekniske-skole-1968-38b9cb-modern-bicycle-helmet-original.jpg"
+    },
+    {
+      "id": "nb-nsb-e-l-8-1948-03-13-f1e602-modern-container-twistlo",
+      "title": "NSB, E.L.8",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1948",
+      "description": "A photograph from the NSB, E.L.8 collection, dated 13 March 1948 and in the public domain, held by the National Library of Norway. The record does not state what the photograph depicts, where it was taken, or who took it.",
+      "anomaly": "modern container twistlock flat wagon",
+      "answer": {
+        "x": 0.755,
+        "y": 0.895,
+        "r": 0.075
+      },
+      "explanation": "Standardized container twistlock flat wagons only entered railway service in the 1960s, so this vehicle cannot exist in a photograph taken in 1948.",
+      "references": [
+        {
+          "label": "Wikipedia: Containerization",
+          "url": "https://en.wikipedia.org/wiki/Containerization"
+        }
+      ],
+      "source": {
+        "repository": "National Library of Norway",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20160209_00450_NB_MIT_FNR_05718A",
+        "originalTitle": "NSB, E.L.8",
+        "date": "1948-03-13",
+        "place": "",
+        "license": "Public domain",
+        "description": "{'firstIndexTime': '2025-08-20T07:00:14.659Z', 'firstDigitalContentTime': '2025-08-20T07:22:30.785Z', 'indexLastModified': '2025-08-20T07:22:30.785Z'}"
+      },
+      "credit": "Mittet & Co. AS via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20160209_00450_NB_MIT_FNR_05718A",
+      "added": "2026-09-22",
+      "shown": "2026-09-28",
+      "image": "scenes/nb-nsb-e-l-8-1948-03-13-f1e602-modern-container-twistlo.jpg",
+      "original": "scenes/nb-nsb-e-l-8-1948-03-13-f1e602-modern-container-twistlo-original.jpg"
+    },
+    {
+      "id": "gallica-maquette-du-monument-qui-sera-lev-la-m-moire-des-693109-modern-telescoping-boom",
+      "title": "Maquette du monument qui sera élevé à la mémoire des soldats canadiens tombés à Ypres de Walter Allward (Cl. Keystone)",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1922",
+      "description": "A press photograph from January 1922 by Agence Rol shows the model of the monument to be erected to the memory of the soldiers fallen at Ypres by Walter Allward, credited to Keystone. It is held by the Bibliothèque nationale de France, département Estampes et photographie.",
+      "anomaly": "modern telescoping boom lift (cherry picker)",
+      "answer": {
+        "x": 0.699,
+        "y": 0.706,
+        "r": 0.22
+      },
+      "explanation": "Telescoping boom lifts with hydraulic arms did not exist in 1922.",
+      "references": [
+        {
+          "label": "Gallica",
+          "url": "https://gallica.bnf.fr"
+        }
+      ],
+      "source": {
+        "repository": "Bibliothèque nationale de France (Gallica)",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b530712673",
+        "originalTitle": "Maquette du monument qui sera élevé à la mémoire des soldats canadiens tombés à Ypres de Walter Allward (Cl. Keystone) : [photographie de presse] / [Agence Rol]",
+        "date": "1922",
+        "place": "",
+        "license": "Public domain",
+        "description": "Référence bibliographique : Rol, 71517 Appartient à l’ensemble documentaire : Pho20Rol Image de presse"
+      },
+      "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b530712673",
       "added": "2026-09-18",
-      "shown": "2026-09-27",
-      "image": "scenes/gallica-manoeuvres-1912-officier-trangers-un-groupe-deva-bf7b5b-modern-telescoping-umbre.jpg",
-      "original": "scenes/gallica-manoeuvres-1912-officier-trangers-un-groupe-deva-bf7b5b-modern-telescoping-umbre-original.jpg"
+      "shown": "2026-09-28",
+      "image": "scenes/gallica-maquette-du-monument-qui-sera-lev-la-m-moire-des-693109-modern-telescoping-boom.jpg",
+      "original": "scenes/gallica-maquette-du-monument-qui-sera-lev-la-m-moire-des-693109-modern-telescoping-boom-original.jpg"
     }
   ]
 }
