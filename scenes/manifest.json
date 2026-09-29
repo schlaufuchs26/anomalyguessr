@@ -1,186 +1,186 @@
 {
   "version": 2,
-  "date": "2026-09-28",
+  "date": "2026-09-29",
   "scenes": [
     {
-      "id": "gallica-coupe-natation-photographie-de-presse-agence-rol-2b23ea-modern-swimming-goggles",
-      "title": "Coupe [natation]",
-      "title_source": "catalog",
+      "id": "gallica-dastillon-boxeur-photographie-de-presse-agence-r-09a7cc-smartwatch",
+      "title": "Dastillon [boxeur]",
       "place": "",
       "year": "1911",
-      "description": "A press photograph from 1911 by Agence Rol, held by the Bibliothèque nationale de France, département Estampes et photographie, EI-13 (108).",
-      "anomaly": "Modern swimming goggles",
+      "description": "A press photograph from 1911 by Agence Rol shows the boxer Dastillon. It is held by the Bibliothèque nationale de France, département Estampes et photographie, and is in the public domain.",
+      "anomaly": "Smartwatch",
       "answer": {
-        "x": 0.47,
-        "y": 0.532,
-        "r": 0.22
+        "x": 0.831,
+        "y": 0.594,
+        "r": 0.1675
       },
-      "explanation": "While basic glass goggles existed, the modern rubber-strapped swimming goggle with a single band did not become a common, recognizable object until decades after 1911.",
+      "explanation": "Smartwatches with illuminated digital displays did not exist in 1911, making this wrist device impossible for the era.",
       "references": [
         {
-          "label": "Wikipedia - Swimming goggles",
-          "url": "https://en.wikipedia.org/wiki/Swimming_goggles"
-        }
-      ],
-      "source": {
-        "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53111952h",
-        "originalTitle": "Coupe [natation] : [photographie de presse] / [Agence Rol]",
-        "date": "1911",
-        "place": "",
-        "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 15999 Appartient à l’ensemble documentaire : Pho20Rol"
-      },
-      "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53111952h",
-      "added": "2026-09-14",
-      "shown": "2026-09-28",
-      "image": "scenes/gallica-coupe-natation-photographie-de-presse-agence-rol-2b23ea-modern-swimming-goggles.jpg",
-      "original": "scenes/gallica-coupe-natation-photographie-de-presse-agence-rol-2b23ea-modern-swimming-goggles-original.jpg"
-    },
-    {
-      "id": "nb-stavern-kirke-1964-cf48e5-modern-floating-solar-pa",
-      "title": "Stavern kirke",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1964",
-      "description": "A photograph from 1964 showing Stavern kirke, held by the National Library of Norway and in the public domain. The record does not name a photographer.",
-      "anomaly": "Modern floating solar panel",
-      "answer": {
-        "x": 0.683,
-        "y": 0.706,
-        "r": 0.22
-      },
-      "explanation": "Floating solar panels were not deployed until the 2010s, so one cannot exist in a 1964 photograph.",
-      "references": [
-        {
-          "label": "Floating solar",
-          "url": "https://en.wikipedia.org/wiki/Floating_solar"
-        }
-      ],
-      "source": {
-        "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20150116_00188_NB_MIT_FNR_21491",
-        "originalTitle": "Stavern kirke",
-        "date": "1964",
-        "place": "",
-        "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-08-20T10:54:36.295Z', 'firstDigitalContentTime': '2025-08-20T10:56:18.116Z', 'indexLastModified': '2025-08-20T10:56:18.116Z'}"
-      },
-      "credit": "Mittet & Co. AS, Brun, Jacob Reidar via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20150116_00188_NB_MIT_FNR_21491",
-      "added": "2026-09-20",
-      "shown": "2026-09-28",
-      "image": "scenes/nb-stavern-kirke-1964-cf48e5-modern-floating-solar-pa.jpg",
-      "original": "scenes/nb-stavern-kirke-1964-cf48e5-modern-floating-solar-pa-original.jpg"
-    },
-    {
-      "id": "nb-sarpsborg-tekniske-skole-1968-38b9cb-modern-bicycle-helmet",
-      "title": "Sarpsborg tekniske skole",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1968",
-      "description": "A photograph from 1968, held by the National Library of Norway, shows Sarpsborg tekniske skole. The record does not name a photographer.",
-      "anomaly": "modern bicycle helmet",
-      "answer": {
-        "x": 0.575,
-        "y": 0.615,
-        "r": 0.22
-      },
-      "explanation": "Bicycle helmets of this hard-shell type were not in common use in 1968; they became widespread only in the 1970s and later.",
-      "references": [
-        {
-          "label": "Bicycle helmet history",
-          "url": "https://en.wikipedia.org/wiki/Bicycle_helmet"
-        }
-      ],
-      "source": {
-        "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20160210_00236_NB_MIT_FNR_25856",
-        "originalTitle": "Sarpsborg tekniske skole",
-        "date": "1968",
-        "place": "",
-        "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-08-18T20:32:50.979Z', 'firstDigitalContentTime': '2025-08-18T23:05:23.196Z', 'indexLastModified': '2025-08-18T23:05:23.197Z'}"
-      },
-      "credit": "Mittet & Co. AS, Hilsen, Kristian via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20160210_00236_NB_MIT_FNR_25856",
-      "added": "2026-09-21",
-      "shown": "2026-09-28",
-      "image": "scenes/nb-sarpsborg-tekniske-skole-1968-38b9cb-modern-bicycle-helmet.jpg",
-      "original": "scenes/nb-sarpsborg-tekniske-skole-1968-38b9cb-modern-bicycle-helmet-original.jpg"
-    },
-    {
-      "id": "nb-nsb-e-l-8-1948-03-13-f1e602-modern-container-twistlo",
-      "title": "NSB, E.L.8",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1948",
-      "description": "A photograph from the NSB, E.L.8 collection, dated 13 March 1948 and in the public domain, held by the National Library of Norway. The record does not state what the photograph depicts, where it was taken, or who took it.",
-      "anomaly": "modern container twistlock flat wagon",
-      "answer": {
-        "x": 0.755,
-        "y": 0.895,
-        "r": 0.075
-      },
-      "explanation": "Standardized container twistlock flat wagons only entered railway service in the 1960s, so this vehicle cannot exist in a photograph taken in 1948.",
-      "references": [
-        {
-          "label": "Wikipedia: Containerization",
-          "url": "https://en.wikipedia.org/wiki/Containerization"
-        }
-      ],
-      "source": {
-        "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20160209_00450_NB_MIT_FNR_05718A",
-        "originalTitle": "NSB, E.L.8",
-        "date": "1948-03-13",
-        "place": "",
-        "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-08-20T07:00:14.659Z', 'firstDigitalContentTime': '2025-08-20T07:22:30.785Z', 'indexLastModified': '2025-08-20T07:22:30.785Z'}"
-      },
-      "credit": "Mittet & Co. AS via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20160209_00450_NB_MIT_FNR_05718A",
-      "added": "2026-09-22",
-      "shown": "2026-09-28",
-      "image": "scenes/nb-nsb-e-l-8-1948-03-13-f1e602-modern-container-twistlo.jpg",
-      "original": "scenes/nb-nsb-e-l-8-1948-03-13-f1e602-modern-container-twistlo-original.jpg"
-    },
-    {
-      "id": "gallica-maquette-du-monument-qui-sera-lev-la-m-moire-des-693109-modern-telescoping-boom",
-      "title": "Maquette du monument qui sera élevé à la mémoire des soldats canadiens tombés à Ypres de Walter Allward (Cl. Keystone)",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1922",
-      "description": "A press photograph from January 1922 by Agence Rol shows the model of the monument to be erected to the memory of the soldiers fallen at Ypres by Walter Allward, credited to Keystone. It is held by the Bibliothèque nationale de France, département Estampes et photographie.",
-      "anomaly": "modern telescoping boom lift (cherry picker)",
-      "answer": {
-        "x": 0.699,
-        "y": 0.706,
-        "r": 0.22
-      },
-      "explanation": "Telescoping boom lifts with hydraulic arms did not exist in 1922.",
-      "references": [
-        {
-          "label": "Gallica",
+          "label": "Bibliothèque nationale de France (Gallica)",
           "url": "https://gallica.bnf.fr"
         }
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b530712673",
-        "originalTitle": "Maquette du monument qui sera élevé à la mémoire des soldats canadiens tombés à Ypres de Walter Allward (Cl. Keystone) : [photographie de presse] / [Agence Rol]",
-        "date": "1922",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b531126480",
+        "originalTitle": "Dastillon [boxeur] : [photographie de presse] / [Agence Rol]",
+        "date": "1911",
         "place": "",
         "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 71517 Appartient à l’ensemble documentaire : Pho20Rol Image de presse"
+        "description": "Référence bibliographique : Rol, 17351 Appartient à l’ensemble documentaire : Pho20Rol"
       },
-      "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b530712673",
-      "added": "2026-09-18",
-      "shown": "2026-09-28",
-      "image": "scenes/gallica-maquette-du-monument-qui-sera-lev-la-m-moire-des-693109-modern-telescoping-boom.jpg",
-      "original": "scenes/gallica-maquette-du-monument-qui-sera-lev-la-m-moire-des-693109-modern-telescoping-boom-original.jpg"
+      "credit": "Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b531126480",
+      "added": "2026-09-14",
+      "shown": "2026-09-29",
+      "title_source": "catalog",
+      "image": "scenes/gallica-dastillon-boxeur-photographie-de-presse-agence-r-09a7cc-smartwatch.jpg",
+      "original": "scenes/gallica-dastillon-boxeur-photographie-de-presse-agence-r-09a7cc-smartwatch-original.jpg"
+    },
+    {
+      "id": "gallica-f-te-des-fleurs-1908-paris-automobile-fleurie-ph-e0ca8d-modern-led-bicycle-tail",
+      "title": "Fête des Fleurs, [Paris, automobile fleurie]",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1908",
+      "description": "A press photograph by Agence Rol showing a flower-decorated automobile at the Fête des Fleurs in Paris in 1908. The negative on glass is held by the Bibliothèque nationale de France, département Estampes et photographie, and the photograph appeared in La Vie illustrée in 1908.",
+      "anomaly": "modern LED bicycle tail light",
+      "answer": {
+        "x": 0.205,
+        "y": 0.585,
+        "r": 0.22
+      },
+      "explanation": "Bright red LED bicycle tail lights did not exist in 1908; early bicycle lamps were carbide or oil, not battery-powered LEDs.",
+      "references": [
+        {
+          "label": "LED lamp history",
+          "url": "https://en.wikipedia.org/wiki/LED_lamp"
+        }
+      ],
+      "source": {
+        "repository": "Bibliothèque nationale de France (Gallica)",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6910442v",
+        "originalTitle": "Fête des Fleurs, 1908 [Paris, automobile fleurie] : [photographie de presse] / [Agence Rol]",
+        "date": "1908",
+        "place": "",
+        "license": "Public domain",
+        "description": "[Fête des Fleurs, 1908 [Paris, automobile fleurie]. Rol, 1454français)] Référence bibliographique : Rol, 1454 Appartient à l’ensemble documentaire : Pho20Rol impre"
+      },
+      "credit": "Agence Rol. Agence photographique via Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6910442v",
+      "added": "2026-09-23",
+      "shown": "2026-09-29",
+      "image": "scenes/gallica-f-te-des-fleurs-1908-paris-automobile-fleurie-ph-e0ca8d-modern-led-bicycle-tail.jpg",
+      "original": "scenes/gallica-f-te-des-fleurs-1908-paris-automobile-fleurie-ph-e0ca8d-modern-led-bicycle-tail-original.jpg"
+    },
+    {
+      "id": "gallica-second-projet-de-baldaquin-soutenu-par-quatre-pa-126caf-modern-led-altar-candle",
+      "title": "[Second projet de baldaquin soutenu par quatre paires de colonnes et orné d'un suspensoir]",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1705",
+      "description": "A 1705 drawing in brown ink and wash by Robert de Cotte, titled \"Second project of a baldachin supported by four pairs of columns and adorned with a suspensoir,\" shows an elevation of a baldachin design for the decoration of various unidentified altars. It is held by the Bibliothèque nationale de France, département Estampes et photographie, and is in the public domain.",
+      "anomaly": "modern LED altar candle",
+      "answer": {
+        "x": 0.408,
+        "y": 0.665,
+        "r": 0.22
+      },
+      "explanation": "The first practical visible-spectrum LED was only demonstrated in 1962, so a glowing LED candle cannot exist in a 1705 drawing.",
+      "references": [
+        {
+          "label": "Nobel Prize: The 2014 Nobel Prize in Physics - Popular information",
+          "url": "https://www.nobelprize.org/prizes/physics/2014/popular-information/"
+        }
+      ],
+      "source": {
+        "repository": "Bibliothèque nationale de France (Gallica)",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6939243x",
+        "originalTitle": "[Second projet de baldaquin soutenu par quatre paires de colonnes et orné d'un suspensoir] : [dessin]",
+        "date": "1705",
+        "place": "",
+        "license": "Public domain",
+        "description": "Référence bibliographique : Robert de Cotte, 2248 Référence bibliographique : Fossier, 386 Appartient à l’ensemble documentaire : Des18Cotte Élévation"
+      },
+      "credit": "Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6939243x",
+      "added": "2026-09-23",
+      "shown": "2026-09-29",
+      "image": "scenes/gallica-second-projet-de-baldaquin-soutenu-par-quatre-pa-126caf-modern-led-altar-candle.jpg",
+      "original": "scenes/gallica-second-projet-de-baldaquin-soutenu-par-quatre-pa-126caf-modern-led-altar-candle-original.jpg"
+    },
+    {
+      "id": "nb-nf-wf-13607-bragernes-torg-1940-8086f2-modern-cargo-bicycle-wit",
+      "title": "[NF.WF 13607 Bragernes torg]",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1940",
+      "description": "A photograph from 1940 in the collection of the National Library of Norway, catalogued as NF.WF 13607 Bragernes torg, showing Bragernes square. The record does not name a photographer.",
+      "anomaly": "modern cargo bicycle with a boxy child seat",
+      "answer": {
+        "x": 0.775,
+        "y": 0.755,
+        "r": 0.22
+      },
+      "explanation": "Molded plastic child seats for bicycles did not exist in 1940, so this accessory cannot belong to the scene.",
+      "references": [
+        {
+          "label": "Bicycle child seat history",
+          "url": "https://en.wikipedia.org/wiki/Bicycle_child_seat"
+        }
+      ],
+      "source": {
+        "repository": "National Library of Norway",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_NF_WF_13607",
+        "originalTitle": "[NF.WF 13607 Bragernes torg]",
+        "date": "1940",
+        "place": "",
+        "license": "Public domain",
+        "description": "{'firstIndexTime': '2025-08-22T16:32:06.484Z', 'firstDigitalContentTime': '2025-10-24T03:00:50.543Z', 'indexLastModified': '2025-10-24T03:00:50.543Z'}"
+      },
+      "credit": "Wilse, Anders Beer, Norsk folkemuseum via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_NF_WF_13607",
+      "added": "2026-09-23",
+      "shown": "2026-09-29",
+      "image": "scenes/nb-nf-wf-13607-bragernes-torg-1940-8086f2-modern-cargo-bicycle-wit.jpg",
+      "original": "scenes/nb-nf-wf-13607-bragernes-torg-1940-8086f2-modern-cargo-bicycle-wit-original.jpg"
+    },
+    {
+      "id": "nb-blomsterhandel-p-torg-1890-ded066-modern-plastic-flower-po",
+      "title": "[Blomsterhandel på torg]",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1890",
+      "description": "[Blomsterhandel på torg] · National Library of Norway.",
+      "anomaly": "modern plastic flower pot",
+      "answer": {
+        "x": 0.625,
+        "y": 0.565,
+        "r": 0.22
+      },
+      "explanation": "Molded plastic flower pots did not exist in 1890, when plant containers were made of wood, wicker, terracotta or metal.",
+      "references": [
+        {
+          "label": "Science Museum: The history of plastics",
+          "url": "https://www.sciencemuseum.org.uk/objects-and-stories/history-plastics"
+        }
+      ],
+      "source": {
+        "repository": "National Library of Norway",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20170711_00084_NB_MIT_ENR_01502",
+        "originalTitle": "[Blomsterhandel på torg]",
+        "date": "1890",
+        "place": "",
+        "license": "Public domain",
+        "description": "{'firstIndexTime': '2025-08-19T20:46:05.826Z', 'firstDigitalContentTime': '2025-08-19T23:16:45.220Z', 'indexLastModified': '2025-08-19T23:16:45.220Z'}"
+      },
+      "credit": "Mittet & Co. AS, Neupert, Hermann Christian via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20170711_00084_NB_MIT_ENR_01502",
+      "added": "2026-09-23",
+      "shown": "2026-09-29",
+      "image": "scenes/nb-blomsterhandel-p-torg-1890-ded066-modern-plastic-flower-po.jpg",
+      "original": "scenes/nb-blomsterhandel-p-torg-1890-ded066-modern-plastic-flower-po-original.jpg"
     }
   ]
 }
