@@ -1,186 +1,186 @@
 {
   "version": 2,
-  "date": "2026-09-29",
+  "date": "2026-09-30",
   "scenes": [
     {
-      "id": "gallica-dastillon-boxeur-photographie-de-presse-agence-r-09a7cc-smartwatch",
-      "title": "Dastillon [boxeur]",
+      "id": "gallica-19-3-25-lection-de-la-reine-des-reines-mlles-del-f2f793-modern-smartwatch",
+      "title": "19/3/25, élection [de la] reine des reines, Mlles Delapierre, Camier, Fraigneux, Henry, Laurent [de d. à g.]",
+      "title_source": "catalog",
       "place": "",
-      "year": "1911",
-      "description": "A press photograph from 1911 by Agence Rol shows the boxer Dastillon. It is held by the Bibliothèque nationale de France, département Estampes et photographie, and is in the public domain.",
-      "anomaly": "Smartwatch",
+      "year": "1925",
+      "description": "A press photograph taken by Agence Rol on March 19, 1925, showing the election of the \"queen of queens\" and depicting Mlles Delapierre, Camier, Fraigneux, Henry, and Laurent from right to left. It belongs to the Bibliothèque nationale de France, département Estampes et photographie, and is in the public domain.",
+      "anomaly": "Modern smartwatch",
       "answer": {
-        "x": 0.831,
-        "y": 0.594,
-        "r": 0.1675
+        "x": 0.838,
+        "y": 0.365,
+        "r": 0.22
       },
-      "explanation": "Smartwatches with illuminated digital displays did not exist in 1911, making this wrist device impossible for the era.",
+      "explanation": "Smartwatches with lit digital displays did not exist in 1925, as the first modern smartwatch was released in 2015.",
       "references": [
         {
-          "label": "Bibliothèque nationale de France (Gallica)",
-          "url": "https://gallica.bnf.fr"
+          "label": "Wikipedia - Smartwatch",
+          "url": "https://en.wikipedia.org/wiki/Smartwatch"
         }
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b531126480",
-        "originalTitle": "Dastillon [boxeur] : [photographie de presse] / [Agence Rol]",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53144319p",
+        "originalTitle": "19/3/25, élection [de la] reine des reines, Mlles Delapierre, Camier, Fraigneux, Henry, Laurent [de d. à g.] : [photographie de presse] / [Agence Rol]",
+        "date": "1925",
+        "place": "",
+        "license": "Public domain",
+        "description": "Référence bibliographique : Rol, 99280 Appartient à l’ensemble documentaire : Pho20Rol Image de presse"
+      },
+      "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53144319p",
+      "added": "2026-09-15",
+      "shown": "2026-09-30",
+      "image": "scenes/gallica-19-3-25-lection-de-la-reine-des-reines-mlles-del-f2f793-modern-smartwatch.jpg",
+      "original": "scenes/gallica-19-3-25-lection-de-la-reine-des-reines-mlles-del-f2f793-modern-smartwatch-original.jpg"
+    },
+    {
+      "id": "gallica-10-3-12-juvisy-cross-country-international-de-l-c1feb1-modern-running-shoe-with",
+      "title": "[10-3-12, Juvisy, cross country international de l'Auto] Rivez, J. Kern, Kolehmanen, Bouchard, Holmer [coureurs]",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1912",
+      "description": "A press photograph by Agence Rol, dated 10 March 1912, shows the runners Rivez, J. Kern, Kolehmanen, Bouchard and Holmer at the international cross-country race of L'Auto at Juvisy. The black-and-white glass negative, held by the Bibliothèque nationale de France, measures 13 x 18 cm.",
+      "anomaly": "modern running shoe with thick foam midsole",
+      "answer": {
+        "x": 0.795,
+        "y": 0.795,
+        "r": 0.22
+      },
+      "explanation": "Cushioned foam-soled running shoes did not exist in 1912; the runners' footwear here is thin leather with spikes.",
+      "references": [
+        {
+          "label": "Wikipedia: Running shoe",
+          "url": "https://en.wikipedia.org/wiki/Running_shoe"
+        }
+      ],
+      "source": {
+        "repository": "Bibliothèque nationale de France (Gallica)",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53113317h",
+        "originalTitle": "[10-3-12, Juvisy, cross country international de l'Auto] Rivez, J. Kern, Kolehmanen, Bouchard, Holmer [coureurs] : [photographie de presse] / [Agence Rol]",
+        "date": "1912",
+        "place": "",
+        "license": "Public domain",
+        "description": "Référence bibliographique : Rol, 18981 Appartient à l’ensemble documentaire : Pho20Rol Appartient à l’ensemble documentaire : IledeFr1"
+      },
+      "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53113317h",
+      "added": "2026-09-24",
+      "shown": "2026-09-30",
+      "image": "scenes/gallica-10-3-12-juvisy-cross-country-international-de-l-c1feb1-modern-running-shoe-with.jpg",
+      "original": "scenes/gallica-10-3-12-juvisy-cross-country-international-de-l-c1feb1-modern-running-shoe-with-original.jpg"
+    },
+    {
+      "id": "gallica-s-t-louvre-pavillons-turgot-et-richelieu-baldus-8c0f79-modern-security-camera",
+      "title": "S. T. [Louvre. Pavillons Turgot et Richelieu] / Baldus, Edouard",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1857",
+      "description": "A photograph by Edouard Baldus from 1857 shows the Pavillons Turgot et Richelieu of the Louvre. The record identifies it as an architectural photograph held by the Bibliothèque nationale de France and the Ecole nationale des ponts et chaussées.",
+      "anomaly": "modern security camera",
+      "answer": {
+        "x": 0.594,
+        "y": 0.629,
+        "r": 0.22
+      },
+      "explanation": "CCTV security cameras did not exist in 1857; they were developed in the mid-20th century.",
+      "references": [
+        {
+          "label": "Wikipedia: Closed-circuit television",
+          "url": "https://en.wikipedia.org/wiki/Closed-circuit_television"
+        }
+      ],
+      "source": {
+        "repository": "Bibliothèque nationale de France (Gallica)",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b10482923h",
+        "originalTitle": "S. T. [Louvre. Pavillons Turgot et Richelieu] / Baldus, Edouard",
+        "date": "1857",
+        "place": "",
+        "license": "Public domain",
+        "description": "Appartient à l’ensemble documentaire : EnPC000 Appartient à l’ensemble documentaire : EnPCthèm03 Appartient à l’ensemble documentaire : EnPCtypo02"
+      },
+      "credit": "Baldus, Édouard (1813-1889). Auteur du texte via Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b10482923h",
+      "added": "2026-09-24",
+      "shown": "2026-09-30",
+      "image": "scenes/gallica-s-t-louvre-pavillons-turgot-et-richelieu-baldus-8c0f79-modern-security-camera.jpg",
+      "original": "scenes/gallica-s-t-louvre-pavillons-turgot-et-richelieu-baldus-8c0f79-modern-security-camera-original.jpg"
+    },
+    {
+      "id": "gallica-1929-miss-spooner-aviatrice-photographie-de-pres-ad09c3-modern-plastic-zip-tie",
+      "title": "miss Spooner, aviatrice",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1929",
+      "description": "A press photograph from September 1929 by Agence Meurisse shows miss Spooner, an aviatrice, with biplanes. It is held by the Bibliothèque nationale de France, département Estampes et photographie.",
+      "anomaly": "modern plastic zip tie",
+      "answer": {
+        "x": 0.531,
+        "y": 0.733,
+        "r": 0.22
+      },
+      "explanation": "The plastic zip tie was patented in 1958, so it did not exist when this photograph was taken in 1929.",
+      "references": [
+        {
+          "label": "Wikipedia: Cable tie",
+          "url": "https://en.wikipedia.org/wiki/Cable_tie"
+        }
+      ],
+      "source": {
+        "repository": "Bibliothèque nationale de France (Gallica)",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b532417252",
+        "originalTitle": "1929, miss Spooner, aviatrice : [photographie de presse] / [Agence Meurisse]",
+        "date": "1929",
+        "place": "",
+        "license": "Public domain",
+        "description": "Référence bibliographique : Meurisse, 70047 A Appartient à l’ensemble documentaire : Pho20Meu Image de presse"
+      },
+      "credit": "Agence de presse Meurisse. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b532417252",
+      "added": "2026-09-25",
+      "shown": "2026-09-30",
+      "image": "scenes/gallica-1929-miss-spooner-aviatrice-photographie-de-pres-ad09c3-modern-plastic-zip-tie.jpg",
+      "original": "scenes/gallica-1929-miss-spooner-aviatrice-photographie-de-pres-ad09c3-modern-plastic-zip-tie-original.jpg"
+    },
+    {
+      "id": "gallica-albanie-2-4-11-rassemblement-d-hommes-devant-une-fe28b5-modern-telescoping-alumi",
+      "title": "Albanie, 2-4-11 [rassemblement d'hommes devant une maison]",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1911",
+      "description": "A press photograph by Agence Rol, dated 2 April 1911, showing a gathering of men in front of a house in Albanie. The record identifies the subjects as rioters in Albanie and notes the image is held by the Bibliothèque nationale de France.",
+      "anomaly": "modern telescoping aluminum selfie stick",
+      "answer": {
+        "x": 0.845,
+        "y": 0.545,
+        "r": 0.22
+      },
+      "explanation": "Telescoping aluminum selfie sticks did not exist in 1911; they became common consumer products only in the 1980s and later.",
+      "references": [
+        {
+          "label": "Selfie stick - Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Selfie_stick"
+        }
+      ],
+      "source": {
+        "repository": "Bibliothèque nationale de France (Gallica)",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53112289k",
+        "originalTitle": "Albanie, 2-4-11 [rassemblement d'hommes devant une maison] : [photographie de presse] / [Agence Rol]",
         "date": "1911",
         "place": "",
         "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 17351 Appartient à l’ensemble documentaire : Pho20Rol"
+        "description": "Référence bibliographique : Rol, 13136 Appartient à l’ensemble documentaire : Pho20Rol"
       },
-      "credit": "Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b531126480",
-      "added": "2026-09-14",
-      "shown": "2026-09-29",
-      "title_source": "catalog",
-      "image": "scenes/gallica-dastillon-boxeur-photographie-de-presse-agence-r-09a7cc-smartwatch.jpg",
-      "original": "scenes/gallica-dastillon-boxeur-photographie-de-presse-agence-r-09a7cc-smartwatch-original.jpg"
-    },
-    {
-      "id": "gallica-f-te-des-fleurs-1908-paris-automobile-fleurie-ph-e0ca8d-modern-led-bicycle-tail",
-      "title": "Fête des Fleurs, [Paris, automobile fleurie]",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1908",
-      "description": "A press photograph by Agence Rol showing a flower-decorated automobile at the Fête des Fleurs in Paris in 1908. The negative on glass is held by the Bibliothèque nationale de France, département Estampes et photographie, and the photograph appeared in La Vie illustrée in 1908.",
-      "anomaly": "modern LED bicycle tail light",
-      "answer": {
-        "x": 0.205,
-        "y": 0.585,
-        "r": 0.22
-      },
-      "explanation": "Bright red LED bicycle tail lights did not exist in 1908; early bicycle lamps were carbide or oil, not battery-powered LEDs.",
-      "references": [
-        {
-          "label": "LED lamp history",
-          "url": "https://en.wikipedia.org/wiki/LED_lamp"
-        }
-      ],
-      "source": {
-        "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6910442v",
-        "originalTitle": "Fête des Fleurs, 1908 [Paris, automobile fleurie] : [photographie de presse] / [Agence Rol]",
-        "date": "1908",
-        "place": "",
-        "license": "Public domain",
-        "description": "[Fête des Fleurs, 1908 [Paris, automobile fleurie]. Rol, 1454français)] Référence bibliographique : Rol, 1454 Appartient à l’ensemble documentaire : Pho20Rol impre"
-      },
-      "credit": "Agence Rol. Agence photographique via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6910442v",
-      "added": "2026-09-23",
-      "shown": "2026-09-29",
-      "image": "scenes/gallica-f-te-des-fleurs-1908-paris-automobile-fleurie-ph-e0ca8d-modern-led-bicycle-tail.jpg",
-      "original": "scenes/gallica-f-te-des-fleurs-1908-paris-automobile-fleurie-ph-e0ca8d-modern-led-bicycle-tail-original.jpg"
-    },
-    {
-      "id": "gallica-second-projet-de-baldaquin-soutenu-par-quatre-pa-126caf-modern-led-altar-candle",
-      "title": "[Second projet de baldaquin soutenu par quatre paires de colonnes et orné d'un suspensoir]",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1705",
-      "description": "A 1705 drawing in brown ink and wash by Robert de Cotte, titled \"Second project of a baldachin supported by four pairs of columns and adorned with a suspensoir,\" shows an elevation of a baldachin design for the decoration of various unidentified altars. It is held by the Bibliothèque nationale de France, département Estampes et photographie, and is in the public domain.",
-      "anomaly": "modern LED altar candle",
-      "answer": {
-        "x": 0.408,
-        "y": 0.665,
-        "r": 0.22
-      },
-      "explanation": "The first practical visible-spectrum LED was only demonstrated in 1962, so a glowing LED candle cannot exist in a 1705 drawing.",
-      "references": [
-        {
-          "label": "Nobel Prize: The 2014 Nobel Prize in Physics - Popular information",
-          "url": "https://www.nobelprize.org/prizes/physics/2014/popular-information/"
-        }
-      ],
-      "source": {
-        "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6939243x",
-        "originalTitle": "[Second projet de baldaquin soutenu par quatre paires de colonnes et orné d'un suspensoir] : [dessin]",
-        "date": "1705",
-        "place": "",
-        "license": "Public domain",
-        "description": "Référence bibliographique : Robert de Cotte, 2248 Référence bibliographique : Fossier, 386 Appartient à l’ensemble documentaire : Des18Cotte Élévation"
-      },
-      "credit": "Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6939243x",
-      "added": "2026-09-23",
-      "shown": "2026-09-29",
-      "image": "scenes/gallica-second-projet-de-baldaquin-soutenu-par-quatre-pa-126caf-modern-led-altar-candle.jpg",
-      "original": "scenes/gallica-second-projet-de-baldaquin-soutenu-par-quatre-pa-126caf-modern-led-altar-candle-original.jpg"
-    },
-    {
-      "id": "nb-nf-wf-13607-bragernes-torg-1940-8086f2-modern-cargo-bicycle-wit",
-      "title": "[NF.WF 13607 Bragernes torg]",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1940",
-      "description": "A photograph from 1940 in the collection of the National Library of Norway, catalogued as NF.WF 13607 Bragernes torg, showing Bragernes square. The record does not name a photographer.",
-      "anomaly": "modern cargo bicycle with a boxy child seat",
-      "answer": {
-        "x": 0.775,
-        "y": 0.755,
-        "r": 0.22
-      },
-      "explanation": "Molded plastic child seats for bicycles did not exist in 1940, so this accessory cannot belong to the scene.",
-      "references": [
-        {
-          "label": "Bicycle child seat history",
-          "url": "https://en.wikipedia.org/wiki/Bicycle_child_seat"
-        }
-      ],
-      "source": {
-        "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_NF_WF_13607",
-        "originalTitle": "[NF.WF 13607 Bragernes torg]",
-        "date": "1940",
-        "place": "",
-        "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-08-22T16:32:06.484Z', 'firstDigitalContentTime': '2025-10-24T03:00:50.543Z', 'indexLastModified': '2025-10-24T03:00:50.543Z'}"
-      },
-      "credit": "Wilse, Anders Beer, Norsk folkemuseum via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_NF_WF_13607",
-      "added": "2026-09-23",
-      "shown": "2026-09-29",
-      "image": "scenes/nb-nf-wf-13607-bragernes-torg-1940-8086f2-modern-cargo-bicycle-wit.jpg",
-      "original": "scenes/nb-nf-wf-13607-bragernes-torg-1940-8086f2-modern-cargo-bicycle-wit-original.jpg"
-    },
-    {
-      "id": "nb-blomsterhandel-p-torg-1890-ded066-modern-plastic-flower-po",
-      "title": "[Blomsterhandel på torg]",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1890",
-      "description": "[Blomsterhandel på torg] · National Library of Norway.",
-      "anomaly": "modern plastic flower pot",
-      "answer": {
-        "x": 0.625,
-        "y": 0.565,
-        "r": 0.22
-      },
-      "explanation": "Molded plastic flower pots did not exist in 1890, when plant containers were made of wood, wicker, terracotta or metal.",
-      "references": [
-        {
-          "label": "Science Museum: The history of plastics",
-          "url": "https://www.sciencemuseum.org.uk/objects-and-stories/history-plastics"
-        }
-      ],
-      "source": {
-        "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20170711_00084_NB_MIT_ENR_01502",
-        "originalTitle": "[Blomsterhandel på torg]",
-        "date": "1890",
-        "place": "",
-        "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-08-19T20:46:05.826Z', 'firstDigitalContentTime': '2025-08-19T23:16:45.220Z', 'indexLastModified': '2025-08-19T23:16:45.220Z'}"
-      },
-      "credit": "Mittet & Co. AS, Neupert, Hermann Christian via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20170711_00084_NB_MIT_ENR_01502",
-      "added": "2026-09-23",
-      "shown": "2026-09-29",
-      "image": "scenes/nb-blomsterhandel-p-torg-1890-ded066-modern-plastic-flower-po.jpg",
-      "original": "scenes/nb-blomsterhandel-p-torg-1890-ded066-modern-plastic-flower-po-original.jpg"
+      "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53112289k",
+      "added": "2026-09-25",
+      "shown": "2026-09-30",
+      "image": "scenes/gallica-albanie-2-4-11-rassemblement-d-hommes-devant-une-fe28b5-modern-telescoping-alumi.jpg",
+      "original": "scenes/gallica-albanie-2-4-11-rassemblement-d-hommes-devant-une-fe28b5-modern-telescoping-alumi-original.jpg"
     }
   ]
 }
