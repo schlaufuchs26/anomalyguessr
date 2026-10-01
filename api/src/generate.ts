@@ -349,22 +349,32 @@ export function unshownAccepted(st: StateFile, fb: FeedbackFile): number {
 }
 
 /**
- * True when a generator process holds the run lock. `flock -n <lock> true`
- * takes the same advisory lock ag_generate.py takes for a whole run and
- * fails while the cron (or another API instance) holds it; util-linux flock
- * creates the lock file when missing, like the Go probe's O_CREATE.
+ * Helper that speaks flock(2) through fcntl: the probe below, and the tests'
+ * lock holder. util-linux's flock binary is absent on macOS (ticket #2235),
+ * so the probe cannot shell out to it.
+ */
+export const FLOCK_HELPER = path.join(import.meta.dir, "flockProbe.py");
+
+/** flockProbe.py's exit code for "another process holds the lock". */
+const LOCK_HELD_EXIT = 3;
+
+/**
+ * True when a generator process holds the run lock. flockProbe.py takes the
+ * same advisory flock ag_generate.py takes for a whole run and reports it
+ * held while the cron (or another API instance) holds it; it creates the
+ * lock file when missing, like the Go probe's O_CREATE.
  */
 export function lockHeld(dataDir: string): boolean {
   if (!existsSync(dataDir)) return false; // no queue yet: nothing can hold it
   try {
     const probe = Bun.spawnSync(
-      ["flock", "-n", path.join(dataDir, LOCK_NAME), "true"],
+      ["python3", FLOCK_HELPER, "probe", path.join(dataDir, LOCK_NAME)],
       { stdin: "ignore", stdout: "ignore", stderr: "ignore" },
     );
-    return probe.exitCode !== 0;
+    return probe.exitCode === LOCK_HELD_EXIT;
   } catch {
-    // No flock binary on PATH: the lock cannot be probed, so report free
-    // (the status file still reports the run's own progress).
+    // No python3 on PATH: the lock cannot be probed, so report free (the
+    // status file still reports the run's own progress).
     return false;
   }
 }

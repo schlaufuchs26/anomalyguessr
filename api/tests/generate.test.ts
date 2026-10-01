@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import path from "node:path";
 import {
+  FLOCK_HELPER,
   type GenerateStatus,
   lockHeld,
   spawnGenerator,
@@ -208,19 +209,11 @@ describe("POST /generate", () => {
       called = true;
     });
     // Hold the same flock pipeline/ag_generate.py takes, as a cron run would.
-    // -w (not -n) so a probe racing the startup cannot make the holder give
-    // up; -F makes flock exec the sleep in place, so killing it releases the
-    // lock instead of leaving a child with the inherited fd behind.
+    // flockProbe.py's hold mode retries for a few seconds first, so a probe
+    // racing this process cannot make the holder give up; killing it drops
+    // the lock with its process, exactly like the generator's own holder.
     const lockPath = path.join(dir, "generate.lock");
-    const holder = Bun.spawn([
-      "flock",
-      "-F",
-      "-w",
-      "5",
-      lockPath,
-      "sleep",
-      "30",
-    ]);
+    const holder = Bun.spawn(["python3", FLOCK_HELPER, "hold", lockPath, "30"]);
     const deadline = Date.now() + 2000;
     while (!lockHeld(dir)) {
       if (Date.now() > deadline) {
