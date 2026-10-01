@@ -1,165 +1,158 @@
 {
   "version": 2,
-  "date": "2026-09-30",
+  "date": "2026-10-01",
   "scenes": [
     {
-      "id": "gallica-19-3-25-lection-de-la-reine-des-reines-mlles-del-f2f793-modern-smartwatch",
-      "title": "19/3/25, élection [de la] reine des reines, Mlles Delapierre, Camier, Fraigneux, Henry, Laurent [de d. à g.]",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1925",
-      "description": "A press photograph taken by Agence Rol on March 19, 1925, showing the election of the \"queen of queens\" and depicting Mlles Delapierre, Camier, Fraigneux, Henry, and Laurent from right to left. It belongs to the Bibliothèque nationale de France, département Estampes et photographie, and is in the public domain.",
-      "anomaly": "Modern smartwatch",
-      "answer": {
-        "x": 0.838,
-        "y": 0.365,
-        "r": 0.22
-      },
-      "explanation": "Smartwatches with lit digital displays did not exist in 1925, as the first modern smartwatch was released in 2015.",
-      "references": [
-        {
-          "label": "Wikipedia - Smartwatch",
-          "url": "https://en.wikipedia.org/wiki/Smartwatch"
-        }
-      ],
-      "source": {
-        "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53144319p",
-        "originalTitle": "19/3/25, élection [de la] reine des reines, Mlles Delapierre, Camier, Fraigneux, Henry, Laurent [de d. à g.] : [photographie de presse] / [Agence Rol]",
-        "date": "1925",
-        "place": "",
-        "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 99280 Appartient à l’ensemble documentaire : Pho20Rol Image de presse"
-      },
-      "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53144319p",
-      "added": "2026-09-15",
-      "shown": "2026-09-30",
-      "image": "scenes/gallica-19-3-25-lection-de-la-reine-des-reines-mlles-del-f2f793-modern-smartwatch.jpg",
-      "original": "scenes/gallica-19-3-25-lection-de-la-reine-des-reines-mlles-del-f2f793-modern-smartwatch-original.jpg"
-    },
-    {
-      "id": "gallica-10-3-12-juvisy-cross-country-international-de-l-c1feb1-modern-running-shoe-with",
-      "title": "[10-3-12, Juvisy, cross country international de l'Auto] Rivez, J. Kern, Kolehmanen, Bouchard, Holmer [coureurs]",
+      "id": "gallica-besnard-boxeur-photographie-de-presse-agence-rol-79bfce-modern-boxing-mouthguard",
+      "title": "Besnard [boxeur]",
       "title_source": "catalog",
       "place": "",
       "year": "1912",
-      "description": "A press photograph by Agence Rol, dated 10 March 1912, shows the runners Rivez, J. Kern, Kolehmanen, Bouchard and Holmer at the international cross-country race of L'Auto at Juvisy. The black-and-white glass negative, held by the Bibliothèque nationale de France, measures 13 x 18 cm.",
-      "anomaly": "modern running shoe with thick foam midsole",
+      "description": "A press photograph from 1912 by Agence Rol showing the boxer Besnard, held in the Estampes et photographie department of the Bibliothèque nationale de France (EI-13 (136)). It is a negative on glass measuring 13 x 18 cm, in the public domain and part of the Pho20Rol documentary set.",
+      "anomaly": "Modern boxing mouthguard",
       "answer": {
-        "x": 0.795,
-        "y": 0.795,
+        "x": 0.386,
+        "y": 0.363,
         "r": 0.22
       },
-      "explanation": "Cushioned foam-soled running shoes did not exist in 1912; the runners' footwear here is thin leather with spikes.",
+      "explanation": "Protective plastic mouthguards for boxing were not developed or worn until the 1970s, so this object cannot exist in a 1912 photograph.",
       "references": [
         {
-          "label": "Wikipedia: Running shoe",
-          "url": "https://en.wikipedia.org/wiki/Running_shoe"
+          "label": "Wikipedia - Mouthguard",
+          "url": "https://en.wikipedia.org/wiki/Mouthguard"
         }
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53113317h",
-        "originalTitle": "[10-3-12, Juvisy, cross country international de l'Auto] Rivez, J. Kern, Kolehmanen, Bouchard, Holmer [coureurs] : [photographie de presse] / [Agence Rol]",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6918946q",
+        "originalTitle": "Besnard [boxeur] : [photographie de presse] / [Agence Rol]",
         "date": "1912",
         "place": "",
         "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 18981 Appartient à l’ensemble documentaire : Pho20Rol Appartient à l’ensemble documentaire : IledeFr1"
+        "description": "Référence bibliographique : Rol, 18463 Appartient à l’ensemble documentaire : Pho20Rol"
       },
       "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53113317h",
-      "added": "2026-09-24",
-      "shown": "2026-09-30",
-      "image": "scenes/gallica-10-3-12-juvisy-cross-country-international-de-l-c1feb1-modern-running-shoe-with.jpg",
-      "original": "scenes/gallica-10-3-12-juvisy-cross-country-international-de-l-c1feb1-modern-running-shoe-with-original.jpg"
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6918946q",
+      "added": "2026-09-15",
+      "shown": "2026-10-01",
+      "image": "scenes/gallica-besnard-boxeur-photographie-de-presse-agence-rol-79bfce-modern-boxing-mouthguard.jpg",
+      "original": "scenes/gallica-besnard-boxeur-photographie-de-presse-agence-rol-79bfce-modern-boxing-mouthguard-original.jpg"
     },
     {
-      "id": "gallica-s-t-louvre-pavillons-turgot-et-richelieu-baldus-8c0f79-modern-security-camera",
-      "title": "S. T. [Louvre. Pavillons Turgot et Richelieu] / Baldus, Edouard",
+      "id": "gallica-les-mutil-s-de-l-arm-e-un-aveugle-gravant-photog-484625-modern-led-desk-lamp",
+      "title": "Les mutilés de l'armée : un aveugle gravant",
       "title_source": "catalog",
       "place": "",
-      "year": "1857",
-      "description": "A photograph by Edouard Baldus from 1857 shows the Pavillons Turgot et Richelieu of the Louvre. The record identifies it as an architectural photograph held by the Bibliothèque nationale de France and the Ecole nationale des ponts et chaussées.",
-      "anomaly": "modern security camera",
+      "year": "1915",
+      "description": "A photograph from the Agence Meurisse press agency, dated 1915, shows a blind wounded soldier from the army engraving. It belongs to the Bibliothèque nationale de France (department of prints and photographs) and is titled \"Les mutilés de l'armée : un aveugle gravant\" (\"The mutilated of the army: a blind man engraving\").",
+      "anomaly": "modern LED desk lamp",
       "answer": {
-        "x": 0.594,
-        "y": 0.629,
+        "x": 0.762,
+        "y": 0.641,
         "r": 0.22
       },
-      "explanation": "CCTV security cameras did not exist in 1857; they were developed in the mid-20th century.",
+      "explanation": "A battery-powered LED lamp cannot exist in 1915 because practical visible-light LEDs were only developed in the 1960s.",
       "references": [
         {
-          "label": "Wikipedia: Closed-circuit television",
-          "url": "https://en.wikipedia.org/wiki/Closed-circuit_television"
+          "label": "Wikipedia: Light-emitting diode",
+          "url": "https://en.wikipedia.org/wiki/Light-emitting_diode"
         }
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b10482923h",
-        "originalTitle": "S. T. [Louvre. Pavillons Turgot et Richelieu] / Baldus, Edouard",
-        "date": "1857",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b90439117",
+        "originalTitle": "Les mutilés de l'armée : un aveugle gravant : [photographie de presse] / Agence Meurisse",
+        "date": "1915",
         "place": "",
         "license": "Public domain",
-        "description": "Appartient à l’ensemble documentaire : EnPC000 Appartient à l’ensemble documentaire : EnPCthèm03 Appartient à l’ensemble documentaire : EnPCtypo02"
-      },
-      "credit": "Baldus, Édouard (1813-1889). Auteur du texte via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b10482923h",
-      "added": "2026-09-24",
-      "shown": "2026-09-30",
-      "image": "scenes/gallica-s-t-louvre-pavillons-turgot-et-richelieu-baldus-8c0f79-modern-security-camera.jpg",
-      "original": "scenes/gallica-s-t-louvre-pavillons-turgot-et-richelieu-baldus-8c0f79-modern-security-camera-original.jpg"
-    },
-    {
-      "id": "gallica-1929-miss-spooner-aviatrice-photographie-de-pres-ad09c3-modern-plastic-zip-tie",
-      "title": "miss Spooner, aviatrice",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1929",
-      "description": "A press photograph from September 1929 by Agence Meurisse shows miss Spooner, an aviatrice, with biplanes. It is held by the Bibliothèque nationale de France, département Estampes et photographie.",
-      "anomaly": "modern plastic zip tie",
-      "answer": {
-        "x": 0.531,
-        "y": 0.733,
-        "r": 0.22
-      },
-      "explanation": "The plastic zip tie was patented in 1958, so it did not exist when this photograph was taken in 1929.",
-      "references": [
-        {
-          "label": "Wikipedia: Cable tie",
-          "url": "https://en.wikipedia.org/wiki/Cable_tie"
-        }
-      ],
-      "source": {
-        "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b532417252",
-        "originalTitle": "1929, miss Spooner, aviatrice : [photographie de presse] / [Agence Meurisse]",
-        "date": "1929",
-        "place": "",
-        "license": "Public domain",
-        "description": "Référence bibliographique : Meurisse, 70047 A Appartient à l’ensemble documentaire : Pho20Meu Image de presse"
+        "description": "Référence bibliographique : Meurisse, 57932 Appartient à l’ensemble documentaire : Pho20Meu Image de presse"
       },
       "credit": "Agence de presse Meurisse. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b532417252",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b90439117",
       "added": "2026-09-25",
-      "shown": "2026-09-30",
-      "image": "scenes/gallica-1929-miss-spooner-aviatrice-photographie-de-pres-ad09c3-modern-plastic-zip-tie.jpg",
-      "original": "scenes/gallica-1929-miss-spooner-aviatrice-photographie-de-pres-ad09c3-modern-plastic-zip-tie-original.jpg"
+      "shown": "2026-10-01",
+      "image": "scenes/gallica-les-mutil-s-de-l-arm-e-un-aveugle-gravant-photog-484625-modern-led-desk-lamp.jpg",
+      "original": "scenes/gallica-les-mutil-s-de-l-arm-e-un-aveugle-gravant-photog-484625-modern-led-desk-lamp-original.jpg"
     },
     {
-      "id": "gallica-albanie-2-4-11-rassemblement-d-hommes-devant-une-fe28b5-modern-telescoping-alumi",
-      "title": "Albanie, 2-4-11 [rassemblement d'hommes devant une maison]",
+      "id": "paramaribo-market",
+      "title": "KITLV - 12667 - Covered market on the Waterkant in Paramaribo",
+      "place": "Paramaribo, Suriname",
+      "year": "c. 1899",
+      "credit": "Public Domain, via Wikimedia Commons (KITLV)",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:KITLV_-_12667_-_Covered_market_on_the_Waterkant_in_Paramaribo_-_circa_1899.tif",
+      "source": {
+        "repository": "Wikimedia Commons (KITLV)",
+        "fileUrl": "https://commons.wikimedia.org/wiki/File:KITLV_-_12667_-_Covered_market_on_the_Waterkant_in_Paramaribo_-_circa_1899.tif",
+        "originalTitle": "KITLV - 12667 - Covered market on the Waterkant in Paramaribo - circa 1899.tif",
+        "date": "um 1899",
+        "place": "Paramaribo, Suriname",
+        "license": "Public domain",
+        "description": "Covered market on the Waterkant in Paramaribo."
+      },
+      "anomaly": "Tetra Pak carton",
+      "description": "Covered market on the Waterkant in Paramaribo around 1899: sales stalls under a long shelter on the riverbank, timber, sacks and goods on the shore; a boat with a person in the foreground.",
+      "answer": {
+        "x": 0.769,
+        "y": 0.8673,
+        "r": 0.15
+      },
+      "added": "2026-09-08",
+      "shown": "2026-10-01",
+      "title_source": "catalog",
+      "image": "scenes/paramaribo-market.jpg",
+      "original": "scenes/paramaribo-market-original.jpg"
+    },
+    {
+      "id": "nb-majorstua-1959-caa637-modern-plastic-road-barr",
+      "title": "Majorstua",
       "title_source": "catalog",
       "place": "",
-      "year": "1911",
-      "description": "A press photograph by Agence Rol, dated 2 April 1911, showing a gathering of men in front of a house in Albanie. The record identifies the subjects as rioters in Albanie and notes the image is held by the Bibliothèque nationale de France.",
-      "anomaly": "modern telescoping aluminum selfie stick",
+      "year": "1959",
+      "description": "A photograph from Majorstua in 1959, held by the National Library of Norway and in the public domain.",
+      "anomaly": "modern plastic road barrier",
       "answer": {
-        "x": 0.845,
-        "y": 0.545,
+        "x": 0.742,
+        "y": 0.792,
         "r": 0.22
       },
-      "explanation": "Telescoping aluminum selfie sticks did not exist in 1911; they became common consumer products only in the 1980s and later.",
+      "explanation": "Plastic road barriers did not exist in 1959; they were developed later as a lightweight alternative to metal and wooden barriers.",
+      "references": [
+        {
+          "label": "Wikipedia: Traffic barrier",
+          "url": "https://en.wikipedia.org/wiki/Traffic_barrier"
+        }
+      ],
+      "source": {
+        "repository": "National Library of Norway",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20150206_00144_NB_MIT_FNR_19138",
+        "originalTitle": "Majorstua",
+        "date": "1959",
+        "place": "",
+        "license": "Public domain",
+        "description": "{'firstIndexTime': '2025-08-27T08:08:08.504Z', 'firstDigitalContentTime': '2025-08-27T08:10:33.306Z', 'indexLastModified': '2026-09-09T16:00:04.501Z'}"
+      },
+      "credit": "Mittet & Co. AS, Brun, Jac via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20150206_00144_NB_MIT_FNR_19138",
+      "added": "2026-09-25",
+      "shown": "2026-10-01",
+      "image": "scenes/nb-majorstua-1959-caa637-modern-plastic-road-barr.jpg",
+      "original": "scenes/nb-majorstua-1959-caa637-modern-plastic-road-barr-original.jpg"
+    },
+    {
+      "id": "gallica-14-10-20-stade-brancion-groupe-de-spectateurs-ph-37445c-modern-telescoping-alumi",
+      "title": "14-10-20, stade Brancion [groupe de spectateurs]",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1920",
+      "description": "A press photograph by Agence Rol showing a group of spectators at the Brancion stadium in Paris, dated 14 October 1920. The record identifies it as a glass negative held by the Bibliothèque nationale de France.",
+      "anomaly": "modern telescoping aluminum selfie stick",
+      "answer": {
+        "x": 0.328,
+        "y": 0.462,
+        "r": 0.22
+      },
+      "explanation": "Telescoping aluminum selfie sticks did not exist in 1920; they became common consumer accessories only in the 1980s and later.",
       "references": [
         {
           "label": "Selfie stick - Wikipedia",
@@ -168,19 +161,19 @@
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53112289k",
-        "originalTitle": "Albanie, 2-4-11 [rassemblement d'hommes devant une maison] : [photographie de presse] / [Agence Rol]",
-        "date": "1911",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b530522849",
+        "originalTitle": "14-10-20, stade Brancion [groupe de spectateurs] : [photographie de presse] / [Agence Rol]",
+        "date": "1920",
         "place": "",
         "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 13136 Appartient à l’ensemble documentaire : Pho20Rol"
+        "description": "Référence bibliographique : Rol, 61518 Appartient à l’ensemble documentaire : Pho20Rol Appartient à l’ensemble documentaire : MnS000 Image de presse"
       },
       "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53112289k",
-      "added": "2026-09-25",
-      "shown": "2026-09-30",
-      "image": "scenes/gallica-albanie-2-4-11-rassemblement-d-hommes-devant-une-fe28b5-modern-telescoping-alumi.jpg",
-      "original": "scenes/gallica-albanie-2-4-11-rassemblement-d-hommes-devant-une-fe28b5-modern-telescoping-alumi-original.jpg"
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b530522849",
+      "added": "2026-09-20",
+      "shown": "2026-10-01",
+      "image": "scenes/gallica-14-10-20-stade-brancion-groupe-de-spectateurs-ph-37445c-modern-telescoping-alumi.jpg",
+      "original": "scenes/gallica-14-10-20-stade-brancion-groupe-de-spectateurs-ph-37445c-modern-telescoping-alumi-original.jpg"
     }
   ]
 }
