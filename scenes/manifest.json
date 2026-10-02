@@ -1,179 +1,186 @@
 {
   "version": 2,
-  "date": "2026-10-01",
+  "date": "2026-10-02",
   "scenes": [
     {
-      "id": "gallica-besnard-boxeur-photographie-de-presse-agence-rol-79bfce-modern-boxing-mouthguard",
-      "title": "Besnard [boxeur]",
+      "id": "gallica-lutz-g-a-s-c-paris-amiens-1908-cycliste-photogra-48e53b-modern-cycling-helmet",
+      "title": "Lutz (G.A.S.C.),Paris-Amiens, [cycliste]",
       "title_source": "catalog",
       "place": "",
-      "year": "1912",
-      "description": "A press photograph from 1912 by Agence Rol showing the boxer Besnard, held in the Estampes et photographie department of the Bibliothèque nationale de France (EI-13 (136)). It is a negative on glass measuring 13 x 18 cm, in the public domain and part of the Pho20Rol documentary set.",
-      "anomaly": "Modern boxing mouthguard",
+      "year": "1908",
+      "description": "A press photograph by Agence Rol showing a cyclist named Lutz of the G.A.S.C. during the Paris–Amiens race in 1908. It is held by the Bibliothèque nationale de France (National Library of France) and is in the public domain.",
+      "anomaly": "Modern cycling helmet",
       "answer": {
-        "x": 0.386,
-        "y": 0.363,
+        "x": 0.494,
+        "y": 0.115,
         "r": 0.22
       },
-      "explanation": "Protective plastic mouthguards for boxing were not developed or worn until the 1970s, so this object cannot exist in a 1912 photograph.",
+      "explanation": "Hard-shell cycling helmets with ventilation slots did not exist in 1908, when cyclists wore soft cloth caps.",
       "references": [
         {
-          "label": "Wikipedia - Mouthguard",
-          "url": "https://en.wikipedia.org/wiki/Mouthguard"
+          "label": "Bibliothèque nationale de France (Gallica)",
+          "url": "https://gallica.bnf.fr/"
         }
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6918946q",
-        "originalTitle": "Besnard [boxeur] : [photographie de presse] / [Agence Rol]",
-        "date": "1912",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b69101118",
+        "originalTitle": "Lutz (G.A.S.C.),Paris-Amiens, 1908 [cycliste] : [photographie de presse] / [Agence Rol]",
+        "date": "1908",
         "place": "",
         "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 18463 Appartient à l’ensemble documentaire : Pho20Rol"
+        "description": "Référence bibliographique : Rol, 828 Appartient à l’ensemble documentaire : Pho20Rol"
       },
       "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6918946q",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b69101118",
       "added": "2026-09-15",
-      "shown": "2026-10-01",
-      "image": "scenes/gallica-besnard-boxeur-photographie-de-presse-agence-rol-79bfce-modern-boxing-mouthguard.jpg",
-      "original": "scenes/gallica-besnard-boxeur-photographie-de-presse-agence-rol-79bfce-modern-boxing-mouthguard-original.jpg"
+      "shown": "2026-10-02",
+      "image": "scenes/gallica-lutz-g-a-s-c-paris-amiens-1908-cycliste-photogra-48e53b-modern-cycling-helmet.jpg",
+      "original": "scenes/gallica-lutz-g-a-s-c-paris-amiens-1908-cycliste-photogra-48e53b-modern-cycling-helmet-original.jpg"
     },
     {
-      "id": "gallica-les-mutil-s-de-l-arm-e-un-aveugle-gravant-photog-484625-modern-led-desk-lamp",
-      "title": "Les mutilés de l'armée : un aveugle gravant",
+      "id": "gallica-les-forges-bruniquel-septembre-1889-1889-7bd974-modern-photovoltaic-sola",
+      "title": "Les forges, Bruniquel, septembre",
       "title_source": "catalog",
       "place": "",
-      "year": "1915",
-      "description": "A photograph from the Agence Meurisse press agency, dated 1915, shows a blind wounded soldier from the army engraving. It belongs to the Bibliothèque nationale de France (department of prints and photographs) and is titled \"Les mutilés de l'armée : un aveugle gravant\" (\"The mutilated of the army: a blind man engraving\").",
-      "anomaly": "modern LED desk lamp",
+      "year": "1889",
+      "description": "This photograph, titled Les forges, Bruniquel, septembre 1889 (The forges, Bruniquel, September 1889), was taken by Eugène Trutat in September 1889 and shows forges, a bridge, a factory, a chimney, a tree, a river, banks, and vegetation at Bruniquel in Tarn-et-Garonne, France.",
+      "anomaly": "modern photovoltaic solar panel",
       "answer": {
-        "x": 0.762,
-        "y": 0.641,
-        "r": 0.22
+        "x": 0.5,
+        "y": 0.575,
+        "r": 0.035
       },
-      "explanation": "A battery-powered LED lamp cannot exist in 1915 because practical visible-light LEDs were only developed in the 1960s.",
+      "explanation": "Photovoltaic solar panels did not exist in 1889; the first practical silicon solar cells were demonstrated in the 1950s.",
       "references": [
         {
-          "label": "Wikipedia: Light-emitting diode",
-          "url": "https://en.wikipedia.org/wiki/Light-emitting_diode"
+          "label": "Solar cell - Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Solar_cell"
         }
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b90439117",
-        "originalTitle": "Les mutilés de l'armée : un aveugle gravant : [photographie de presse] / Agence Meurisse",
-        "date": "1915",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b10574278t",
+        "originalTitle": "Les forges, Bruniquel, septembre 1889",
+        "date": "1889",
         "place": "",
         "license": "Public domain",
-        "description": "Référence bibliographique : Meurisse, 57932 Appartient à l’ensemble documentaire : Pho20Meu Image de presse"
+        "description": "Appartient à l’ensemble documentaire : RsAlis000 Appartient à l’ensemble documentaire : RsAlis014 Appartient à l’ensemble documentaire : RsAlis007"
       },
-      "credit": "Agence de presse Meurisse. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b90439117",
-      "added": "2026-09-25",
-      "shown": "2026-10-01",
-      "image": "scenes/gallica-les-mutil-s-de-l-arm-e-un-aveugle-gravant-photog-484625-modern-led-desk-lamp.jpg",
-      "original": "scenes/gallica-les-mutil-s-de-l-arm-e-un-aveugle-gravant-photog-484625-modern-led-desk-lamp-original.jpg"
+      "credit": "Trutat, Eugène (1840-1910). Photographe via Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b10574278t",
+      "added": "2026-09-29",
+      "shown": "2026-10-02",
+      "image": "scenes/gallica-les-forges-bruniquel-septembre-1889-1889-7bd974-modern-photovoltaic-sola.jpg",
+      "original": "scenes/gallica-les-forges-bruniquel-septembre-1889-1889-7bd974-modern-photovoltaic-sola-original.jpg"
     },
     {
-      "id": "paramaribo-market",
-      "title": "KITLV - 12667 - Covered market on the Waterkant in Paramaribo",
-      "place": "Paramaribo, Suriname",
-      "year": "c. 1899",
-      "credit": "Public Domain, via Wikimedia Commons (KITLV)",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:KITLV_-_12667_-_Covered_market_on_the_Waterkant_in_Paramaribo_-_circa_1899.tif",
-      "source": {
-        "repository": "Wikimedia Commons (KITLV)",
-        "fileUrl": "https://commons.wikimedia.org/wiki/File:KITLV_-_12667_-_Covered_market_on_the_Waterkant_in_Paramaribo_-_circa_1899.tif",
-        "originalTitle": "KITLV - 12667 - Covered market on the Waterkant in Paramaribo - circa 1899.tif",
-        "date": "um 1899",
-        "place": "Paramaribo, Suriname",
-        "license": "Public domain",
-        "description": "Covered market on the Waterkant in Paramaribo."
-      },
-      "anomaly": "Tetra Pak carton",
-      "description": "Covered market on the Waterkant in Paramaribo around 1899: sales stalls under a long shelter on the riverbank, timber, sacks and goods on the shore; a boat with a person in the foreground.",
-      "answer": {
-        "x": 0.769,
-        "y": 0.8673,
-        "r": 0.15
-      },
-      "added": "2026-09-08",
-      "shown": "2026-10-01",
-      "title_source": "catalog",
-      "image": "scenes/paramaribo-market.jpg",
-      "original": "scenes/paramaribo-market-original.jpg"
-    },
-    {
-      "id": "nb-majorstua-1959-caa637-modern-plastic-road-barr",
-      "title": "Majorstua",
+      "id": "nb-kongens-gate-moss-1900-b5164d-modern-plastic-wheeled-s",
+      "title": "Kongens gate, Moss",
       "title_source": "catalog",
       "place": "",
-      "year": "1959",
-      "description": "A photograph from Majorstua in 1959, held by the National Library of Norway and in the public domain.",
-      "anomaly": "modern plastic road barrier",
+      "year": "1900",
+      "description": "A photograph of Kongens gate in Moss, taken in 1900 and held by the National Library of Norway. The record does not name a photographer.",
+      "anomaly": "modern plastic wheeled shopping basket",
       "answer": {
-        "x": 0.742,
-        "y": 0.792,
+        "x": 0.735,
+        "y": 0.585,
         "r": 0.22
       },
-      "explanation": "Plastic road barriers did not exist in 1959; they were developed later as a lightweight alternative to metal and wooden barriers.",
+      "explanation": "Plastic wheeled shopping baskets with telescoping handles did not exist in 1900; they became common only in the late 20th century.",
       "references": [
         {
-          "label": "Wikipedia: Traffic barrier",
-          "url": "https://en.wikipedia.org/wiki/Traffic_barrier"
+          "label": "Wikipedia: Shopping cart",
+          "url": "https://en.wikipedia.org/wiki/Shopping_cart"
         }
       ],
       "source": {
         "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20150206_00144_NB_MIT_FNR_19138",
-        "originalTitle": "Majorstua",
-        "date": "1959",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20170208_00269_NB_MIT_GNR_01856",
+        "originalTitle": "Kongens gate, Moss",
+        "date": "1900",
         "place": "",
         "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-08-27T08:08:08.504Z', 'firstDigitalContentTime': '2025-08-27T08:10:33.306Z', 'indexLastModified': '2026-09-09T16:00:04.501Z'}"
+        "description": "{'firstIndexTime': '2025-08-18T20:45:57.913Z', 'firstDigitalContentTime': '2025-08-18T23:07:30.270Z', 'indexLastModified': '2025-08-18T23:07:30.271Z'}"
       },
-      "credit": "Mittet & Co. AS, Brun, Jac via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20150206_00144_NB_MIT_FNR_19138",
-      "added": "2026-09-25",
-      "shown": "2026-10-01",
-      "image": "scenes/nb-majorstua-1959-caa637-modern-plastic-road-barr.jpg",
-      "original": "scenes/nb-majorstua-1959-caa637-modern-plastic-road-barr-original.jpg"
+      "credit": "Mittet & Co. AS via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20170208_00269_NB_MIT_GNR_01856",
+      "added": "2026-09-29",
+      "shown": "2026-10-02",
+      "image": "scenes/nb-kongens-gate-moss-1900-b5164d-modern-plastic-wheeled-s.jpg",
+      "original": "scenes/nb-kongens-gate-moss-1900-b5164d-modern-plastic-wheeled-s-original.jpg"
     },
     {
-      "id": "gallica-14-10-20-stade-brancion-groupe-de-spectateurs-ph-37445c-modern-telescoping-alumi",
-      "title": "14-10-20, stade Brancion [groupe de spectateurs]",
+      "id": "nb-bryllup-i-granvin-1953-df2eef-modern-plastic-kayak-pad",
+      "title": "Bryllup i Granvin",
       "title_source": "catalog",
       "place": "",
-      "year": "1920",
-      "description": "A press photograph by Agence Rol showing a group of spectators at the Brancion stadium in Paris, dated 14 October 1920. The record identifies it as a glass negative held by the Bibliothèque nationale de France.",
-      "anomaly": "modern telescoping aluminum selfie stick",
+      "year": "1953",
+      "description": "A wedding in Granvin, 1953, photographed by an unidentified photographer; the image is held by the National Library of Norway and is in the public domain.",
+      "anomaly": "modern plastic kayak paddle",
       "answer": {
-        "x": 0.328,
-        "y": 0.462,
+        "x": 0.355,
+        "y": 0.585,
         "r": 0.22
       },
-      "explanation": "Telescoping aluminum selfie sticks did not exist in 1920; they became common consumer accessories only in the 1980s and later.",
+      "explanation": "The wide-bladed plastic kayak paddle is a late-20th-century design that did not exist when this photograph was taken in 1953.",
       "references": [
         {
-          "label": "Selfie stick - Wikipedia",
-          "url": "https://en.wikipedia.org/wiki/Selfie_stick"
+          "label": "Wikipedia: Paddle",
+          "url": "https://en.wikipedia.org/wiki/Paddle"
+        }
+      ],
+      "source": {
+        "repository": "National Library of Norway",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20160901_00090_NB_MIT_FNR_13155",
+        "originalTitle": "Bryllup i Granvin",
+        "date": "1953",
+        "place": "",
+        "license": "Public domain",
+        "description": "{'firstIndexTime': '2025-08-19T07:43:19.698Z', 'firstDigitalContentTime': '2025-08-19T08:00:31.438Z', 'indexLastModified': '2025-08-19T08:00:31.439Z'}"
+      },
+      "credit": "Mittet & Co. AS, Brun, Jac via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20160901_00090_NB_MIT_FNR_13155",
+      "added": "2026-09-30",
+      "shown": "2026-10-02",
+      "image": "scenes/nb-bryllup-i-granvin-1953-df2eef-modern-plastic-kayak-pad.jpg",
+      "original": "scenes/nb-bryllup-i-granvin-1953-df2eef-modern-plastic-kayak-pad-original.jpg"
+    },
+    {
+      "id": "gallica-cuirass-le-fulminant-en-mer-photographie-1890-dcd7d6-modern-jet-ski",
+      "title": "[Cuirassé 'le Fulminant' en mer]",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1890",
+      "description": "An albumen print photograph, 9 x 12 cm, showing the warship \"le Fulminant\" at sea. It is dated 1890 and is held by the Bibliothèque municipale du Havre (PH BAL 093), having formerly belonged to André Baly.",
+      "anomaly": "modern jet ski",
+      "answer": {
+        "x": 0.828,
+        "y": 0.632,
+        "r": 0.22
+      },
+      "explanation": "The personal watercraft did not exist in 1890, so a jet ski cannot appear in this scene.",
+      "references": [
+        {
+          "label": "Wikipedia: Personal watercraft",
+          "url": "https://en.wikipedia.org/wiki/Personal_watercraft"
         }
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b530522849",
-        "originalTitle": "14-10-20, stade Brancion [groupe de spectateurs] : [photographie de presse] / [Agence Rol]",
-        "date": "1920",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b106791056",
+        "originalTitle": "[Cuirassé 'le Fulminant' en mer] : [photographie]",
+        "date": "1890",
         "place": "",
         "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 61518 Appartient à l’ensemble documentaire : Pho20Rol Appartient à l’ensemble documentaire : MnS000 Image de presse"
+        "description": "Ancien possesseur : Baly, André (1922-2003). Ancien possesseur Appartient à l’ensemble documentaire : BmLHav000"
       },
-      "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b530522849",
+      "credit": "Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b106791056",
       "added": "2026-09-20",
-      "shown": "2026-10-01",
-      "image": "scenes/gallica-14-10-20-stade-brancion-groupe-de-spectateurs-ph-37445c-modern-telescoping-alumi.jpg",
-      "original": "scenes/gallica-14-10-20-stade-brancion-groupe-de-spectateurs-ph-37445c-modern-telescoping-alumi-original.jpg"
+      "shown": "2026-10-02",
+      "image": "scenes/gallica-cuirass-le-fulminant-en-mer-photographie-1890-dcd7d6-modern-jet-ski.jpg",
+      "original": "scenes/gallica-cuirass-le-fulminant-en-mer-photographie-1890-dcd7d6-modern-jet-ski-original.jpg"
     }
   ]
 }
