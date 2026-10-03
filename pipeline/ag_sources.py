@@ -10,16 +10,19 @@ the photo depicts with no room for error"):
   four-digit year for the item (``year_field == "catalog"``). The measurement
   behind the source choice, including the collections that are unreachable
   from this host, is in ``pipeline/ag_dates_audit.py``.
-- **Two reachable sources: Gallica (BnF) and the National Library of
-  Norway.** The collections #1430 named (LOC, DDB/Bundesarchiv, Deutsche
-  Fotothek, Nationaal Archief, Smithsonian, NYPL, Europeana) are blocked from
-  this box (Cloudflare 403, API keys, robots.txt). Gallica's SRU catalogue
-  answers and its ``dc:date`` is the BnF's statement about the item, not a
-  scan or upload stamp; the Nasjonalbiblioteket's Sesam API answers without a
-  key and its ``metadata.dateCreated`` is the library's own catalogue date
-  for the item, so the pool draws from two archives instead of one (#1535).
-  Commons "Quality images" stays as an adapter and a diagnostic
-  (``measure-years``, ``measure-inception``), but its file-page declared date
+- **Three reachable sources: Gallica (BnF), the National Library of Norway
+  and Finna (Finland).** The collections #1430 named (LOC,
+  DDB/Bundesarchiv, Deutsche Fotothek, Nationaal Archief, Smithsonian, NYPL,
+  Europeana) are still blocked from this box (Cloudflare 403, API keys,
+  robots.txt). Gallica's SRU catalogue answers and its ``dc:date`` is the
+  BnF's statement about the item, not a scan or upload stamp; the
+  Nasjonalbiblioteket's Sesam API answers without a key and its
+  ``metadata.dateCreated`` is the library's own catalogue date for the item
+  (#1535); Finna answers without a key from the Mac mini and its
+  ``rawData.main_date``/``year`` is the Finnish record's own date (#2244), so
+  the pool draws from three archives and three countries. Commons "Quality
+  images" stays as an adapter and a diagnostic (``measure-years``,
+  ``measure-inception``), but its file-page declared date
   ("exif"/"structured") fails the catalog gate, so it no longer fills the
   pool.
 - **No string heuristics.** Candidates are filtered on structured keys only:
@@ -89,6 +92,7 @@ import datetime
 import json
 import os as _os
 import re
+import struct
 import sys
 import tempfile
 import time
@@ -455,6 +459,11 @@ SPREAD_PARTS = 3
 # (ceil(count/repos)) when a small pool could not otherwise fill the day.
 RUN_REPO_CAP = 2
 RUN_DECADE_CAP = 2
+# A run of five scenes: at most this many from one *subject* family, so a day
+# cannot be three bridge prints. Raised to the pick's fair share
+# (ceil(count/motifs)) when the pool holds few distinct motifs (ticket #2244);
+# ``MOTIF_OTHER`` (no keyword matched) is never capped.
+RUN_MOTIF_CAP = 2
 # Fewer distinct decades than this in a run (or all from one repository) is
 # reported, not silently shipped.
 RUN_MIN_DECADES = 3
@@ -475,13 +484,57 @@ def entry_repository(entry: dict) -> str:
     return str(entry.get("repository") or "unknown")
 
 
+# Subject motifs (ticket #2244). The repository and decade caps stopped one
+# archive or one twenty-year window from filling a run, but not one *subject*:
+# the Gallica walk kept serving bridge/viaduct prints (36 "viaduc" sources in
+# a 517-source pool), so a five-scene day could be three bridges. A motif is
+# a coarse subject bucket read from the source's own title/description text.
+# This is a diversity hint, not a correctness fact (the year and place rules
+# never parse free text), so the matching is deliberately broad and
+# language-aware (fr/it/no/fi/en) and a source that matches nothing is
+# ``MOTIF_OTHER``. The first family whose keyword matches wins, so a "viaduc
+# du chemin de fer" reads as a bridge rather than a railway.
+MOTIF_OTHER = "other"
+MOTIF_KEYWORDS = (
+    ("bridge", "viaduc|viadotto|viaduct|pont|bridge|bro|bru|silta|brücke"),
+    ("railway", "chemin de fer|jernbane|railway|rautatie|gare|station|asema|"
+                "bahnhof|tram|trikk|sporvogn"),
+    ("market", "marché|marche|markkinat|marked|markt|torg|foire|basar|market"),
+    ("harbor", "port|havn|quai|brygge|satama|hafen|harbour|ranta"),
+    ("street", "rue|katu|street|gata|straße|strasse|gate|boulevard|avenue"),
+    ("church", "église|eglise|kirke|kirkko|kirche|church"),
+    ("factory", "usine|fabrikk|fabrik|tehdas|factory|werk"),
+    ("school", "école|ecole|skole|koulu|schule|school"),
+    ("celebration", "fête|fete|fest|juhla|bryllup|cérémonie|ceremonie|"
+                    "parade|procession|feier"),
+    ("park", "jardin|park|hage|puisto|garten|square"),
+    ("war", "guerre|soldat|krig|sota|soldier|troupes|militär"),
+)
+# ``s?`` admits the common plural ("viaducs", "ponts", "ranta" -> no), and the
+# word boundaries keep "port" out of "portrait".
+_MOTIF_RES = tuple((name, re.compile(r"\b(?:%s)s?\b" % alt))
+                   for name, alt in MOTIF_KEYWORDS)
+
+
+def entry_motif(entry: dict) -> str:
+    """The coarse subject family of a pool entry, ``MOTIF_OTHER`` if unknown."""
+    text = " ".join(str(entry.get(k) or "") for k in
+                    ("originalTitle", "description", "place")).lower()
+    for name, rx in _MOTIF_RES:
+        if rx.search(text):
+            return name
+    return MOTIF_OTHER
+
+
 def spread_counts(entries) -> dict:
-    """Repository and decade histograms over a list of entries."""
-    repos, decades = Counter(), Counter()
+    """Repository, decade and motif histograms over a list of entries."""
+    repos, decades, motifs = Counter(), Counter(), Counter()
     for e in entries:
         repos[entry_repository(e)] += 1
         decades[entry_decade(e)] += 1
-    return {"repositories": dict(repos), "decades": dict(decades)}
+        motifs[entry_motif(e)] += 1
+    return {"repositories": dict(repos), "decades": dict(decades),
+            "motifs": dict(motifs)}
 
 
 def _spread_shares(counts: dict, total: int) -> dict:
@@ -490,15 +543,18 @@ def _spread_shares(counts: dict, total: int) -> dict:
 
 
 def spread_report(entries) -> dict:
-    """Repository and decade shares of a pool or a pick, for the reports."""
+    """Repository, decade and motif shares of a pool or a pick, for the reports."""
     entries = list(entries)
     total = len(entries)
     counts = spread_counts(entries)
+    named = {k: v for k, v in counts["motifs"].items() if k != MOTIF_OTHER}
     return {"total": total,
             "repositories": _spread_shares(counts["repositories"], total),
             "decades": _spread_shares(counts["decades"], total),
+            "motifs": _spread_shares(counts["motifs"], total),
             "distinct_repositories": len(counts["repositories"]),
-            "distinct_decades": len(counts["decades"])}
+            "distinct_decades": len(counts["decades"]),
+            "distinct_motifs": len(named)}
 
 
 def spread_warning(report: dict) -> str:
@@ -516,6 +572,15 @@ def spread_warning(report: dict) -> str:
     if report["distinct_decades"] < RUN_MIN_DECADES:
         return (f"only {report['distinct_decades']} decade(s) across "
                 f"{report['total']} sources")
+    named = {k: cell["count"] for k, cell in (report.get("motifs") or {}).items()
+             if k != MOTIF_OTHER}
+    # Only meaningful when the pick has more than one named motif to mix;
+    # with a single one there is nothing the cap could have spread over.
+    if report.get("distinct_motifs", 0) >= 2 and named:
+        top, n = max(named.items(), key=lambda kv: kv[1])
+        if n > RUN_MOTIF_CAP:
+            return (f"{n} of {report['total']} sources share the "
+                    f"\"{top}\" motif")
     return ""
 
 
@@ -1661,6 +1726,244 @@ def _nb_urn(item) -> str:
     return str((meta.get("identifiers") or {}).get("urn") or "")
 
 
+# ── Finna (Finnish national discovery service) adapter (ticket #2244) ──────
+#
+# The #1430 list of candidate archives is still blocked from this host (LOC:
+# Cloudflare 403; DDB/Smithsonian/Europeana/NYPL: API key; Deutsche Fotothek:
+# robots.txt disallows crawling), but Finna answers a public JSON API without a
+# key from the Mac mini and aggregates Finnish libraries, museums and archives,
+# a third region next to Gallica (France) and the Nasjonalbiblioteket
+# (Norway). Its ``year`` plus ``rawData.main_date``/``creation_daterange`` let
+# the strict single-year gate run: measured 2026-10-03 over 400 sampled image
+# records, 227 carried a reusable licence and 104 an exact catalogue year. The
+# served copies are the providers' own "master" size and many are under
+# 1000 px, so the walk measures each candidate that clears the cheap filters
+# and the pool's own landscape/min-width rule drops the rest.
+FINNA_API = "https://api.finna.fi/api/v1/search"
+FINNA_RECORD = "https://www.finna.fi/Record"
+FINNA_IMAGE = "https://api.finna.fi"
+FINNA_RIGHTS_URL = "https://www.finna.fi/Content/TermsAndConditions"
+# Only images, and only the "Kuva/Valokuva" (image/photo) format: the walk
+# would otherwise pick maps, posters and museum objects.
+FINNA_MEDIA_FILTER = "format:0/Image/"
+FINNA_PHOTO_FORMAT = "1/Image/Photo/"
+FINNA_IMAGE_SIZE = "master"
+# Uncertainty markers in Finna's free-text ``era`` field (Finnish "ehkä" =
+# maybe, "noin" = about). A record that hedges its date has no exact year.
+_FINNA_UNCERTAIN_RE = re.compile(r"(?i)ehkä|noin|arvio|mahd|kenties|circa|\?")
+
+# Walk queries: Finnish subject terms for documentary scenes (market square,
+# street, harbour, railway, market, station, factory, celebration, school,
+# shore, shop, restaurant), one page per query in rotation. "silta" (bridge)
+# is deliberately absent: the pool already has too many bridge prints.
+FINNA_WALK_QUERIES = ("tori", "katu", "satama", "rautatie", "markkinat",
+                      "asema", "tehdas", "juhla", "koulu", "ranta", "kauppa",
+                      "ravintola")
+
+
+def finna_image_path(raw) -> str:
+    """The first ``Cover/Show`` path of a Finna record, "" when it has none."""
+    images = raw.get("images") or []
+    return str(images[0]) if images else ""
+
+
+def finna_image_url(path: str, size: str = FINNA_IMAGE_SIZE) -> str:
+    """The served image URL at ``size`` (Finna's ``Cover/Show`` endpoint)."""
+    if not path:
+        return ""
+    if "size=" in path:
+        path = re.sub(r"size=[^&]*", f"size={size}", path)
+    else:
+        path += ("&" if "?" in path else "?") + f"size={size}"
+    return FINNA_IMAGE + path
+
+
+def image_dimensions(data: bytes) -> tuple:
+    """``(width, height)`` of a JPEG/PNG byte string, ``(0, 0)`` if unreadable."""
+    if data[:2] == b"\xff\xd8":
+        i, n = 2, len(data)
+        while i + 9 < n:
+            if data[i] != 0xFF:
+                i += 1
+                continue
+            marker = data[i + 1]
+            if marker in (0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, 0xC9,
+                          0xCA, 0xCB, 0xCD, 0xCE, 0xCF):
+                height, width = struct.unpack(">HH", data[i + 5:i + 9])
+                return width, height
+            if marker in (0xD8, 0xD9) or 0xD0 <= marker <= 0xD7:
+                i += 2
+                continue
+            i += 2 + struct.unpack(">H", data[i + 2:i + 4])[0]
+        return 0, 0
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        width, height = struct.unpack(">II", data[16:24])
+        return width, height
+    return 0, 0
+
+
+def finna_size(url: str) -> tuple:
+    """``(width, height)`` of a Finna image, ``(0, 0)`` on error.
+
+    Finna's search index carries no pixel size and its image endpoint ignores
+    Range requests, so the copy is fetched once and its header parsed. The
+    walk calls this only for candidates that already cleared the licence,
+    photo-format and single-year filters, so the extra fetch stays rare.
+    """
+    if not url:
+        return 0, 0
+    try:
+        data = _get_bytes(url)
+    except (urllib.error.URLError, ValueError):
+        return 0, 0
+    if len(data) > MAX_BYTES:
+        return 0, 0
+    return image_dimensions(data)
+
+
+def finna_catalog_year(rec) -> tuple:
+    """``(year, text)`` when Finna's catalogue names exactly one year.
+
+    ``rawData.main_date`` is the record's own date (``year`` is its fallback);
+    a ``creation_daterange`` that spans more than one year and an uncertain
+    ``era`` ("ehkä 1920-luku") make the item non-exact and are refused, the
+    same single-year rule every adapter uses. The second element is the raw
+    text, so the caller stores a value its own year rule can re-read.
+    """
+    raw = rec.get("rawData") or {}
+    text = str(raw.get("main_date") or rec.get("year") or "").strip()
+    span = set(re.findall(r"(?<!\d)(1[5-9]\d{2}|20\d{2})(?!\d)",
+                          str(raw.get("creation_daterange") or "")))
+    if len(span) > 1:
+        return None, text
+    if _FINNA_UNCERTAIN_RE.search(" ".join(raw.get("era") or [])):
+        return None, text
+    return single_year(text), text
+
+
+def finna_photo_ok(rec) -> bool:
+    """Cheap pre-filter before the walk spends an image fetch on a candidate."""
+    if not finna_image_path(rec):
+        return False
+    formats = [str((f or {}).get("value") or "")
+               for f in (rec.get("formats") or [])]
+    if not any(FINNA_PHOTO_FORMAT in v for v in formats):
+        return False
+    if not license_ok(str((rec.get("imageRights") or {}).get("copyright") or "")):
+        return False
+    return finna_catalog_year(rec)[0] is not None
+
+
+class FinnaAdapter(SourceAdapter):
+    """Finna, the Finnish national discovery service (ticket #2244).
+
+    The year comes from the record's own catalogue date (``rawData.main_date``
+    or ``year``) and is stored as a catalog fact; the licence must be reusable
+    (PD/CC0/CC-BY, no NC/ND) and the image is the provider's "master" copy.
+    """
+
+    repo = "Finna (Finland)"
+    repo_tag = "finna"
+
+    def search(self, query: str, limit: int, offset: int = 0):
+        recs, _total = self._search_page(query, limit, offset + 1)
+        return recs
+
+    @staticmethod
+    def _search_page(query: str, limit: int, page: int) -> tuple:
+        params = {"lookfor": query, "limit": str(max(1, int(limit))),
+                  "page": str(max(1, int(page))),
+                  "filter[]": FINNA_MEDIA_FILTER,
+                  "field[]": ["id", "title", "year", "images", "imageRights",
+                              "formats", "subjects", "source", "summary",
+                              "rawData"]}
+        data = _get_json(FINNA_API + "?"
+                         + urllib.parse.urlencode(params, doseq=True))
+        total = int(data.get("resultCount") or 0)
+        return list(data.get("records") or []), total
+
+    def walk_batch(self, limit: int, cursor=None) -> tuple:
+        """One page of walk candidates; ``(raws, next_cursor)``.
+
+        Visits ``FINNA_WALK_QUERIES`` round-robin, one page per call, and
+        parks a term once its pages run out; the cursor is
+        ``{"query", "pages", "parked"}`` like the NB walk. Each candidate that
+        clears the licence/format/year pre-filter gets its served size
+        measured, so ``normalize`` can apply the pool's landscape/min-width
+        rule even though the search index carries no pixel size.
+        """
+        state = dict(cursor or {})
+        pages = {int(k): int(v) for k, v in (state.get("pages") or {}).items()}
+        parked = {int(i) for i in (state.get("parked") or [])}
+        n = len(FINNA_WALK_QUERIES)
+        qi = int(state.get("query") or 0) % n
+        raws = []
+        for _ in range(n):
+            if len(raws) >= limit:
+                break
+            if qi in parked:
+                qi = (qi + 1) % n
+                continue
+            query = FINNA_WALK_QUERIES[qi]
+            page = int(pages.get(qi) or 0) + 1
+            records, total = self._search_page(
+                query, max(1, limit - len(raws)), page)
+            if records:
+                pages[qi] = page
+                if total and page * max(1, limit) >= total:
+                    parked.add(qi)
+                for rec in records:
+                    if not finna_photo_ok(rec):
+                        continue
+                    rec["query"] = query
+                    rec["width"], rec["height"] = finna_size(
+                        finna_image_url(finna_image_path(rec)))
+                    raws.append(rec)
+            else:
+                parked.add(qi)
+            qi = (qi + 1) % n
+        next_cursor = None if len(parked) >= n else {
+            "query": qi,
+            "pages": {str(k): v for k, v in pages.items()},
+            "parked": sorted(parked),
+        }
+        return raws, next_cursor
+
+    def normalize(self, raw) -> dict | None:
+        if not finna_photo_ok(raw):
+            return None
+        year, year_text = finna_catalog_year(raw)
+        width = int(raw.get("width") or 0)
+        height = int(raw.get("height") or 0)
+        title = _strip_html(str(raw.get("title") or "")).strip() \
+            or f"Finna {raw.get('id')}"
+        sources = raw.get("source") or []
+        provider = str((sources[0] or {}).get("translated") or "") if sources else ""
+        return {
+            "repository": self.repo,
+            "fileUrl": f"{FINNA_RECORD}/"
+                       f"{urllib.parse.quote(str(raw.get('id') or ''))}",
+            "originalTitle": title,
+            "date": year_text,
+            "place": "",
+            "license": str((raw.get("imageRights") or {}).get("copyright") or ""),
+            "licenseUrl": FINNA_RIGHTS_URL,
+            "description": " ".join(str(x) for x in (raw.get("summary") or [])),
+            "width": width, "height": height,
+            "mime": "image/jpeg",
+            "year": year,
+            "year_field": "catalog" if year is not None else "",
+            "year_source": "rawData.main_date",
+            "year_raw": year_text,
+            "raw": {"id": raw.get("id"), "provider": provider,
+                    "year": raw.get("year"), "query": raw.get("query"),
+                    "sourceWidth": width, "sourceHeight": height},
+        }
+
+    def download_url(self, raw) -> str:
+        return finna_image_url(finna_image_path(raw))
+
+
 # ── Library of Congress adapter (query/manual escape hatch) ────────────────
 
 LOC_SEARCH = "https://www.loc.gov/search/"
@@ -1798,6 +2101,7 @@ ADAPTERS = {
     "commons": CommonsAdapter,
     "gallica": GallicaAdapter,
     "nb": NbAdapter,
+    "finna": FinnaAdapter,
     "loc": LocAdapter,
     "manual": ManualAdapter,
 }
@@ -2228,7 +2532,7 @@ def top_up(data_dir: Path, target: int = DEFAULT_TOPUP_TARGET,
 # refuses to let one of them exceed its share. A single-repository pool still
 # reports rather than enforces it, since enforcing it there would starve the
 # pool.
-DEFAULT_REFRESH_SOURCES = ("gallica", "nb")
+DEFAULT_REFRESH_SOURCES = ("gallica", "nb", "finna")
 
 
 def pool_spread_ok(entries, parts: int = SPREAD_PARTS) -> bool:
@@ -2249,21 +2553,26 @@ def pool_spread_ok(entries, parts: int = SPREAD_PARTS) -> bool:
 
 
 class _Admission:
-    """Per-batch repository/decade cap while a refresh fills the pool."""
+    """Per-batch repository/decade/motif cap while a refresh fills the pool."""
 
     def __init__(self, cap: int, repo_cap: bool):
         self.cap = cap
         self.repo_cap = repo_cap
         self.repos, self.decades = Counter(), Counter()
+        self.motifs = Counter()
 
     def admit(self, entry: dict) -> bool:
         repo, decade = entry_repository(entry), entry_decade(entry)
+        motif = entry_motif(entry)
         if self.decades[decade] >= self.cap:
             return False
         if self.repo_cap and self.repos[repo] >= self.cap:
             return False
+        if motif != MOTIF_OTHER and self.motifs[motif] >= self.cap:
+            return False
         self.repos[repo] += 1
         self.decades[decade] += 1
+        self.motifs[motif] += 1
         return True
 
 
@@ -2382,6 +2691,7 @@ def refresh_pool(data_dir: Path, target: int = DEFAULT_TOPUP_TARGET,
     report["batch_spread"] = {
         "repositories": _spread_shares(admission.repos, sum(admission.repos.values())),
         "decades": _spread_shares(admission.decades, sum(admission.decades.values())),
+        "motifs": _spread_shares(admission.motifs, sum(admission.motifs.values())),
     }
     for name, w in walkers.items():
         report["per_source"][name] = {"calls": w["calls"], "added": w["added"]}

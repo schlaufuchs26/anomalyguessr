@@ -58,6 +58,13 @@ WELLCOME_QUERY = "photograph"
 # Collections the ticket names that this host cannot measure. Each entry
 # records the observed evidence, so the table says "not reachable" with a
 # reason instead of an invented number.
+#
+# Re-checked from the Mac mini on 2026-10-03 (ticket #2244): Library of
+# Congress is still a Cloudflare 403 from this host; Smithsonian and Europeana
+# answer with a public demo key but want a registered key for production;
+# Deutsche Fotothek still disallows crawling; NYPL and DDB still need a token
+# or key. Finna (Finland) is reachable without a key and became an adapter
+# (``ag_sources.FinnaAdapter``) in ticket #2244.
 BLOCKED = (
     {"source": "Library of Congress (FSA/OWI, Detroit Publishing, photochrom)",
      "endpoint": "https://www.loc.gov/search/?q=...&fo=json",

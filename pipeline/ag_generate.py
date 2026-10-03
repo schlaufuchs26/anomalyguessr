@@ -2950,6 +2950,9 @@ def select_sources(data_dir: Path, count: int, seed=None) -> list:
     still fill a five-scene day; a pool with a single reachable archive is
     not starved down to two scenes (the report says so through
     ``spread_warning``).
+    Ticket #2244: a subject-motif cap does the same for the *subject* family
+    (``entry_motif``), so a day cannot be three bridge prints; a pool with
+    one named motif is not starved, and ``MOTIF_OTHER`` is never capped.
     """
     unused = [s for s in ag_sources.list_sources(data_dir, unused=True)
               if s.get("image")
@@ -2961,14 +2964,24 @@ def select_sources(data_dir: Path, count: int, seed=None) -> list:
     # archive; the cap is the fair share, not a fixed two.
     repo_cap = (count if len(repos) <= 1 else
                 max(ag_sources.RUN_REPO_CAP, -(-count // len(repos))))
+    motifs = sorted({ag_sources.entry_motif(s) for s in unused}
+                    - {ag_sources.MOTIF_OTHER})
+    motif_cap = (count if len(motifs) <= 1 else
+                 max(ag_sources.RUN_MOTIF_CAP, -(-count // len(motifs))))
     picked, chosen = [], set()
-    repo_n, dec_n = Counter(), Counter()
+    repo_n, dec_n, motif_n = Counter(), Counter(), Counter()
 
     def take(s):
         chosen.add(s["id"])
         repo_n[ag_sources.entry_repository(s)] += 1
         dec_n[ag_sources.entry_decade(s)] += 1
+        motif_n[ag_sources.entry_motif(s)] += 1
         picked.append(s)
+
+    def motif_full(s):
+        """True when the source's subject family already has its share."""
+        m = ag_sources.entry_motif(s)
+        return m != ag_sources.MOTIF_OTHER and motif_n[m] >= motif_cap
 
     def first_of(repo):
         """An unpicked source of ``repo``, a fresh decade preferred."""
@@ -2999,6 +3012,8 @@ def select_sources(data_dir: Path, count: int, seed=None) -> list:
             continue
         if repo_n[ag_sources.entry_repository(s)] >= repo_cap:
             continue
+        if motif_full(s):
+            continue
         take(s)
     # Third pass: fill the slots the caps still leave open.
     for s in unused:
@@ -3009,6 +3024,8 @@ def select_sources(data_dir: Path, count: int, seed=None) -> list:
         if repo_n[ag_sources.entry_repository(s)] >= repo_cap:
             continue
         if dec_n[ag_sources.entry_decade(s)] >= ag_sources.RUN_DECADE_CAP:
+            continue
+        if motif_full(s):
             continue
         take(s)
     return picked

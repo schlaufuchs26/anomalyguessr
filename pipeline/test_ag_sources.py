@@ -11,6 +11,7 @@ AG_SOURCES_NETWORK=1 (engineering-practices.md ticket #1084).
 import json
 import os
 import shutil
+import struct
 import tempfile
 import unittest
 from pathlib import Path
@@ -895,6 +896,162 @@ def nb_raw(title="Rosenkrantz gate", date="1899", urn=NAMED_URN,
     }
 
 
+class MotifTest(unittest.TestCase):
+    """Subject-motif buckets (ticket #2244)."""
+
+    def test_classifies_common_subjects(self):
+        self.assertEqual(s.entry_motif({"originalTitle": "Viaduc de Lavassac"}),
+                         "bridge")
+        self.assertEqual(s.entry_motif({"originalTitle": "Le pont de Y"}),
+                         "bridge")
+        self.assertEqual(s.entry_motif({"originalTitle": "Chemin de fer d'Alger"}),
+                         "railway")
+        self.assertEqual(s.entry_motif({"originalTitle": "Markens gate"}),
+                         "street")
+        self.assertEqual(s.entry_motif({"originalTitle": "Havn i Oslo"}),
+                         "harbor")
+
+    def test_bridge_wins_over_railway(self):
+        # A "viaduc du chemin de fer" is a bridge print, the family the pool
+        # had too many of, so bridge is checked before railway.
+        self.assertEqual(
+            s.entry_motif({"originalTitle": "Viaduc du chemin de fer"}),
+            "bridge")
+
+    def test_unmatched_source_is_other(self):
+        self.assertEqual(s.entry_motif({"originalTitle": "Portrait of a man"}),
+                         s.MOTIF_OTHER)
+        self.assertEqual(s.entry_motif({}), s.MOTIF_OTHER)
+        # Word boundaries keep a keyword out of a longer word.
+        self.assertEqual(s.entry_motif({"originalTitle": "Portrait"}),
+                         s.MOTIF_OTHER)
+
+    def test_description_and_place_feed_the_bucket(self):
+        self.assertEqual(s.entry_motif({"description": "a busy market square"}),
+                         "market")
+        self.assertEqual(s.entry_motif({"place": "Kirke"}), "church")
+
+
+class AdmissionTest(unittest.TestCase):
+    """The refresh batch caps named motifs, not the unclassified bucket."""
+
+    def test_caps_named_motifs_but_not_other(self):
+        adm = s._Admission(cap=2, repo_cap=False)
+        bridges = [walk_entry(f"viaduc-{i}", 1901 + 10 * i) for i in range(4)]
+        self.assertEqual([adm.admit(e) for e in bridges],
+                         [True, True, False, False])
+        others = [walk_entry(f"plain-{i}", 1901 + 10 * i) for i in range(4)]
+        self.assertEqual([adm.admit(e) for e in others],
+                         [True, True, True, True])
+
+
+def finna_raw(title="Tori", year="1900", main_date="1900-01-01T00:00:00Z",
+              daterange="[1900-01-01 TO 1900-12-31]", era=(),
+              license="CC BY 4.0", formats=("0/Image/", "1/Image/Photo/"),
+              image="/Cover/Show?source=Solr&id=finna.1&index=0&size=large",
+              rid="finna.1", provider="Tampereen museot",
+              width=1600, height=1000):
+    """One Finna search record shaped like the live API's response."""
+    return {"id": rid, "title": title, "year": year,
+            "images": [image] if image else [],
+            "imageRights": {"copyright": license},
+            "formats": [{"value": v} for v in formats],
+            "source": [{"value": "x", "translated": provider}],
+            "summary": ["A market square."],
+            "rawData": {"main_date": main_date, "creation_daterange": daterange,
+                        "era": list(era)},
+            "width": width, "height": height}
+
+
+class FinnaTest(unittest.TestCase):
+    """Finna adapter (ticket #2244)."""
+
+    def test_catalog_year_rejects_ranges_and_uncertainty(self):
+        self.assertEqual(s.finna_catalog_year(finna_raw())[0], 1900)
+        # A range that spans two years is not one year.
+        self.assertIsNone(s.finna_catalog_year(finna_raw(
+            daterange="[1900-01-01 TO 1909-12-31]"))[0])
+        # A hedged era ("ehkä" = maybe) has no exact year either.
+        self.assertIsNone(s.finna_catalog_year(finna_raw(
+            era=("ehkä 1900-luku",)))[0])
+        self.assertIsNone(s.finna_catalog_year(finna_raw(
+            main_date="", year=""))[0])
+
+    def test_image_url_pins_the_size(self):
+        self.assertEqual(
+            s.finna_image_url("/Cover/Show?id=1&size=large"),
+            "https://api.finna.fi/Cover/Show?id=1&size=master")
+        self.assertEqual(s.finna_image_url("/Cover/Show?id=1"),
+                         "https://api.finna.fi/Cover/Show?id=1&size=master")
+        self.assertEqual(s.finna_image_url(""), "")
+
+    def test_image_dimensions_reads_jpeg_and_png(self):
+        jpeg = (b"\xff\xd8\xff\xc0\x00\x11\x08"
+                + struct.pack(">HH", 1000, 1600) + b"\x00" * 10)
+        self.assertEqual(s.image_dimensions(jpeg), (1600, 1000))
+        png = (b"\x89PNG\r\n\x1a\n" + b"\x00\x00\x00\rIHDR"
+               + struct.pack(">II", 1600, 1000))
+        self.assertEqual(s.image_dimensions(png), (1600, 1000))
+        self.assertEqual(s.image_dimensions(b"not an image"), (0, 0))
+
+    def test_normalize_stores_the_catalog_year_and_provider(self):
+        adapter = s.FinnaAdapter()
+        entry = adapter.normalize(finna_raw())
+        self.assertEqual(entry["repository"], "Finna (Finland)")
+        self.assertEqual(entry["year"], 1900)
+        self.assertEqual(entry["year_field"], "catalog")
+        self.assertEqual(entry["year_source"], "rawData.main_date")
+        self.assertEqual(entry["license"], "CC BY 4.0")
+        self.assertEqual(entry["raw"]["provider"], "Tampereen museot")
+        self.assertEqual(entry["width"], 1600)
+        self.assertEqual(s.entry_reject_reason(entry), "")
+
+    def test_normalize_rejects_non_photo_non_license_and_no_year(self):
+        adapter = s.FinnaAdapter()
+        self.assertIsNone(adapter.normalize(finna_raw(formats=("0/Image/",))))
+        self.assertIsNone(adapter.normalize(finna_raw(license="CC BY-NC 4.0")))
+        self.assertIsNone(adapter.normalize(finna_raw(
+            daterange="[1900-01-01 TO 1909-12-31]")))
+        self.assertIsNone(adapter.normalize(finna_raw(image="")))
+
+    def test_walk_rotates_and_measures_candidates(self):
+        adapter = s.FinnaAdapter()
+        seen = []
+
+        def fake_search(query, limit, page):
+            seen.append((query, page))
+            if query in s.FINNA_WALK_QUERIES[:2]:
+                return [finna_raw(rid=f"finna.{query}")], 100
+            return [], 0
+
+        old_search, old_size = adapter._search_page, s.finna_size
+        adapter._search_page = staticmethod(fake_search)
+        s.finna_size = lambda url: (1600, 1000)  # no network
+        try:
+            raws, cursor = adapter.walk_batch(1, None)
+            self.assertEqual(len(raws), 1)
+            self.assertEqual(raws[0]["width"], 1600)
+            self.assertEqual(cursor["query"], 1)
+            self.assertEqual(cursor["pages"], {"0": 1})
+            raws2, _cursor2 = adapter.walk_batch(1, cursor)
+            self.assertEqual(len(raws2), 1)
+            self.assertIn(s.FINNA_WALK_QUERIES[1], [q for q, _ in seen])
+        finally:
+            adapter._search_page = old_search
+            s.finna_size = old_size
+
+    def test_walk_parks_queries_and_ends_when_all_are_done(self):
+        adapter = s.FinnaAdapter()
+        old_search = adapter._search_page
+        adapter._search_page = staticmethod(lambda query, limit, page: ([], 0))
+        try:
+            raws, cursor = adapter.walk_batch(2, None)
+            self.assertEqual(raws, [])
+            self.assertIsNone(cursor)
+        finally:
+            adapter._search_page = old_search
+
+
 class StubGallica(s.GallicaAdapter):
     """A GallicaAdapter whose walk comes from memory (no network)."""
 
@@ -1070,6 +1227,37 @@ class SpreadTest(unittest.TestCase):
         self.assertEqual(rep["repositories"]["Other"]["count"], 2)
         self.assertEqual(rep["decades"][1900]["count"], 2)
         self.assertEqual(rep["distinct_decades"], 2)
+
+    def test_report_counts_motifs(self):
+        # #2244: the report carries the subject buckets, with the
+        # unclassified ones under MOTIF_OTHER and left out of the distinct
+        # named-motif count.
+        entries = [walk_entry("Viaduc de X", 1901),
+                   walk_entry("Le pont de Y", 1902, repo="Other"),
+                   walk_entry("Portrait of a man", 1903, repo="Other")]
+        rep = s.spread_report(entries)
+        self.assertEqual(rep["motifs"]["bridge"]["count"], 2)
+        self.assertEqual(rep["motifs"][s.MOTIF_OTHER]["count"], 1)
+        self.assertEqual(rep["distinct_motifs"], 1)
+
+    def test_warning_names_a_dominant_motif(self):
+        entries = [walk_entry("Viaduc A", 1901, repo="A"),
+                   walk_entry("Viaduc B", 1911, repo="B"),
+                   walk_entry("Viaduc C", 1921, repo="C"),
+                   walk_entry("Viaduc D", 1931, repo="D"),
+                   walk_entry("Marché E", 1941, repo="E"),
+                   walk_entry("Rue F", 1951, repo="F")]
+        rep = s.spread_report(entries)
+        self.assertIn("bridge", s.spread_warning(rep))
+
+    def test_no_motif_warning_when_there_is_only_one_motif(self):
+        # Nothing to mix: the cap is raised for a one-motif pool, so the
+        # report does not nag about a motif it could not have avoided.
+        entries = [walk_entry("Viaduc A", 1901, repo="A"),
+                   walk_entry("Viaduc B", 1911, repo="B"),
+                   walk_entry("Viaduc C", 1921, repo="C")]
+        rep = s.spread_report(entries)
+        self.assertEqual(s.spread_warning(rep), "")
 
     def test_pool_spread_ok_ignores_the_repo_cap_with_one_repository(self):
         # One reachable archive: judging the repository share would starve

@@ -3165,6 +3165,23 @@ class RunTest(TempDataMixin, unittest.TestCase):
         self.assertEqual(
             ag_sources.spread_warning(ag_sources.spread_report(picked)), "")
 
+    def test_select_sources_caps_a_dominant_motif(self):
+        # #2244: a pool with many bridge prints cannot make a day of bridges;
+        # the motif cap is the pick's fair share (two of five here).
+        for i in range(6):
+            self.write_source(src=source(sid=f"gallica-viaduc-{i}",
+                                         title=f"Viaduc de {i}",
+                                         date=f"{1901 + 10 * i}-01-01"))
+        for i, title in enumerate(["Marché central", "Port de pêche",
+                                   "Gare du Nord", "Rue de la Paix"]):
+            self.write_source(src=source(sid=f"gallica-mix-{i}", title=title,
+                                         date=f"{1905 + 10 * i}-01-01"))
+        picked = g.select_sources(self.data_dir, 5, seed=3)
+        self.assertEqual(len(picked), 5)
+        bridges = [s for s in picked
+                   if ag_sources.entry_motif(s) == "bridge"]
+        self.assertLessEqual(len(bridges), 2)
+
 
 # ── Scene-time anchor (#1403) ──────────────────────────────────────────────
 
