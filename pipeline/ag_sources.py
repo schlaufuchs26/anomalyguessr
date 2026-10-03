@@ -10,19 +10,21 @@ the photo depicts with no room for error"):
   four-digit year for the item (``year_field == "catalog"``). The measurement
   behind the source choice, including the collections that are unreachable
   from this host, is in ``pipeline/ag_dates_audit.py``.
-- **Three reachable sources: Gallica (BnF), the National Library of Norway
-  and Finna (Finland).** The collections #1430 named (LOC,
-  DDB/Bundesarchiv, Deutsche Fotothek, Nationaal Archief, Smithsonian, NYPL,
-  Europeana) are still blocked from this box (Cloudflare 403, API keys,
-  robots.txt). Gallica's SRU catalogue answers and its ``dc:date`` is the
+- **Four reachable sources: Gallica (BnF), the National Library of Norway,
+  Finna (Finland) and Europeana.** The collections #1430 named (LOC,
+  DDB/Bundesarchiv, Deutsche Fotothek, Nationaal Archief, Smithsonian, NYPL)
+  are still blocked from this box (Cloudflare 403, API keys, robots.txt).
+  Gallica's SRU catalogue answers and its ``dc:date`` is the
   BnF's statement about the item, not a scan or upload stamp; the
   Nasjonalbiblioteket's Sesam API answers without a key and its
   ``metadata.dateCreated`` is the library's own catalogue date for the item
   (#1535); Finna answers without a key from the Mac mini and its
-  ``rawData.main_date``/``year`` is the Finnish record's own date (#2244), so
-  the pool draws from three archives and three countries. Commons "Quality
-  images" stays as an adapter and a diagnostic (``measure-years``,
-  ``measure-inception``), but its file-page declared date
+  ``rawData.main_date``/``year`` is the Finnish record's own date (#2244);
+  Europeana answers with an API key (``EUROPEANA_API_KEY``, demo key as
+  fallback) and its ``year`` is the provider's catalogue date, filterable
+  with ``YEAR:[a TO b]`` (#2245). The pool draws from four archives and four
+  countries. Commons "Quality images" stays as an adapter and a diagnostic
+  (``measure-years``, ``measure-inception``), but its file-page declared date
   ("exif"/"structured") fails the catalog gate, so it no longer fills the
   pool.
 - **No string heuristics.** Candidates are filtered on structured keys only:
@@ -1964,6 +1966,261 @@ class FinnaAdapter(SourceAdapter):
         return finna_image_url(finna_image_path(raw))
 
 
+# ── Europeana adapter (ticket #2245) ───────────────────────────────────────
+#
+# Europeana aggregates ~3.6M images from European institutions. It is
+# reachable from the Mac mini with an API key (``wskey``): the public demo key
+# ``api2demo`` answers, a registered key is required for production volume.
+# The record's own ``year`` (derived from the provider's ``dc:date``) is the
+# catalogue date; the search API can filter on it (``YEAR:[a TO b]``) and on
+# open rights, so a walk over decade windows yields dated, reusable photos.
+# The measurement (2026-10-03, ticket #2245): of 100 unfiltered image records
+# 53 carry exactly one year; with the ``YEAR`` filter every sampled record
+# does, and the open-rights filter (PD mark / CC0 / CC BY / CC BY-SA) keeps
+# 131,728 items in 1900-1909 alone.
+
+EUROPEANA_API = "https://api.europeana.eu/record/v2/search.json"
+EUROPEANA_ITEM = "https://www.europeana.eu/item"
+EUROPEANA_RIGHTS_URL = "https://www.europeana.eu/en/rights"
+EUROPEANA_DEMO_KEY = "api2demo"
+# Decade windows the walk pages through; a small page cap per window forces
+# the decade spread the pool wants (#1533).
+EUROPEANA_WINDOWS = tuple((y, y + 9) for y in range(1850, 2030, 10))
+EUROPEANA_PAGES_PER_WINDOW = 3
+# Open-rights statements the walk filters on, as Europeana stores them (URLs).
+# NC/ND variants and rightsstatements.org (InC, NoC-*) are excluded; the same
+# licence rule is re-checked in ``normalize`` via ``europeana_license``.
+EUROPEANA_OPEN_RIGHTS = (
+    "http://creativecommons.org/publicdomain/mark/1.0/",
+    "http://creativecommons.org/publicdomain/zero/1.0/",
+    "http://creativecommons.org/licenses/by/4.0/",
+    "http://creativecommons.org/licenses/by-sa/4.0/",
+    "http://creativecommons.org/licenses/by/3.0/",
+    "http://creativecommons.org/licenses/by-sa/3.0/",
+)
+EUROPEANA_QUERY = "*:* AND (" + " OR ".join(
+    f'RIGHTS:"{u}"' for u in EUROPEANA_OPEN_RIGHTS) + ")"
+# How many leading bytes to request when measuring an image (a JPEG SOF marker
+# is normally within the first tens of KB; the whole file is fetched only when
+# the header did not carry the size).
+EUROPEANA_SIZE_PROBE = 65536
+
+# Rights URL -> the label the pool's licence rule understands. Order matters:
+# the more specific ``by-sa``/``by-nc``/``by-nd`` forms come before ``by``.
+_EUROPEANA_RIGHTS_MAP = (
+    (re.compile(r"publicdomain/mark"), "Public Domain Mark 1.0"),
+    (re.compile(r"publicdomain/zero"), "CC0 1.0"),
+    (re.compile(r"licenses/by-sa/"), "CC BY-SA"),
+    (re.compile(r"licenses/by-nc/"), "CC BY-NC"),
+    (re.compile(r"licenses/by-nd/"), "CC BY-ND"),
+    (re.compile(r"licenses/by/"), "CC BY"),
+)
+
+
+def europeana_api_key() -> str:
+    """The Europeana ``wskey``: ``EUROPEANA_API_KEY`` from the environment.
+
+    Falls back to the public demo key so the adapter works out of the box for
+    measurement; a registered key (pro.europeana.eu) replaces it for the
+    daily walk.
+    """
+    return (_os.environ.get("EUROPEANA_API_KEY") or EUROPEANA_DEMO_KEY).strip()
+
+
+def europeana_license(rights) -> str:
+    """Map an item's ``rights`` URL(s) to a licence label, "" when unknown.
+
+    Europeana stores rights as creativecommons.org/rightsstatements.org URLs;
+    the pool's ``license_ok`` works on human labels, so the URL is translated
+    here and the NC/ND forms are kept (and refused) rather than silently
+    dropped.
+    """
+    for r in (rights or []):
+        for pat, label in _EUROPEANA_RIGHTS_MAP:
+            if pat.search(str(r)):
+                return label
+    return ""
+
+
+def europeana_year(rec) -> tuple:
+    """``(year, raw text)`` from the record's own ``year`` (else ``dcDate``).
+
+    ``year`` is Europeana's normalized date derived from the provider's
+    ``dc:date``; a record whose value names more than one year (a range or a
+    list) is refused by the same single-year rule every adapter uses.
+    """
+    vals = list(rec.get("year") or []) or list(rec.get("dcDate") or [])
+    text = " ".join(str(v) for v in vals).strip()
+    return single_year(text), text
+
+
+def europeana_image_url(rec) -> str:
+    """The direct image URL (``edmIsShownBy``), "" when the item has none."""
+    shown = rec.get("edmIsShownBy") or []
+    return str(shown[0]) if shown else ""
+
+
+def europeana_photo_ok(rec) -> bool:
+    """Cheap pre-filter before the walk spends an image fetch on a candidate."""
+    if str(rec.get("type") or "").upper() != "IMAGE":
+        return False
+    if not europeana_image_url(rec):
+        return False
+    if not license_ok(europeana_license(rec.get("rights"))):
+        return False
+    return europeana_year(rec)[0] is not None
+
+
+def _get_bytes_range(url: str, nbytes: int, timeout: int = 60) -> bytes:
+    """The first ``nbytes`` of ``url`` (a Range request; a 200 body is fine)."""
+    _throttle()
+    req = urllib.request.Request(
+        url, headers={"User-Agent": UA,
+                      "Range": f"bytes=0-{max(1, nbytes) - 1}"})
+    return _with_backoff(lambda: _read_all(req, timeout))
+
+
+def europeana_size(url: str) -> tuple:
+    """``(width, height)`` of an item's image, ``(0, 0)`` on error.
+
+    The search index carries no pixel size. A Range request fetches only the
+    header (most providers answer 206); when that does not contain the JPEG/
+    PNG dimensions the whole file is fetched, capped at ``MAX_BYTES``.
+    """
+    if not url:
+        return 0, 0
+    try:
+        head = _get_bytes_range(url, EUROPEANA_SIZE_PROBE)
+    except (urllib.error.URLError, ValueError):
+        head = b""
+    w, h = image_dimensions(head)
+    if w and h:
+        return w, h
+    try:
+        data = _get_bytes(url)
+    except (urllib.error.URLError, ValueError):
+        return 0, 0
+    if len(data) > MAX_BYTES:
+        return 0, 0
+    return image_dimensions(data)
+
+
+class EuropeanaAdapter(SourceAdapter):
+    """Europeana, the European aggregator (ticket #2245).
+
+    The walk pages over decade windows with the open-rights filter; the year
+    comes from the record's own ``year`` field and is stored as a catalog
+    fact. The image is the provider's ``edmIsShownBy`` copy.
+    """
+
+    repo = "Europeana"
+    repo_tag = "europeana"
+
+    def search(self, query: str, limit: int, offset: int = 0):
+        lo, hi = EUROPEANA_WINDOWS[0]
+        recs, _total = self._search_window(lo, hi, limit, offset + 1)
+        return recs
+
+    @staticmethod
+    def _search_window(lo: int, hi: int, limit: int, start: int) -> tuple:
+        """One page of one decade window; ``(items, totalResults)``.
+
+        ``start`` is Europeana's 1-based offset. The key is stripped from any
+        HTTP error so it cannot leak into a run report.
+        """
+        params = [
+            ("wskey", europeana_api_key()),
+            ("query", EUROPEANA_QUERY),
+            ("qf", "TYPE:IMAGE"),
+            ("qf", f"YEAR:[{lo} TO {hi}]"),
+            ("rows", str(max(1, int(limit)))),
+            ("start", str(max(1, int(start)))),
+            ("profile", "rich"),
+        ]
+        url = EUROPEANA_API + "?" + urllib.parse.urlencode(params)
+        try:
+            data = _get_json(url)
+        except urllib.error.HTTPError as e:
+            raise RuntimeError(f"Europeana HTTP {e.code}") from None
+        except urllib.error.URLError as e:
+            raise RuntimeError(f"Europeana unreachable: {e.reason}") from None
+        return (list(data.get("items") or []),
+                int(data.get("totalResults") or 0))
+
+    def walk_batch(self, limit: int, cursor=None) -> tuple:
+        """One page over the decade windows; ``(raws, next_cursor)``.
+
+        Visits windows round-robin and parks one after
+        ``EUROPEANA_PAGES_PER_WINDOW`` pages, so the pool draws from many
+        decades. Each candidate that clears the licence/year pre-filter gets
+        its image size measured, since the search index carries none. The
+        cursor is ``{"window", "start", "pages"}``.
+        """
+        state = dict(cursor or {})
+        n = len(EUROPEANA_WINDOWS)
+        wi = int(state.get("window") or 0) % n
+        start = max(1, int(state.get("start") or 1))
+        pages = int(state.get("pages") or 0)
+        raws, tried = [], 0
+        while len(raws) < limit and tried < n:
+            tried += 1
+            lo, hi = EUROPEANA_WINDOWS[wi]
+            items, total = self._search_window(
+                lo, hi, max(1, limit - len(raws)), start)
+            pages += 1
+            start += len(items)
+            for rec in items:
+                if not europeana_photo_ok(rec):
+                    continue
+                rec["window"] = f"{lo}-{hi}"
+                rec["width"], rec["height"] = europeana_size(
+                    europeana_image_url(rec))
+                raws.append(rec)
+            if (not items or start > total
+                    or pages >= EUROPEANA_PAGES_PER_WINDOW):
+                wi = (wi + 1) % n
+                start, pages = 1, 0
+        return raws, {"window": wi, "start": start, "pages": pages}
+
+    def normalize(self, raw) -> dict | None:
+        if not europeana_photo_ok(raw):
+            return None
+        year, year_text = europeana_year(raw)
+        width = int(raw.get("width") or 0)
+        height = int(raw.get("height") or 0)
+        titles = raw.get("title") or []
+        title = _strip_html(str(titles[0])).strip() if titles else ""
+        title = title or f"Europeana {raw.get('id')}"
+        labels = raw.get("edmPlaceLabel") or []
+        place = _strip_html(str(labels[0])).strip() if labels else ""
+        rights = raw.get("rights") or []
+        desc = raw.get("dcDescription") or []
+        description = _strip_html(" ".join(str(d) for d in desc[:1])) \
+            if desc else ""
+        return {
+            "repository": self.repo,
+            "fileUrl": str(raw.get("guid") or raw.get("id") or ""),
+            "originalTitle": title,
+            "date": year_text,
+            "place": place,
+            "license": europeana_license(rights),
+            "licenseUrl": str(rights[0]) if rights else "",
+            "description": description,
+            "width": width, "height": height,
+            "year": year,
+            "year_field": "catalog" if year is not None else "",
+            "year_source": "year",
+            "year_raw": year_text,
+            "raw": {"id": raw.get("id"), "window": raw.get("window"),
+                    "provider": raw.get("provider"),
+                    "dataProvider": raw.get("dataProvider"),
+                    "rights": list(rights)},
+        }
+
+    def download_url(self, raw) -> str:
+        return europeana_image_url(raw)
+
+
 # ── Library of Congress adapter (query/manual escape hatch) ────────────────
 
 LOC_SEARCH = "https://www.loc.gov/search/"
@@ -2102,6 +2359,7 @@ ADAPTERS = {
     "gallica": GallicaAdapter,
     "nb": NbAdapter,
     "finna": FinnaAdapter,
+    "europeana": EuropeanaAdapter,
     "loc": LocAdapter,
     "manual": ManualAdapter,
 }
@@ -2532,7 +2790,7 @@ def top_up(data_dir: Path, target: int = DEFAULT_TOPUP_TARGET,
 # refuses to let one of them exceed its share. A single-repository pool still
 # reports rather than enforces it, since enforcing it there would starve the
 # pool.
-DEFAULT_REFRESH_SOURCES = ("gallica", "nb", "finna")
+DEFAULT_REFRESH_SOURCES = ("gallica", "nb", "finna", "europeana")
 
 
 def pool_spread_ok(entries, parts: int = SPREAD_PARTS) -> bool:

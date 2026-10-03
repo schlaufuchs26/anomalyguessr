@@ -1052,6 +1052,131 @@ class FinnaTest(unittest.TestCase):
             adapter._search_page = old_search
 
 
+def europeana_raw(title="Marktplatz", year=("1900",), rights=(
+        "http://creativecommons.org/publicdomain/mark/1.0/",),
+        image="https://example.org/pic.jpg", rid="/1/item",
+        guid="https://www.europeana.eu/item/1/item",
+        provider=("The European Library",), data_provider=("Museum",),
+        description=("A market square.",), place=("Berlin",),
+        width=1600, height=1000, etype="IMAGE"):
+    """One Europeana search record shaped like the live API's response."""
+    return {"id": rid, "title": [title], "year": list(year),
+            "type": etype, "rights": list(rights),
+            "edmIsShownBy": [image] if image else [],
+            "guid": guid, "provider": list(provider),
+            "dataProvider": list(data_provider),
+            "dcDescription": list(description),
+            "edmPlaceLabel": list(place),
+            "width": width, "height": height}
+
+
+class EuropeanaTest(unittest.TestCase):
+    """Europeana adapter (ticket #2245)."""
+
+    def test_license_maps_urls_to_labels(self):
+        self.assertEqual(s.europeana_license(
+            ["http://creativecommons.org/publicdomain/mark/1.0/"]),
+            "Public Domain Mark 1.0")
+        self.assertEqual(s.europeana_license(
+            ["http://creativecommons.org/publicdomain/zero/1.0/"]),
+            "CC0 1.0")
+        self.assertEqual(s.europeana_license(
+            ["http://creativecommons.org/licenses/by-sa/4.0/"]), "CC BY-SA")
+        self.assertEqual(s.europeana_license(
+            ["http://creativecommons.org/licenses/by-nc/4.0/"]), "CC BY-NC")
+        self.assertEqual(s.europeana_license(
+            ["http://rightsstatements.org/vocab/InC/1.0/"]), "")
+        # Only the open forms pass the pool's licence rule.
+        self.assertTrue(s.license_ok(s.europeana_license(
+            ["http://creativecommons.org/publicdomain/zero/1.0/"])))
+        self.assertFalse(s.license_ok(s.europeana_license(
+            ["http://creativecommons.org/licenses/by-nc/4.0/"])))
+
+    def test_year_rejects_ranges_and_multiple_values(self):
+        self.assertEqual(s.europeana_year(europeana_raw(year=("1918",)))[0],
+                         1918)
+        # A single span stored as one string is a range, not one year.
+        self.assertIsNone(
+            s.europeana_year(europeana_raw(year=("1910-1919",)))[0])
+        # Two years in the list name no single fact.
+        self.assertIsNone(
+            s.europeana_year(europeana_raw(year=("1900", "1901")))[0])
+        self.assertIsNone(s.europeana_year(europeana_raw(year=()))[0])
+        # dcDate is the fallback when the normalized year is absent.
+        rec = europeana_raw(year=())
+        rec["dcDate"] = ["1900"]
+        self.assertEqual(s.europeana_year(rec)[0], 1900)
+
+    def test_normalize_stores_the_catalog_year_and_provider(self):
+        adapter = s.EuropeanaAdapter()
+        entry = adapter.normalize(europeana_raw())
+        self.assertEqual(entry["repository"], "Europeana")
+        self.assertEqual(entry["year"], 1900)
+        self.assertEqual(entry["year_field"], "catalog")
+        self.assertEqual(entry["year_source"], "year")
+        self.assertEqual(entry["license"], "Public Domain Mark 1.0")
+        self.assertEqual(entry["place"], "Berlin")
+        self.assertEqual(entry["raw"]["provider"], ["The European Library"])
+        self.assertEqual(entry["width"], 1600)
+        self.assertEqual(s.entry_reject_reason(entry), "")
+
+    def test_normalize_rejects_non_image_non_license_and_no_year(self):
+        adapter = s.EuropeanaAdapter()
+        self.assertIsNone(adapter.normalize(europeana_raw(etype="TEXT")))
+        self.assertIsNone(adapter.normalize(europeana_raw(
+            rights=("http://creativecommons.org/licenses/by-nc/4.0/",))))
+        self.assertIsNone(adapter.normalize(europeana_raw(year=("1900", "1901"))))
+        self.assertIsNone(adapter.normalize(europeana_raw(image="")))
+
+    def test_image_url_uses_edm_is_shown_by(self):
+        self.assertEqual(
+            s.europeana_image_url(europeana_raw(image="https://x/y.jpg")),
+            "https://x/y.jpg")
+        self.assertEqual(s.europeana_image_url(europeana_raw(image="")), "")
+
+    def test_key_falls_back_to_the_demo_key(self):
+        old = s._os.environ.pop("EUROPEANA_API_KEY", None)
+        try:
+            self.assertEqual(s.europeana_api_key(), s.EUROPEANA_DEMO_KEY)
+            s._os.environ["EUROPEANA_API_KEY"] = "abc123"
+            self.assertEqual(s.europeana_api_key(), "abc123")
+        finally:
+            s._os.environ.pop("EUROPEANA_API_KEY", None)
+            if old is not None:
+                s._os.environ["EUROPEANA_API_KEY"] = old
+
+    def test_walk_rotates_windows_and_measures_candidates(self):
+        adapter = s.EuropeanaAdapter()
+        seen = []
+
+        def fake_search(lo, hi, limit, start):
+            seen.append((lo, hi, start))
+            if (lo, hi) == s.EUROPEANA_WINDOWS[0]:
+                return [europeana_raw(rid="a")], 1000
+            return [], 0
+
+        old = adapter._search_window
+        adapter._search_window = staticmethod(fake_search)
+        old_size = s.europeana_size
+        s.europeana_size = lambda url: (1600, 1000)  # no network
+        try:
+            raws, cursor = adapter.walk_batch(1, None)
+            self.assertEqual(len(raws), 1)
+            self.assertEqual(raws[0]["width"], 1600)
+            # After one page the window is still the first one, one item in.
+            self.assertEqual(cursor["window"], 0)
+            self.assertEqual(cursor["start"], 2)
+            # Paging the same window to its cap parks it and moves on.
+            cursor = {"window": 0, "start": 1,
+                      "pages": s.EUROPEANA_PAGES_PER_WINDOW - 1}
+            raws, cursor = adapter.walk_batch(1, cursor)
+            self.assertEqual(cursor["window"], 1)
+            self.assertEqual(cursor["start"], 1)
+        finally:
+            adapter._search_window = old
+            s.europeana_size = old_size
+
+
 class StubGallica(s.GallicaAdapter):
     """A GallicaAdapter whose walk comes from memory (no network)."""
 
