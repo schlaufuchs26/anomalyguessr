@@ -1987,6 +1987,9 @@ EUROPEANA_DEMO_KEY = "api2demo"
 # the decade spread the pool wants (#1533).
 EUROPEANA_WINDOWS = tuple((y, y + 9) for y in range(1850, 2030, 10))
 EUROPEANA_PAGES_PER_WINDOW = 3
+# Europeana refuses ``start >= 1000`` (HTTP 400), so a window's walk is bounded
+# to its first thousand hits; the pages-per-window cap parks it well before.
+EUROPEANA_MAX_START = 1000
 # Open-rights statements the walk filters on, as Europeana stores them (URLs).
 # NC/ND variants and rightsstatements.org (InC, NoC-*) are excluded; the same
 # licence rule is re-checked in ``normalize`` via ``europeana_license``.
@@ -2060,6 +2063,30 @@ def europeana_image_url(rec) -> str:
     return str(shown[0]) if shown else ""
 
 
+def europeana_text(value) -> str:
+    """First string out of a Europeana field: a str, list, or language dict.
+
+    Fields like ``edmPlaceLabel``/``title`` come back as a list of language
+    maps (``[{"def": "Binnenhof"}]``), so ``str(...)`` would store the repr.
+    """
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        for key in ("def", "en"):
+            if value.get(key):
+                return europeana_text(value[key])
+        for v in value.values():
+            if v:
+                return europeana_text(v)
+        return ""
+    if isinstance(value, list):
+        for v in value:
+            text = europeana_text(v)
+            if text:
+                return text
+    return ""
+
+
 def europeana_photo_ok(rec) -> bool:
     """Cheap pre-filter before the walk spends an image fetch on a candidate."""
     if str(rec.get("type") or "").upper() != "IMAGE":
@@ -2126,15 +2153,18 @@ class EuropeanaAdapter(SourceAdapter):
         """One page of one decade window; ``(items, totalResults)``.
 
         ``start`` is Europeana's 1-based offset. The key is stripped from any
-        HTTP error so it cannot leak into a run report.
+        HTTP error so it cannot leak into a run report. ``rows`` is clamped so
+        the request never reaches Europeana's ``start >= 1000`` limit.
         """
+        start = max(1, int(start))
+        rows = max(1, min(int(limit), EUROPEANA_MAX_START - start))
         params = [
             ("wskey", europeana_api_key()),
             ("query", EUROPEANA_QUERY),
             ("qf", "TYPE:IMAGE"),
             ("qf", f"YEAR:[{lo} TO {hi}]"),
-            ("rows", str(max(1, int(limit)))),
-            ("start", str(max(1, int(start)))),
+            ("rows", str(rows)),
+            ("start", str(start)),
             ("profile", "rich"),
         ]
         url = EUROPEANA_API + "?" + urllib.parse.urlencode(params)
@@ -2176,7 +2206,7 @@ class EuropeanaAdapter(SourceAdapter):
                 rec["width"], rec["height"] = europeana_size(
                     europeana_image_url(rec))
                 raws.append(rec)
-            if (not items or start > total
+            if (not items or start > total or start >= EUROPEANA_MAX_START
                     or pages >= EUROPEANA_PAGES_PER_WINDOW):
                 wi = (wi + 1) % n
                 start, pages = 1, 0
@@ -2188,18 +2218,15 @@ class EuropeanaAdapter(SourceAdapter):
         year, year_text = europeana_year(raw)
         width = int(raw.get("width") or 0)
         height = int(raw.get("height") or 0)
-        titles = raw.get("title") or []
-        title = _strip_html(str(titles[0])).strip() if titles else ""
+        title = _strip_html(europeana_text(raw.get("title"))).strip()
         title = title or f"Europeana {raw.get('id')}"
-        labels = raw.get("edmPlaceLabel") or []
-        place = _strip_html(str(labels[0])).strip() if labels else ""
+        place = _strip_html(europeana_text(raw.get("edmPlaceLabel"))).strip()
         rights = raw.get("rights") or []
-        desc = raw.get("dcDescription") or []
-        description = _strip_html(" ".join(str(d) for d in desc[:1])) \
-            if desc else ""
+        description = _strip_html(europeana_text(raw.get("dcDescription")))
+        guid = str(raw.get("guid") or raw.get("id") or "")
         return {
             "repository": self.repo,
-            "fileUrl": str(raw.get("guid") or raw.get("id") or ""),
+            "fileUrl": guid.split("?")[0],
             "originalTitle": title,
             "date": year_text,
             "place": place,

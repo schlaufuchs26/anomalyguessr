@@ -31,6 +31,7 @@ Live network script: the tests cover ``analyze`` (pure) and are gated behind
 
 import argparse
 import json
+import os
 import re
 import sys
 import urllib.error
@@ -59,11 +60,14 @@ WELLCOME_QUERY = "photograph"
 # records the observed evidence, so the table says "not reachable" with a
 # reason instead of an invented number.
 #
-# Re-checked from the Mac mini on 2026-10-03 (ticket #2244): Library of
-# Congress is still a Cloudflare 403 from this host; Smithsonian and Europeana
-# answer with a public demo key but want a registered key for production;
-# Deutsche Fotothek still disallows crawling; NYPL and DDB still need a token
-# or key. Finna (Finland) is reachable without a key and became an adapter
+# Re-checked from the Mac mini on 2026-10-03 (ticket #2245): Library of
+# Congress is still a Cloudflare 403 from this host; Deutsche Fotothek still
+# disallows crawling; NYPL still needs a token and DDB still needs a
+# registered key. Smithsonian answers with a public demo key but its
+# structured date field is decade strings, so it is measured (``smithsonian``
+# probe) and fails the catalog gate. Europeana answers with a key and became
+# an adapter (``ag_sources.EuropeanaAdapter``, ``europeana`` probe) in ticket
+# #2245. Finna (Finland) is reachable without a key and became an adapter
 # (``ag_sources.FinnaAdapter``) in ticket #2244.
 BLOCKED = (
     {"source": "Library of Congress (FSA/OWI, Detroit Publishing, photochrom)",
@@ -74,7 +78,7 @@ BLOCKED = (
     {"source": "Deutsche Digitale Bibliothek / Bundesarchiv",
      "endpoint": "https://api.deutsche-digitale-bibliothek.de/search",
      "observed": "HTTP 403 unauthenticated",
-     "note": "needs a registered API key"},
+     "note": "needs a registered API key (organisation account)"},
     {"source": "Deutsche Fotothek (SLUB Dresden)",
      "endpoint": "https://www.deutschefotothek.de/",
      "observed": "robots.txt: 'User-agent: * / Disallow: /'; search sits "
@@ -85,18 +89,10 @@ BLOCKED = (
      "endpoint": "https://www.nationaalarchief.nl/",
      "observed": "HTTP 403 (datacenter block)",
      "note": "residential node needed"},
-    {"source": "Smithsonian Open Access",
-     "endpoint": "https://api.si.edu/openaccess/api/v1.0/search",
-     "observed": "HTTP 403 without api_key",
-     "note": "free API key, but none is configured on this host (data.si.edu)"},
     {"source": "NYPL Digital Collections",
      "endpoint": "https://api.repo.nypl.org/api/v2/items/search",
      "observed": "HTTP 401 without token",
-     "note": "free token from the NYPL API portal"},
-    {"source": "Europeana (edm:timeSpan)",
-     "endpoint": "https://api.europeana.eu/record/v2/search.json",
-     "observed": "HTTP 401 without wskey",
-     "note": "free API key (pro.europeana.eu)"},
+     "note": "free token from the NYPL API portal, behind an account"},
 )
 
 
@@ -365,11 +361,100 @@ def sample_nb(sample: int) -> list:
     return rows[:sample]
 
 
+# ── Smithsonian Open Access probe (ticket #2245) ───────────────────────────
+#
+# Reachable with a key (``SMITHSONIAN_API_KEY``, else the shared ``DEMO_KEY``).
+# The measurement is the reason the archive is NOT an adapter: the structured
+# date field (``indexedStructured.date``) holds decade strings ("1900s") and
+# bags of decades, not one catalogue year, so it fails the pool's #1430 gate.
+
+SMITHSONIAN_API = "https://api.si.edu/openaccess/api/v1.0/search"
+SMITHSONIAN_QUERY = "photograph"
+
+
+def smithsonian_key() -> str:
+    """The Smithsonian api.data.gov key: env, else the shared demo key."""
+    return (os.environ.get("SMITHSONIAN_API_KEY") or "DEMO_KEY").strip()
+
+
+def smithsonian_row(rec: dict) -> dict:
+    """One Smithsonian search row -> audit row (structured keys only)."""
+    c = rec.get("content") or {}
+    dn = c.get("descriptiveNonRepeating") or {}
+    acc = str((dn.get("metadata_usage") or {}).get("access") or "")
+    isd = (c.get("indexedStructured") or {}).get("date") or []
+    media = ((dn.get("online_media") or {}).get("media") or [{}])
+    return {"title": rec.get("title") or "",
+            "date": " ".join(str(v) for v in isd),
+            "date_field": "indexedStructured.date",
+            "license_ok": ag_sources.license_ok(acc),
+            "width": 0, "height": 0,
+            "url": media[0].get("content") or media[0].get("guid") or ""}
+
+
+def sample_smithsonian(sample: int) -> list:
+    params = {"q": SMITHSONIAN_QUERY, "api_key": smithsonian_key(),
+              "rows": str(max(1, sample)), "start": "0"}
+    data = _http_json(SMITHSONIAN_API + "?" + urllib.parse.urlencode(params))
+    rows = ((data.get("response") or {}).get("rows") or [])
+    return [smithsonian_row(r) for r in rows[:sample]]
+
+
+# ── Europeana probe (ticket #2245) ─────────────────────────────────────────
+#
+# Reachable with a key (``EUROPEANA_API_KEY``, else the demo key). The broad
+# query (no ``YEAR`` filter) measures the raw exact-year share; the adapter's
+# walk adds ``YEAR:[a TO b]``, which lifts it to ~100%.
+
+def europeana_row(rec: dict) -> dict:
+    """One Europeana search record -> audit row (structured keys only)."""
+    _year, text = ag_sources.europeana_year(rec)
+    return {"title": ag_sources.europeana_text(rec.get("title")),
+            "date": text, "date_field": "year",
+            "license_ok": ag_sources.license_ok(
+                ag_sources.europeana_license(rec.get("rights"))),
+            "width": 0, "height": 0,
+            "url": rec.get("guid") or "",
+            "image_url": ag_sources.europeana_image_url(rec)}
+
+
+def sample_europeana(sample: int, size_probes: int = 20,
+                     offsets=(1, 200, 400, 600, 800)) -> list:
+    """A broad (no ``YEAR`` filter) sample, spread over Europeana's first
+    thousand hits (it refuses ``start >= 1000``); the default sort is not
+    date-correlated, so one page alone is not representative."""
+    per = max(1, sample // len(offsets))
+    rows = []
+    for start in offsets:
+        params = {"wskey": ag_sources.europeana_api_key(), "query": "*:*",
+                  "qf": "TYPE:IMAGE", "rows": str(per), "start": str(start),
+                  "profile": "rich"}
+        data = _http_json(ag_sources.EUROPEANA_API + "?"
+                          + urllib.parse.urlencode(params))
+        rows.extend(europeana_row(r)
+                    for r in (data.get("items") or [])[:per])
+    rows = rows[:sample]
+    # Image sizes cost one request each, so probe only the rows that already
+    # look eligible (exact year + usable licence), up to a small cap.
+    probed = 0
+    for row in rows:
+        if probed >= size_probes:
+            break
+        if (row.get("image_url") and row["license_ok"]
+                and date_kind(row["date"]) == "exact"):
+            row["width"], row["height"] = ag_sources.europeana_size(
+                row["image_url"])
+            probed += 1
+    return rows
+
+
 PROBES = {
     "commons": sample_commons,
     "gallica": sample_gallica,
     "nb": sample_nb,
     "wellcome": sample_wellcome,
+    "europeana": sample_europeana,
+    "smithsonian": sample_smithsonian,
 }
 
 

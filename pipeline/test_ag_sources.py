@@ -1134,6 +1134,17 @@ class EuropeanaTest(unittest.TestCase):
             "https://x/y.jpg")
         self.assertEqual(s.europeana_image_url(europeana_raw(image="")), "")
 
+    def test_text_unwraps_language_maps(self):
+        self.assertEqual(s.europeana_text("plain"), "plain")
+        self.assertEqual(s.europeana_text([{"def": "Binnenhof"}]), "Binnenhof")
+        self.assertEqual(s.europeana_text([{"en": ["Markt"]}]), "Markt")
+        self.assertEqual(s.europeana_text([]), "")
+        self.assertEqual(s.europeana_text(None), "")
+        # A live record stores place labels as language maps, not strings.
+        entry = s.EuropeanaAdapter().normalize(
+            europeana_raw(place=({"def": "Den Haag"},)))
+        self.assertEqual(entry["place"], "Den Haag")
+
     def test_key_falls_back_to_the_demo_key(self):
         old = s._os.environ.pop("EUROPEANA_API_KEY", None)
         try:
@@ -1172,6 +1183,11 @@ class EuropeanaTest(unittest.TestCase):
             raws, cursor = adapter.walk_batch(1, cursor)
             self.assertEqual(cursor["window"], 1)
             self.assertEqual(cursor["start"], 1)
+            # Europeana refuses start >= 1000, so a window also parks there.
+            cursor = {"window": 0, "start": s.EUROPEANA_MAX_START - 1,
+                      "pages": 0}
+            raws, cursor = adapter.walk_batch(1, cursor)
+            self.assertEqual(cursor["window"], 1)
         finally:
             adapter._search_window = old
             s.europeana_size = old_size

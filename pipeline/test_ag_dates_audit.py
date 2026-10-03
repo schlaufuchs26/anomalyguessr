@@ -59,6 +59,30 @@ class AnalyzeTest(unittest.TestCase):
         for b in a.BLOCKED:
             self.assertTrue(b["observed"])
 
+    def test_smithsonian_row_reads_the_structured_date_bag(self):
+        rec = {"title": "A photo", "content": {
+            "descriptiveNonRepeating": {
+                "metadata_usage": {"access": "CC0"},
+                "online_media": {"media": [{"content": "https://ids/x.jpg"}]}},
+            "indexedStructured": {"date": ["1900s", "1905"]}}}
+        row = a.smithsonian_row(rec)
+        self.assertEqual(row["date_field"], "indexedStructured.date")
+        self.assertEqual(row["date"], "1900s 1905")
+        self.assertTrue(row["license_ok"])
+        self.assertEqual(row["url"], "https://ids/x.jpg")
+        # The bag is not one year, so it lands as approximate, not exact.
+        self.assertEqual(a.date_kind(row["date"]), "approximate")
+
+    def test_europeana_row_maps_year_and_licence(self):
+        rec = {"title": ["Markt"], "year": ["1900"], "guid": "https://e/1",
+               "rights": ["http://creativecommons.org/publicdomain/mark/1.0/"],
+               "edmIsShownBy": ["https://img/x.jpg"]}
+        row = a.europeana_row(rec)
+        self.assertEqual(row["date"], "1900")
+        self.assertEqual(row["date_field"], "year")
+        self.assertTrue(row["license_ok"])
+        self.assertEqual(row["image_url"], "https://img/x.jpg")
+
 
 if __name__ == "__main__":
     unittest.main()
