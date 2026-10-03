@@ -1,21 +1,21 @@
 {
   "version": 2,
-  "date": "2026-10-02",
+  "date": "2026-10-03",
   "scenes": [
     {
-      "id": "gallica-lutz-g-a-s-c-paris-amiens-1908-cycliste-photogra-48e53b-modern-cycling-helmet",
-      "title": "Lutz (G.A.S.C.),Paris-Amiens, [cycliste]",
+      "id": "gallica-torpilleur-x-monaco-photographie-de-presse-agenc-117194-modern-jet-ski",
+      "title": "Torpilleur X [à Monaco]",
       "title_source": "catalog",
       "place": "",
-      "year": "1908",
-      "description": "A press photograph by Agence Rol showing a cyclist named Lutz of the G.A.S.C. during the Paris–Amiens race in 1908. It is held by the Bibliothèque nationale de France (National Library of France) and is in the public domain.",
-      "anomaly": "Modern cycling helmet",
+      "year": "1910",
+      "description": "A press photograph by Agence Rol showing the torpedo boat X at Monaco, taken in 1910.",
+      "anomaly": "Modern jet ski",
       "answer": {
-        "x": 0.494,
-        "y": 0.115,
+        "x": 0.715,
+        "y": 0.573,
         "r": 0.22
       },
-      "explanation": "Hard-shell cycling helmets with ventilation slots did not exist in 1908, when cyclists wore soft cloth caps.",
+      "explanation": "Personal watercraft with seated riders did not exist in 1910, so a jet ski cannot belong in this scene.",
       "references": [
         {
           "label": "Bibliothèque nationale de France (Gallica)",
@@ -24,163 +24,163 @@
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b69101118",
-        "originalTitle": "Lutz (G.A.S.C.),Paris-Amiens, 1908 [cycliste] : [photographie de presse] / [Agence Rol]",
-        "date": "1908",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6914035k",
+        "originalTitle": "Torpilleur X [à Monaco] : [photographie de presse] / [Agence Rol]",
+        "date": "1910",
         "place": "",
         "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 828 Appartient à l’ensemble documentaire : Pho20Rol"
+        "description": "Référence bibliographique : Rol, 9734 Appartient à l’ensemble documentaire : Pho20Rol"
       },
       "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b69101118",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6914035k",
       "added": "2026-09-15",
-      "shown": "2026-10-02",
-      "image": "scenes/gallica-lutz-g-a-s-c-paris-amiens-1908-cycliste-photogra-48e53b-modern-cycling-helmet.jpg",
-      "original": "scenes/gallica-lutz-g-a-s-c-paris-amiens-1908-cycliste-photogra-48e53b-modern-cycling-helmet-original.jpg"
+      "shown": "2026-10-03",
+      "image": "scenes/gallica-torpilleur-x-monaco-photographie-de-presse-agenc-117194-modern-jet-ski.jpg",
+      "original": "scenes/gallica-torpilleur-x-monaco-photographie-de-presse-agenc-117194-modern-jet-ski-original.jpg"
     },
     {
-      "id": "gallica-les-forges-bruniquel-septembre-1889-1889-7bd974-modern-photovoltaic-sola",
-      "title": "Les forges, Bruniquel, septembre",
+      "id": "nb-dronningens-gate-larvik-1920-12fbf6-modern-plastic-wheelie-b",
+      "title": "Dronningens gate, Larvik",
       "title_source": "catalog",
       "place": "",
-      "year": "1889",
-      "description": "This photograph, titled Les forges, Bruniquel, septembre 1889 (The forges, Bruniquel, September 1889), was taken by Eugène Trutat in September 1889 and shows forges, a bridge, a factory, a chimney, a tree, a river, banks, and vegetation at Bruniquel in Tarn-et-Garonne, France.",
-      "anomaly": "modern photovoltaic solar panel",
+      "year": "1920",
+      "description": "A photograph of Dronningens gate in Larvik, taken in 1920. It is held by the National Library of Norway and is in the public domain.",
+      "anomaly": "modern plastic wheelie bin",
       "answer": {
-        "x": 0.5,
-        "y": 0.575,
-        "r": 0.035
-      },
-      "explanation": "Photovoltaic solar panels did not exist in 1889; the first practical silicon solar cells were demonstrated in the 1950s.",
-      "references": [
-        {
-          "label": "Solar cell - Wikipedia",
-          "url": "https://en.wikipedia.org/wiki/Solar_cell"
-        }
-      ],
-      "source": {
-        "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b10574278t",
-        "originalTitle": "Les forges, Bruniquel, septembre 1889",
-        "date": "1889",
-        "place": "",
-        "license": "Public domain",
-        "description": "Appartient à l’ensemble documentaire : RsAlis000 Appartient à l’ensemble documentaire : RsAlis014 Appartient à l’ensemble documentaire : RsAlis007"
-      },
-      "credit": "Trutat, Eugène (1840-1910). Photographe via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b10574278t",
-      "added": "2026-09-29",
-      "shown": "2026-10-02",
-      "image": "scenes/gallica-les-forges-bruniquel-septembre-1889-1889-7bd974-modern-photovoltaic-sola.jpg",
-      "original": "scenes/gallica-les-forges-bruniquel-septembre-1889-1889-7bd974-modern-photovoltaic-sola-original.jpg"
-    },
-    {
-      "id": "nb-kongens-gate-moss-1900-b5164d-modern-plastic-wheeled-s",
-      "title": "Kongens gate, Moss",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1900",
-      "description": "A photograph of Kongens gate in Moss, taken in 1900 and held by the National Library of Norway. The record does not name a photographer.",
-      "anomaly": "modern plastic wheeled shopping basket",
-      "answer": {
-        "x": 0.735,
-        "y": 0.585,
+        "x": 0.575,
+        "y": 0.735,
         "r": 0.22
       },
-      "explanation": "Plastic wheeled shopping baskets with telescoping handles did not exist in 1900; they became common only in the late 20th century.",
+      "explanation": "Wheeled plastic refuse bins did not exist in 1920, so this container cannot belong to the scene.",
       "references": [
         {
-          "label": "Wikipedia: Shopping cart",
-          "url": "https://en.wikipedia.org/wiki/Shopping_cart"
+          "label": "Wheelie bin - Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Wheelie_bin"
         }
       ],
       "source": {
         "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20170208_00269_NB_MIT_GNR_01856",
-        "originalTitle": "Kongens gate, Moss",
-        "date": "1900",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20210202_00093_NB_RA_M1_B90_0083",
+        "originalTitle": "Dronningens gate, Larvik",
+        "date": "1920",
         "place": "",
         "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-08-18T20:45:57.913Z', 'firstDigitalContentTime': '2025-08-18T23:07:30.270Z', 'indexLastModified': '2025-08-18T23:07:30.271Z'}"
+        "description": "{'firstIndexTime': '2025-08-25T20:51:45.149Z', 'firstDigitalContentTime': '2025-08-25T21:47:48.112Z', 'indexLastModified': '2025-08-25T21:47:48.112Z'}"
       },
-      "credit": "Mittet & Co. AS via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20170208_00269_NB_MIT_GNR_01856",
-      "added": "2026-09-29",
-      "shown": "2026-10-02",
-      "image": "scenes/nb-kongens-gate-moss-1900-b5164d-modern-plastic-wheeled-s.jpg",
-      "original": "scenes/nb-kongens-gate-moss-1900-b5164d-modern-plastic-wheeled-s-original.jpg"
+      "credit": "Riksantikvaren via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20210202_00093_NB_RA_M1_B90_0083",
+      "added": "2026-09-27",
+      "shown": "2026-10-03",
+      "image": "scenes/nb-dronningens-gate-larvik-1920-12fbf6-modern-plastic-wheelie-b.jpg",
+      "original": "scenes/nb-dronningens-gate-larvik-1920-12fbf6-modern-plastic-wheelie-b-original.jpg"
     },
     {
-      "id": "nb-bryllup-i-granvin-1953-df2eef-modern-plastic-kayak-pad",
-      "title": "Bryllup i Granvin",
+      "id": "nb-odontologisk-skole-1962-19ae18-modern-led-pocket-projec",
+      "title": "[Odontologisk skole]",
       "title_source": "catalog",
       "place": "",
-      "year": "1953",
-      "description": "A wedding in Granvin, 1953, photographed by an unidentified photographer; the image is held by the National Library of Norway and is in the public domain.",
-      "anomaly": "modern plastic kayak paddle",
+      "year": "1962",
+      "description": "[Odontologisk skole] · National Library of Norway.",
+      "anomaly": "modern LED pocket projector",
       "answer": {
-        "x": 0.355,
-        "y": 0.585,
+        "x": 0.594,
+        "y": 0.328,
         "r": 0.22
       },
-      "explanation": "The wide-bladed plastic kayak paddle is a late-20th-century design that did not exist when this photograph was taken in 1953.",
+      "explanation": "LED pocket projectors did not exist in 1962; the first compact LED projectors appeared in the 2010s.",
       "references": [
         {
-          "label": "Wikipedia: Paddle",
-          "url": "https://en.wikipedia.org/wiki/Paddle"
+          "label": "LED projector history",
+          "url": "https://en.wikipedia.org/wiki/Handheld_projector"
         }
       ],
       "source": {
         "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20160901_00090_NB_MIT_FNR_13155",
-        "originalTitle": "Bryllup i Granvin",
-        "date": "1953",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20190618_00128_NB_HS_62_00593",
+        "originalTitle": "[Odontologisk skole]",
+        "date": "1962",
         "place": "",
         "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-08-19T07:43:19.698Z', 'firstDigitalContentTime': '2025-08-19T08:00:31.438Z', 'indexLastModified': '2025-08-19T08:00:31.439Z'}"
+        "description": "{'firstIndexTime': '2025-08-26T13:40:05.406Z', 'firstDigitalContentTime': '2025-08-26T13:50:21.584Z', 'indexLastModified': '2025-08-26T13:50:21.584Z'}"
       },
-      "credit": "Mittet & Co. AS, Brun, Jac via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20160901_00090_NB_MIT_FNR_13155",
-      "added": "2026-09-30",
-      "shown": "2026-10-02",
-      "image": "scenes/nb-bryllup-i-granvin-1953-df2eef-modern-plastic-kayak-pad.jpg",
-      "original": "scenes/nb-bryllup-i-granvin-1953-df2eef-modern-plastic-kayak-pad-original.jpg"
+      "credit": "Henriksen & Steen via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20190618_00128_NB_HS_62_00593",
+      "added": "2026-09-27",
+      "shown": "2026-10-03",
+      "image": "scenes/nb-odontologisk-skole-1962-19ae18-modern-led-pocket-projec.jpg",
+      "original": "scenes/nb-odontologisk-skole-1962-19ae18-modern-led-pocket-projec-original.jpg"
     },
     {
-      "id": "gallica-cuirass-le-fulminant-en-mer-photographie-1890-dcd7d6-modern-jet-ski",
-      "title": "[Cuirassé 'le Fulminant' en mer]",
+      "id": "gallica-22-6-13-le-des-cygnes-d-part-du-championnat-de-f-55f6a9-modern-swim-cap-with-sil",
+      "title": "22-6-13, île des Cygnes, départ du championnat de France dames [natation]",
       "title_source": "catalog",
       "place": "",
-      "year": "1890",
-      "description": "An albumen print photograph, 9 x 12 cm, showing the warship \"le Fulminant\" at sea. It is dated 1890 and is held by the Bibliothèque municipale du Havre (PH BAL 093), having formerly belonged to André Baly.",
-      "anomaly": "modern jet ski",
+      "year": "1913",
+      "description": "A press photograph by Agence Rol dated 22 June 1913 shows the start of the women's championship in swimming at the Île des Cygnes. The record identifies it as a negative glass photograph held by the Bibliothèque nationale de France, département Estampes et photographie.",
+      "anomaly": "modern swim cap with silicone dome shape",
       "answer": {
-        "x": 0.828,
-        "y": 0.632,
+        "x": 0.532,
+        "y": 0.706,
         "r": 0.22
       },
-      "explanation": "The personal watercraft did not exist in 1890, so a jet ski cannot appear in this scene.",
+      "explanation": "A seamless stretch silicone swim cap did not exist in 1913, when swimmers wore wool or rubber caps with visible seams and straps.",
       "references": [
         {
-          "label": "Wikipedia: Personal watercraft",
-          "url": "https://en.wikipedia.org/wiki/Personal_watercraft"
+          "label": "Swim cap history",
+          "url": "https://en.wikipedia.org/wiki/Swim_cap"
         }
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b106791056",
-        "originalTitle": "[Cuirassé 'le Fulminant' en mer] : [photographie]",
-        "date": "1890",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53114706h",
+        "originalTitle": "22-6-13, île des Cygnes, départ du championnat de France dames [natation] : [photographie de presse] / [Agence Rol]",
+        "date": "1913",
         "place": "",
         "license": "Public domain",
-        "description": "Ancien possesseur : Baly, André (1922-2003). Ancien possesseur Appartient à l’ensemble documentaire : BmLHav000"
+        "description": "Référence bibliographique : Rol, 30599 Appartient à l’ensemble documentaire : Pho20Rol Appartient à l’ensemble documentaire : MnS000"
       },
-      "credit": "Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b106791056",
+      "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53114706h",
+      "added": "2026-09-28",
+      "shown": "2026-10-03",
+      "image": "scenes/gallica-22-6-13-le-des-cygnes-d-part-du-championnat-de-f-55f6a9-modern-swim-cap-with-sil.jpg",
+      "original": "scenes/gallica-22-6-13-le-des-cygnes-d-part-du-championnat-de-f-55f6a9-modern-swim-cap-with-sil-original.jpg"
+    },
+    {
+      "id": "nb-filtvedts-brygge-1901-177210-modern-rubber-tired-whee",
+      "title": "Filtvedts brygge",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1901",
+      "description": "A photograph titled Filtvedts brygge, dated 1901, held by the National Library of Norway and in the public domain.",
+      "anomaly": "modern rubber-tired wheel on the cart",
+      "answer": {
+        "x": 0.335,
+        "y": 0.635,
+        "r": 0.1739
+      },
+      "explanation": "Pneumatic rubber tires did not exist on horse-drawn carts in 1901, so a rubber-tired wheel on this cart is impossible for the scene's year.",
+      "references": [
+        {
+          "label": "Wikipedia: Tire",
+          "url": "https://en.wikipedia.org/wiki/Tire"
+        }
+      ],
+      "source": {
+        "repository": "National Library of Norway",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_AE0000047822_0105_F_01",
+        "originalTitle": "Filtvedts brygge",
+        "date": "1901",
+        "place": "",
+        "license": "Public domain",
+        "description": "{'firstIndexTime': '2026-03-19T15:00:00.241Z', 'firstDigitalContentTime': '2026-03-19T16:00:02.909Z', 'indexLastModified': '2026-09-10T16:00:00.996Z'}"
+      },
+      "credit": "Paulsen, Olaf Albert via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_AE0000047822_0105_F_01",
       "added": "2026-09-20",
-      "shown": "2026-10-02",
-      "image": "scenes/gallica-cuirass-le-fulminant-en-mer-photographie-1890-dcd7d6-modern-jet-ski.jpg",
-      "original": "scenes/gallica-cuirass-le-fulminant-en-mer-photographie-1890-dcd7d6-modern-jet-ski-original.jpg"
+      "shown": "2026-10-03",
+      "image": "scenes/nb-filtvedts-brygge-1901-177210-modern-rubber-tired-whee.jpg",
+      "original": "scenes/nb-filtvedts-brygge-1901-177210-modern-rubber-tired-whee-original.jpg"
     }
   ]
 }
