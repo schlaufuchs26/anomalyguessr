@@ -20,7 +20,10 @@ Two guards keep it honest:
   proper noun the record's text does not contain, so a translation cannot
   smuggle in outside facts (``unsupported_facts``). A word inside a quoted
   passage is exempt: quoting the catalogue title is a citation of the record,
-  not a claim of its own;
+  not a claim of its own, and so is a parenthesised gloss of that quotation
+  ("Noël" -> "the day after Christmas"). A name the record spells in another
+  script, or spells with another ending, is the record's own name, not an
+  invented one;
 * a record with no text anywhere leaves the scene unchanged, and a failed
   call or a guard hit keeps the existing description instead of shipping
   something worse.
@@ -41,6 +44,7 @@ import json
 import re
 import sys
 import time
+import unicodedata
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -81,7 +85,8 @@ _WORD_RE = re.compile(r"[^\W\d_][\w'’\-]*", re.UNICODE)
 # the model's own prose) and must not read as outside facts. The second block
 # is institutional vocabulary: a model that expands "NYPL" to "the New York
 # Public Library" adds no place, date or number, and flagging "Library" only
-# threw away a good description.
+# threw away a good description. The third block is the same for buildings
+# and places a record names in its own language ("Ναός" -> "Church").
 _COMMON_WORDS = frozenset("""
 a an the and or but of in on at to for from with by as is are was were be
 been being this that these those it its he she they them his her their a
@@ -91,6 +96,9 @@ december monday tuesday wednesday thursday friday saturday sunday
 library museum archive archives collection collections university society
 company publishing press institute department ministry government national
 public royal state city county
+church saint chapel cathedral monastery convent abbey temple school hospital
+theatre theater bridge tower castle palace gate square street avenue station
+hotel garden park river lake hill mountain
 """.split())
 
 _LANG_MARKERS = {
@@ -109,6 +117,10 @@ _LANG_MARKERS = {
 # the prose's; it must not decide the label (ticket #1883, the 59 "fr" labels
 # on English descriptions that quote a French original title).
 _QUOTED_RE = re.compile(r'"[^"]*"|«[^»]*»|“[^”]*”')
+# A parenthesised gloss that follows a quotation translates that quotation
+# ("Noël" -> "the day after Christmas"), so it cites the record the same way
+# the quotation does (ticket #2328).
+_PAREN_RE = re.compile(r"\(([^()]*)\)")
 
 
 class DescriptionError(RuntimeError):
@@ -359,44 +371,102 @@ def _quoted_spans(text: str) -> list:
     return [(m.start(), m.end()) for m in _QUOTED_RE.finditer(str(text or ""))]
 
 
+def _citation_gloss_spans(text: str) -> list:
+    """Spans of parentheses that gloss the quotation right before them.
+
+    The model quotes the catalogue title and renders it in English in
+    parentheses: ``"Scène enfantine, le lendemain de Noël" (childish scene,
+    the day after Christmas)``. That gloss translates a citation, so it cites
+    the record too and its words are not claims of its own (ticket #2328).
+    """
+    text = str(text or "")
+    spans = []
+    quotes = _quoted_spans(text)
+    for m in _PAREN_RE.finditer(text):
+        before = text[:m.start()].rstrip()
+        if any(end == len(before) for _, end in quotes):
+            spans.append((m.start(), m.end()))
+    return spans
+
+
 def _in_span(index: int, spans) -> bool:
     return any(start <= index < end for start, end in spans)
+
+
+def _fold_name(text) -> str:
+    """A name reduced to a comparable form: lowercase, no accents.
+
+    ``casefold`` plus the combining-mark strip is what lets the model's
+    "Musee" match the record's "Musée". Non-letter input folds to itself.
+    """
+    s = unicodedata.normalize("NFKD", str(text or "")).casefold()
+    return "".join(c for c in s if not unicodedata.combining(c))
+
+
+def _other_script_word(word: str) -> bool:
+    """True for a word written in a script other than Latin (Greek, Cyrillic)."""
+    letters = [c for c in word if c.isalpha()]
+    return len(letters) >= 3 and not any(
+        unicodedata.name(c, "").startswith("LATIN") for c in letters)
+
+
+def _record_in_other_script(vocabulary: str) -> bool:
+    """Whether the record spells its names in a script other than Latin.
+
+    No English spelling can match such a record: "Ναός Αγίου Γεωργίου"
+    reaches the model as Greek and comes back as "Church of Saint George".
+    The proper-noun check cannot verify these, so it leaves them to the
+    prompt rather than refusing a good description; numbers, which do
+    survive the translation, are still checked (ticket #2328).
+    """
+    return any(_other_script_word(w) for w in _WORD_RE.findall(vocabulary))
 
 
 def unsupported_facts(text: str, vocabulary: str) -> list:
     """Numbers and proper nouns in ``text`` absent from ``vocabulary``.
 
     A number or date must occur verbatim in the record text; a capitalised
-    word must occur case-insensitively. Sentence-initial words and a small
-    list of ordinary English words are not treated as names, so the guard
-    does not fire on "The photograph shows...".
+    word must occur there in a matching spelling. Sentence-initial words and
+    a small list of ordinary English words are not treated as names, so the
+    guard does not fire on "The photograph shows...".
 
-    A quoted passage is a citation of the record's own text, not a claim the
-    description makes, and a translated catalogue title quoted verbatim
-    ("View of the fortification") legitimately introduces English words the
-    record never contains (ticket #2326). So a capitalised word inside quotes
-    is not read as a name; numbers are still checked everywhere, because a
-    quoted date can be fabricated just as easily.
+    A translation is not an invented fact, so three allowances cover one. A
+    quoted passage is a citation of the record, and so is a parenthesised
+    gloss of that quotation ("Noël" -> "the day after Christmas"); the words
+    of either are not claims of their own. A name that differs from the
+    record's only in its ending or its accents is the same name
+    ("italienne"/"Italian", "Musée"/"Musee"). And a record written in another
+    script names nothing the model could have copied, so its proper nouns are
+    left unchecked. Numbers are still checked everywhere: a quoted or
+    translated date can be fabricated just as easily.
     """
     text = str(text or "")
     vocab = str(vocabulary or "").casefold()
-    spans = _quoted_spans(text)
+    spans = _quoted_spans(text) + _citation_gloss_spans(text)
     facts = []
     for num in _NUMBER_RE.findall(text):
         if num.casefold() not in vocab:
             facts.append(num)
-    for m in _WORD_RE.finditer(text):
-        token = m.group(0)
-        if not token[:1].isupper():
-            continue
-        if _in_span(m.start(), spans):
-            continue
-        if _SENTENCE_START_RE.search(text[:m.start()]):
-            continue
-        low = token.casefold()
-        if low in _COMMON_WORDS:
-            continue
-        if low not in vocab:
+    if not _record_in_other_script(vocab):
+        words = [_fold_name(w) for w in _WORD_RE.findall(vocab)]
+        for m in _WORD_RE.finditer(text):
+            token = m.group(0)
+            if not token[:1].isupper():
+                continue
+            if _in_span(m.start(), spans):
+                continue
+            if _SENTENCE_START_RE.search(text[:m.start()]):
+                continue
+            if token.casefold() in _COMMON_WORDS:
+                continue
+            if token.casefold() in vocab:
+                continue
+            folded = _fold_name(token)
+            # Four shared letters is the stem of a translated or inflected
+            # name: "italian"/"italienne", "George"/"georgiou".
+            if any(folded == w or (len(folded) >= 4 and len(w) >= 4
+                                   and folded[:4] == w[:4]) for w in words):
+                continue
             facts.append(token)
     seen = set()
     return [f for f in facts if not (f in seen or seen.add(f))]

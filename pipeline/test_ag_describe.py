@@ -231,6 +231,52 @@ class GuardTests(unittest.TestCase):
         self.assertEqual(d.unsupported_facts(
             "Held by the New York Public Library.", vocab), [])
 
+    def test_a_name_the_record_spells_differently_is_the_same_name(self):
+        # The reported Bolzani scene (ticket #2328): the French record says
+        # "frontière italienne", the English description "the Italian
+        # border". The shared stem is the record's own name.
+        vocab = ("Bolzani à la frontière italienne 1915 Agence Meurisse "
+                 "Bibliothèque nationale de France")
+        self.assertEqual(d.unsupported_facts(
+            "Bolzani at the Italian border.", vocab), [])
+        # An accent is a spelling variant, not a different name.
+        self.assertEqual(d.unsupported_facts(
+            "Held by the Musée.", "Agence Meurisse Musee"), [])
+        # A name with no such stem is still refused.
+        self.assertEqual(d.unsupported_facts(
+            "Bolzani at the Bavarian border.", vocab), ["Bavarian"])
+
+    def test_a_glossed_quotation_is_not_a_name(self):
+        # The reported scene (ticket #2328): the model quotes the French
+        # title and glosses the quotation in parentheses. "Christmas"
+        # translates "Noël", so it cites the record like the quotation does.
+        self.assertEqual(d.unsupported_facts(
+            'Titled "Scène enfantine, le lendemain de Noël" (childish scene, '
+            'the day after Christmas).', self.VOCAB), [])
+
+    def test_a_parenthesis_that_does_not_gloss_a_quote_is_still_checked(self):
+        self.assertEqual(d.unsupported_facts("A boxer (Paris).", self.VOCAB),
+                         ["Paris"])
+
+    def test_a_glossed_quotation_still_checks_numbers(self):
+        facts = d.unsupported_facts(
+            '"Christian, boxeur" (the boxer photographed in 1939).',
+            self.VOCAB)
+        self.assertEqual(facts, ["1939"])
+
+    def test_a_non_latin_record_leaves_names_to_the_prompt(self):
+        # No English spelling can match a Greek record, so the translated
+        # names cannot be checked against it (ticket #2328).
+        vocab = "Ναός Αγίου Γεωργίου Χαϊδάρι 1900"
+        self.assertEqual(d.unsupported_facts(
+            "The Church of Saint George in Chaidari, Greece.", vocab), [])
+
+    def test_a_non_latin_record_still_refuses_a_number(self):
+        vocab = "Ναός Αγίου Γεωργίου Χαϊδάρι 1900"
+        self.assertEqual(
+            d.unsupported_facts("The church, built in 1912.", vocab),
+            ["1912"])
+
     def test_clean_description_strips_fences_and_quotes(self):
         self.assertEqual(d.clean_description('```"A market in 1905."```'),
                          "A market in 1905.")
@@ -275,6 +321,19 @@ class DescribeEntryTests(unittest.TestCase):
         self.assertEqual(out["title"], "View of the fortification with two roundels")
         self.assertEqual(out["source"]["titleEn"],
                          "View of the fortification with two roundels")
+
+    def test_a_translated_name_lands_on_a_non_latin_record(self):
+        # The reported Greek scene (ticket #2328): the record names its
+        # church in Greek, the model renders it in English. The guard must
+        # not read the translation as an invented name and keep the caption.
+        d.describe_text = lambda *a, **kw: call(
+            "TITLE: Church of Saint George\n\n"
+            "A photograph from 1900 shows the Church of Saint George in "
+            "Chaidari, Greece.")
+        out, info = d.describe_entry(greek_entry(), "key")
+        self.assertEqual(info["status"], "described")
+        self.assertEqual(out["title"], "Church of Saint George")
+        self.assertIn("Chaidari", out["description"])
 
     def test_an_outside_fact_is_never_written(self):
         d.describe_text = lambda *a, **kw: call(
