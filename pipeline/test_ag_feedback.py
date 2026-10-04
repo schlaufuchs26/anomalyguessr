@@ -6,7 +6,9 @@ No network and no API spend: everything reads a small fixture of scenes and
 reviewer verdicts, the same shape ``state.json`` + ``feedback.json`` have.
 """
 
+import contextlib
 import datetime
+import io
 import json
 import shutil
 import tempfile
@@ -251,6 +253,37 @@ class RunTest(TempDataMixin, unittest.TestCase):
 
     def test_a_missing_adaptation_leaves_the_defaults(self):
         self.assertEqual(g.load_adaptation(self.data_dir), {})
+
+
+class NothingNewTest(TempDataMixin, unittest.TestCase):
+    """Ticket #2305: a quiet window prints the skip marker."""
+
+    def run_main(self):
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = fb.main(["--data", str(self.data_dir), "--dry-run"])
+        self.assertEqual(rc, 0)
+        return buf.getvalue()
+
+    def test_nothing_new_reads_the_sample_total(self):
+        self.assertTrue(fb.nothing_new({}))
+        self.assertTrue(fb.nothing_new({"sample": {"total": 0}}))
+        self.assertFalse(fb.nothing_new({"sample": {"total": 3}}))
+
+    def test_an_empty_window_prints_the_marker(self):
+        self.write({}, {"version": 1, "accepted": {}, "rejected": {}})
+        self.assertIn(fb.NO_FEEDBACK_MARKER, self.run_main())
+
+    def test_a_window_with_a_verdict_prints_no_marker(self):
+        scenes, _ = outboard_fixture()
+        today = datetime.date.today().isoformat()
+        record = {
+            "version": 1,
+            "accepted": {"o0": f"{today}T10:00:00Z"},
+            "rejected": {"o2": f"{today}T10:00:00Z"},
+        }
+        self.write(scenes, record)
+        self.assertNotIn(fb.NO_FEEDBACK_MARKER, self.run_main())
 
 
 class GeneratorWiringTest(unittest.TestCase):

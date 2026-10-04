@@ -33,6 +33,12 @@ Usage:
 
     ag_feedback.py --data DIR [--window 14] [--env .env]
                    [--dm-channel ID] [--dry-run] [--no-dm]
+
+Since ticket #2305 the pass runs as its own agent cron before the generator:
+the command writes ``adaptation.json`` exactly as before, prints the digest
+plus the full report, and prints ``NO_FEEDBACK_MARKER`` when the window holds
+no verdict; the cron's ``skip_if`` matches that line, so a quiet night costs
+no model call.
 """
 
 import argparse
@@ -81,6 +87,11 @@ DEFAULT_EXAMPLE_COUNT = 6
 REGRESSION_REJECT_SHARE = 0.5
 # How many "top movers" the DM digest names.
 DIGEST_MOVERS = 3
+# The feedback agent cron (ticket #2305) only earns a model call when there
+# is something to judge. ``main`` prints this line when the window holds no
+# verdict at all, and the job's ``skip_if`` matches it, so a quiet night
+# stays a terminal run. The pass still writes ``adaptation.json`` first.
+NO_FEEDBACK_MARKER = "AnomalyGuessr feedback: no new verdicts in the window"
 
 # The anomaly-pattern catalogue (ticket #1539): the pass refreshes the
 # acceptance record of every pattern that carries ``matches`` and writes it
@@ -611,6 +622,16 @@ def top_movers(stats, n: int = DIGEST_MOVERS) -> list:
     return [row for _dim, row in rows[:n]]
 
 
+def nothing_new(report: dict) -> bool:
+    """True when the window holds no verdict at all (ticket #2305).
+
+    A window without a single accept or reject has nothing to adapt from,
+    so the feedback agent cron skips its model call. Anything else (even an
+    unchanged record) is worth a look.
+    """
+    return int((report.get("sample") or {}).get("total") or 0) == 0
+
+
 def digest(report: dict) -> str:
     """A short DM digest: sample, top movers, applied changes."""
     sample = report.get("sample") or {}
@@ -744,8 +765,11 @@ def main(argv=None) -> int:
     args = parse_args(argv)
     data_dir = Path(args.data) if args.data else ag_sources.default_data_dir()
     report = run(data_dir, window_days=args.window, dry_run=args.dry_run)
-    print(json.dumps(report, indent=2, ensure_ascii=False))
     text = digest(report)
+    print(text)
+    print(json.dumps(report, indent=2, ensure_ascii=False))
+    if nothing_new(report):
+        print(NO_FEEDBACK_MARKER)
     if args.dm_channel and not args.no_dm and not args.dry_run:
         if args.env:
             ag_verify.load_env(Path(args.env))
