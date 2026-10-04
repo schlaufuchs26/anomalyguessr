@@ -79,6 +79,30 @@ def greek_entry(description="Ναός Αγίου Γεωργίου · Χαϊδά�
             "source": dict(GREEK_SOURCE)}
 
 
+# The reported scene (ticket #2326): a Europeana record whose only text is a
+# Dutch title, so the pool stores no English title/description and the
+# English-description step has to translate. The title carries no marker
+# ``language_guess`` knows, which is why the cheap test alone left it Dutch.
+DUTCH_SOURCE = {
+    "repository": "Europeana",
+    "fileUrl": "https://www.europeana.eu/item/2058632/13cb4566",
+    "originalTitle": "Zicht op vestingwerk met twee rondelen",
+    "date": "1897",
+    "place": "Maastricht",
+    "license": "CC BY-SA",
+    "description": "Zicht op vestingwerk met twee rondelen",
+    "titleEn": "",
+}
+
+
+def dutch_entry(description="Zicht op vestingwerk met twee rondelen · "
+                            "Maastricht · Europeana."):
+    return {"id": "europeana-2", "title": "Zicht op vestingwerk met twee "
+                                        "rondelen",
+            "place": "Maastricht", "year": "1897", "description": description,
+            "source": dict(DUTCH_SOURCE)}
+
+
 class CaptionTests(unittest.TestCase):
     def test_the_assembled_caption_is_recognised(self):
         self.assertTrue(d.is_caption("Christian, boxeur · Gallica."))
@@ -187,6 +211,19 @@ class GuardTests(unittest.TestCase):
             "The photograph shows a boxer. A print from the era.",
             self.VOCAB), [])
 
+    def test_a_quoted_translation_is_not_a_name(self):
+        # The model quotes the translated catalogue title; that is a citation
+        # of the record, not an invented name (ticket #2326, scene
+        # "Zicht op vestingwerk met twee rondelen").
+        self.assertEqual(d.unsupported_facts(
+            'A view of a fortification, taken in Paris in 1911. The record is '
+            'titled "Christian, boxeur" ("View of the boxer").',
+            self.VOCAB + " Paris"), [])
+
+    def test_a_number_inside_quotes_is_still_checked(self):
+        facts = d.unsupported_facts('A print from "1914".', self.VOCAB)
+        self.assertIn("1914", facts)
+
     def test_institutional_words_are_not_names(self):
         # "the New York Public Library" for a record that says "NYPL" adds
         # no place or date; only the sourced words must clear the guard.
@@ -221,6 +258,23 @@ class DescribeEntryTests(unittest.TestCase):
         self.assertEqual(out["description"],
                          "Christian, a boxer, photographed by Agence Rol in 1911.")
         self.assertEqual(out["description_source"], "catalog")
+
+    def test_a_quoted_translation_lands_as_an_english_description(self):
+        # The reported scene: the model translates the Dutch title and quotes
+        # it; the quoted words are a citation, so the guard lets the answer
+        # through instead of leaving the Dutch caption (ticket #2326).
+        d.describe_text = lambda *a, **kw: call(
+            "TITLE: View of the fortification with two roundels\n\n"
+            "A view of a fortification with two roundels, taken in "
+            "Maastricht in 1897. The photograph comes from the Europeana "
+            'record "Zicht op vestingwerk met twee rondelen" ("View of the '
+            'fortification with two roundels").')
+        out, info = d.describe_entry(dutch_entry(), "key")
+        self.assertEqual(info["status"], "described")
+        self.assertTrue(out["description"].startswith("A view of a fortification"))
+        self.assertEqual(out["title"], "View of the fortification with two roundels")
+        self.assertEqual(out["source"]["titleEn"],
+                         "View of the fortification with two roundels")
 
     def test_an_outside_fact_is_never_written(self):
         d.describe_text = lambda *a, **kw: call(
@@ -296,6 +350,19 @@ class TitleTests(unittest.TestCase):
         # An English name and an empty name are not.
         self.assertFalse(d.needs_english_title({}, "Busy market street"))
         self.assertFalse(d.needs_english_title({}, ""))
+
+    def test_a_foreign_description_forces_the_title(self):
+        # The Dutch title carries no marker the cheap test knows, so on its
+        # own it reads as English; a description being written from the same
+        # record is the signal that the title is rendered too (ticket #2326).
+        dutch = "Zicht op vestingwerk met twee rondelen"
+        self.assertFalse(d.needs_english_title({}, dutch))
+        self.assertTrue(d.needs_english_title(
+            {}, dutch, translating=True))
+        # titleEn still wins: the record already names its English title.
+        self.assertFalse(d.needs_english_title(
+            {"titleEn": "View of the fortification"}, dutch,
+            translating=True))
 
     def test_title_numbers_outside_the_record_are_guarded(self):
         self.assertEqual(d.unsupported_title_facts(

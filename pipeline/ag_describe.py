@@ -18,7 +18,9 @@ Two guards keep it honest:
 
 * a deterministic check refuses an answer that names a number, a date or a
   proper noun the record's text does not contain, so a translation cannot
-  smuggle in outside facts (``unsupported_facts``);
+  smuggle in outside facts (``unsupported_facts``). A word inside a quoted
+  passage is exempt: quoting the catalogue title is a citation of the record,
+  not a claim of its own;
 * a record with no text anywhere leaves the scene unchanged, and a failed
   call or a guard hit keeps the existing description instead of shipping
   something worse.
@@ -154,7 +156,7 @@ def needs_description(current) -> bool:
     return language_guess(text) not in ("en", "unknown")
 
 
-def needs_english_title(source, title=None) -> bool:
+def needs_english_title(source, title=None, translating=False) -> bool:
     """Whether a scene's displayed title still wants an English rendering.
 
     ``titleEn`` (ticket #2300) already holds an English title, so nothing is
@@ -162,6 +164,13 @@ def needs_english_title(source, title=None) -> bool:
     language (its language markers, or any non-ASCII letter like a Greek
     title) is translated; a short ASCII name that ``language_guess`` cannot
     place is left as it is.
+
+    ``translating`` says the same call is already writing English from the
+    record's own text (the description is a caption or is not English), so
+    the displayed title is rendered too. A short ASCII name like "Zicht op
+    vestingwerk met twee rondelen" carries no marker ``language_guess`` knows
+    and would otherwise stay Dutch (ticket #2326); the model keeps an English
+    title unchanged, so asking costs only the words of one extra line.
     """
     source = source if isinstance(source, dict) else {}
     if str(source.get("titleEn") or "").strip():
@@ -170,6 +179,8 @@ def needs_english_title(source, title=None) -> bool:
                else source.get("originalTitle") or "").strip()
     if not name:
         return False
+    if translating:
+        return True
     return language_guess(name) != "en" or not name.isascii()
 
 
@@ -313,9 +324,10 @@ def describe_prompt(record: str, avoid=(), title: bool = False) -> str:
         "Write about two sentences in English describing the photograph "
         "itself: what it shows, and where, when and by whom it was taken, "
         "whenever the record states it. Translate any non-English record "
-        "text into English. Use ONLY facts stated in the record above; do "
-        "not add names, places, dates, numbers, events or interpretations "
-        "that are not in it."
+        "text into English. Describe the photograph; do not repeat the "
+        "catalogue title, which is shown separately. Use ONLY facts stated "
+        "in the record above; do not add names, places, dates, numbers, "
+        "events or interpretations that are not in it."
     )
     if title:
         # Ticket #2300: the scene also needs an English name. One call
@@ -342,6 +354,15 @@ def describe_prompt(record: str, avoid=(), title: bool = False) -> str:
     return base
 
 
+def _quoted_spans(text: str) -> list:
+    """``[(start, end), ...]`` spans of the text's quoted passages."""
+    return [(m.start(), m.end()) for m in _QUOTED_RE.finditer(str(text or ""))]
+
+
+def _in_span(index: int, spans) -> bool:
+    return any(start <= index < end for start, end in spans)
+
+
 def unsupported_facts(text: str, vocabulary: str) -> list:
     """Numbers and proper nouns in ``text`` absent from ``vocabulary``.
 
@@ -349,17 +370,28 @@ def unsupported_facts(text: str, vocabulary: str) -> list:
     word must occur case-insensitively. Sentence-initial words and a small
     list of ordinary English words are not treated as names, so the guard
     does not fire on "The photograph shows...".
+
+    A quoted passage is a citation of the record's own text, not a claim the
+    description makes, and a translated catalogue title quoted verbatim
+    ("View of the fortification") legitimately introduces English words the
+    record never contains (ticket #2326). So a capitalised word inside quotes
+    is not read as a name; numbers are still checked everywhere, because a
+    quoted date can be fabricated just as easily.
     """
+    text = str(text or "")
     vocab = str(vocabulary or "").casefold()
+    spans = _quoted_spans(text)
     facts = []
-    for num in _NUMBER_RE.findall(str(text or "")):
+    for num in _NUMBER_RE.findall(text):
         if num.casefold() not in vocab:
             facts.append(num)
-    for m in _WORD_RE.finditer(str(text or "")):
+    for m in _WORD_RE.finditer(text):
         token = m.group(0)
         if not token[:1].isupper():
             continue
-        if _SENTENCE_START_RE.search(str(text or "")[:m.start()]):
+        if _in_span(m.start(), spans):
+            continue
+        if _SENTENCE_START_RE.search(text[:m.start()]):
             continue
         low = token.casefold()
         if low in _COMMON_WORDS:
@@ -470,7 +502,8 @@ def describe_entry(entry: dict, api_key: str, model: str = DEFAULT_MODEL,
     source = entry.get("source")
     source = source if isinstance(source, dict) else {}
     desc_needed = needs_description(entry.get("description"))
-    title_needed = needs_english_title(source, entry.get("title"))
+    title_needed = needs_english_title(source, entry.get("title"),
+                                       translating=desc_needed)
     if not desc_needed and not title_needed:
         return entry, {"status": "kept"}
     record, fetched = record_text(source, fetch)
