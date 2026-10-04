@@ -74,6 +74,7 @@ export function GenerateControl({
   onFinished,
   onReload,
   pollMs = DEFAULT_GENERATE_POLL_MS,
+  collapsibleTrace = false,
 }: {
   /**
    * Called when a run this control watched running finishes with new scenes
@@ -86,6 +87,13 @@ export function GenerateControl({
   onReload?: () => void;
   /** Poll cadence while a run is in flight; tests drive a shorter one. */
   pollMs?: number;
+  /**
+   * Collapse the live step list behind a summary (ticket #2329). The
+   * populated moderation view passes this: the expanded list would grow the
+   * scene meta row until the play HUD collapsed. The empty state leaves it
+   * open, where the trace is the page.
+   */
+  collapsibleTrace?: boolean;
 }) {
   const [status, setStatus] = useState<GenerateStatus | null>(null);
   const [error, setError] = useState("");
@@ -159,6 +167,7 @@ export function GenerateControl({
         running={running}
         endState={status?.state ?? "idle"}
         sceneId={status?.sceneId}
+        collapsible={collapsibleTrace}
       />
       {error ? (
         <p className="gen-error" role="alert">

@@ -766,7 +766,10 @@ export function App() {
             {`${index + 1} / ${queue.length}`}
           </span>
           {moderation && process.env.NODE_ENV !== "production" ? (
-            <GenerateControl onFinished={() => void mergeQueue()} />
+            <GenerateControl
+              onFinished={() => void mergeQueue()}
+              collapsibleTrace
+            />
           ) : null}
         </div>
         <p id="scene-desc" className="scene-desc">

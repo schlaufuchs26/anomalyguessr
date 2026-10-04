@@ -867,3 +867,38 @@ main {
   max-height: 320px;
   overflow-y: auto;
 }
+
+/* In the populated moderation view the trace is a detail panel (ticket
+ * #2329): its step list lives in the right column's meta row, and an expanded
+ * list grew that row until the play HUD (the Accept/Reject box and Next)
+ * collapsed to zero height. Closed by default, and bounded when open, so the
+ * game keeps its room while a run is in flight. */
+.live-trace-collapsible {
+  padding: 0.5rem 0.8rem;
+}
+
+.live-trace-collapsible > summary.live-trace-head {
+  cursor: pointer;
+  list-style: none;
+}
+
+.live-trace-collapsible > summary.live-trace-head::-webkit-details-marker {
+  display: none;
+}
+
+.live-trace-collapsible > summary.live-trace-head::before {
+  color: var(--ink-dim);
+  content: "▸";
+}
+
+.live-trace-collapsible[open] > summary.live-trace-head::before {
+  content: "▾";
+}
+
+.live-trace-collapsible .live-trace-latest {
+  color: var(--ink-dim);
+}
+
+.meta .gen-control .live-trace-collapsible .live-trace-steps {
+  max-height: 160px;
+}

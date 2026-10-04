@@ -5,6 +5,7 @@ import {
   openFrontpage,
   openGame,
   stubManifest,
+  stubRunningGenerate,
 } from "./fixtures";
 
 /**
@@ -126,6 +127,49 @@ test("the moderation box is reachable inside the laptop viewport (#1187)", async
   expect(box.y).toBeGreaterThanOrEqual(0);
   expect(box.y + box.height).toBeLessThanOrEqual(LAPTOP.height + 1);
   expect(await page.evaluate(() => window.scrollY)).toBe(0);
+});
+
+test("the moderation box stays reachable while a live trace runs (#2329)", async ({
+  page,
+}) => {
+  await page.setViewportSize(LAPTOP);
+  await stubManifest(page);
+  await stubRunningGenerate(page);
+  await page.goto("/");
+  await page.getByTestId("mode-moderation").click();
+  await expect(page.locator("#scene-title")).toHaveText("Smoke test market");
+  await expect(page.getByTestId("live-trace")).toBeVisible();
+  await page.waitForFunction(
+    () => (document.querySelector("#photo-orig") as HTMLImageElement)?.complete,
+  );
+  await answerScene(page);
+
+  // The live trace is in the meta row: with its full step list expanded it
+  // used to eat the whole right column, the HUD collapsed to 0 and the
+  // Accept/Reject box landed below the viewport with no way to scroll to it.
+  const hud = page.locator(".hud");
+  const hudHeight = await hud.evaluate((el) => el.clientHeight);
+  expect(hudHeight).toBeGreaterThan(0);
+
+  // The HUD is the scroller that brings the moderation box into view; the
+  // page itself must stay put.
+  await hud.evaluate((el) => {
+    el.scrollTop = el.scrollHeight;
+  });
+
+  const moderate = page.locator("#moderate");
+  await expect(moderate).toBeVisible();
+  const box = await moderate.boundingBox();
+  if (!box) throw new Error("the moderation box has no layout box");
+  expect(box.y).toBeGreaterThanOrEqual(0);
+  expect(box.y + box.height).toBeLessThanOrEqual(LAPTOP.height + 1);
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+
+  // Opening the trace is the reader's choice; the HUD must stay scrollable
+  // (it used to collapse to zero), so the box stays reachable.
+  await page.locator("details.live-trace > summary").click();
+  await expect(page.locator("details.live-trace")).toHaveAttribute("open", "");
+  expect(await hud.evaluate((el) => el.clientHeight)).toBeGreaterThan(0);
 });
 
 test("a mode path deep-links, reloads and Back returns (#1223)", async ({

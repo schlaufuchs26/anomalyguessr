@@ -33,6 +33,7 @@ export function LiveTraceView({
   running,
   endState,
   sceneId,
+  collapsible = false,
 }: {
   /** The poll's live trace, undefined while no scene is being worked on. */
   trace: LiveTrace | undefined;
@@ -41,6 +42,16 @@ export function LiveTraceView({
   endState: "running" | "done" | "error" | "idle";
   /** Long id of the last scene that landed: its finished trace sidecar. */
   sceneId?: string | undefined;
+  /**
+   * Render as a closed `<details>` (ticket #2329). The populated moderation
+   * view passes this: the step list lives in the right column's meta row, and
+   * an expanded list grew that row until the play HUD (the Accept/Reject box
+   * and Next) collapsed to zero height on the laptop layout. Collapsed, the
+   * summary still carries the live badge and the newest step's stage, so the
+   * run stays observable while the game stays playable. The empty queue keeps
+   * the always-open view: there is no game to squeeze there.
+   */
+  collapsible?: boolean;
 }) {
   // The last steps we saw. The server stops sending them when the run ends
   // (or dies), and the view must not go blank then.
@@ -97,59 +108,87 @@ export function LiveTraceView({
   }
 
   const badge = running ? "live" : endState === "error" ? "failed" : "finished";
+  const count = shown.steps.length;
+  const latest = shown.steps[count - 1];
+  const head = (
+    <>
+      <span
+        className={`live-trace-badge live-trace-badge-${badge}`}
+        data-testid="live-trace-state"
+      >
+        {badge}
+      </span>
+      {count} pipeline step
+      {count === 1 ? "" : "s"}
+      {running ? "" : " · run ended"}
+    </>
+  );
+  const steps = (
+    <ol className="td-trace-steps live-trace-steps" ref={listRef}>
+      {shown.steps.map((step: TraceStep, index) => (
+        <li
+          // biome-ignore lint/suspicious/noArrayIndexKey: steps are an ordered log without ids
+          key={index}
+          className="td-trace-step"
+          data-testid={`live-step-${index}`}
+        >
+          <button
+            type="button"
+            className="td-trace-toggle"
+            onClick={() => toggleStep(index)}
+            aria-expanded={open === index}
+            data-testid={`live-step-toggle-${index}`}
+          >
+            {open === index ? "▾" : "▸"} {index + 1}. {stageLabel(step)}
+          </button>
+          <TraceStepMeta step={step} />
+          <TraceStepVerdict step={step} />
+          {open === index ? (
+            <>
+              <TraceStepBody
+                sceneId="live"
+                step={full?.calls[index] ?? step}
+                index={index}
+              />
+              {textError ? (
+                <p
+                  className="td-trace-error"
+                  data-testid="live-step-text-error"
+                >
+                  Failed to load the step text: {textError}
+                </p>
+              ) : null}
+            </>
+          ) : null}
+        </li>
+      ))}
+    </ol>
+  );
+
+  if (collapsible) {
+    return (
+      <details
+        className="live-trace live-trace-collapsible"
+        data-testid="live-trace"
+      >
+        <summary className="live-trace-head">
+          {head}
+          {latest ? (
+            <span className="live-trace-latest" data-testid="live-trace-latest">
+              · {stageLabel(latest)}
+            </span>
+          ) : null}
+        </summary>
+        {shown.error ? <p className="td-trace-error">{shown.error}</p> : null}
+        {steps}
+      </details>
+    );
+  }
   return (
     <section className="live-trace" data-testid="live-trace">
-      <p className="live-trace-head">
-        <span
-          className={`live-trace-badge live-trace-badge-${badge}`}
-          data-testid="live-trace-state"
-        >
-          {badge}
-        </span>
-        {shown.steps.length} pipeline step
-        {shown.steps.length === 1 ? "" : "s"}
-        {running ? "" : " · run ended"}
-      </p>
+      <p className="live-trace-head">{head}</p>
       {shown.error ? <p className="td-trace-error">{shown.error}</p> : null}
-      <ol className="td-trace-steps live-trace-steps" ref={listRef}>
-        {shown.steps.map((step: TraceStep, index) => (
-          <li
-            // biome-ignore lint/suspicious/noArrayIndexKey: steps are an ordered log without ids
-            key={index}
-            className="td-trace-step"
-            data-testid={`live-step-${index}`}
-          >
-            <button
-              type="button"
-              className="td-trace-toggle"
-              onClick={() => toggleStep(index)}
-              aria-expanded={open === index}
-              data-testid={`live-step-toggle-${index}`}
-            >
-              {open === index ? "▾" : "▸"} {index + 1}. {stageLabel(step)}
-            </button>
-            <TraceStepMeta step={step} />
-            <TraceStepVerdict step={step} />
-            {open === index ? (
-              <>
-                <TraceStepBody
-                  sceneId="live"
-                  step={full?.calls[index] ?? step}
-                  index={index}
-                />
-                {textError ? (
-                  <p
-                    className="td-trace-error"
-                    data-testid="live-step-text-error"
-                  >
-                    Failed to load the step text: {textError}
-                  </p>
-                ) : null}
-              </>
-            ) : null}
-          </li>
-        ))}
-      </ol>
+      {steps}
     </section>
   );
 }

@@ -82,6 +82,47 @@ export async function stubManifest(
   await target.route("**/scenes/live.json", handler);
 }
 
+/** One live pipeline step of the running-generation stub (#2329). */
+const STEP = (stage: string, extra: Record<string, unknown> = {}) => ({
+  stage,
+  model: "deepseek/deepseek-v4.1-flash",
+  duration_s: 3.2,
+  usage: { prompt_tokens: 900, completion_tokens: 120, cost: 0.0003 },
+  ...extra,
+});
+
+/**
+ * Stub GET /generate with a run in flight whose live trace already carries
+ * `steps` steps (#2329): the moderation view must stay playable while the
+ * trace is on screen.
+ */
+export async function stubRunningGenerate(
+  page: Page,
+  steps = 12,
+): Promise<void> {
+  const live = Array.from({ length: steps }, (_, i) =>
+    STEP("proposal", { attempt: i + 1 }),
+  );
+  await page.route("**/anomalyguessr/api/generate", (route) =>
+    route.fulfill({
+      json: {
+        state: "running",
+        running: true,
+        buffer: 3,
+        count: 5,
+        planned: 5,
+        added: 0,
+        failed: 0,
+        imageCalls: steps,
+        phase: "editing",
+        scene: "commons-market-abc123",
+        cost: 0.12,
+        liveTrace: { ref: "commons-market-abc123", steps: live },
+      },
+    }),
+  );
+}
+
 /** Load the game at laptop size with the stubbed manifest. */
 export async function openGame(
   page: Page,

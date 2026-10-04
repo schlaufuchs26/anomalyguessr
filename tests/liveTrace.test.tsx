@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { GenerateControl } from "../src/GenerateControl";
 import { ModerationEmpty } from "../src/ModerationEmpty";
 
 /**
@@ -271,5 +272,61 @@ describe("live pipeline steps in the empty queue (#1446)", () => {
 
     generateStatus = status({ liveTrace: "junk" });
     await waitFor(() => expect(screen.queryByTestId("live-trace")).toBeNull());
+  });
+});
+
+/**
+ * The populated moderation view renders the trace collapsed behind a summary
+ * (ticket #2329): expanded, the step list grew the scene meta row until the
+ * play HUD (the Accept/Reject box and Next) collapsed to zero height on the
+ * laptop layout. The empty queue keeps the always-open view above.
+ */
+describe("collapsible live trace (#2329)", () => {
+  function renderCollapsible() {
+    return render(<GenerateControl collapsibleTrace pollMs={20} />);
+  }
+
+  test("the step list starts closed behind a summary", async () => {
+    generateStatus = status({
+      liveTrace: {
+        ref: "ref-a",
+        steps: [STEP("proposal"), STEP("edit r0")],
+      },
+    });
+    renderCollapsible();
+
+    const details = await screen.findByTestId("live-trace");
+    expect(details.tagName).toBe("DETAILS");
+    expect((details as HTMLDetailsElement).open).toBe(false);
+    // the summary still names the live run and its newest step
+    expect(screen.getByTestId("live-trace-state").textContent).toBe("live");
+    expect(screen.getByTestId("live-trace-latest").textContent).toBe(
+      "· Image edit (round 0)",
+    );
+    expect(details.textContent).toContain("2 pipeline steps");
+  });
+
+  test("the steps stay in the DOM under the closed summary", async () => {
+    // The native <details> toggle is the browser's; happy-dom does not
+    // implement it, so the open state is asserted in e2e/layout.playwright.ts.
+    // Here the step nodes stay in the DOM under the closed summary.
+    generateStatus = status({
+      liveTrace: { ref: "ref-a", steps: [STEP("proposal")] },
+    });
+    renderCollapsible();
+    const details = (await screen.findByTestId(
+      "live-trace",
+    )) as HTMLDetailsElement;
+    expect(details.open).toBe(false);
+    expect(screen.getByTestId("live-step-0")).toBeInTheDocument();
+  });
+
+  test("the empty queue keeps the always-open view", async () => {
+    generateStatus = status({
+      liveTrace: { ref: "ref-a", steps: [STEP("proposal")] },
+    });
+    renderEmpty();
+    const section = await screen.findByTestId("live-trace");
+    expect(section.tagName).toBe("SECTION");
   });
 });
