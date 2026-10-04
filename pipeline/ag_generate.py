@@ -72,7 +72,10 @@ Per scene:
    photo with the same edit prompt (never building on the previous result) and
    runs the checker plus the mechanical checks (#1485) on each; the first draw
    whose checker fails no requirement and whose mechanical checks all pass
-   ships. If none is clean, a draw with a mechanical finding is out of the
+   ships. A colored element on a grayscale source is recolored to the source's
+   tone in place (`_match_tone`, ticket #2301) before that decision: one
+   deterministic desaturation, no image call, so the draw can still be clean.
+   If none is clean, a draw with a mechanical finding is out of the
    race and the best-scoring remaining draw wins, ties keeping the earlier
    draw (`_pick_independent_draw`); the score is only a tiebreak because it
    agrees with Evan's verdicts just 0.56 (#1485). The `repair` mode is the
@@ -3761,6 +3764,36 @@ def _mechanical_findings(image: Path, source_image: Path, proposal: dict,
     return findings
 
 
+def _match_tone(image: Path, source_image: Path, findings: dict, answer: dict,
+                out_dir: Path, name: str, trace: dict) -> tuple:
+    """Recolor a grayscale render to the source's tone (#2301).
+
+    The tone check flags a colored element on a grayscale source; the fix is
+    deterministic: desaturate the frame to the source's tone (no color of its
+    own, so the correct render is grayscale too) and re-measure. No image call.
+    Returns ``(image, findings)``; the repair only runs for a failure the check
+    trusts (a localization box, :func:`ag_checks.tone_repair_needed`), and a
+    failed repair keeps the finding, so the scene ships flagged as before.
+    """
+    tone = findings.get("tone") or {}
+    if not ag_checks.tone_repair_needed(tone):
+        return image, findings
+    try:
+        repaired = ag_checks.match_source_tone(
+            source_image, image, out_dir / f"{name}-tone.png")
+    except (ValueError, OSError, RuntimeError) as e:  # noqa: BLE001
+        trace.setdefault("call_errors", []).append(
+            {"stage": "tone-match", "image": image.name, "error": str(e)})
+        return image, findings
+    after = ag_checks.tone_finding(
+        source_image, repaired, answer,
+        (findings.get("presence") or {}).get("box"))
+    after["repair"] = {"mode": "match_source_tone",
+                       "before": tone.get("edited")}
+    findings = {**findings, "tone": after}
+    return repaired, findings
+
+
 def _recompute_outside_presence(answer: dict, findings: dict,
                                 proposal: dict) -> dict:
     """Move the click ellipse onto the element when it is merely outside (#1504).
@@ -3834,6 +3867,8 @@ def _mechanical_rounds(image: Path, source_image: Path, proposal: dict,
     findings = _mechanical_findings(image, source_image, proposal, answer,
                                     attempt, args, api_key, data_dir, trace,
                                     totals, progress, stage=stage)
+    image, findings = _match_tone(image, source_image, findings, answer,
+                                  out_dir, f"{source['id']}-a{attempt}", trace)
     if not repair or not findings["presence"]["failed"]:
         return findings, image, answer, click
     if findings["presence"].get("status") == "outside":
@@ -3887,10 +3922,13 @@ def _mechanical_rounds(image: Path, source_image: Path, proposal: dict,
     findings["size"] = ag_checks.size_finding(
         box, figure=bool(proposal.get("figure")),
         reference_height_percent=vc2.get("scale_reference_percent"))
+    repaired, findings = _match_tone(
+        fixed["path"], source_image, findings, answer, out_dir,
+        f"{source['id']}-a{attempt}-repair", trace)
     findings["repair"]["shipped"] = "repair"
     # The drawn answer overlay belongs to the previous render.
     click = {k: v for k, v in click.items() if k != "overlay_path"}
-    return findings, fixed["path"], answer, click
+    return findings, repaired, answer, click
 
 
 def _click_target_passes(image: Path, proposal: dict, answer: dict,
@@ -4117,6 +4155,12 @@ def _independent_draws(source_image: Path, source: dict, proposal: dict,
             if findings["presence"]["failed"] \
                     and findings["presence"].get("status") == "outside":
                 answer = _recompute_outside_presence(answer, findings, proposal)
+            # #2301: a colored element on a grayscale source is recolored to
+            # the source's tone in place (deterministic, no image call), so the
+            # draw stays in the race instead of only being flagged.
+            path, findings = _match_tone(
+                path, source_image, findings, answer, out_dir,
+                f"{source['id']}-d{n}", trace)
         failed = list(check.get("failed") or []) if check else []
         mech_failed = bool(ag_checks.review_reasons(findings)) \
             if findings else False
@@ -4491,12 +4535,13 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
             conflict = None
 
         # Mechanical post-render checks (ticket #1485): presence, tone, size.
-        # They share the checker's run switch; --no-check skips both. Presence
-        # and tone flag the scene for moderation (and a presence failure gets
-        # one repair attempt inside _mechanical_rounds); size is a report line
-        # since #1487. Nothing is dropped and no image call is added. In the
-        # independent mode the checks ran per draw, so only the repair arm
-        # runs them here.
+        # They share the checker's run switch; --no-check skips both. A
+        # presence failure gets one repair attempt inside _mechanical_rounds,
+        # and a trusted tone failure is recolored to the source's tone
+        # (_match_tone, #2301), both without an extra image call; size is a
+        # report line since #1487. Whatever still fails then flags the scene
+        # for moderation. In the independent mode the checks ran per draw, so
+        # only the repair arm runs them here.
         if mechanical is None and not args.no_check:
             mechanical, final_path, answer, click = _mechanical_rounds(
                 final_path, source_image, proposal, answer, click, attempt,

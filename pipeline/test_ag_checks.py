@@ -11,6 +11,7 @@ import unittest
 from pathlib import Path
 
 import ag_checks as c
+import ag_verify
 
 
 def make_img(path: Path, w=200, h=200, color="gray"):
@@ -102,6 +103,53 @@ class ToneTest(TempDirMixin, unittest.TestCase):
             {"x1": 0.09, "y1": 0.09, "x2": 0.11, "y2": 0.11})
         self.assertFalse(without["failed"])
         self.assertTrue(with_box["failed"])
+
+
+class ToneRepairTest(TempDirMixin, unittest.TestCase):
+    """#2301: recoloring a grayscale render to the source's tone."""
+
+    def test_region_source_names_the_measured_area(self):
+        source = make_img(self._tmp / "src.png", color="gray")
+        edited = make_patch(self._tmp / "edit.png", patch="red")
+        answer = {"x": 0.5, "y": 0.5, "r": 0.1}
+        without = c.tone_finding(source, edited, answer)
+        with_box = c.tone_finding(source, edited, answer,
+                                  {"x1": 0.4, "y1": 0.4, "x2": 0.6, "y2": 0.6})
+        self.assertEqual(without["region_source"], "ellipse")
+        self.assertEqual(with_box["region_source"], "box")
+
+    def test_a_colored_element_on_a_grayscale_source_is_repaired(self):
+        source = make_img(self._tmp / "src.png", color="gray")
+        edited = make_patch(self._tmp / "edit.png", patch="red")
+        answer = {"x": 0.5, "y": 0.5, "r": 0.1}
+        box = {"x1": 0.4, "y1": 0.4, "x2": 0.6, "y2": 0.6}
+        before = c.tone_finding(source, edited, answer, box)
+        self.assertTrue(c.tone_repair_needed(before))
+        out = c.match_source_tone(source, edited, self._tmp / "fixed.png")
+        after = c.tone_finding(source, out, answer, box)
+        self.assertFalse(after["failed"])
+        self.assertAlmostEqual(after["edited"]["colored_fraction"], 0.0,
+                               places=3)
+
+    def test_the_repair_keeps_the_frame(self):
+        source = make_img(self._tmp / "src.png", color="gray")
+        edited = make_patch(self._tmp / "edit.png", w=300, h=200, patch="blue")
+        out = c.match_source_tone(source, edited, self._tmp / "fixed.png")
+        w, h = ag_verify.image_dims(out)
+        self.assertEqual((w, h), (300, 200))
+
+    def test_a_colored_source_has_no_tone_to_match(self):
+        source = make_img(self._tmp / "src.png", color="red")
+        edited = make_img(self._tmp / "edit.png", color="red")
+        with self.assertRaises(ValueError):
+            c.match_source_tone(source, edited, self._tmp / "fixed.png")
+
+    def test_a_passing_grayscale_finding_needs_no_repair(self):
+        self.assertFalse(c.tone_repair_needed(
+            {"failed": False, "source_grayscale": True}))
+        self.assertFalse(c.tone_repair_needed(
+            {"failed": True, "source_grayscale": False}))
+        self.assertFalse(c.tone_repair_needed({}))
 
 
 class SizeTest(unittest.TestCase):

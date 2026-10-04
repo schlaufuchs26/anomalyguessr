@@ -25,8 +25,11 @@ checks, so they no longer depend on the language model's judgement:
   rejections from the elements he keeps, so it never flags a scene.
 
 Presence and tone are flags: a failure flags the scene for moderation and a
-presence failure can drive one repair attempt. Size never flags. Nothing
-drops the scene, so the run's image-call budget is untouched.
+presence failure can drive one repair attempt. A tone failure on a grayscale
+source is repaired in place (:func:`match_source_tone`, #2301): the render is
+desaturated to the source's tone, no image call, so the scene ships clean. A
+tone failure the repair cannot trust (measured on the answer ellipse rather
+than a localization box) still flags. Nothing drops the scene.
 
 Since #1504 the presence failure is split: an element that is merely
 *outside* the drawn click area (:func:`recomputed_answer`) is fixed by
@@ -132,11 +135,17 @@ def tone_finding(source: Path, edited: Path, answer: dict,
     Only runs its measurement on a grayscale source; a colored source has no
     tone rule to check here (requirement 4's color-match is a judgement call
     and stays with the checker).
+
+    ``region_source`` names where the measurement looked ("box" for the tight
+    presence box, "ellipse" for the answer-circle fallback). A wrong box makes
+    the number meaningless, so the repair decision (#2301) only trusts the
+    measurement when it came from a box; the fallback stays a warning.
     """
     src = mean_saturation(source)
     out = {"checked": True, "source_grayscale": src <= GRAYSCALE_MAX_SATURATION,
-           "source_saturation": round(src, 4), "failed": False,
-           "class": "tone", "region": None, "edited": None}
+           "source_saturation": round(src, 4), "failed": False, "class": "tone",
+           "region": None, "region_source": "box" if box else "ellipse",
+           "edited": None}
     if not out["source_grayscale"]:
         return out
     region = element_region(answer, box)
@@ -144,6 +153,41 @@ def tone_finding(source: Path, edited: Path, answer: dict,
     out["edited"] = region_saturation(edited, region)
     out["failed"] = out["edited"]["colored_fraction"] > COLOR_FRACTION_MAX
     return out
+
+
+def tone_repair_needed(finding: dict) -> bool:
+    """Whether a tone finding is worth repairing (#2301).
+
+    True only for a failure on a grayscale source: there the correct render is
+    grayscale, so a whole-frame desaturation fixes it. A colored source has no
+    tone rule (the check does not even measure it), and a wrong element region
+    can only hide a defect, never invent one: on a grayscale source the
+    inserted element is the only colored thing in the frame.
+    """
+    return bool(finding.get("failed")) and bool(finding.get("source_grayscale"))
+
+
+def match_source_tone(source: Path, image: Path, out_path: Path) -> Path:
+    """Recolor ``image`` to the source's tone (#2301), deterministically.
+
+    A grayscale source (mean saturation at or below
+    :data:`GRAYSCALE_MAX_SATURATION`) has no color of its own, so the correct
+    render is grayscale too: desaturating the whole frame removes exactly the
+    color the edit added. No image call, and the result passes
+    :func:`tone_finding` by construction.
+
+    Raises ``ValueError`` for a source above the grayscale ceiling: there the
+    element's color is not the defect the tone check names, and a flat
+    desaturation would change the scene's own tone.
+    """
+    if mean_saturation(source) > GRAYSCALE_MAX_SATURATION:
+        raise ValueError(f"{source} is not grayscale; no tone to match")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    r = subprocess.run(["convert", str(image), "-modulate", "100,0",
+                        str(out_path)], capture_output=True, text=True)
+    if r.returncode != 0:
+        raise RuntimeError(f"tone match for {image} failed: {r.stderr[:300]}")
+    return out_path
 
 
 def relative_size(height_fraction: float,

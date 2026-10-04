@@ -1693,7 +1693,8 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
 
         def edit(*a, **kw):
             edits["n"] += 1
-            return img_bytes(color="blue" if edits["n"] > 1 else "red")
+            # grayscale shades: a color here would trip the tone repair (#2301)
+            return img_bytes(color="#333333" if edits["n"] > 1 else "#666666")
 
         checks = {"n": 0}
 
@@ -1728,7 +1729,8 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
 
         def edit(*a, **kw):
             edits["n"] += 1
-            return img_bytes(color="blue" if edits["n"] > 1 else "red")
+            # grayscale shades: a color here would trip the tone repair (#2301)
+            return img_bytes(color="#333333" if edits["n"] > 1 else "#666666")
 
         checks = {"n": 0}
 
@@ -1906,7 +1908,8 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
 
         def edit(*a, **kw):
             edits["n"] += 1
-            return img_bytes(color="blue" if edits["n"] > 1 else "red")
+            # grayscale shades: a color here would trip the tone repair (#2301)
+            return img_bytes(color="#333333" if edits["n"] > 1 else "#666666")
 
         scene, failed, totals = self.run_one(sampling_mode="repair", 
             edit=edit,
@@ -1926,7 +1929,8 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
 
         def edit(*a, **kw):
             edits["n"] += 1
-            return img_bytes(color="blue" if edits["n"] > 1 else "red")
+            # grayscale shades: a color here would trip the tone repair (#2301)
+            return img_bytes(color="#333333" if edits["n"] > 1 else "#666666")
 
         scene, failed, _ = self.run_one(sampling_mode="repair", 
             edit=edit,
@@ -2012,7 +2016,8 @@ class GenerateOneTest(TempDataMixin, unittest.TestCase):
 
         def edit(*a, **kw):
             edits["n"] += 1
-            return img_bytes(color="blue" if edits["n"] > 1 else "red")
+            # grayscale shades: a color here would trip the tone repair (#2301)
+            return img_bytes(color="#333333" if edits["n"] > 1 else "#666666")
 
         scene, failed, totals = self.run_one(sampling_mode="repair", 
             edit=edit,
@@ -2593,7 +2598,8 @@ class IndependentDrawRuleTest(GenerateOneTest):
             return {"ok": False, "score": s, "failed": [3], "reason": "r",
                     "fix_prompt": "", "image_match": True, "call": call()}
 
-        colors = ["red", "green", "blue"]
+        # grayscale shades keep the draws apart without a tone failure
+        colors = ["#202020", "#808080", "#d0d0d0"]
 
         def edit(*a, **kw):
             return img_bytes(color=colors.pop(0))
@@ -2608,22 +2614,25 @@ class IndependentDrawRuleTest(GenerateOneTest):
                          self.out_bytes(f"{SOURCE_ID}-a1-r0-d2.png"))
 
     def test_independent_mechanical_finding_takes_a_draw_out_of_the_race(self):
-        # Both draws score 8, but draw 1 gets color on the grayscale source;
-        # the mechanical finding disqualifies it even though its score ties
-        # the clean-ish draw 2.
+        # Both draws score 8, but draw 1's element is absent (a finding the
+        # independent mode does not repair), so it leaves the race even
+        # though its score ties the located draw 2.
+        state = {"n": 0}
+
+        def presence(*a, **kw):
+            state["n"] += 1
+            return {"present": state["n"] != 1, "box": None,
+                    "height_percent": None, "note": "stub",
+                    "call": call(prompt="presence-prompt", cost=0.0)}
+
         def check(*a, **kw):
             return {"ok": False, "score": 8, "failed": [3], "reason": "r",
                     "fix_prompt": "", "image_match": True, "call": call()}
 
-        state = {"n": 0}
-
-        def edit(*a, **kw):
-            state["n"] += 1
-            return img_bytes(color="red" if state["n"] == 1 else "gray")
-
-        self.run_one(check=check, edit=edit)
-        # three slots are drawn; only the first is colored
-        self.assertEqual(state["n"], 3)
+        g.presence_check = presence
+        scene, failed, _ = self.run_one(check=check)
+        self.assertIsNone(failed)
+        self.assertEqual(scene["report"]["selected_draw"], 2)
 
     def test_independent_trace_draw_rows_carry_verdict_and_finding(self):
         scene, _, _ = self.run_one()
@@ -2660,15 +2669,24 @@ class MechanicalCheckFlowTest(GenerateOneTest):
         self.assertFalse(scene["report"]["needs_review"])
         self.assertIn("mechanical_checks", self.trace_of(scene))
 
-    def test_a_colored_element_on_a_grayscale_source_is_flagged(self):
-        # The "color on black and white photo" class: the source is gray and
-        # the edited render carries a saturated color.
-        scene, failed, _ = self.run_one(
+    def test_a_colored_element_on_a_grayscale_source_is_repaired(self):
+        # #2301: the "color on black and white photo" class no longer only
+        # flags; the render is recolored to the source's tone, so it ships
+        # grayscale without an image call.
+        scene, failed, totals = self.run_one(
             edit=lambda *a, **kw: img_bytes(color="red"))
         self.assertIsNone(failed)
-        self.assertTrue(scene["report"]["mechanical"]["tone"]["failed"])
-        self.assertTrue(scene["report"]["needs_review"])
-        self.assertIn("tone", scene["report"]["review"])
+        self.assertEqual(totals["image_calls"], 1)
+        mechanical = scene["report"]["mechanical"]
+        self.assertFalse(mechanical["tone"]["failed"])
+        self.assertEqual(mechanical["tone"]["repair"]["mode"],
+                         "match_source_tone")
+        self.assertFalse(scene["report"]["needs_review"])
+        self.assertNotIn("tone", scene["report"]["review"])
+        eid = scene["report"]["scene"]
+        shipped = self.data_dir / "library" / eid / f"{eid}.jpg"
+        self.assertLessEqual(ag_checks.mean_saturation(shipped),
+                             ag_checks.GRAYSCALE_MAX_SATURATION)
 
     def test_a_presence_failure_gets_exactly_one_repair(self):
         calls, edits = {"n": 0}, {"n": 0}
@@ -2776,13 +2794,14 @@ class MechanicalCheckFlowTest(GenerateOneTest):
 
     def test_a_mechanical_reason_joins_a_checker_reason(self):
         # The checker's own finding must not shadow the mechanical one; the
-        # moderation card carries both.
-        scene, failed, _ = self.run_one(sampling_mode="repair", 
-            check=stub_check(failed=[9]),
-            edit=lambda *a, **kw: img_bytes(color="red"))
+        # moderation card carries both. A presence failure stays a finding
+        # (#2301 recolors a tone failure away, so it no longer serves here).
+        g.presence_check = stub_presence(present=False)
+        scene, failed, _ = self.run_one(sampling_mode="repair",
+                                        check=stub_check(failed=[9]))
         self.assertIsNone(failed)
         self.assertIn("fails 9", scene["report"]["review"])
-        self.assertIn("tone", scene["report"]["review"])
+        self.assertIn("presence", scene["report"]["review"])
 
     def test_a_prominent_element_is_reported_not_flagged(self):
         # #1487: the size measurement no longer adds a review reason.
