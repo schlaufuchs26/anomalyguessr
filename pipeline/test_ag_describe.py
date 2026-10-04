@@ -254,6 +254,13 @@ class GuardTests(unittest.TestCase):
             'Titled "Scène enfantine, le lendemain de Noël" (childish scene, '
             'the day after Christmas).', self.VOCAB), [])
 
+    def test_a_translated_holiday_is_not_a_name(self):
+        # "le lendemain de Noël" -> "the day after Christmas" (ticket #2328):
+        # a holiday is ordinary English, not a fact the record lacks.
+        self.assertEqual(d.unsupported_facts(
+            "A little girl with her doll, the day after Christmas.",
+            self.VOCAB), [])
+
     def test_a_parenthesis_that_does_not_gloss_a_quote_is_still_checked(self):
         self.assertEqual(d.unsupported_facts("A boxer (Paris).", self.VOCAB),
                          ["Paris"])

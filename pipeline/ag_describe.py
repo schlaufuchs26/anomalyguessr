@@ -86,7 +86,9 @@ _WORD_RE = re.compile(r"[^\W\d_][\w'’\-]*", re.UNICODE)
 # is institutional vocabulary: a model that expands "NYPL" to "the New York
 # Public Library" adds no place, date or number, and flagging "Library" only
 # threw away a good description. The third block is the same for buildings
-# and places a record names in its own language ("Ναός" -> "Church").
+# and places a record names in its own language ("Ναός" -> "Church"), the
+# fourth for holidays: an English description of "le lendemain de Noël" says
+# "the day after Christmas", and the holiday is the record's own.
 _COMMON_WORDS = frozenset("""
 a an the and or but of in on at to for from with by as is are was were be
 been being this that these those it its he she they them his her their a
@@ -99,6 +101,8 @@ public royal state city county
 church saint chapel cathedral monastery convent abbey temple school hospital
 theatre theater bridge tower castle palace gate square street avenue station
 hotel garden park river lake hill mountain
+christmas easter halloween thanksgiving carnival advent lent ramadan
+hanukkah passover diwali
 """.split())
 
 _LANG_MARKERS = {
