@@ -176,7 +176,10 @@ field instead of a "circa <year>" glued into the description (tickets #1402,
 #1496). ``--retext`` re-derives the captions of the scenes already in the
 queue, the repair path for the scenes the old builder damaged; ``--retitle``
 backfills the displayed title + ``title_source`` of every queued scene after
-the title-source change in #1496.
+the title-source change in #1496, refreshing each scene's source block from
+the pool first so a re-fetched catalogue record (an English Europeana title
+from ``ag_sources.py repair-europeana``, #2304) reaches a scene queued before
+the refresh.
 
 Exit code 0 = ran (a scene that only breaks mechanically can still be
 missing; the JSON report lists what failed); 1 = no scene was added or a
@@ -2419,8 +2422,43 @@ def retext_state(data_dir: Path, dry_run: bool = False) -> dict:
 
 # ── Title provenance backfill (ticket #1496) ────────────────────────────────
 
+# Catalogue fields a queued scene's source block mirrors from the pool (#2304).
+_SOURCE_JOIN_KEYS = ("repository", "fileUrl", "originalTitle", "date", "place",
+                     "license", "description", "titleEn")
 
-def retitle_entry(scene: dict) -> tuple:
+
+def pool_source_index(data_dir: Path) -> dict:
+    """``fileUrl -> pool source entry`` for joining queued scenes (#2304).
+
+    A scene's ``source`` is a snapshot taken when it was built, so a pool
+    refresh (``ag_sources.py repair-europeana``) does not reach it on its own.
+    The file URL identifies the pool entry.
+    """
+    index = ag_sources.load_index(data_dir)
+    out = {}
+    for entry in (index.get("sources") or {}).values():
+        url = str(entry.get("fileUrl") or "").strip()
+        if url and url not in out:
+            out[url] = entry
+    return out
+
+
+def merge_pool_source(source, pooled) -> dict:
+    """Overlay a pool entry's catalogue fields onto a scene's source block.
+
+    A pool value wins when it is non-empty; an empty pool value keeps what the
+    scene had, so an English title written by the description pass
+    (``source.titleEn``) survives a record whose own name is not English.
+    """
+    merged = dict(source) if isinstance(source, dict) else {}
+    for k in _SOURCE_JOIN_KEYS:
+        value = (pooled or {}).get(k)
+        if value not in (None, ""):
+            merged[k] = value
+    return merged
+
+
+def retitle_entry(scene: dict, pool: dict | None = None) -> tuple:
     """Re-derive one queued scene's displayed title from its source (#1496).
 
     Returns ``(fixed entry, changed keys)``. Before #1496 the title was the
@@ -2429,6 +2467,11 @@ def retitle_entry(scene: dict) -> tuple:
     ``title_source`` recording whether the catalogue supplied it. The
     description is re-derived only from the caption form (a narrative
     description older scenes carry is left alone).
+
+    ``pool`` (ticket #2304) maps a file URL to its pool entry; when it holds
+    the scene's source, the source block is refreshed from the pool first, so
+    a re-fetched catalogue record (an English Europeana title) reaches a scene
+    queued before the refresh.
     """
     if not isinstance(scene, dict):
         return scene, []
@@ -2436,6 +2479,14 @@ def retitle_entry(scene: dict) -> tuple:
     source = (scene.get("source")
               if isinstance(scene.get("source"), dict) else {})
     changed = []
+    if pool:
+        pooled = pool.get(str(source.get("fileUrl") or "").strip())
+        if pooled:
+            merged = merge_pool_source(source, pooled)
+            if merged != source:
+                source = merged
+                out["source"] = source
+                changed.append("source")
     title = clean_title(source)
     if title != scene.get("title"):
         out["title"] = title
@@ -2455,18 +2506,23 @@ def retitle_entry(scene: dict) -> tuple:
     return out, changed
 
 
-def retitle_state(data_dir: Path, dry_run: bool = False) -> dict:
+def retitle_state(data_dir: Path, dry_run: bool = False,
+                  pool: dict | None = None) -> dict:
     """Backfill the displayed title + provenance of every queued scene.
 
     One-off repair for the scenes queued under the proposal-title rule
     (ticket #1496); new scenes carry the catalogue title from generation, so
-    a later run is a no-op.
+    a later run is a no-op. ``pool`` (ticket #2304) is the file URL -> pool
+    entry join; when omitted it is read from ``data_dir``, so a refreshed
+    Europeana record reaches the scenes already queued from it.
     """
     state = ag_queue.load_state(data_dir)
     scenes = state.get("scenes") or {}
+    if pool is None:
+        pool = pool_source_index(data_dir)
     changed = []
     for eid, scene in scenes.items():
-        fixed, keys = retitle_entry(scene)
+        fixed, keys = retitle_entry(scene, pool)
         if not keys:
             continue
         changed.append({"id": eid, "changed": keys,
@@ -4901,9 +4957,10 @@ def parse_args(argv=None):
                         "(title/place/description) instead of generating "
                         "(ticket #1402)")
     p.add_argument("--retitle", action="store_true",
-                   help="backfill mode: re-derive every queued scene's title "
-                        "from its source catalogue name and record "
-                        "title_source (ticket #1496)")
+                   help="backfill mode: refresh every queued scene's source "
+                        "block from the pool and re-derive its title from the "
+                        "catalogue name + record title_source (tickets #1496, "
+                        "#2304)")
     p.add_argument("--audit-text", action="store_true",
                    help="audit mode: report queued scenes whose last checker "
                         "verdict disagrees with their text (ticket #1449)")

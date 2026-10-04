@@ -1068,6 +1068,53 @@ class RetitleTest(TempDataMixin, unittest.TestCase):
         _, changed = g.retitle_entry(scene)
         self.assertEqual(changed, [])
 
+    def test_pool_join_moves_a_scene_to_the_refreshed_title(self):
+        scene = self.legacy()
+        url = scene["source"]["fileUrl"]
+        pooled = {"fileUrl": url, "repository": "Wikimedia Commons",
+                  "originalTitle": "Busy market street, 1905",
+                  "date": "1905-01-01", "place": "",
+                  "license": "CC BY-SA 4.0",
+                  "description": "An English catalogue text.",
+                  "titleEn": "Busy market square"}
+        fixed, changed = g.retitle_entry(scene, pool={url: pooled})
+        self.assertIn("source", changed)
+        self.assertIn("title", changed)
+        self.assertEqual(fixed["title"], "Busy market square")
+        self.assertEqual(fixed["source"]["titleEn"], "Busy market square")
+        self.assertEqual(fixed["source"]["description"],
+                         "An English catalogue text.")
+
+    def test_pool_join_keeps_a_model_english_title(self):
+        scene = self.legacy()
+        url = scene["source"]["fileUrl"]
+        scene["source"]["titleEn"] = "A model translation"
+        scene["title"] = "A model translation"
+        pooled = {"fileUrl": url, "titleEn": "", "description": "x"}
+        fixed, changed = g.retitle_entry(scene, pool={url: pooled})
+        self.assertNotIn("title", changed)
+        self.assertEqual(fixed["title"], "A model translation")
+        self.assertEqual(fixed["source"]["titleEn"], "A model translation")
+
+    def test_pool_source_index_keys_on_the_file_url(self):
+        ag_sources.save_index(self.data_dir, {"version": 1, "sources": {
+            "a": {"fileUrl": "https://x/y", "titleEn": "Name"}}})
+        index = g.pool_source_index(self.data_dir)
+        self.assertEqual(index["https://x/y"]["titleEn"], "Name")
+
+    def test_retitle_state_joins_the_pool(self):
+        scene = self.legacy()
+        url = scene["source"]["fileUrl"]
+        self.save({"x": scene})
+        ag_sources.save_index(self.data_dir, {"version": 1, "sources": {
+            "a": {"fileUrl": url, "repository": "Wikimedia Commons",
+                  "originalTitle": "Busy market street, 1905",
+                  "titleEn": "Busy market square"}}})
+        report = g.retitle_state(self.data_dir)
+        self.assertEqual(report["changed"], 1)
+        state = ag_queue.load_state(self.data_dir)
+        self.assertEqual(state["scenes"]["x"]["title"], "Busy market square")
+
 
 
 # ── Trace sidecar ──────────────────────────────────────────────────────────

@@ -14,6 +14,7 @@ import shutil
 import struct
 import tempfile
 import unittest
+import urllib.parse
 from pathlib import Path
 
 import ag_sources as s
@@ -1259,6 +1260,169 @@ class EuropeanaTest(unittest.TestCase):
         finally:
             adapter._search_window = old
             s.europeana_size = old_size
+
+
+class EuropeanaRepairTest(TempDirMixin, unittest.TestCase):
+    """Ticket #2304: re-fetch Europeana pool entries by their record id."""
+
+    POOL_ID = "europeana--1900-53d912"
+    RECORD_ID = "/2064927/haidari-1303"
+    GUID = "https://www.europeana.eu/item/2064927/haidari-1303"
+
+    def pool_entry(self, sid=POOL_ID, **over):
+        entry = {
+            "repository": "Europeana",
+            "fileUrl": self.GUID,
+            "originalTitle": "Ναός Αγίου Γεωργίου",
+            "date": "1900",
+            "place": "Chaidari",
+            "license": "Public Domain Mark 1.0",
+            "licenseUrl": "http://creativecommons.org/publicdomain/mark/1.0/",
+            "description": "Η ίδρυση του ναΐσκου.",
+            "titleEn": "",
+            "width": 1600, "height": 1000,
+            "used": True, "added": "2026-10-03",
+            "image": f"images/{sid}.jpg",
+            "year": 1900, "year_field": "catalog", "year_source": "year",
+            "year_raw": "1900",
+            "raw": {"id": self.RECORD_ID, "window": "1900-1909",
+                    "provider": ["The European Library"],
+                    "dataProvider": ["Museum"],
+                    "rights": ["http://creativecommons.org/publicdomain/"
+                               "mark/1.0/"]},
+        }
+        entry.update(over)
+        return entry
+
+    def stored(self, entry, sid=POOL_ID):
+        s.save_index(self.data_dir, {"version": 1, "sources": {sid: entry}})
+        return entry
+
+    def record(self, title="Ναός Αγίου Γεωργίου",
+               en_title="Church of Saint George", en_desc="A small church."):
+        rec = europeana_raw(title=title, rid=self.RECORD_ID, guid=self.GUID,
+                            place=("Chaidari",))
+        rec["dcTitleLangAware"] = {"el": [title], "en": [en_title]}
+        rec["dcDescriptionLangAware"] = {"en": [en_desc]}
+        rec["dcDescription"] = ["Μια εκκλησία."]
+        return rec
+
+    def test_by_id_queries_the_search_api_by_record_id(self):
+        seen = {}
+
+        def fake_get_json(url):
+            seen["url"] = url
+            return {"items": [{"id": self.RECORD_ID}], "totalResults": 1}
+
+        old = s._get_json
+        s._get_json = fake_get_json
+        try:
+            rec = s.EuropeanaAdapter.by_id(self.RECORD_ID)
+        finally:
+            s._get_json = old
+        self.assertEqual(rec["id"], self.RECORD_ID)
+        query = urllib.parse.parse_qs(urllib.parse.urlparse(seen["url"]).query)
+        self.assertEqual(query["query"], [f'europeana_id:"{self.RECORD_ID}"'])
+        self.assertEqual(query["rows"], ["1"])
+
+    def test_by_id_returns_none_for_an_empty_id_or_no_hit(self):
+        old = s._get_json
+        s._get_json = lambda url: {"items": [], "totalResults": 0}
+        try:
+            self.assertIsNone(s.EuropeanaAdapter.by_id(self.RECORD_ID))
+            self.assertIsNone(s.EuropeanaAdapter.by_id(""))
+        finally:
+            s._get_json = old
+
+    def test_pool_ids_targets_europeana_and_skips_refreshed(self):
+        stale = self.pool_entry("stale")
+        refreshed = self.pool_entry("refreshed", raw={
+            "id": self.RECORD_ID, "dcTitleLangAware": None,
+            "dcDescriptionLangAware": None})
+        other = {"repository": "Finna (Finland)", "raw": {}}
+        index = {"sources": {"stale": stale, "refreshed": refreshed,
+                             "other": other}}
+        self.assertEqual(s.europeana_pool_ids(index), ["stale"])
+        self.assertEqual(s.europeana_pool_ids(index, only_missing=False),
+                         ["refreshed", "stale"])
+        self.assertEqual(
+            s.europeana_pool_ids(index, ids=["refreshed"], only_missing=False),
+            ["refreshed"])
+
+    def test_repair_refreshes_the_english_fields_in_place(self):
+        entry = self.stored(self.pool_entry())
+        calls = []
+
+        def fetch(rid):
+            calls.append(rid)
+            return self.record()
+
+        rep = s.repair_europeana(self.data_dir, fetch=fetch)
+        self.assertEqual(calls, [self.RECORD_ID])
+        self.assertEqual(rep["targets"], 1)
+        self.assertEqual(rep["refreshed"], 1)
+        got = s.load_index(self.data_dir)["sources"][self.POOL_ID]
+        self.assertEqual(got["titleEn"], "Church of Saint George")
+        self.assertEqual(got["description"], "A small church.")
+        # Identity and bookkeeping survive the in-place refresh.
+        self.assertEqual(got["used"], True)
+        self.assertEqual(got["added"], "2026-10-03")
+        self.assertEqual(got["image"], entry["image"])
+        # The flat search record carries no size; the entry keeps its own.
+        self.assertEqual(got["width"], 1600)
+        self.assertEqual(got["raw"]["window"], "1900-1909")
+        self.assertEqual(got["raw"]["dcTitleLangAware"],
+                         {"el": ["Ναός Αγίου Γεωργίου"],
+                          "en": ["Church of Saint George"]})
+
+    def test_repair_is_idempotent_and_skips_the_refreshed_entry(self):
+        self.stored(self.pool_entry())
+        rep = s.repair_europeana(self.data_dir,
+                                 fetch=lambda rid: self.record())
+        self.assertEqual(rep["refreshed"], 1)
+        again = s.repair_europeana(self.data_dir,
+                                   fetch=lambda rid: self.record())
+        self.assertEqual(again["targets"], 0)
+        self.assertEqual(again["refreshed"], 0)
+
+    def test_repair_all_refetches_even_a_refreshed_entry(self):
+        self.stored(self.pool_entry(raw={
+            "id": self.RECORD_ID, "window": "1900-1909",
+            "dcTitleLangAware": None, "dcDescriptionLangAware": None}))
+        rep = s.repair_europeana(self.data_dir, only_missing=False,
+                                 fetch=lambda rid: self.record())
+        self.assertEqual(rep["targets"], 1)
+        self.assertEqual(rep["refreshed"], 1)
+        self.assertEqual(
+            s.load_index(self.data_dir)["sources"][self.POOL_ID]["titleEn"],
+            "Church of Saint George")
+
+    def test_repair_reports_a_fetch_error_without_stopping(self):
+        self.stored(self.pool_entry())
+
+        def fetch(rid):
+            raise RuntimeError("Europeana HTTP 500")
+
+        rep = s.repair_europeana(self.data_dir, fetch=fetch)
+        self.assertEqual(rep["refreshed"], 0)
+        self.assertEqual(len(rep["errors"]), 1)
+        self.assertIn("Europeana HTTP 500", rep["errors"][0]["error"])
+        self.assertEqual(
+            s.load_index(self.data_dir)["sources"][self.POOL_ID]["titleEn"], "")
+
+    def test_repair_keeps_an_entry_whose_record_no_longer_fits(self):
+        self.stored(self.pool_entry())
+        rec = self.record()
+        rec["type"] = "TEXT"  # no longer an image: normalize refuses it
+        rep = s.repair_europeana(self.data_dir, fetch=lambda rid: rec)
+        self.assertEqual(rep["rejected"], [self.POOL_ID])
+        self.assertEqual(rep["refreshed"], 0)
+
+    def test_repair_names_an_entry_without_a_record_id(self):
+        self.stored(self.pool_entry(raw={"window": "1900-1909"}))
+        rep = s.repair_europeana(self.data_dir,
+                                 fetch=lambda rid: self.record())
+        self.assertEqual(rep["no_record"], [self.POOL_ID])
 
 
 class StubGallica(s.GallicaAdapter):

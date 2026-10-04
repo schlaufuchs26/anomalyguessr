@@ -59,6 +59,7 @@ Commands::
 
     ag_sources.py --data DIR top-up [--source gallica|nb] [--target 30]
     ag_sources.py --data DIR refresh [--target 30] [--sources gallica,nb]
+    ag_sources.py --data DIR repair-europeana [--all] [--id ID]  # #2304
     ag_sources.py --data DIR measure-years [--sample 200]      # Commons
     ag_sources.py --data DIR measure-inception [--sample 200]  # Commons
     ag_sources.py --data DIR status
@@ -2157,6 +2158,20 @@ def europeana_size(url: str) -> tuple:
     return image_dimensions(data)
 
 
+def _europeana_json(url: str) -> dict:
+    """GET a Europeana API URL, mapping transport errors to ``RuntimeError``.
+
+    The request URL carries the ``wskey``, so the mapped error names only the
+    status or reason and never echoes the URL (ticket #2245).
+    """
+    try:
+        return _get_json(url)
+    except urllib.error.HTTPError as e:
+        raise RuntimeError(f"Europeana HTTP {e.code}") from None
+    except urllib.error.URLError as e:
+        raise RuntimeError(f"Europeana unreachable: {e.reason}") from None
+
+
 class EuropeanaAdapter(SourceAdapter):
     """Europeana, the European aggregator (ticket #2245).
 
@@ -2193,14 +2208,33 @@ class EuropeanaAdapter(SourceAdapter):
             ("profile", "rich"),
         ]
         url = EUROPEANA_API + "?" + urllib.parse.urlencode(params)
-        try:
-            data = _get_json(url)
-        except urllib.error.HTTPError as e:
-            raise RuntimeError(f"Europeana HTTP {e.code}") from None
-        except urllib.error.URLError as e:
-            raise RuntimeError(f"Europeana unreachable: {e.reason}") from None
+        data = _europeana_json(url)
         return (list(data.get("items") or []),
                 int(data.get("totalResults") or 0))
+
+    @staticmethod
+    def by_id(record_id):
+        """The search-shaped record for one ``raw.id``, or None (ticket #2304).
+
+        The pool stores each record's ``raw.id``. The record endpoint
+        (``record/v2/<id>.json``) answers with the raw EDM graph, not the flat
+        shape ``normalize`` consumes, so the lookup goes through the search API
+        filtered on ``europeana_id`` and returns exactly the shape the walk
+        stores. ``""`` and an id without a hit give ``None``.
+        """
+        rid = str(record_id or "").strip()
+        if not rid:
+            return None
+        params = [
+            ("wskey", europeana_api_key()),
+            ("query", f'europeana_id:"{rid}"'),
+            ("rows", "1"),
+            ("profile", "rich"),
+        ]
+        url = EUROPEANA_API + "?" + urllib.parse.urlencode(params)
+        data = _europeana_json(url)
+        items = list(data.get("items") or [])
+        return dict(items[0]) if items else None
 
     def walk_batch(self, limit: int, cursor=None) -> tuple:
         """One page over the decade windows; ``(raws, next_cursor)``.
@@ -2509,6 +2543,105 @@ def _refresh_entry(existing: dict, new: dict) -> bool:
             existing[k] = new[k]
             changed = True
     return changed
+
+
+# ── Targeted Europeana repair (ticket #2304) ───────────────────────────────
+#
+# The #2300 adapter reads the English title/description out of the
+# ``dcTitleLangAware``/``dcDescriptionLangAware`` maps, but an entry already in
+# the pool only picks that up when the decade walk revisits its record, which
+# can take many runs. ``repair_europeana`` re-fetches the entry's own
+# ``raw.id`` and refreshes it in place, so the queue's pool-joined retitle
+# backfill can use the English fields without waiting for the walk.
+
+
+def europeana_pool_ids(index: dict, ids=None, only_missing: bool = True) -> list:
+    """Pool ids of the Europeana entries a repair should re-fetch (#2304).
+
+    ``only_missing`` (default) skips an entry whose ``raw`` already carries the
+    ``...LangAware`` maps the #2300 adapter reads, i.e. one already normalized
+    with the language preference (whether or not its record had English text).
+    Pre-#2300 entries stored neither key.
+    """
+    want = set(ids) if ids is not None else None
+    out = []
+    for sid, entry in (index.get("sources") or {}).items():
+        if entry.get("repository") != EuropeanaAdapter.repo:
+            continue
+        if want is not None and sid not in want:
+            continue
+        raw = entry.get("raw") or {}
+        if only_missing and "dcTitleLangAware" in raw \
+                and "dcDescriptionLangAware" in raw:
+            continue
+        out.append(sid)
+    return sorted(out)
+
+
+def repair_europeana(data_dir: Path, ids=None, only_missing: bool = True,
+                     fetch=None, log=None) -> dict:
+    """Re-fetch Europeana pool entries by their record id; refresh in place.
+
+    Each target's ``raw.id`` is looked up (``EuropeanaAdapter.by_id``) and the
+    record is normalized again, so ``titleEn``/``description``/``date`` follow
+    the #2300 language preference while ``id``, ``used``, ``added`` and
+    ``image`` stay, exactly like a re-seed. The pixel size and the walk's
+    decade window (which the flat search record does not carry) are kept from
+    the entry. ``fetch`` is ``fetch(record_id) -> dict | None`` and injectable
+    for tests.
+    """
+    adapter = EuropeanaAdapter()
+    fetch = fetch or EuropeanaAdapter.by_id
+    index = load_index(data_dir)
+    sources = index.get("sources") or {}
+    targets = europeana_pool_ids(index, ids=ids, only_missing=only_missing)
+    report = {"data": str(data_dir), "targets": len(targets), "refreshed": 0,
+              "unchanged": 0, "no_record": [], "rejected": [], "errors": [],
+              "details": []}
+    for sid in targets:
+        entry = sources[sid]
+        raw_id = (entry.get("raw") or {}).get("id")
+        if not raw_id:
+            report["no_record"].append(sid)
+            continue
+        try:
+            record = fetch(raw_id)
+        except Exception as e:  # noqa: BLE001 - one record must not stop the pass
+            report["errors"].append({"id": sid,
+                                     "error": f"{type(e).__name__}: {e}"})
+            continue
+        if not record:
+            report["no_record"].append(sid)
+            continue
+        raw = dict(record)
+        raw["width"] = entry.get("width") or 0
+        raw["height"] = entry.get("height") or 0
+        raw["window"] = (entry.get("raw") or {}).get("window")
+        try:
+            norm = adapter.normalize(raw)
+        except Exception as e:  # noqa: BLE001
+            report["errors"].append({"id": sid,
+                                     "error": f"{type(e).__name__}: {e}"})
+            continue
+        if norm is None:
+            # The record no longer clears the licence/year/image gate; keep
+            # the entry as it is and name it.
+            report["rejected"].append(sid)
+            continue
+        before = {k: entry.get(k) for k in ("titleEn", "description")}
+        if _refresh_entry(entry, norm):
+            report["refreshed"] += 1
+            report["details"].append(
+                {"id": sid, "before": before,
+                 "after": {k: entry.get(k) for k in ("titleEn", "description")}})
+            if log:
+                log(f"{sid}: titleEn {before['titleEn']!r} -> "
+                    f"{entry.get('titleEn')!r}")
+        else:
+            report["unchanged"] += 1
+    if report["refreshed"]:
+        save_index(data_dir, index)
+    return report
 
 
 # ── Download / staging ─────────────────────────────────────────────────────
@@ -3183,6 +3316,15 @@ def main(argv=None) -> int:
                     help="per-bucket share (1/parts of the batch)")
     rf.add_argument("--date", default=None)
 
+    rp = sub.add_parser("repair-europeana",
+                        help="re-fetch Europeana pool entries by record id and "
+                             "refresh them in place (ticket #2304)")
+    rp.add_argument("--all", action="store_true",
+                    help="re-fetch every Europeana entry, not only the ones "
+                         "still missing the language-aware metadata")
+    rp.add_argument("--id", dest="ids", action="append", default=None,
+                    help="only this pool id (repeatable)")
+
     my = sub.add_parser("measure-years",
                         help="read-only year-filter audit (walk sample + pool)")
     my.add_argument("--sample", type=int, default=200, help="files to sample")
@@ -3230,6 +3372,12 @@ def main(argv=None) -> int:
                            date=date, max_calls=args.max_calls,
                            sources=names, parts=args.parts,
                            log=lambda m: print(m, file=sys.stderr))
+        print(json.dumps(rep, indent=2))
+        return 0
+    if args.cmd == "repair-europeana":
+        rep = repair_europeana(data_dir, ids=args.ids,
+                               only_missing=not args.all,
+                               log=lambda m: print(m, file=sys.stderr))
         print(json.dumps(rep, indent=2))
         return 0
     if args.cmd == "measure-years":
