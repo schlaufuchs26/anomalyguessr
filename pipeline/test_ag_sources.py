@@ -311,6 +311,21 @@ class IndexTest(TempDirMixin, unittest.TestCase):
         index = s.load_index(self.data_dir)
         self.assertTrue(index["sources"]["commons-x-abc123"]["used"])
 
+    def test_reseed_refreshes_the_english_title_in_place(self):
+        # The English title from a new Europeana field repairs an existing
+        # entry in place: the id does not move, so a re-seed refreshes.
+        e = self.entry()
+        e["titleEn"] = ""
+        s.add_sources(self.data_dir, [e], "2026-09-12")
+        updated = self.entry()
+        updated["titleEn"] = "Church of Saint George"
+        res = s.add_sources(self.data_dir, [updated], "2026-09-12")
+        self.assertEqual(res["added"], 0)
+        self.assertEqual(res["refreshed"], 1)
+        index = s.load_index(self.data_dir)
+        self.assertEqual(index["sources"]["commons-x-abc123"]["titleEn"],
+                         "Church of Saint George")
+
     def test_status_counts_born_digital(self):
         e = self.entry()
         e["raw"] = {"dateTimeOriginal": "2019-01-01"}
@@ -1144,6 +1159,59 @@ class EuropeanaTest(unittest.TestCase):
         entry = s.EuropeanaAdapter().normalize(
             europeana_raw(place=({"def": "Den Haag"},)))
         self.assertEqual(entry["place"], "Den Haag")
+
+    def test_lang_text_picks_the_requested_language(self):
+        field = {"el": ["Πορτραίτο"], "en": ["Portrait of a girl"]}
+        self.assertEqual(s.europeana_lang_text(field, "en"), "Portrait of a girl")
+        self.assertEqual(s.europeana_lang_text(field, "el"), "Πορτραίτο")
+        # A language that is absent (or an untagged "def" map) is not English.
+        self.assertEqual(s.europeana_lang_text(field, "fr"), "")
+        self.assertEqual(
+            s.europeana_lang_text({"def": ["Binnenhof"]}, "en"), "")
+        self.assertEqual(s.europeana_lang_text("plain", "en"), "")
+        self.assertEqual(s.europeana_lang_text(None, "en"), "")
+
+    def test_normalize_prefers_the_english_description(self):
+        rec = europeana_raw()
+        rec["dcDescription"] = ["Ein Marktplatz."]
+        rec["dcDescriptionLangAware"] = {"de": ["Ein Marktplatz."],
+                                         "en": ["A market square."]}
+        entry = s.EuropeanaAdapter().normalize(rec)
+        self.assertEqual(entry["description"], "A market square.")
+        # The whole language map is kept as provenance.
+        self.assertEqual(entry["raw"]["dcDescriptionLangAware"],
+                         {"de": ["Ein Marktplatz."], "en": ["A market square."]})
+
+    def test_normalize_keeps_the_foreign_description_for_translation(self):
+        rec = europeana_raw()
+        rec["dcDescription"] = ["Η ίδρυση του ναΐσκου."]
+        rec["dcDescriptionLangAware"] = {"el": ["Η ίδρυση του ναΐσκου."]}
+        entry = s.EuropeanaAdapter().normalize(rec)
+        # No English text: the record's own description stays, so the
+        # English-description step (#1883) can translate it.
+        self.assertEqual(entry["description"], "Η ίδρυση του ναΐσκου.")
+        self.assertEqual(entry["raw"]["dcDescriptionLangAware"],
+                         {"el": ["Η ίδρυση του ναΐσκου."]})
+
+    def test_normalize_stores_the_english_title_without_moving_the_id(self):
+        rec = europeana_raw(title="Ναός Αγίου Γεωργίου")
+        rec["dcTitleLangAware"] = {"el": ["Ναός Αγίου Γεωργίου"],
+                                   "en": ["Church of Saint George"]}
+        entry = s.EuropeanaAdapter().normalize(rec)
+        # The displayed title is English; the record's own name (the id
+        # anchor) stays in originalTitle so a re-seed refreshes in place.
+        self.assertEqual(entry["titleEn"], "Church of Saint George")
+        self.assertEqual(entry["originalTitle"], "Ναός Αγίου Γεωργίου")
+        self.assertEqual(entry["raw"]["dcTitleLangAware"],
+                         {"el": ["Ναός Αγίου Γεωργίου"],
+                          "en": ["Church of Saint George"]})
+
+    def test_normalize_has_no_english_title_when_the_record_has_none(self):
+        rec = europeana_raw(title="Zicht op de gevels")
+        rec["dcTitleLangAware"] = {"nl": ["Zicht op de gevels"]}
+        entry = s.EuropeanaAdapter().normalize(rec)
+        self.assertEqual(entry["titleEn"], "")
+        self.assertEqual(entry["originalTitle"], "Zicht op de gevels")
 
     def test_key_falls_back_to_the_demo_key(self):
         old = s._os.environ.pop("EUROPEANA_API_KEY", None)

@@ -814,6 +814,25 @@ class EntryTest(unittest.TestCase):
     def test_clean_title_falls_back_to_photograph(self):
         self.assertEqual(g.clean_title({"originalTitle": "1905"}), "Photograph")
 
+    def test_clean_title_prefers_the_english_name(self):
+        # Ticket #2300: the archive's English name wins when the record has
+        # one; without it the catalogue name stays.
+        s = source(title="Ναός Αγίου Γεωργίου")
+        s["titleEn"] = "Church of Saint George"
+        self.assertEqual(g.clean_title(s), "Church of Saint George")
+        s["titleEn"] = ""
+        self.assertEqual(g.clean_title(s), "Ναός Αγίου Γεωργίου")
+
+    def test_build_entry_carries_the_english_title(self):
+        s = source(title="Zicht op de gevels")
+        s["titleEn"] = "View of the facades"
+        entry = g.build_entry(s, proposal(), self.answer(), "2026-09-12")
+        self.assertEqual(entry["title"], "View of the facades")
+        self.assertEqual(entry["source"]["titleEn"], "View of the facades")
+        # The record's own name stays as provenance next to it.
+        self.assertEqual(entry["source"]["originalTitle"], "Zicht op de gevels")
+        self.assertEqual(ag_queue.validate_entry(entry), [])
+
     def test_scene_title_is_the_catalogue_name_not_the_proposal(self):
         # Ticket #1496: the proposal's short name is model text that would
         # need its own quality check; the displayed title is the source's

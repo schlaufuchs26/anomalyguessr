@@ -2161,9 +2161,16 @@ def clean_caption_title(text) -> str:
 
 
 def clean_title(source: dict) -> str:
-    """The displayed scene title: the source's catalogue name, or the
-    "Photograph" placeholder when the catalogue carries nothing readable."""
-    return clean_caption_title(source.get("originalTitle")) or "Photograph"
+    """The displayed scene title: the source's own catalogue name, or the
+    "Photograph" placeholder when the catalogue carries nothing readable.
+
+    ``titleEn`` (ticket #2300) wins when it is set: Europeana returns the
+    archive's English name for records that have one, so a Greek or Dutch
+    scene still shows an English title.
+    """
+    title = clean_caption_title(source.get("titleEn")) or \
+        clean_caption_title(source.get("originalTitle"))
+    return title or "Photograph"
 
 
 def scene_title_source(source: dict) -> str:
@@ -2269,7 +2276,7 @@ def build_entry(source: dict, proposal: dict, answer: dict, date: str,
     title = clean_title(source)
     source_block = {k: source.get(k, "") for k in (
         "repository", "fileUrl", "originalTitle", "date", "place", "license",
-        "description")}
+        "description", "titleEn")}
     out = {
         "id": eid,
         "title": title,

@@ -55,6 +55,8 @@ DEFAULT_BASE_URL = ag_llm.DEFAULT_BASE_URL
 DESCRIPTION_SOURCE = "catalog"
 DESCRIPTION_MAX_TOKENS = 300
 MAX_DESCRIPTION_CHARS = 500
+MAX_TITLE_CHARS = 120
+TITLE_LABEL = "TITLE:"
 SAVE_EVERY = 20
 USER_AGENT = "Schlaufuchs-AnomalyGuessr/1.0 (+https://fuchs.science)"
 
@@ -150,6 +152,25 @@ def needs_description(current) -> bool:
     if not text or is_caption(text):
         return True
     return language_guess(text) not in ("en", "unknown")
+
+
+def needs_english_title(source, title=None) -> bool:
+    """Whether a scene's displayed title still wants an English rendering.
+
+    ``titleEn`` (ticket #2300) already holds an English title, so nothing is
+    left to do. Otherwise the catalogue name decides: a name in a foreign
+    language (its language markers, or any non-ASCII letter like a Greek
+    title) is translated; a short ASCII name that ``language_guess`` cannot
+    place is left as it is.
+    """
+    source = source if isinstance(source, dict) else {}
+    if str(source.get("titleEn") or "").strip():
+        return False
+    name = str(title if title is not None
+               else source.get("originalTitle") or "").strip()
+    if not name:
+        return False
+    return language_guess(name) != "en" or not name.isascii()
 
 
 # ── Record text and fetch ──────────────────────────────────────────────────
@@ -283,7 +304,7 @@ def record_text(source: dict, fetch=None) -> tuple:
 # ── Prompt and guard ───────────────────────────────────────────────────────
 
 
-def describe_prompt(record: str, avoid=()) -> str:
+def describe_prompt(record: str, avoid=(), title: bool = False) -> str:
     base = (
         "You write the short description under a historical photograph in a "
         "spot-the-anachronism quiz.\n\n"
@@ -294,14 +315,27 @@ def describe_prompt(record: str, avoid=()) -> str:
         "whenever the record states it. Translate any non-English record "
         "text into English. Use ONLY facts stated in the record above; do "
         "not add names, places, dates, numbers, events or interpretations "
-        "that are not in it. Answer with the description alone, without "
-        "quotes or a label."
+        "that are not in it."
     )
+    if title:
+        # Ticket #2300: the scene also needs an English name. One call
+        # answers both, so a Greek or Dutch catalogue title does not reach
+        # the viewer.
+        base += (
+            "\n\nAnswer in two parts. First a line \""
+            f"{TITLE_LABEL} \" followed by a short English title of a few "
+            "words (translate a foreign catalogue title; keep an English one "
+            "unchanged, and do not add a year). Then a blank line, then the "
+            "description. Use the record's own spelling for place and "
+            "personal names."
+        )
+    else:
+        base += " Answer with the description alone, without quotes or a label."
     if avoid:
         base += (
             "\n\nThe previous attempt used words the record does not "
             "contain: " + ", ".join(sorted(set(avoid))) + ". Write the "
-            "description again without them; keep place and personal names "
+            "answer again without them; keep place and personal names "
             "exactly as the record spells them, and leave out anything the "
             "record does not state."
         )
@@ -336,6 +370,49 @@ def unsupported_facts(text: str, vocabulary: str) -> list:
     return [f for f in facts if not (f in seen or seen.add(f))]
 
 
+def unsupported_title_facts(text: str, vocabulary: str) -> list:
+    """Numbers in a translated title that the record does not state.
+
+    A title is checked for numbers only. The proper-noun rule of
+    ``unsupported_facts`` would refuse every translation: rendering a Greek
+    or Dutch name in English introduces words the record never contains,
+    while a translation is not an invented fact. A number or date, by
+    contrast, must still be the record's own.
+    """
+    vocab = str(vocabulary or "").casefold()
+    seen = set()
+    facts = []
+    for num in _NUMBER_RE.findall(str(text or "")):
+        if num.casefold() in vocab or num in seen:
+            continue
+        seen.add(num)
+        facts.append(num)
+    return facts
+
+
+def split_answer(answer) -> tuple:
+    """``(title, description)`` from a two-part model answer.
+
+    The title is asked for on a leading ``TITLE:`` line (ticket #2300). An
+    answer without one (a model that ignored the shape, an older caller) is
+    all description, so the description path is unchanged.
+    """
+    text = str(answer or "")
+    m = re.match(r"\s*TITLE\s*:\s*(?P<title>[^\n]*)\n+(?P<rest>.*)", text,
+                 re.IGNORECASE | re.DOTALL)
+    if not m:
+        return "", text
+    return m.group("title").strip(), m.group("rest")
+
+
+def clean_title_text(text, limit: int = MAX_TITLE_CHARS) -> str:
+    """One short plain title: fences/quotes off, whitespace collapsed, capped."""
+    s = ag_llm.strip_fences(str(text or ""))
+    s = s.strip().strip('"').strip("'").strip()
+    s = re.sub(r"\s+", " ", s)
+    return s[:limit].rstrip()
+
+
 def clean_description(text, limit: int = MAX_DESCRIPTION_CHARS) -> str:
     """One plain paragraph: fences/quotes off, whitespace collapsed, capped."""
     s = ag_llm.strip_fences(str(text or ""))
@@ -357,9 +434,14 @@ def clean_description(text, limit: int = MAX_DESCRIPTION_CHARS) -> str:
 def describe_text(record: str, api_key: str, model: str,
                   base_url: str = DEFAULT_BASE_URL,
                   max_tokens: int = DESCRIPTION_MAX_TOKENS,
-                  timeout: int = 60, avoid=()) -> dict:
-    """One text call; returns the trace-shaped call record."""
-    prompt = describe_prompt(record, avoid)
+                  timeout: int = 60, avoid=(), title: bool = False) -> dict:
+    """One text call; returns the trace-shaped call record.
+
+    ``title`` asks the model for a ``TITLE:`` line before the description
+    (ticket #2300), so one call yields both the English name and the English
+    description.
+    """
+    prompt = describe_prompt(record, avoid, title)
     started = time.time()
     body = ag_llm.chat([{"role": "user",
                          "content": [ag_llm.text_part(prompt)]}],
@@ -375,17 +457,22 @@ def describe_entry(entry: dict, api_key: str, model: str = DEFAULT_MODEL,
                    base_url: str = DEFAULT_BASE_URL,
                    max_tokens: int = DESCRIPTION_MAX_TOKENS,
                    timeout: int = 60, fetch=None) -> tuple:
-    """Give one entry an English description; ``(entry, info)``.
+    """Give one entry English text; ``(entry, info)``.
 
-    ``info["status"]`` is ``described`` (written), ``kept`` (already English),
+    The description is written first; a foreign displayed title is translated
+    in the same call (ticket #2300) and stored as ``title``/``source.titleEn``.
+    ``info["status"]`` is ``described`` (a description was written),
+    ``retitled`` (only the title was), ``kept`` (already English),
     ``no_record`` (no text anywhere), ``empty`` (the model said nothing),
-    ``guarded`` (the facts guard fired; the entry is unchanged) or ``error``.
-    A guarded answer never reaches the entry.
+    ``guarded`` (a facts guard fired) or ``error``. A guarded answer never
+    reaches the entry.
     """
-    if not needs_description(entry.get("description")):
+    source = entry.get("source")
+    source = source if isinstance(source, dict) else {}
+    desc_needed = needs_description(entry.get("description"))
+    title_needed = needs_english_title(source, entry.get("title"))
+    if not desc_needed and not title_needed:
         return entry, {"status": "kept"}
-    source = entry.get("source") if isinstance(entry.get("source"), dict) \
-        else {}
     record, fetched = record_text(source, fetch)
     if not record.strip():
         return entry, {"status": "no_record"}
@@ -396,55 +483,78 @@ def describe_entry(entry: dict, api_key: str, model: str = DEFAULT_MODEL,
     def _ask(avoid=()):
         try:
             call = describe_text(record, api_key, model, base_url, max_tokens,
-                                 timeout, avoid)
+                                 timeout, avoid, title=title_needed)
         except Exception as e:  # noqa: BLE001
             raise DescriptionError(f"{type(e).__name__}: {e}") from e
         calls.append(call)
-        text = clean_description(call.get("answer"))
-        return text, (unsupported_facts(text, record) if text else [])
+        raw_title, raw_desc = split_answer(call.get("answer"))
+        text = clean_description(raw_desc)
+        title = clean_title_text(raw_title) if title_needed else ""
+        facts = unsupported_facts(text, record) if text else []
+        tfacts = unsupported_title_facts(title, record) if title else []
+        return title, text, facts, tfacts
 
     try:
-        text, facts = _ask()
+        title, text, facts, tfacts = _ask()
     except DescriptionError as e:
         return entry, {"status": "error", "error": str(e), "calls": calls}
     # A translation of the record is allowed to render a French place name in
     # English, but then the guard cannot tell it from a fabricated one. One
     # re-ask names the offending words and asks for the record's own spelling;
-    # a scene that still leaks facts stays unchanged (and fails the pass).
-    if text and facts:
+    # a scene that still leaks facts keeps what it had.
+    if (desc_needed and text and facts) or tfacts:
         try:
-            retry_text, retry_facts = _ask(avoid=facts)
+            retry_title, retry_text, retry_facts, retry_tfacts = _ask(
+                avoid=facts + tfacts)
         except DescriptionError:
-            retry_text = ""
+            retry_title, retry_text, retry_facts, retry_tfacts = "", "", [], []
         if retry_text and len(retry_facts) < len(facts):
             text, facts = retry_text, retry_facts
+        if retry_title and len(retry_tfacts) < len(tfacts):
+            title, tfacts = retry_title, retry_tfacts
     info = {"fetched": fetched, "record_chars": len(record), "calls": calls,
             "call": calls[-1] if calls else None}
-    if not text:
-        info["status"] = "empty"
-        return entry, info
-    if facts:
-        info.update({"status": "guarded", "facts": facts})
-        return entry, info
-    info["status"] = "described"
     out = dict(entry)
-    out["description"] = text
-    out["description_source"] = DESCRIPTION_SOURCE
-    info["description"] = text
-    return out, info
+    written = []
+    if desc_needed and text and not facts:
+        out["description"] = text
+        out["description_source"] = DESCRIPTION_SOURCE
+        written.append("description")
+        info["description"] = text
+    if title_needed and title and not tfacts:
+        out["title"] = title
+        out["title_source"] = "catalog"
+        out["source"] = dict(source, titleEn=title)
+        written.append("title")
+        info["title"] = title
+    guarded = list((facts if desc_needed else [])) + \
+        list((tfacts if title_needed else []))
+    if guarded:
+        info.update({"status": "guarded", "facts": guarded})
+        return out, info
+    if "description" in written:
+        info["status"] = "described"
+        return out, info
+    if "title" in written:
+        info["status"] = "retitled"
+        return out, info
+    info["status"] = "empty"
+    return entry, info
 
 
 # ── Catalog measurement and the pass ───────────────────────────────────────
 
 
 def measure_state(state: dict) -> dict:
-    """Count the catalogue's descriptions: empty, caption, English, foreign."""
+    """Count the catalogue's text: description states and missing titles."""
     scenes = state.get("scenes") or {}
-    empty = caption = english = non_english = described = 0
+    empty = caption = english = non_english = described = missing_titles = 0
     by_language = {}
     for scene in scenes.values():
         if scene.get("description_source") == DESCRIPTION_SOURCE:
             described += 1
+        if needs_english_title(scene.get("source"), scene.get("title")):
+            missing_titles += 1
         current = str(scene.get("description") or "").strip()
         if not current:
             empty += 1
@@ -462,25 +572,33 @@ def measure_state(state: dict) -> dict:
             "by_language": dict(sorted(by_language.items())),
             "already_described": described,
             "without_description": empty + caption,
-            "needs_english": empty + caption + non_english}
+            "missing_english_titles": missing_titles,
+            "needs_english": empty + caption + non_english + missing_titles}
 
 
 def describe_state(data_dir: Path, api_key: str = "", model: str = DEFAULT_MODEL,
                    base_url: str = DEFAULT_BASE_URL, limit: int | None = None,
                    fetch=None, dry_run: bool = False, log=None) -> dict:
-    """Run the step over every queued scene that still lacks English text."""
+    """Run the step over every queued scene that still lacks English text.
+
+    A scene is a target when its description is not English or its displayed
+    title is still foreign (ticket #2300); the title and the description are
+    written from one model call.
+    """
     state = ag_queue.load_state(data_dir)
     report = measure_state(state)
     report["dry_run"] = bool(dry_run)
     report["model"] = model
     targets = [s for s in (state.get("scenes") or {}).values()
-               if needs_description(s.get("description"))]
+               if needs_description(s.get("description"))
+               or needs_english_title(s.get("source"), s.get("title"))]
     targets.sort(key=lambda s: (str(s.get("added") or ""),
                                 str(s.get("id") or "")))
     if limit is not None:
         targets = targets[:max(0, int(limit))]
     report["targets"] = len(targets)
     changed, skipped, guarded = [], [], []
+    described_count = retitled_count = 0
     totals = ag_llm.zero_usage()
     for done, scene in enumerate(targets, 1):
         if dry_run:
@@ -494,11 +612,19 @@ def describe_state(data_dir: Path, api_key: str = "", model: str = DEFAULT_MODEL
         for call in info.get("calls") or []:
             ag_llm.add_usage(totals, call.get("usage"))
         status = info.get("status")
-        if status == "described":
-            scene["description"] = described["description"]
-            scene["description_source"] = DESCRIPTION_SOURCE
-            changed.append({"id": scene.get("id"), "fetched": info["fetched"],
-                            "chars": len(described["description"])})
+        if status in ("described", "retitled"):
+            for k in ("description", "description_source", "title",
+                      "title_source", "source"):
+                if k in described:
+                    scene[k] = described[k]
+            if status == "described":
+                described_count += 1
+            else:
+                retitled_count += 1
+            changed.append({"id": scene.get("id"), "status": status,
+                            "fetched": info.get("fetched"),
+                            "chars": len(str(scene.get("description") or "")),
+                            "title": scene.get("title")})
         elif status == "guarded":
             guarded.append({"id": scene.get("id"), "facts": info["facts"]})
         elif status != "kept":
@@ -511,7 +637,8 @@ def describe_state(data_dir: Path, api_key: str = "", model: str = DEFAULT_MODEL
             ag_queue.save_state(data_dir, state)
     if changed and not dry_run:
         ag_queue.save_state(data_dir, state)
-    report["described"] = len(changed)
+    report["described"] = described_count
+    report["retitled"] = retitled_count
     report["guarded"] = guarded
     report["skipped"] = skipped
     report["details"] = changed

@@ -61,6 +61,24 @@ def entry(description, source=None):
             "source": dict(source or GALLICA_SOURCE)}
 
 
+GREEK_SOURCE = {
+    "repository": "Europeana",
+    "fileUrl": "https://example.org/item.jpg",
+    "originalTitle": "Ναός Αγίου Γεωργίου",
+    "date": "1900",
+    "place": "Χαϊδάρι",
+    "license": "CC BY-SA",
+    "description": "Η ίδρυση του ναΐσκου του Αγίου Γεωργίου ανάγεται στα "
+                   "μεταβυζαντινά χρόνια.",
+}
+
+
+def greek_entry(description="Ναός Αγίου Γεωργίου · Χαϊδάρι · Europeana."):
+    return {"id": "europeana-1", "title": "Ναός Αγίου Γεωργίου",
+            "place": "Χαϊδάρι", "year": "1900", "description": description,
+            "source": dict(GREEK_SOURCE)}
+
+
 class CaptionTests(unittest.TestCase):
     def test_the_assembled_caption_is_recognised(self):
         self.assertTrue(d.is_caption("Christian, boxeur · Gallica."))
@@ -222,7 +240,7 @@ class DescribeEntryTests(unittest.TestCase):
         seen = []
 
         def fake(record, api_key, model, base_url=None, max_tokens=0,
-                 timeout=0, avoid=()):
+                 timeout=0, avoid=(), title=False):
             seen.append(tuple(avoid))
             return call(answers[min(len(seen) - 1, 1)])
 
@@ -256,6 +274,77 @@ class DescribeEntryTests(unittest.TestCase):
         self.assertEqual(info["status"], "error")
         self.assertIn("TimeoutError", info["error"])
         self.assertEqual(out["description"], "Christian · Gallica.")
+
+
+class TitleTests(unittest.TestCase):
+    """English titles for foreign catalogue names (ticket #2300)."""
+
+    def setUp(self):
+        self._old = d.describe_text
+
+    def tearDown(self):
+        d.describe_text = self._old
+
+    def test_needs_english_title(self):
+        # A record that already names its English title is left alone.
+        self.assertFalse(d.needs_english_title({"titleEn": "Church"}))
+        # A Greek or Dutch catalogue name is translated.
+        self.assertTrue(d.needs_english_title(
+            {}, "Ναός Αγίου Γεωργίου"))
+        self.assertTrue(d.needs_english_title(
+            {}, "Zicht op de gevels van gebouwen"))
+        # An English name and an empty name are not.
+        self.assertFalse(d.needs_english_title({}, "Busy market street"))
+        self.assertFalse(d.needs_english_title({}, ""))
+
+    def test_title_numbers_outside_the_record_are_guarded(self):
+        self.assertEqual(d.unsupported_title_facts(
+            "Church of Saint George, 1912", "Ναός Αγίου Γεωργίου 1900"),
+            ["1912"])
+        self.assertEqual(d.unsupported_title_facts(
+            "Church of Saint George", "Ναός Αγίου Γεωργίου"), [])
+        # A translated name is not an invented fact, so proper nouns pass.
+        self.assertEqual(d.unsupported_title_facts(
+            "Church of Saint George", "Ναός Αγίου Γεωργίου"), [])
+
+    def test_split_answer_parses_the_title_line(self):
+        title, desc = d.split_answer(
+            "TITLE: Church of Saint George\n\nA small church in Haidari.")
+        self.assertEqual(title, "Church of Saint George")
+        self.assertEqual(desc, "A small church in Haidari.")
+        # An answer without the marker is all description.
+        self.assertEqual(d.split_answer("A market in 1905."),
+                         ("", "A market in 1905."))
+
+    def test_describe_entry_writes_the_english_title(self):
+        d.describe_text = lambda *a, **kw: call(
+            "TITLE: Church of Saint George\n\n"
+            "The church Ναός Αγίου Γεωργίου in Χαϊδάρι, founded in the "
+            "post-Byzantine years.")
+        out, info = d.describe_entry(greek_entry(), "key")
+        self.assertEqual(info["status"], "described")
+        self.assertEqual(out["title"], "Church of Saint George")
+        self.assertEqual(out["title_source"], "catalog")
+        self.assertEqual(out["source"]["titleEn"], "Church of Saint George")
+        self.assertIn("Χαϊδάρι", out["description"])
+
+    def test_a_title_only_scene_is_retitled(self):
+        # The English description is already there; only the Greek title is
+        # translated, and that still counts as a change.
+        d.describe_text = lambda *a, **kw: call(
+            "TITLE: Church of Saint George\n\n"
+            "A small church in Haidari.")
+        out, info = d.describe_entry(
+            greek_entry("A small church in Haidari, founded long ago."), "key")
+        self.assertEqual(info["status"], "retitled")
+        self.assertEqual(out["title"], "Church of Saint George")
+
+    def test_an_english_title_is_not_sent_to_the_model(self):
+        d.describe_text = lambda *a, **kw: self.fail("must not call")
+        out, info = d.describe_entry(entry(
+            "A market street with stalls and shoppers in 1905."),
+            "key")
+        self.assertEqual(info["status"], "kept")
 
 
 class DescribeStateTests(unittest.TestCase):

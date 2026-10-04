@@ -2087,6 +2087,31 @@ def europeana_text(value) -> str:
     return ""
 
 
+def europeana_lang_text(value, lang: str) -> str:
+    """The text one language out of a Europeana ``...LangAware`` field.
+
+    The live API returns those fields as a map of language code to a list of
+    strings (``{"en": ["Portrait of a girl"], "el": ["Πορτραίτο κοριτσιού"]}``).
+    The plain ``title``/``dcDescription`` fields carry only the provider's
+    preferred language, so ticket #2300 reads the language map and picks
+    ``lang`` explicitly. Returns "" when the field names no text in it; an
+    untagged ``{"def": ...}`` map is not treated as English.
+    """
+    want = (lang or "").casefold()
+    if isinstance(value, dict):
+        if value.get(want):
+            return europeana_text(value[want])
+        return ""
+    if isinstance(value, list):
+        # A list of per-language maps (some collection shapes).
+        for item in value:
+            if isinstance(item, dict):
+                text = europeana_lang_text(item, want)
+                if text:
+                    return text
+    return ""
+
+
 def europeana_photo_ok(rec) -> bool:
     """Cheap pre-filter before the walk spends an image fetch on a candidate."""
     if str(rec.get("type") or "").upper() != "IMAGE":
@@ -2218,11 +2243,24 @@ class EuropeanaAdapter(SourceAdapter):
         year, year_text = europeana_year(raw)
         width = int(raw.get("width") or 0)
         height = int(raw.get("height") or 0)
-        title = _strip_html(europeana_text(raw.get("title"))).strip()
+        # ``title``/``dcDescription`` come back in the provider's preferred
+        # language (a Greek record arrives with Greek text, ticket #2300), so
+        # the English value is read from the ``...LangAware`` map first and
+        # the whole map is kept under ``raw`` as provenance.
+        title_field = raw.get("title")
+        title = _strip_html(europeana_text(title_field)).strip()
         title = title or f"Europeana {raw.get('id')}"
+        title_en = _strip_html(europeana_lang_text(
+            raw.get("dcTitleLangAware"), "en")).strip()
         place = _strip_html(europeana_text(raw.get("edmPlaceLabel"))).strip()
         rights = raw.get("rights") or []
-        description = _strip_html(europeana_text(raw.get("dcDescription")))
+        description = _strip_html(europeana_lang_text(
+            raw.get("dcDescriptionLangAware"), "en"))
+        if not description:
+            # No English text: keep the record's own description so the
+            # English-description step (#1883) can translate it; the
+            # language map under ``raw`` says which language it is.
+            description = _strip_html(europeana_text(raw.get("dcDescription")))
         guid = str(raw.get("guid") or raw.get("id") or "")
         return {
             "repository": self.repo,
@@ -2233,6 +2271,7 @@ class EuropeanaAdapter(SourceAdapter):
             "license": europeana_license(rights),
             "licenseUrl": str(rights[0]) if rights else "",
             "description": description,
+            "titleEn": title_en,
             "width": width, "height": height,
             "year": year,
             "year_field": "catalog" if year is not None else "",
@@ -2241,6 +2280,9 @@ class EuropeanaAdapter(SourceAdapter):
             "raw": {"id": raw.get("id"), "window": raw.get("window"),
                     "provider": raw.get("provider"),
                     "dataProvider": raw.get("dataProvider"),
+                    "title": title_field,
+                    "dcTitleLangAware": raw.get("dcTitleLangAware"),
+                    "dcDescriptionLangAware": raw.get("dcDescriptionLangAware"),
                     "rights": list(rights)},
         }
 
@@ -2455,9 +2497,9 @@ def add_sources(data_dir: Path, entries: list, date: str,
 
 # Metadata fields a refresh may overwrite; identity + bookkeeping stay.
 _REFRESH_KEYS = ("repository", "fileUrl", "originalTitle", "date", "place",
-                 "license", "licenseUrl", "description", "width", "height",
-                 "mime", "quality", "raw", "year", "year_field", "year_source",
-                 "year_raw")
+                 "license", "licenseUrl", "description", "titleEn", "width",
+                 "height", "mime", "quality", "raw", "year", "year_field",
+                 "year_source", "year_raw")
 
 
 def _refresh_entry(existing: dict, new: dict) -> bool:
