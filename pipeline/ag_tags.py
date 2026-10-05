@@ -401,6 +401,18 @@ def by_family(rows: dict) -> dict:
     return out
 
 
+def overall_rows(families: dict) -> dict:
+    """``{value: row}`` summing a feature's rows over every family."""
+    out: dict = {}
+    for rows in families.values():
+        for value, row in rows.items():
+            agg = out.setdefault(value, _empty_row())
+            for key in ("accepted", "rejected", "great"):
+                agg[key] += int(row.get(key) or 0)
+    return {value: _finish(dict(row)) for value, row in out.items()}
+
+
+
 def build_report(index: dict, state: dict, feedback: dict, source_of: dict,
                  generated_at: str | None = None) -> dict:
     """The measurement: per-family rates against each report feature."""
@@ -436,6 +448,25 @@ _FEATURE_TITLE = {"people": "Crowd level", "clutter": "Clutter",
 def _fmt_rate(row: dict, field: str) -> str:
     value = row.get(field)
     return "-" if value is None else f"{round(100 * value)}%"
+
+
+def _overall_table(families: dict, feature: str) -> list:
+    """The feature's rate over every family together (the headline split)."""
+    rows = overall_rows(families)
+    lines = [f"### {_FEATURE_TITLE[feature]}: all families", "",
+             "| " + _FEATURE_TITLE[feature].lower() + " | decided | accepted "
+             "| rate | great | great rate |",
+             "|---|---|---|---|---|---|"]
+    for value in _VALUE_ORDER[feature]:
+        row = rows.get(value) or {}
+        decided = int(row.get("decided") or 0)
+        if not decided:
+            continue
+        lines.append(f"| {value} | {decided} | {row['accepted']} "
+                     f"| {_fmt_rate(row, 'rate')} | {row['great']} "
+                     f"| {_fmt_rate(row, 'greatRate')} |")
+    lines.append("")
+    return lines
 
 
 def _feature_table(families: dict, feature: str) -> list:
@@ -508,29 +539,35 @@ def render_report(report: dict) -> str:
         "",
     ]
     for feature in REPORT_FEATURES:
+        lines += _overall_table(report["features"][feature], feature)
         lines += _feature_table(report["features"][feature], feature)
     lines += _hypothesis_section(report)
     return "\n".join(lines) + "\n"
 
 
 def _hypothesis_section(report: dict) -> list:
-    """The crowded-photo answer, when the person family has the samples."""
+    """The crowded-photo answer: the overall split and the person family."""
     people = report["features"].get("people") or {}
+    overall = overall_rows(people)
     person = people.get("person") or {}
-    crowd = person.get("crowd") or {}
-    none = person.get("none") or {}
-    lines = ["## The hypothesis", "",
-             "Evan's guess: a crowded photo forgives an ostentatious time "
-             "traveller more than an empty one.", ""]
+
     def _line(label, row):
-        decided = int(row.get("decided") or 0)
+        decided = int((row or {}).get("decided") or 0)
         if not decided:
             return f"- {label}: no decided scenes."
         return (f"- {label}: {row['accepted']}/{decided} accepted "
                 f"({_fmt_rate(row, 'rate')}), {row['great']} great "
                 f"({_fmt_rate(row, 'greatRate')}).")
-    lines.append(_line("Person family on a crowd", crowd))
-    lines.append(_line("Person family with no people", none))
+
+    lines = ["## The hypothesis", "",
+             "Evan's guess: a crowded photo forgives an ostentatious time "
+             "traveller more than an empty one.", "",
+             "All element families together:", ""]
+    for value in PEOPLE:
+        lines.append(_line(f"People = {value}", overall.get(value)))
+    lines += ["", "The person family alone (the literal time traveller):", ""]
+    for value in PEOPLE:
+        lines.append(_line(f"People = {value}", person.get(value)))
     lines.append("")
     return lines
 

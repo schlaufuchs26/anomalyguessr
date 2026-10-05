@@ -270,6 +270,22 @@ class ReportTest(unittest.TestCase):
         self.assertIn("| family |", md)
         self.assertIn("| drinks |", md)
         self.assertIn("## The hypothesis", md)
+        self.assertIn("all families", md)
+
+    def test_overall_rows_sum_across_families(self):
+        self.d.add_source("a", tags=_tags(people="crowd"))
+        self.d.add_source("b", tags=_tags(people="crowd"))
+        scenes = {"a": {"sourceUrl": "u://a", "family": "drinks",
+                        "anomaly": "Plastic bottle"},
+                  "b": {"sourceUrl": "u://b", "family": "vehicle",
+                        "anomaly": "E-scooter"}}
+        self.d.write_state(scenes)
+        self.d.write_trace("a", "a")
+        self.d.write_trace("b", "b")
+        report = self._build({"accepted": ["a"], "rejected": ["b"]})
+        overall = ag_tags.overall_rows(report["features"]["people"])
+        self.assertEqual(overall["crowd"]["decided"], 2)
+        self.assertEqual(overall["crowd"]["rate"], 0.5)
 
 
 if __name__ == "__main__":
