@@ -343,11 +343,19 @@ def tags_by_source(index: dict) -> dict:
 
 
 def scene_family(scene: dict) -> str:
-    """The scene's element family, "other" when neither field nor catalogue knows."""
+    """The scene's element family, "other" when neither field nor catalogue knows.
+
+    Ticket #2348: a scene stores the family its label resolved to at build
+    time, and a model-invented label used to fall through to "other" even
+    when the keyword table could bucket it later. The stored value wins
+    unless it is that fallback, so an old "other" scene re-resolves with the
+    wider keyword table instead of keeping the report coarse.
+    """
     family = str((scene or {}).get("family") or "").strip()
-    if family:
+    if family and family != "other":
         return family
-    return ag_catalog.family_of(str((scene or {}).get("anomaly") or "")) or "other"
+    return (ag_catalog.family_of(str((scene or {}).get("anomaly") or ""))
+            or family or "other")
 
 
 def _empty_row() -> dict:
@@ -513,9 +521,10 @@ def render_report(report: dict) -> str:
         "Ticket #2344: every source photo carries a small fixed tag set "
         "(people, scene, medium, clutter, host, text) read by one vision call, "
         "so the pipeline can measure which element families work on which "
-        "kind of photograph. The tags are a fitting hint, not a fact the "
-        "generator acts on yet; the proposal prompt and the source picker are "
-        "unchanged.",
+        "kind of photograph. Ticket #2348 wires the two weak signals the "
+        "measurement supports into the generator: the proposal prompt is told "
+        "to prefer a modification on a busy surface, and the source picker "
+        "prefers busy, populated, non-sepia photographs.",
         "",
         "## Method",
         "",

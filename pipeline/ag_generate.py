@@ -682,6 +682,38 @@ def figure_request_line(source: dict) -> str:
     return f"{line} {where}".strip()
 
 
+def photo_tag_lines(source: dict) -> list:
+    """Proposal hints from the photograph's own tags (ticket #2348).
+
+    The #2344 measurement ([[anomalyguessr-photo-tags]]) found two weak but
+    positive signals and one negative one: a visually busy photograph accepts
+    an element slightly more often than a clean one (41% vs 37%) and is marked
+    "great" more often (8% vs 3%); sepia is the worst medium by far (17%
+    accepted, 53 decided). The tags are a fitting hint, so they only steer the
+    proposal - the year and place rules never read them. An untagged source
+    adds nothing.
+    """
+    tags = (source or {}).get("tags")
+    if not isinstance(tags, dict):
+        return []
+    lines = []
+    if str(tags.get("clutter") or "").strip().lower() == "busy":
+        lines.append(
+            "- This photograph is visually busy (goods, machinery, clutter): "
+            "prefer a modern element that sits among that clutter on a "
+            "surface already there, not one standing alone in an empty spot.")
+    if str(tags.get("people") or "").strip().lower() == "crowd":
+        lines.append(
+            "- This photograph already shows a crowd, so a person among them "
+            "blends in instead of standing out.")
+    if str(tags.get("medium") or "").strip().lower() == "sepia":
+        lines.append(
+            "- This photograph is sepia-toned, where a colour or material "
+            "cue vanishes: pick an element whose anachronism is a strong "
+            "shape.")
+    return lines
+
+
 def proposal_prompt(source: dict, recent=(), conflict=None, blocked=(),
                     examples=None, avoid_families=(), patterns=(),
                     budget_families=(), figure: bool = False) -> str:
@@ -734,6 +766,9 @@ def proposal_prompt(source: dict, recent=(), conflict=None, blocked=(),
     lines += anomaly_branch_lines(year)
     if figure:
         lines.append(figure_request_line(source))
+    # Ticket #2348: the photograph's own tags (#2344) name the fitting kind
+    # of element, e.g. a busy surface wants a modification among the clutter.
+    lines += photo_tag_lines(source)
     lines += [
         "- It must be ONE small, concrete thing that could plausibly sit in "
         "this scene: an object, or one extra person whose only modern or "
@@ -3181,6 +3216,27 @@ def people_level(entry: dict) -> str:
     return level if level in ("none", "few", "crowd") else ""
 
 
+def source_tag_rank(entry: dict) -> tuple:
+    """Sort key that prefers a photo whose tags measure better (ticket #2348).
+
+    The #2344 numbers ([[anomalyguessr-photo-tags]]) rank a sepia photograph
+    last (17% accepted against 43% for grayscale) and favour a busy one (41%
+    vs 37% accepted) and one that already shows people (few 45% accepted,
+    crowd 10% "great" against 4%). The key is stable, so the seeded shuffle
+    still decides the order among photos with the same tags and an untagged
+    entry stays neutral instead of losing its place.
+    """
+    tags = (entry or {}).get("tags")
+    if not isinstance(tags, dict):
+        tags = {}
+    medium = str(tags.get("medium") or "").strip().lower()
+    clutter = str(tags.get("clutter") or "").strip().lower()
+    people = str(tags.get("people") or "").strip().lower()
+    return (1 if medium == "sepia" else 0,
+            0 if clutter == "busy" else 1,
+            0 if people in PEOPLE_LEVELS_WITH_PEOPLE else 1)
+
+
 def figure_slots(sources, every: int = FIGURE_SLOT_EVERY) -> set:
     """Source ids that should carry a time-traveller figure (ticket #2345).
 
@@ -3218,12 +3274,18 @@ def select_sources(data_dir: Path, count: int, seed=None) -> list:
     Ticket #2244: a subject-motif cap does the same for the *subject* family
     (``entry_motif``), so a day cannot be three bridge prints; a pool with
     one named motif is not starved, and ``MOTIF_OTHER`` is never capped.
+    Ticket #2348: within every pass a photo whose tags measure better wins
+    (``source_tag_rank``), so the day leans to busy, populated, non-sepia
+    photographs without changing the spread caps.
     """
     unused = [s for s in ag_sources.list_sources(data_dir, unused=True)
               if s.get("image")
               and (ag_sources.sources_dir(data_dir) / s["image"]).exists()]
     rng = random.Random(seed)
     rng.shuffle(unused)
+    # Ticket #2348: a stable sort, so the seeded shuffle still decides among
+    # photos the tags rank the same.
+    unused.sort(key=source_tag_rank)
     repos = sorted({ag_sources.entry_repository(s) for s in unused})
     # Ticket #1536: two archives and a five-scene day need three from one
     # archive; the cap is the fair share, not a fixed two.

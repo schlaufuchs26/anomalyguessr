@@ -311,6 +311,31 @@ class PromptTests(unittest.TestCase):
         self.assertIn("shows no people",
                       g.proposal_prompt(empty, [], figure=True))
 
+    def test_proposal_prompt_carries_the_photo_tag_hints(self):
+        # #2348: the tags (#2344) name the fitting kind of element. A busy
+        # surface wants a modification among the clutter; a sepia photo needs
+        # a shape, not a colour cue; an untagged photo adds nothing.
+        busy = source()
+        busy["tags"] = {"clutter": "busy", "medium": "grayscale"}
+        text = g.proposal_prompt(busy, [])
+        self.assertIn("visually busy", text)
+        self.assertIn("sits among that clutter", text)
+        self.assertNotIn("sepia-toned", text)
+        sepia = source()
+        sepia["tags"] = {"clutter": "clean", "medium": "sepia"}
+        sepia_text = g.proposal_prompt(sepia, [])
+        self.assertIn("sepia-toned", sepia_text)
+        self.assertNotIn("visually busy", sepia_text)
+        plain = g.proposal_prompt(source(), [])
+        self.assertNotIn("visually busy", plain)
+        self.assertNotIn("sepia-toned", plain)
+
+    def test_photo_tag_hint_names_a_crowd(self):
+        crowd = source()
+        crowd["tags"] = {"people": "crowd"}
+        self.assertIn("already shows a crowd",
+                      g.proposal_prompt(crowd, []))
+
     def test_proposal_prompt_states_the_one_applicable_anomaly_branch(self):
         # #1466: "If the photograph clearly predates {year}" is
         # self-contradictory (the year IS the photo's own), so the model had
@@ -3388,6 +3413,22 @@ class RunTest(TempDataMixin, unittest.TestCase):
                    if ag_sources.entry_motif(s) == "bridge"]
         self.assertLessEqual(len(bridges), 2)
 
+    def test_select_sources_prefers_busy_over_sepia_photos(self):
+        # #2348: the photo tags steer the pick. A sepia photograph measures
+        # worst (17% accepted) and a busy one slightly best, so with one slot
+        # the busy photo wins whatever the seed.
+        busy = source(sid="commons-busy", date="1905-01-01")
+        busy["tags"] = {"clutter": "busy", "medium": "grayscale",
+                        "people": "few"}
+        sepia = source(sid="commons-sepia", date="1915-01-01")
+        sepia["tags"] = {"clutter": "clean", "medium": "sepia",
+                         "people": "none"}
+        self.write_source(src=busy)
+        self.write_source(src=sepia)
+        for seed in range(6):
+            picked = g.select_sources(self.data_dir, 1, seed=seed)
+            self.assertEqual([s["id"] for s in picked], ["commons-busy"])
+
 
 # ── Scene-time anchor (#1403) ──────────────────────────────────────────────
 
@@ -3500,6 +3541,22 @@ class FigureSlotTests(unittest.TestCase):
         bad = source()
         bad["tags"] = {"people": "many"}
         self.assertEqual(g.people_level(bad), "")
+
+    def test_source_tag_rank_penalises_sepia_and_prefers_busy(self):
+        # #2348: the picker reads the same #2344 signals as the prompt.
+        busy = source(sid="busy")
+        busy["tags"] = {"clutter": "busy", "medium": "grayscale",
+                        "people": "few"}
+        clean = source(sid="clean")
+        clean["tags"] = {"clutter": "clean", "medium": "grayscale",
+                         "people": "none"}
+        sepia = source(sid="sepia")
+        sepia["tags"] = {"clutter": "clean", "medium": "sepia",
+                         "people": "none"}
+        self.assertLess(g.source_tag_rank(busy), g.source_tag_rank(clean))
+        self.assertLess(g.source_tag_rank(clean), g.source_tag_rank(sepia))
+        # an untagged entry is neutral, not a penalty
+        self.assertEqual(g.source_tag_rank(source()), g.source_tag_rank(clean))
 
 
 if __name__ == "__main__":

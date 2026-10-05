@@ -96,6 +96,24 @@ class GeneratorCompatibilityTests(unittest.TestCase):
         self.assertNotEqual(c.family_of("ballpoint pen"),
                             c.family_of("Nylon zip tie"))
 
+    def test_family_resolver_buckets_the_model_vocabulary(self):
+        # #2348: the tag report showed 241 of 372 resolved verdicts in
+        # "other" because the model's own nouns were not in the table. These
+        # are the ones the queue actually produced.
+        self.assertEqual(c.family_of("modern plastic wheeled shopping trolley"),
+                         "vehicle")
+        self.assertEqual(c.family_of("modern jet ski"), "vehicle")
+        self.assertEqual(c.family_of("modern plastic safety helmet"), "sports")
+        self.assertEqual(c.family_of("Modern plastic clothes hanger"),
+                         "household")
+        self.assertEqual(c.family_of("Modern traffic cone"),
+                         "street-furniture")
+        self.assertEqual(c.family_of("modern plastic jerrycan"), "container")
+        self.assertEqual(c.family_of("Modern telescoping selfie stick"),
+                         "electronics")
+        self.assertEqual(c.family_of("modern parking meter"),
+                         "street-furniture")
+
     def test_an_unclassifiable_label_has_no_family(self):
         self.assertEqual(c.family_of("Hovering transport pod"), "")
 

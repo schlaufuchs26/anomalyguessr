@@ -651,6 +651,15 @@ FAMILY_ALIASES = {
 # reworded repeats ("ballpoint pen" vs "Disposable plastic ballpoint pen");
 # ``settings_for_label`` feeds the setting-fit gate. Order matters where
 # keywords overlap (first family wins): "cable" is cordage, not electronics.
+#
+# Ticket #2348: the tag measurement ([[anomalyguessr-photo-tags]]) showed the
+# per-family table was useless because ``family_of`` left 241 of 372 resolved
+# verdicts in "other" - the model's own vocabulary ("shopping trolley",
+# "jet ski", "safety helmet", "clothes hanger") is not in the fixed catalog.
+# The keyword list now also covers the common invented nouns and the three
+# catalog families the table never had (sports, street-furniture, household,
+# money), so a reworded element buckets with its family instead of reading as
+# new. The words are the ones the queue actually produced, not a guess.
 FAMILY_KEYWORDS = (
     ("person", ("street", "market", "station", "crowd"),
      ("time traveler", "person", "man", "woman", "boy", "girl", "child",
@@ -659,7 +668,12 @@ FAMILY_KEYWORDS = (
      ("robot", "droid", "android", "humanoid", "cyborg")),
     ("vehicle", ("street", "market", "station", "harbor"),
      ("scooter", "bicycle", "bike", "motorcycle", "car", "automobile",
-      "truck", "van", "bus", "tram", "tractor", "motor", "engine")),
+      "truck", "van", "bus", "tram", "tractor", "motor", "engine",
+      "trolley", "cart", "barrow", "wheelbarrow", "stroller", "pram",
+      "sled", "sleigh", "kayak", "canoe", "boat", "watercraft", "jet",
+      "ski", "skate", "crane", "lift", "forklift", "bulldozer", "wheel",
+      "carriage", "wagon", "trailer", "wheelchair", "walker", "rollator",
+      "chock", "outboard")),
     ("drinks", ("market", "street", "station", "harbor"),
      ("bottle", "cup", "mug", "glass", "can", "flask", "thermos",
       "tumbler")),
@@ -675,23 +689,43 @@ FAMILY_KEYWORDS = (
      ("suitcase", "backpack", "daypack", "rucksack", "baggage", "luggage")),
     ("clothing", ("street", "market", "crowd", "station"),
      ("jacket", "shirt", "jeans", "shoe", "sneaker", "hoodie", "headband",
-      "wristband", "bracelet", "cap", "hat", "sunglasses")),
+      "wristband", "bracelet", "cap", "hat", "sunglasses", "vest", "boot",
+      "sandal", "clogs", "clog", "goggle", "goggles", "glove", "wetsuit")),
+    ("sports", ("street", "market", "station"),
+     ("helmet", "mouthguard", "racket", "racquet", "goal", "hoop",
+      "snowboard", "dumbbell", "barbell", "trampoline")),
     ("stationery", ("market", "street", "station", "crowd"),
      ("ballpoint", "pen", "pencil", "marker", "biro", "crayon", "chalk",
-      "notebook", "stationery", "eraser")),
+      "notebook", "stationery", "eraser", "pointer", "stapler",
+      "clipboard")),
     ("container", ("harbor", "market", "station"),
      ("container", "crate", "cooler", "barrel", "box", "bin", "basket",
-      "tin")),
+      "tin", "jerrycan", "canister", "pallet", "vase", "buoy",
+      "flower pot")),
     ("print", ("market", "street", "station"),
      ("poster", "flyer", "barcode", "label", "sticker", "sign", "graffiti",
-      "advertisement", "leaflet")),
+      "advertisement", "leaflet", "qr")),
     ("electric", ("street", "station", "market", "harbor"),
      ("led", "solar", "lamp", "bulb", "light", "battery", "generator",
-      "panel", "antenna", "speaker", "charger", "powerbank")),
+      "panel", "antenna", "speaker", "charger", "powerbank", "turbine")),
     ("electronics", ("market", "street", "station", "harbor", "crowd"),
      ("smartphone", "phone", "camera", "headphone", "earbud", "earphone",
       "radio", "laptop", "computer", "tablet", "watch", "screen", "gopro",
-      "drone", "quadcopter", "television", "gps", "sensor")),
+      "drone", "quadcopter", "television", "gps", "sensor", "selfie",
+      "monopod", "tripod", "smartwatch", "wristwatch", "console",
+      "microphone", "megaphone", "translator", "earpiece", "satellite",
+      "payment terminal", "card terminal", "video game")),
+    ("street-furniture", ("street", "market"),
+     ("cone", "barrier", "bollard", "hydrant", "parking meter", "signpost",
+      "railing", "fence", "lamppost", "bus stop", "road sign",
+      "street sign", "traffic light", "manhole", "bench")),
+    ("household", ("market", "street", "station"),
+     ("hanger", "ladder", "pole", "umbrella", "lighter", "crutch", "shovel",
+      "lawnmower", "lawn mower", "chainsaw", "wrench", "saw",
+      "screwdriver", "cutter", "drill", "sewing machine", "stool",
+      "chair", "table")),
+    ("money", ("market", "station"),
+     ("credit card", "bank card", "banknote", "payment card")),
 )
 
 # Setting vocabulary for the setting-fit gate (ticket #1473): the words in a

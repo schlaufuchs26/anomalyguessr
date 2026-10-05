@@ -196,6 +196,27 @@ class JoinTest(unittest.TestCase):
                          {"a": "s-trace", "b": "s-url"})
 
 
+class SceneFamilyTest(unittest.TestCase):
+    """Ticket #2348: a stored "other" re-resolves with the keyword table."""
+
+    def test_stored_other_re_resolves(self):
+        self.assertEqual(
+            ag_tags.scene_family({"family": "other",
+                                  "anomaly": "modern jet ski"}), "vehicle")
+
+    def test_a_real_stored_family_wins(self):
+        self.assertEqual(
+            ag_tags.scene_family({"family": "drinks",
+                                  "anomaly": "modern jet ski"}), "drinks")
+
+    def test_an_unclassifiable_label_stays_other(self):
+        self.assertEqual(
+            ag_tags.scene_family({"family": "other",
+                                  "anomaly": "Hovering transport pod"}),
+            "other")
+        self.assertEqual(ag_tags.scene_family({"anomaly": ""}), "other")
+
+
 class ReportTest(unittest.TestCase):
     def setUp(self):
         self.d = _DataDir()
@@ -286,6 +307,17 @@ class ReportTest(unittest.TestCase):
         overall = ag_tags.overall_rows(report["features"]["people"])
         self.assertEqual(overall["crowd"]["decided"], 2)
         self.assertEqual(overall["crowd"]["rate"], 0.5)
+
+    def test_invented_other_label_buckets_by_keyword(self):
+        # #2348: the per-family table stopped collapsing the model's own
+        # vocabulary into "other" - a stored "other" now re-resolves.
+        self.d.add_source("s1", tags=_tags(people="few"))
+        self.d.write_state({"s1": {"sourceUrl": "u://s1", "family": "other",
+                                   "anomaly": "modern jet ski"}})
+        self.d.write_trace("s1", "s1")
+        report = self._build({"accepted": ["s1"]})
+        self.assertIn("vehicle", report["features"]["people"])
+        self.assertNotIn("other", report["features"]["people"])
 
 
 if __name__ == "__main__":
