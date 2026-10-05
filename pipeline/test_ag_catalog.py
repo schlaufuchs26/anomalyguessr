@@ -147,6 +147,13 @@ class GeneratorCompatibilityTests(unittest.TestCase):
         self.assertEqual(c.inspiration_lines(0), [])
         self.assertEqual(len(c.inspiration_lines(2)), 2)
 
+    def test_inspiration_shows_the_person_family(self):
+        # #2345: a time traveller must read as a normal choice, so the
+        # few-shot list carries several person lines, not one of six.
+        people = [line for line in c.inspiration_lines()
+                  if "traveler" in line.lower() or "traveller" in line.lower()]
+        self.assertGreaterEqual(len(people), 4)
+
 
 if __name__ == "__main__":
     unittest.main()

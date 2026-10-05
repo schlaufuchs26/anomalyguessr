@@ -268,6 +268,34 @@ class PromptTests(unittest.TestCase):
         # without a conflict the re-ask line stays out
         self.assertNotIn("was rejected", g.proposal_prompt(source(), []))
 
+    def test_proposal_prompt_clarifies_the_figure_flag(self):
+        # #2345: figure marks the anomaly itself as a person; an object worn
+        # or held by a person in the photo is not a figure.
+        text = g.proposal_prompt(source(), [])
+        self.assertIn("only when the anomaly itself is a person", text)
+        self.assertIn("false for an object even when a person", text)
+
+    def test_proposal_prompt_can_request_a_figure(self):
+        # #2345: a figure slot asks for a time traveller outright, so the
+        # model stops defaulting to an object.
+        self.assertNotIn("propose a time-traveller person",
+                         g.proposal_prompt(source(), []))
+        asked = g.proposal_prompt(source(), [], figure=True)
+        self.assertIn("propose a time-traveller person", asked)
+        self.assertIn("set figure to true", asked)
+
+    def test_figure_request_names_the_people_level(self):
+        # The photo tags (#2344) tell the model whether the extra person can
+        # stand among people or must be placed alone.
+        crowd = source()
+        crowd["tags"] = {"people": "crowd"}
+        self.assertIn("already shows a crowd",
+                      g.proposal_prompt(crowd, [], figure=True))
+        empty = source()
+        empty["tags"] = {"people": "none"}
+        self.assertIn("shows no people",
+                      g.proposal_prompt(empty, [], figure=True))
+
     def test_proposal_prompt_states_the_one_applicable_anomaly_branch(self):
         # #1466: "If the photograph clearly predates {year}" is
         # self-contradictory (the year IS the photo's own), so the model had
@@ -3419,6 +3447,44 @@ class LlmTest(unittest.TestCase):
     def test_clean_text_collapses_and_caps(self):
         self.assertEqual(ag_llm.clean_text(" a\n b ", 10), "a b")
         self.assertEqual(len(ag_llm.clean_text("x" * 500, 10)), 10)
+
+
+class FigureSlotTests(unittest.TestCase):
+    """Ticket #2345: which sources ask for a time-traveller figure."""
+
+    def test_one_slot_per_four_sources(self):
+        srcs = [source(sid=f"s{i}") for i in range(8)]
+        self.assertEqual(len(g.figure_slots(srcs)), 2)
+
+    def test_at_least_one_slot_per_run(self):
+        self.assertEqual(g.figure_slots([source(sid="only")]),
+                         {"only"})
+
+    def test_no_sources_no_slots(self):
+        self.assertEqual(g.figure_slots([]), set())
+        self.assertEqual(g.figure_slots([source()], every=0), set())
+
+    def test_slot_prefers_photos_with_people(self):
+        # #2344: an extra person blends into a scene that already has people,
+        # so a people photo wins the slot over an empty or untagged one.
+        empty = source(sid="empty")
+        empty["tags"] = {"people": "none"}
+        crowd = source(sid="crowd")
+        crowd["tags"] = {"people": "crowd"}
+        few = source(sid="few")
+        few["tags"] = {"people": "few"}
+        slots = g.figure_slots([empty, source(sid="plain"), crowd, few],
+                               every=2)
+        self.assertEqual(slots, {"crowd", "few"})
+
+    def test_people_level_reads_only_known_values(self):
+        self.assertEqual(g.people_level(source()), "")
+        tagged = source()
+        tagged["tags"] = {"people": "CROWD"}
+        self.assertEqual(g.people_level(tagged), "crowd")
+        bad = source()
+        bad["tags"] = {"people": "many"}
+        self.assertEqual(g.people_level(bad), "")
 
 
 if __name__ == "__main__":

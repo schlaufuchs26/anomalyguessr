@@ -536,6 +536,19 @@ CONTEMPORARY_YEAR = 2026
 # 2021/2023/2026 a fictional future; the explicit branch reproduces that.
 MODERN_SCENE_YEAR = 2000
 
+# Ticket #2345: a time traveller (a person who does not belong to the
+# photograph's era) almost never reached the queue. Measured from the stored
+# traces (2026-10-05): of 410 first proposals, 35 carried the figure flag,
+# and 21 of those 35 were lost when the gate re-asked and the model switched
+# to an object. The proposal prompt offered a person only as an aside, so the
+# model nearly always picked an object. One source in ``FIGURE_SLOT_EVERY``
+# now asks for a figure, the slot prefers a photograph that already shows
+# people (the photo tags of ticket #2344) so the extra person blends into the
+# crowd, and the re-ask keeps asking for a figure instead of dropping it.
+FIGURE_SLOT_EVERY = 4
+# The photo tags' ``people`` values that count as "already shows people".
+PEOPLE_LEVELS_WITH_PEOPLE = ("few", "crowd")
+
 # The checker's requirement list: the hard-won rules of the agent era, moved
 # here from the generation prompt. A violation is caught and corrected
 # instead of being pre-empted by an ever-longer recipe. One tuple entry per
@@ -639,9 +652,34 @@ def anomaly_branch_lines(year) -> list[str]:
     ]
 
 
+def figure_request_line(source: dict) -> str:
+    """The dedicated time-traveller instruction for a figure slot (#2345).
+
+    A figure slot asks for a person outright; the ordinary prompt only
+    offered one as an aside, so the model picked an object. The people level
+    from the photo tags (#2344) is named when known, so the model knows
+    whether the extra person can stand among a crowd or must be placed alone.
+    """
+    level = people_level(source)
+    where = {
+        "crowd": "This photograph already shows a crowd, so the extra "
+                 "person stands among them and does not stand out.",
+        "few": "This photograph already shows a few people, so the extra "
+               "person stands among them and does not stand out.",
+        "none": "This photograph shows no people; place the single person "
+                "plausibly at the edge of the scene.",
+    }.get(level, "")
+    line = ("- For THIS photograph, propose a time-traveller person: ONE "
+            "extra person who belongs to the setting but carries a small "
+            "modern or futuristic tell (modern sneakers, a plastic wristband, "
+            "pushed-up sunglasses, or a robot). A person is the anomaly here, "
+            "so set figure to true.")
+    return f"{line} {where}".strip()
+
+
 def proposal_prompt(source: dict, recent=(), conflict=None, blocked=(),
                     examples=None, avoid_families=(), patterns=(),
-                    budget_families=()) -> str:
+                    budget_families=(), figure: bool = False) -> str:
     """Call 1's prompt: one anomaly, impossible in the catalogue year.
 
     Ticket #1430: the year is a fact the prompt *states*, never one the model
@@ -689,6 +727,8 @@ def proposal_prompt(source: dict, recent=(), conflict=None, blocked=(),
         "Invent ONE anomaly to hide in THIS photograph:",
     ]
     lines += anomaly_branch_lines(year)
+    if figure:
+        lines.append(figure_request_line(source))
     lines += [
         "- It must be ONE small, concrete thing that could plausibly sit in "
         "this scene: an object, or one extra person whose only modern or "
@@ -784,7 +824,9 @@ def proposal_prompt(source: dict, recent=(), conflict=None, blocked=(),
         'pixelated pattern\\">", "carrier": "<the object in THIS photograph '
         'the element attaches to or sits on, e.g. \\"the rowing boat\\"; '
         'empty string when it stands on its own>", "title": "<short human '
-        'title of the scene, at most 8 words>", "figure": true|false, '
+        'title of the scene, at most 8 words>", "figure": true|false (true '
+        'only when the anomaly itself is a person or humanoid, false for an '
+        'object even when a person in the photo wears or holds it), '
         '"placement_kind": "standalone"|"modification", "placement": "<one '
         'sentence: where in THIS photo it sits, how it is partly hidden, and '
         'how large it should look next to things at the same distance>", '
@@ -1435,7 +1477,8 @@ def conflict_instruction(conflicts: dict) -> str:
 def enforce_proposal_gates(proposal, source_image, source, avoid, args,
                            api_key, attempt, data_dir, trace, totals,
                            blocked=(), examples=None, avoid_families=(),
-                           patterns=(), budget_families=(), prompt_avoid=None):
+                           patterns=(), budget_families=(), prompt_avoid=None,
+                           figure: bool = False):
     """Make the avoid list a rule and re-ask once on a finding (#1473).
 
     Returns ``(proposal, info)``. ``info["findings"]`` is the first
@@ -1458,7 +1501,7 @@ def enforce_proposal_gates(proposal, source_image, source, avoid, args,
         prompt_avoid if prompt_avoid is not None else avoid, args,
         api_key, conflict=findings, blocked=blocked, examples=examples,
         avoid_families=avoid_families, patterns=patterns,
-        budget_families=budget_families)
+        budget_families=budget_families, figure=figure)
     record_call(data_dir, trace, {"stage": "proposal-retry",
                                   "attempt": attempt, **_call_trace(call)})
     ag_llm.add_usage(totals, call.get("usage"))
@@ -1607,7 +1650,7 @@ def propose_anomaly(image: Path, source: dict, recent, api_key: str,
                     model: str, base_url: str, max_tokens: int, timeout: int,
                     temperature: float | None, conflict=None, blocked=(),
                     examples=None, avoid_families=(), patterns=(),
-                    budget_families=()) -> dict:
+                    budget_families=(), figure: bool = False) -> dict:
     """Call 1: the creative proposal (era judgement + anomaly + placement).
 
     ``conflict`` is the gate finding of a rejected proposal (ticket #1473):
@@ -1620,7 +1663,8 @@ def propose_anomaly(image: Path, source: dict, recent, api_key: str,
     as a hard avoid line.
     """
     prompt = proposal_prompt(source, recent, conflict, blocked, examples,
-                             avoid_families, patterns, budget_families)
+                             avoid_families, patterns, budget_families,
+                             figure=figure)
     result = _run_call(prompt, image, api_key, model, base_url, max_tokens,
                        timeout, temperature)
     proposal = result["parsed"]
@@ -3119,6 +3163,40 @@ def refresh_label_verdicts(data_dir: Path, today=None,
     return tally
 
 
+def people_level(entry: dict) -> str:
+    """The photo tags' ``people`` value for a pool entry (ticket #2344).
+
+    ``""`` when the entry is untagged or carries an unusable value, so the
+    figure-slot picker treats it as "unknown", not as "no people".
+    """
+    tags = (entry or {}).get("tags")
+    if not isinstance(tags, dict):
+        return ""
+    level = str(tags.get("people") or "").strip().lower()
+    return level if level in ("none", "few", "crowd") else ""
+
+
+def figure_slots(sources, every: int = FIGURE_SLOT_EVERY) -> set:
+    """Source ids that should carry a time-traveller figure (ticket #2345).
+
+    Roughly one source in ``every`` becomes a figure slot, at least one per
+    run. A photograph that already shows people (the ``people`` tag ``few``
+    or ``crowd``, ticket #2344) is preferred for those slots: an extra person
+    blends into a scene that already has people and stands out in an empty
+    one. Untagged and empty photographs fill in only when there are too few
+    people photos. The pick is deterministic, so a rerun of the same day asks
+    for the same slots.
+    """
+    if every <= 0 or not sources:
+        return set()
+    want = max(1, len(sources) // every)
+    ranked = sorted(
+        sources,
+        key=lambda s: (0 if people_level(s) in PEOPLE_LEVELS_WITH_PEOPLE
+                       else 1, str(s.get("id") or "")))
+    return {str(s.get("id")) for s in ranked[:want]}
+
+
 def select_sources(data_dir: Path, count: int, seed=None) -> list:
     """Up to ``count`` unused sources with an image, spread by source.
 
@@ -3473,6 +3551,10 @@ def _run(args, data_dir: Path, lock) -> dict:
     batch_keys = {}
     target = len(picked)
     spares = select_spares(data_dir, picked, args.count)
+    # Ticket #2345: which sources ask for a time-traveller figure, so the
+    # run reaches roughly one figure scene in four and prefers photos that
+    # already show people.
+    fig_slots = figure_slots(picked)
     work = list(picked)
     index = 0
     while work and len(report["added"]) < target:
@@ -3491,7 +3573,8 @@ def _run(args, data_dir: Path, lock) -> dict:
                                       patterns=patterns, batch_keys=batch_keys,
                                       budget_families=budget_families,
                                       prompt_avoid=prompt_recent
-                                      + sorted(used_prompts))
+                                      + sorted(used_prompts),
+                                      want_figure=source["id"] in fig_slots)
         if scene is not None:
             report["added"].append(scene["report"])
             used_prompts.add(scene["label"])
@@ -4390,7 +4473,8 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
                   scene_index: int = 1, scene_total: int = 1,
                   stats: dict | None = None, blocked=(), examples=None,
                   avoid_families=(), patterns=(), batch_keys=None,
-                  budget_families=(), prompt_avoid=None) -> tuple:
+                  budget_families=(), prompt_avoid=None,
+                  want_figure: bool = False) -> tuple:
     """One source through the whole flow; returns (scene|None, failure|None).
 
     Ticket #1436: a source yields exactly one scene, drawn as exactly one
@@ -4430,6 +4514,7 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
     trace = {"source": source["id"], "date": date, "model": args.model,
              "image_model": args.image_model, "scene_time": st,
              "sampling_mode": args.sampling_mode,
+             "figure_request": bool(want_figure),
              "candidate_policy": {"images_per_scene": 1,
                                   "sampling_mode": args.sampling_mode,
                                   "max_draws": MAX_DRAWS,
@@ -4456,7 +4541,7 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
             prompt_avoid if prompt_avoid is not None else recent, args,
             api_key, blocked=blocked, examples=examples,
             avoid_families=avoid_families, patterns=patterns,
-            budget_families=budget_families)
+            budget_families=budget_families, figure=want_figure)
         record_call(data_dir, trace, {"stage": "proposal", "attempt": attempt,
                                       **_call_trace(proposal_call)})
         ag_llm.add_usage(totals, proposal_call.get("usage"))
@@ -4473,7 +4558,8 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
             proposal, source_image, source, recent, args, api_key, attempt,
             data_dir, trace, totals, blocked=blocked, examples=examples,
             avoid_families=avoid_families, patterns=patterns,
-            budget_families=budget_families, prompt_avoid=prompt_avoid)
+            budget_families=budget_families, prompt_avoid=prompt_avoid,
+            figure=want_figure)
         note_avoidance(stats, gate)
         # Ticket #1622: the batch's own element keys are a hard rule. The
         # gate above already re-asks against the recency window (which
@@ -4853,6 +4939,12 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
             "scene": entry["id"], "source": source["id"],
             "anomaly": entry["anomaly"], "kind": proposal["kind"],
             "visual_tell": proposal.get("visual_tell"),
+            # Ticket #2345: whether this scene was asked for a figure and
+            # whether the shipped proposal carries one, so the figure share
+            # and the loss between request and queue are measurable from the
+            # run report.
+            "figure_request": bool(want_figure),
+            "figure": bool(proposal.get("figure")),
             # Ticket #1540: what the proposal said the photograph does and
             # what the element hangs on, so the run's naming numbers are
             # reconstructible from the report.
@@ -4888,7 +4980,8 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
 
 def _attempt_proposal(source_image: Path, source: dict, recent: list, args,
                       api_key: str, conflict=None, blocked=(), examples=None,
-                      avoid_families=(), patterns=(), budget_families=()):
+                      avoid_families=(), patterns=(), budget_families=(),
+                      figure: bool = False):
     """Call 1 with its error handling; returns (proposal, call, errors)."""
     try:
         result = propose_anomaly(source_image, source, recent, api_key,
@@ -4898,12 +4991,13 @@ def _attempt_proposal(source_image: Path, source: dict, recent: list, args,
                                  blocked=blocked, examples=examples,
                                  avoid_families=avoid_families,
                                  patterns=patterns,
-                                 budget_families=budget_families)
+                                 budget_families=budget_families,
+                                 figure=figure)
     except ag_llm.LLMError as e:
         call = {"model": args.model,
                 "prompt": proposal_prompt(source, recent, conflict, blocked,
                                           examples, avoid_families, patterns,
-                                          budget_families),
+                                          budget_families, figure=figure),
                 "answer": "", "usage": ag_llm.zero_usage(), "error": str(e),
                 "duration_s": 0.0}
         return None, call, [str(e)]

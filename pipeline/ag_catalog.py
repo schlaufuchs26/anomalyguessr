@@ -593,6 +593,15 @@ INSPIRATION = (
     "toys spread in the 1950s",
     "Disposable plastic syringe; a later-era object, single-use plastic "
     "syringes spread in the 1960s",
+    # Ticket #2345: the person family was two lines of nineteen, so the model
+    # almost never picked a time traveller. These show the shape of a person
+    # anomaly as plainly as the object lines do; "do not copy" still applies.
+    "Time traveler: young woman in period dress; a modern person among the "
+    "crowd whose only tell is pushed-up plastic sunglasses and a nylon bag",
+    "Time traveler: schoolboy in a period coat; a modern person whose only "
+    "tell is over-ear headphones around his neck and modern sneakers",
+    "Time traveler: tourist in a light jacket; a modern person in a crowd "
+    "with a printed baseball cap and plastic sunglasses",
 )
 
 
