@@ -1,186 +1,189 @@
 {
   "version": 2,
-  "date": "2026-10-04",
+  "date": "2026-10-05",
   "scenes": [
     {
-      "id": "gallica-tunisie-carthage-le-cirque-photographie-de-press-570162-modern-folding-camp-stoo",
-      "title": "Tunisie, Carthage, le cirque",
+      "id": "nb-gate-1954-e20b36-modern-parking-meter",
+      "title": "Gate",
       "title_source": "catalog",
       "place": "",
-      "year": "1912",
-      "description": "A press photograph from 1912 by Agence Rol shows the circus at Carthage. It is held by the Bibliothèque nationale de France, département Estampes et photographie.",
-      "anomaly": "Modern folding camp stool",
+      "year": "1954",
+      "description": "A photograph from the National Library of Norway, dated 1954 and in the public domain, showing a gate. No photographer, location, or further details are stated in the record.",
+      "anomaly": "Modern parking meter",
       "answer": {
-        "x": 0.735,
+        "x": 0.778,
         "y": 0.735,
         "r": 0.22
       },
-      "explanation": "The lightweight X-frame folding camp stool with a fabric seat did not exist in 1912, so it cannot belong to this excavation scene.",
+      "explanation": "Coin-operated parking meters were not installed in Oslo until well after 1954, so one standing on this street is impossible for the year.",
       "references": [
         {
-          "label": "Gallica",
-          "url": "https://gallica.bnf.fr/ark:/12148/btv1b6929995n"
+          "label": "Wikipedia: Parking meter",
+          "url": "https://en.wikipedia.org/wiki/Parking_meter"
         }
       ],
       "source": {
-        "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b531140418",
-        "originalTitle": "Tunisie, Carthage, le cirque : [photographie de presse] / [Agence Rol]",
-        "date": "1912",
+        "repository": "National Library of Norway",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20190503_00039_NB_HS_54_00421",
+        "originalTitle": "Gate",
+        "date": "1954",
         "place": "",
         "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 19915 Appartient à l’ensemble documentaire : Pho20Rol"
+        "description": "{'firstIndexTime': '2025-08-26T13:42:12.510Z', 'firstDigitalContentTime': '2025-08-26T13:54:04.861Z', 'indexLastModified': '2025-08-26T13:54:04.861Z'}",
+        "titleEn": "Gate"
       },
-      "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b531140418",
+      "credit": "Henriksen & Steen via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20190503_00039_NB_HS_54_00421",
       "added": "2026-09-15",
-      "shown": "2026-10-04",
-      "image": "scenes/gallica-tunisie-carthage-le-cirque-photographie-de-press-570162-modern-folding-camp-stoo.jpg",
-      "original": "scenes/gallica-tunisie-carthage-le-cirque-photographie-de-press-570162-modern-folding-camp-stoo-original.jpg"
+      "shown": "2026-10-05",
+      "image": "scenes/nb-gate-1954-e20b36-modern-parking-meter.jpg",
+      "original": "scenes/nb-gate-1954-e20b36-modern-parking-meter-original.jpg"
     },
     {
-      "id": "gallica-1934-aviateur-ren-paulhan-photographie-de-presse-e01274-modern-plastic-zip-tie",
-      "title": "aviateur René Paulhan",
+      "id": "nb-nf-wb-45850-b-fabrikk-1940-52893d-modern-plastic-squeeze-b",
+      "title": "[NF.WB 45850* B Fabrikk]",
       "title_source": "catalog",
       "place": "",
-      "year": "1934",
-      "description": "A press photograph from May 1934 by the Agence Meurisse shows the aviator René Paulhan, who lived from 1907 to 1937, with biplanes. The negative on glass is held by the Bibliothèque nationale de France, département Estampes et photographie.",
+      "year": "1940",
+      "description": "A photograph from 1940, held by the National Library of Norway under the catalogue number NF.WB 45850* B Fabrikk, showing a factory. It is in the public domain, and the record does not state a photographer.",
+      "anomaly": "modern plastic squeeze bottle of bookbinding glue",
+      "answer": {
+        "x": 0.684,
+        "y": 0.677,
+        "r": 0.045
+      },
+      "explanation": "A molded plastic squeeze bottle with a nozzle cap did not exist in 1940, when glue was sold in glass jars, tins or pots.",
+      "references": [
+        {
+          "label": "Science Museum - History of plastics",
+          "url": "https://www.sciencemuseum.org.uk/objects-and-stories/chemistry/plastic"
+        }
+      ],
+      "source": {
+        "repository": "National Library of Norway",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_NF_WB_45850_B",
+        "originalTitle": "[NF.WB 45850* B Fabrikk]",
+        "date": "1940",
+        "place": "",
+        "license": "Public domain",
+        "description": "{'firstIndexTime': '2025-08-22T16:26:11.668Z', 'firstDigitalContentTime': '2025-11-21T12:01:19.136Z', 'indexLastModified': '2025-11-21T12:01:19.156Z'}"
+      },
+      "credit": "Wilse, Anders Beer, Norsk folkemuseum via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_NF_WB_45850_B",
+      "added": "2026-09-26",
+      "shown": "2026-10-05",
+      "image": "scenes/nb-nf-wb-45850-b-fabrikk-1940-52893d-modern-plastic-squeeze-b.jpg",
+      "original": "scenes/nb-nf-wb-45850-b-fabrikk-1940-52893d-modern-plastic-squeeze-b-original.jpg"
+    },
+    {
+      "id": "gallica-25-2-12-course-de-c-te-de-montanglaust-nervy-sur-54295b-modern-plastic-zip-tie",
+      "title": "Hill climb at Montanglaust, first in the first motorcycle category",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1912",
+      "description": "A press photograph by Agence Rol showing the first-place finisher in the first category of motorcycles at the Montanglaust hill climb at Nervy sur Levis, dated 25 February 1912. It belongs to the Bibliothèque nationale de France, département Estampes et photographie, and is in the public domain.",
       "anomaly": "modern plastic zip tie",
       "answer": {
-        "x": 0.245,
-        "y": 0.545,
+        "x": 0.318,
+        "y": 0.635,
         "r": 0.22
       },
-      "explanation": "The plastic cable tie was patented in 1958, so it could not exist on an aircraft photographed in 1934.",
+      "explanation": "Plastic zip ties were not invented until 1958, so this fastening cannot exist on a 1912 motorcycle.",
       "references": [
         {
-          "label": "Wikipedia: Cable tie",
-          "url": "https://en.wikipedia.org/wiki/Cable_tie"
+          "label": "Zip tie - Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Zip_tie"
         }
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53241684q",
-        "originalTitle": "1934, aviateur René Paulhan : [photographie de presse] / [Agence Meurisse]",
-        "date": "1934",
-        "place": "",
-        "license": "Public domain",
-        "description": "Référence bibliographique : Meurisse, 109846 A Appartient à l’ensemble documentaire : Pho20Meu Image de presse"
-      },
-      "credit": "Agence de presse Meurisse. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53241684q",
-      "added": "2026-09-26",
-      "shown": "2026-10-04",
-      "image": "scenes/gallica-1934-aviateur-ren-paulhan-photographie-de-presse-e01274-modern-plastic-zip-tie.jpg",
-      "original": "scenes/gallica-1934-aviateur-ren-paulhan-photographie-de-presse-e01274-modern-plastic-zip-tie-original.jpg"
-    },
-    {
-      "id": "gallica-22-12-12-saint-cloud-paul-meyer-cheval-photograp-301b5d-modern-bicycle-helmet",
-      "title": "22-12-12, Saint-Cloud, Paul Meyer [à cheval]",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1912",
-      "description": "A press photograph taken by Agence Rol on 22 December 1912 at Saint-Cloud shows Paul Meyer on horseback. The record identifies it as a glass negative held by the Bibliothèque nationale de France.",
-      "anomaly": "modern bicycle helmet",
-      "answer": {
-        "x": 0.558,
-        "y": 0.108,
-        "r": 0.22
-      },
-      "explanation": "The hard-shell ventilated bicycle helmet did not exist in 1912; it became common only in the 1970s.",
-      "references": [
-        {
-          "label": "Bicycle helmet history",
-          "url": "https://en.wikipedia.org/wiki/Bicycle_helmet"
-        }
-      ],
-      "source": {
-        "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53114463h",
-        "originalTitle": "22-12-12, Saint-Cloud, Paul Meyer [à cheval] : [photographie de presse] / [Agence Rol]",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b69190977",
+        "originalTitle": "25-2-12, course de côte de Montanglaust, Nervy sur Levis, 1er de la 1ère cat[égorie] [motos] : [photographie de presse] / [Agence Rol]",
         "date": "1912",
         "place": "",
         "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 25425 Appartient à l’ensemble documentaire : Pho20Rol Appartient à l’ensemble documentaire : IledeFr1"
+        "description": "Référence bibliographique : Rol, 18694 Appartient à l’ensemble documentaire : Pho20Rol",
+        "titleEn": "Hill climb at Montanglaust, first in the first motorcycle category"
       },
       "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53114463h",
-      "added": "2026-09-26",
-      "shown": "2026-10-04",
-      "image": "scenes/gallica-22-12-12-saint-cloud-paul-meyer-cheval-photograp-301b5d-modern-bicycle-helmet.jpg",
-      "original": "scenes/gallica-22-12-12-saint-cloud-paul-meyer-cheval-photograp-301b5d-modern-bicycle-helmet-original.jpg"
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b69190977",
+      "added": "2026-09-28",
+      "shown": "2026-10-05",
+      "image": "scenes/gallica-25-2-12-course-de-c-te-de-montanglaust-nervy-sur-54295b-modern-plastic-zip-tie.jpg",
+      "original": "scenes/gallica-25-2-12-course-de-c-te-de-montanglaust-nervy-sur-54295b-modern-plastic-zip-tie-original.jpg"
     },
     {
-      "id": "gallica-2-3-31-pari-mutuel-urbain-les-parieurs-photograp-163fe4-contactless-payment-term",
-      "title": "2/3/31, pari mutuel urbain [les parieurs]",
+      "id": "nb-barnehage-p-tur-med-sporvogn-1947-b0a902-modern-wheeled-inline-sk",
+      "title": "Kindergarten Outing by Tram",
       "title_source": "catalog",
       "place": "",
-      "year": "1931",
-      "description": "A 1931 press photograph by Agence Rol shows bettors at the pari-mutuel urbain in Paris. The glass negative, held by the Bibliothèque nationale de France, is dated 2 March 1931 and concerns horse-race gambling in Paris.",
-      "anomaly": "contactless payment terminal",
+      "year": "1947",
+      "description": "A photograph from 1947 in the collection of the National Library of Norway shows a barnehage på tur med sporvogn, that is, a kindergarten on an outing by tram. It is in the public domain.",
+      "anomaly": "modern wheeled inline skate",
       "answer": {
-        "x": 0.622,
-        "y": 0.596,
+        "x": 0.902,
+        "y": 0.925,
         "r": 0.22
       },
-      "explanation": "Contactless payment terminals did not exist in 1931, so a card reader on this box-office counter is impossible for the scene.",
+      "explanation": "Inline skates with a single row of wheels did not exist in 1947; they only became common in the 1980s.",
       "references": [
         {
-          "label": "Wikipedia: Contactless payment",
-          "url": "https://en.wikipedia.org/wiki/Contactless_payment"
+          "label": "Inline skating history",
+          "url": "https://en.wikipedia.org/wiki/Inline_skating"
         }
       ],
       "source": {
-        "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53239628g",
-        "originalTitle": "2/3/31, pari mutuel urbain [les parieurs] : [photographie de presse] / [Agence Rol]",
-        "date": "1931",
+        "repository": "National Library of Norway",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20160209_00332_NB_MIT_FNR_05600",
+        "originalTitle": "[Barnehage på tur med sporvogn]",
+        "date": "1947",
         "place": "",
         "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 152335 Appartient à l’ensemble documentaire : Pho20Rol Image de presse"
+        "description": "{'firstIndexTime': '2025-08-19T23:14:29.166Z', 'firstDigitalContentTime': '2025-08-20T05:19:06.232Z', 'indexLastModified': '2025-08-20T05:19:06.232Z'}",
+        "titleEn": "Kindergarten Outing by Tram"
       },
-      "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53239628g",
-      "added": "2026-09-26",
-      "shown": "2026-10-04",
-      "image": "scenes/gallica-2-3-31-pari-mutuel-urbain-les-parieurs-photograp-163fe4-contactless-payment-term.jpg",
-      "original": "scenes/gallica-2-3-31-pari-mutuel-urbain-les-parieurs-photograp-163fe4-contactless-payment-term-original.jpg"
+      "credit": "Mittet & Co. AS via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20160209_00332_NB_MIT_FNR_05600",
+      "added": "2026-09-28",
+      "shown": "2026-10-05",
+      "image": "scenes/nb-barnehage-p-tur-med-sporvogn-1947-b0a902-modern-wheeled-inline-sk.jpg",
+      "original": "scenes/nb-barnehage-p-tur-med-sporvogn-1947-b0a902-modern-wheeled-inline-sk-original.jpg"
     },
     {
-      "id": "gallica-15-4-11-inspection-sanitaire-la-villette-nettoya-516f13-cordless-impact-wrench",
-      "title": "15-4-11, inspection sanitaire à la Villette [nettoyage des enclos]",
+      "id": "nb-denofa-fabrikk-i-fredrikstad-1900-d017f7-modern-shipping-containe",
+      "title": "[Denofa, fabrikk i Fredrikstad]",
       "title_source": "catalog",
       "place": "",
-      "year": "1911",
-      "description": "A press photograph by Agence Rol dated 15 April 1911 shows a sanitary inspection at La Villette in Paris, specifically the cleaning of the enclosures. The record identifies the subject as the Marché et abattoirs de la Villette (La Villette market and slaughterhouses) and the disinfection of slaughterhouses in Paris.",
-      "anomaly": "cordless impact wrench",
+      "year": "1900",
+      "description": "A photograph from 1900 shows the Denofa factory in Fredrikstad. It is held by the National Library of Norway and is in the public domain.",
+      "anomaly": "modern shipping container",
       "answer": {
-        "x": 0.268,
-        "y": 0.735,
+        "x": 0.735,
+        "y": 0.505,
         "r": 0.22
       },
-      "explanation": "Cordless power tools with rechargeable battery packs did not exist in 1911, as the first practical cordless drills appeared in the 1960s.",
+      "explanation": "Intermodal steel shipping containers were not introduced until the 1950s, so none could exist on this 1900 quay.",
       "references": [
         {
-          "label": "Cordless drill history",
-          "url": "https://en.wikipedia.org/wiki/Cordless_drill"
+          "label": "Shipping container - Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Shipping_container"
         }
       ],
       "source": {
-        "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6916106t",
-        "originalTitle": "15-4-11, inspection sanitaire à la Villette [nettoyage des enclos] : [photographie de presse] / [Agence Rol]",
-        "date": "1911",
+        "repository": "National Library of Norway",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20180109_00024_NB_NS_NM_06598",
+        "originalTitle": "[Denofa, fabrikk i Fredrikstad]",
+        "date": "1900",
         "place": "",
         "license": "Public domain",
-        "description": "[15-4-11, inspection sanitaire à la Villette [nettoyage des enclos]. Rol, 13685français)] Référence bibliographique : Rol, 13685 Appartient à l’ensemble documentaire : Pho20Rol"
+        "description": "{'firstIndexTime': '2025-08-26T13:42:59.441Z', 'firstDigitalContentTime': '2025-08-26T14:02:24.294Z', 'indexLastModified': '2025-08-26T14:02:24.294Z'}"
       },
-      "credit": "Agence Rol. Agence photographique via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6916106t",
-      "added": "2026-09-24",
-      "shown": "2026-10-04",
-      "image": "scenes/gallica-15-4-11-inspection-sanitaire-la-villette-nettoya-516f13-cordless-impact-wrench.jpg",
-      "original": "scenes/gallica-15-4-11-inspection-sanitaire-la-villette-nettoya-516f13-cordless-impact-wrench-original.jpg"
+      "credit": "Skarpmoen, Narve via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20180109_00024_NB_NS_NM_06598",
+      "added": "2026-09-30",
+      "shown": "2026-10-05",
+      "image": "scenes/nb-denofa-fabrikk-i-fredrikstad-1900-d017f7-modern-shipping-containe.jpg",
+      "original": "scenes/nb-denofa-fabrikk-i-fredrikstad-1900-d017f7-modern-shipping-containe-original.jpg"
     }
   ]
 }
