@@ -87,6 +87,11 @@ cd api && bun install && bun run checks   # API: format + tsc + biome + tests
 python3 -m unittest discover -s pipeline -t pipeline -p 'test_ag_*.py'
 ```
 
+The Python suite takes ~46 s (2026-10-05, no network). Give the fuchs
+terminal tool `timeout: 300` for the full run: its 60 s default cut the suite
+off, and the worker then skipped it (ticket #2349). One touched module's file
+(`python3 -m unittest test_ag_generate`) fits the default.
+
 The content pipeline is two halves (ticket #1372). **Sourcing**
 (`pipeline/ag_sources.py`) fills a pool of source photos from Wikimedia
 Commons' "Quality images" assessment category, filtered on structured keys

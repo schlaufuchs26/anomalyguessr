@@ -184,6 +184,16 @@ def stub_presence(present=True, box=None, height_percent=None,
         "call": call(prompt="presence-prompt", cost=cost)}
 
 
+# The reference check (ticket #1624) fetches each reference's page; the tests
+# must not dial the network, so the reader is stubbed with a fixture page. It
+# carries the words the default proposal's reference needs (a clean pass);
+# a test that cares about a specific finding calls ag_references directly
+# (test_ag_references.py).
+FIXTURE_PAGE = ("<html><body><h1>Polyethylene terephthalate</h1>"
+                "<p>PET bottles came into common use in the 1970s.</p>"
+                "</body></html>")
+
+
 class TempDataMixin:
     def setUp(self):
         self._tmp = Path(tempfile.mkdtemp())
@@ -208,8 +218,13 @@ class TempDataMixin:
         # calls; an empty info keeps the run-total assertions exact.
         self._old_describe = g.describe_entry
         g.describe_entry = lambda entry, *a, **kw: (entry, {"status": "kept"})
+        # No network: the reference check reads the fixture page (ticket
+        # #1624); without this the run fetched en.wikipedia.org for real.
+        self._old_fetch = g.fetch_page
+        g.fetch_page = lambda url, **kw: FIXTURE_PAGE
 
     def tearDown(self):
+        g.fetch_page = self._old_fetch
         g.describe_entry = self._old_describe
         g.select_sources = self._old_select_sources
         g.presence_check = self._old_presence

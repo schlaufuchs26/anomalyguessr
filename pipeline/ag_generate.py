@@ -223,6 +223,11 @@ import ag_verify  # noqa: E402
 # can stub it like the other model calls.
 from ag_describe import describe_entry  # noqa: E402
 
+# The reference check's page reader (ticket #1624) is a module-level name too:
+# tests inject a fixture reader so a run makes no network call, exactly like
+# the model-call stubs above. The default is the real fetch.
+fetch_page = ag_references.fetch_page  # noqa: E402
+
 # The three text/vision calls (proposal, coordinates, check) share one cheap
 # multimodal model; the image edit is the expensive call.
 MODEL = "deepseek/deepseek-v4.1-flash"
@@ -4906,7 +4911,7 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
         # silent pass. Deterministic, one fetch per reference; a failure
         # never drops the scene (the links are ours to fix), it only flags.
         entry["references_check"] = ag_references.reference_finding(
-            entry["explanation"], entry["references"])
+            entry["explanation"], entry["references"], fetch=fetch_page)
         errs = ag_queue.validate_entry(entry)
         if errs:
             last_error = {"id": source["id"], "stage": "entry",
