@@ -100,6 +100,10 @@ call checks the scene against the requirements list (up to two correction
 edits; the best-scoring round's image ships). Each scene gets a trace sidecar
 under `data/anomalyguessr/traces/`
 with the full prompt and answer of the calls that decided its content.
+`pipeline/ag_diversity.py` (ticket #2343) is a read-only report of the
+queue's variety: per calendar week it prints the distinct-label count, the
+top-10 family share and the exact repeats, so the week before and after a
+generator change can be compared on the same numbers.
 
 **Shipping** (`pipeline/ag_ship.py`, ticket #1508) is the delivery step. Its
 `ship` command serves the day's five scenes from the accepted pool (oldest

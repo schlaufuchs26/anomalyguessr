@@ -78,10 +78,13 @@ MIN_EXAMPLES = 3
 # range. Two at most per run (ticket #1538).
 KNOB_RANGES = {
     "repeat_window_days": (3, 21),
-    "example_count": (3, 8),
+    "example_count": (3, len(ag_catalog.INSPIRATION)),
 }
 MAX_KNOBS = 2
-DEFAULT_EXAMPLE_COUNT = 6
+# The few-shot list shows the whole catalog shape range unless a knob trims
+# it (ticket #2343: the list spans many families now, so a fixed small cap
+# would hide the rare ones the prompt is meant to reach for).
+DEFAULT_EXAMPLE_COUNT = len(ag_catalog.INSPIRATION)
 # The window's own rejection share that widens the repeat memory: a day of
 # mostly-rejected scenes says the generator is short of fresh material.
 REGRESSION_REJECT_SHARE = 0.5

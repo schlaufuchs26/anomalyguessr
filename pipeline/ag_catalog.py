@@ -565,10 +565,41 @@ INSPIRATION = (
     "with modern sneakers as the only tell",
     "Robot time traveler; a fictional-future humanoid, clearly not from this "
     "era and not a fantasy creature",
+    # Ticket #2343: the reviewer's queue kept repeating a handful of objects,
+    # so the shape list now spans the families that were rare or unused
+    # (furniture, signage, appliances, tools, clothing, packaging, music,
+    # cameras, umbrellas, toys, medical). Same "do not copy" framing: these
+    # show the range, not the answer.
+    "Moulded plastic stacking chair; a later-era object, plastic shell "
+    "furniture spread in the 1950s",
+    "Illuminated LED shop sign; a later-era object, LED signage only became "
+    "common in the 2000s",
+    "Electric food blender; a later-era object, home blenders spread from "
+    "the 1930s onward",
+    "Cordless power drill; a later-era object, battery power tools appeared "
+    "in the 1960s",
+    "Plastic snowboard; a later-era object, snowboards spread in the 1980s",
+    "High-visibility safety vest; a later-era object, fluorescent hi-vis "
+    "vests spread with 1960s-70s road rules",
+    "Polystyrene takeaway food box; a later-era object, moulded foam "
+    "clamshells spread in the 1960s",
+    "Solid-body electric guitar; a later-era object, it appeared in the "
+    "1950s",
+    "Consumer digital camera; a later-era object, the first ones arrived in "
+    "the 1990s",
+    "Compact telescopic umbrella; a later-era object, telescopic folding "
+    "umbrellas spread in the 1960s",
+    "Plastic toy figurine; a later-era object, injection-moulded plastic "
+    "toys spread in the 1950s",
+    "Disposable plastic syringe; a later-era object, single-use plastic "
+    "syringes spread in the 1960s",
 )
 
 
-def inspiration_lines(n: int = 6) -> list:
+def inspiration_lines(n: int | None = None) -> list:
+    """The few-shot shapes, all of them unless ``n`` caps the list."""
+    if n is None:
+        return list(INSPIRATION)
     return list(INSPIRATION[:max(0, int(n))])
 
 

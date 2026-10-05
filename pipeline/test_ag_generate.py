@@ -1323,6 +1323,75 @@ class ProposalGateTest(unittest.TestCase):
                 source(title="Busy market street", description=""), []), {})
 
 
+class FamilyBudgetTest(TempDataMixin, unittest.TestCase):
+    """Ticket #2343: the weekly family budget and the wide prompt list."""
+
+    def _scenes(self, rows):
+        state = {"version": 1, "scenes": {
+            f"s{i}": {"id": f"s{i}", "anomaly": label, "added": added}
+            for i, (label, added) in enumerate(rows)}}
+        ag_queue.save_state(self.data_dir, state)
+
+    def test_over_budget_families_names_the_dominant_family(self):
+        counts = {"drinks": 6, "electronics": 2, "luggage": 1}
+        self.assertEqual(
+            g.over_budget_families(counts, share=0.2, min_scenes=4),
+            ["drinks"])
+
+    def test_a_thin_family_below_the_floor_is_not_over_budget(self):
+        # 3 of 4 scenes is a big share but below FAMILY_BUDGET_MIN_SCENES.
+        self.assertEqual(
+            g.over_budget_families({"drinks": 3, "sports": 1},
+                                   share=0.2, min_scenes=4), [])
+        self.assertEqual(g.over_budget_families({}, share=0.2), [])
+
+    def test_family_counts_reads_the_budget_window(self):
+        self._scenes([("Plastic bottle (clear PET)", "2026-10-05"),
+                      ("Wheeled suitcase", "2026-10-04"),
+                      ("Bicycle helmet", "2026-09-10")])  # outside 14 days
+        counts = g.family_counts(self.data_dir,
+                                 today=datetime.date(2026, 10, 5))
+        self.assertEqual(counts["drinks"], 1)
+        self.assertEqual(counts["luggage"], 1)
+        self.assertEqual(counts["sports"], 0)
+
+    def test_recent_labels_honours_a_wider_limit(self):
+        self._scenes([(f"Unique element {i}", "2026-10-05")
+                      for i in range(30)])
+        day = datetime.date(2026, 10, 5)
+        self.assertEqual(len(g.recent_labels(self.data_dir, day, days=14,
+                                             limit=40)), 30)
+        self.assertEqual(len(g.recent_labels(self.data_dir, day, days=14)), 15)
+
+    def test_the_prompt_names_the_over_budget_families(self):
+        text = g.proposal_prompt(source(), [], budget_families=["drinks"])
+        self.assertIn("recent scenes already lean on them: drinks", text)
+        self.assertIn("family that appears in NONE of the avoid lists", text)
+
+    def test_the_budget_gate_flags_a_dominant_family(self):
+        findings = g.proposal_conflicts(
+            {"anomaly": "Plastic bottle (clear PET)",
+             "activity": "market stall"},
+            source(title="Busy market street"), [],
+            budget_families=["drinks"])
+        self.assertEqual(findings["family_budget"], "drinks")
+        self.assertIn("already lean on", g.conflict_reason(findings))
+
+    def test_the_budget_gate_leaves_another_family_alone(self):
+        findings = g.proposal_conflicts(
+            {"anomaly": "Wheeled suitcase", "activity": "travellers"},
+            source(title="Busy market street"), [],
+            budget_families=["drinks"])
+        self.assertNotIn("family_budget", findings)
+
+    def test_the_summary_counts_the_budget_reasks(self):
+        stats = g._blank_stats()
+        g.note_avoidance(stats, {"findings": {"family_budget": "drinks"}})
+        row = g.avoidance_summary(stats, [])
+        self.assertEqual(row["family_budget_reasks"], 1)
+        self.assertEqual(row["stopped"]["family_budget"], 1)
+
+
 class ProposalActivityTest(unittest.TestCase):
     """Ticket #1540: the element comes from the photograph's activity."""
 

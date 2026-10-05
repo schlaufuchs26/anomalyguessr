@@ -295,6 +295,27 @@ PRESENCE_HINT = ("The element is not visible in the image, or it does not lie "
 REPEAT_WINDOW_DAYS = 7
 REPEAT_LABEL_LIMIT = 15
 
+# The proposal prompt sees a wider slice of the recent past than the gate
+# (ticket #2343): the reviewer's queue kept showing the same few objects
+# because a label only stayed on the avoid list for seven days, so a family
+# returned the moment it slid out. The prompt gets the last
+# PROMPT_AVOID_LABEL_LIMIT labels over PROMPT_AVOID_WINDOW_DAYS (cheap, no
+# extra call); the gate keeps the strict REPEAT_WINDOW_DAYS/REPEAT_LABEL_LIMIT
+# window so it does not re-ask for an element that is merely two weeks old.
+PROMPT_AVOID_WINDOW_DAYS = 14
+PROMPT_AVOID_LABEL_LIMIT = 40
+
+# The weekly family budget (ticket #2343): even with a wide label list, a
+# single family can dominate the queue ("modern plastic ..." alone was 23 %
+# of 503 scenes). A rolling per-family count over FAMILY_BUDGET_WINDOW_DAYS
+# marks the families that already fill more than FAMILY_BUDGET_SHARE of the
+# recent scenes; they join the prompt's hard avoid line and the family gate
+# re-asks for a proposal that lands in one. FAMILY_BUDGET_MIN_SCENES keeps a
+# thin window from tripping the budget on a family with two or three scenes.
+FAMILY_BUDGET_WINDOW_DAYS = 14
+FAMILY_BUDGET_SHARE = 0.2
+FAMILY_BUDGET_MIN_SCENES = 4
+
 # Proposal-time gates (ticket #1473). The prompt's avoid list is a request;
 # these make it a rule. A proposal that repeats an element already used in
 # the run's recent window (matched by family, so a reworded label counts),
@@ -619,7 +640,8 @@ def anomaly_branch_lines(year) -> list[str]:
 
 
 def proposal_prompt(source: dict, recent=(), conflict=None, blocked=(),
-                    examples=None, avoid_families=(), patterns=()) -> str:
+                    examples=None, avoid_families=(), patterns=(),
+                    budget_families=()) -> str:
     """Call 1's prompt: one anomaly, impossible in the catalogue year.
 
     Ticket #1430: the year is a fact the prompt *states*, never one the model
@@ -640,6 +662,10 @@ def proposal_prompt(source: dict, recent=(), conflict=None, blocked=(),
     "this works / this fails" guidance before the style examples. Ticket
     #1540: the element comes from the photograph's activity, so the answer
     names the activity first (Evan's WD-40-next-to-an-engine rule).
+    Ticket #2343: ``recent`` is the wide avoid list
+    (PROMPT_AVOID_WINDOW_DAYS/PROMPT_AVOID_LABEL_LIMIT) and
+    ``budget_families`` the families that already dominate recent scenes;
+    the answer should come from a family named in neither list.
     """
     year, field = ag_sources.source_year(source)
     _y, _f, year_source, year_raw = ag_sources.year_provenance(source)
@@ -729,6 +755,14 @@ def proposal_prompt(source: dict, recent=(), conflict=None, blocked=(),
         lines.append("Avoid these anomaly families, the reviewer keeps "
                      "rejecting them: "
                      + "; ".join(str(f) for f in avoid_families) + ".")
+    if budget_families:
+        lines.append("Avoid these anomaly families, recent scenes already "
+                     "lean on them: "
+                     + "; ".join(str(f) for f in budget_families) + ".")
+    lines.append(
+        "Pick an element from a family that appears in NONE of the avoid "
+        "lists above; the game already has enough of the families it leans "
+        "on. Widen the range instead of rewording an avoided element.")
     if conflict:
         lines.append(
             "Your previous proposal for this photograph was rejected: "
@@ -1273,8 +1307,25 @@ def family_conflict(proposal, avoid_families) -> str | None:
     return None
 
 
+def family_budget_conflict(proposal, budget_families) -> str | None:
+    """The over-budget family a proposal falls in, None when it is new (#2343).
+
+    Same match as ``family_conflict``, but the reason differs: these families
+    are not rejected by the reviewer, they simply already fill more than their
+    share of the recent scenes, so the re-ask asks for another family.
+    """
+    family = ag_catalog.family_of(str((proposal or {}).get("anomaly") or ""))
+    if not family:
+        return None
+    for other in budget_families or ():
+        if family == str(other):
+            return family
+    return None
+
+
 def proposal_conflicts(proposal, source, avoid, blocked=(),
-                       avoid_families=(), patterns=()) -> dict:
+                       avoid_families=(), patterns=(),
+                       budget_families=()) -> dict:
     """The proposal-time gate findings (tickets #1473, #1537), {} when clean.
 
     ``avoid`` is the run's recent window (used labels); ``blocked`` the
@@ -1283,7 +1334,9 @@ def proposal_conflicts(proposal, source, avoid, blocked=(),
     anomaly-pattern catalogue (ticket #1539): its carrier rules feed the
     carrier gate and its ``small`` rule widens the too-small bar. Ticket
     #1540: the proposal must name the photograph's activity, so an answer
-    that jumps straight to the element is a finding too.
+    that jumps straight to the element is a finding too. Ticket #2343:
+    ``budget_families`` are the families that already fill their share of
+    the recent scenes, a separate finding from the reviewer's block.
     """
     label = str((proposal or {}).get("anomaly") or "")
     out = {}
@@ -1298,6 +1351,9 @@ def proposal_conflicts(proposal, source, avoid, blocked=(),
     family = family_conflict(proposal, avoid_families)
     if family:
         out["family"] = family
+    budget = family_budget_conflict(proposal, budget_families)
+    if budget:
+        out["family_budget"] = budget
     setting = setting_conflict(proposal, source)
     if setting:
         out["setting"] = setting
@@ -1330,6 +1386,9 @@ def conflict_reason(conflicts: dict) -> str:
     if conflicts.get("family"):
         parts.append(f"\"{conflicts['family']}\" is a family the reviewer "
                      "keeps rejecting, so it is out")
+    if conflicts.get("family_budget"):
+        parts.append(f"\"{conflicts['family_budget']}\" is a family recent "
+                     "scenes already lean on, so pick another family")
     if conflicts.get("setting"):
         setting = conflicts["setting"]
         parts.append(f"\"{setting['element']}\" cannot plausibly sit in this "
@@ -1376,7 +1435,7 @@ def conflict_instruction(conflicts: dict) -> str:
 def enforce_proposal_gates(proposal, source_image, source, avoid, args,
                            api_key, attempt, data_dir, trace, totals,
                            blocked=(), examples=None, avoid_families=(),
-                           patterns=()):
+                           patterns=(), budget_families=(), prompt_avoid=None):
     """Make the avoid list a rule and re-ask once on a finding (#1473).
 
     Returns ``(proposal, info)``. ``info["findings"]`` is the first
@@ -1384,19 +1443,22 @@ def enforce_proposal_gates(proposal, source_image, source, avoid, args,
     and ``info["repeated"]`` the label when the fresh proposal still repeats
     an element the run (or the recent window) already used. A repeat that
     survives is kept, never dropped; the caller flags it for moderation.
+    ``avoid`` is the strict gate window; ``prompt_avoid`` (ticket #2343) the
+    wider list the prompt reads, defaulting to ``avoid`` when not given.
     """
     findings = proposal_conflicts(proposal, source, avoid, blocked,
-                                  avoid_families, patterns)
+                                  avoid_families, patterns, budget_families)
     info = {"findings": findings, "reask": False, "repeated": None,
             "resolved": not findings}
     if not findings:
         return proposal, info
     info["reask"] = True
-    retry, call, errors = _attempt_proposal(source_image, source, avoid, args,
-                                            api_key, conflict=findings,
-                                            blocked=blocked, examples=examples,
-                                            avoid_families=avoid_families,
-                                            patterns=patterns)
+    retry, call, errors = _attempt_proposal(
+        source_image, source,
+        prompt_avoid if prompt_avoid is not None else avoid, args,
+        api_key, conflict=findings, blocked=blocked, examples=examples,
+        avoid_families=avoid_families, patterns=patterns,
+        budget_families=budget_families)
     record_call(data_dir, trace, {"stage": "proposal-retry",
                                   "attempt": attempt, **_call_trace(call)})
     ag_llm.add_usage(totals, call.get("usage"))
@@ -1404,7 +1466,7 @@ def enforce_proposal_gates(proposal, source_image, source, avoid, args,
         info["reask_error"] = "; ".join(errors)
         return proposal, info
     after = proposal_conflicts(retry, source, avoid, blocked, avoid_families,
-                               patterns)
+                               patterns, budget_families)
     if after.get("repeat"):
         info["repeated"] = str(after["repeat"])
     info["resolved"] = not after
@@ -1428,6 +1490,8 @@ def note_avoidance(stats, info) -> None:
         row["activity_reasks"] += 1
     if "blocked" in findings:
         row["blocked_reasks"] += 1
+    if "family_budget" in findings:
+        row["family_budget_reasks"] += 1
     if "setting" in findings:
         row["setting_reasks"] += 1
     if "carrier" in findings:
@@ -1441,6 +1505,7 @@ def note_avoidance(stats, info) -> None:
 def _blank_avoidance() -> dict:
     return {"scenes": 0, "findings": 0, "reasks": 0, "repeats": 0,
             "activity_reasks": 0, "blocked_reasks": 0,
+            "family_budget_reasks": 0,
             "setting_reasks": 0, "carrier_reasks": 0,
             "small_reasks": 0, "unresolved_repeats": 0}
 
@@ -1472,6 +1537,7 @@ def avoidance_summary(stats, added) -> dict:
                       row["blocked_reasks"], "setting": row["setting_reasks"],
                       "carrier": row["carrier_reasks"],
                       "activity": row["activity_reasks"],
+                      "family_budget": row["family_budget_reasks"],
                       "small": row["small_reasks"]}
     return row
 
@@ -1540,7 +1606,8 @@ def _run_call(prompt: str, image: Path | None, api_key: str, model: str,
 def propose_anomaly(image: Path, source: dict, recent, api_key: str,
                     model: str, base_url: str, max_tokens: int, timeout: int,
                     temperature: float | None, conflict=None, blocked=(),
-                    examples=None, avoid_families=(), patterns=()) -> dict:
+                    examples=None, avoid_families=(), patterns=(),
+                    budget_families=()) -> dict:
     """Call 1: the creative proposal (era judgement + anomaly + placement).
 
     ``conflict`` is the gate finding of a rejected proposal (ticket #1473):
@@ -1549,9 +1616,11 @@ def propose_anomaly(image: Path, source: dict, recent, api_key: str,
     named as an avoid line. ``examples``/``avoid_families`` come from the
     feedback pass (ticket #1538). ``patterns`` is the anomaly-pattern
     catalogue (ticket #1539), read for the prompt's measured guidance.
+    ``budget_families`` are the over-budget families (ticket #2343), named
+    as a hard avoid line.
     """
     prompt = proposal_prompt(source, recent, conflict, blocked, examples,
-                             avoid_families, patterns)
+                             avoid_families, patterns, budget_families)
     result = _run_call(prompt, image, api_key, model, base_url, max_tokens,
                        timeout, temperature)
     proposal = result["parsed"]
@@ -2805,13 +2874,15 @@ class RunLock:
 
 # ── Source selection ───────────────────────────────────────────────────────
 
-def recent_labels(data_dir: Path, today=None,
-                  days: int = REPEAT_WINDOW_DAYS) -> list:
+def recent_labels(data_dir: Path, today=None, days: int = REPEAT_WINDOW_DAYS,
+                  limit: int = REPEAT_LABEL_LIMIT) -> list:
     """Labels of scenes added in the recent window, newest first.
 
     The creative proposal call gets them so it can avoid repeats; this
     replaces the old catalog label/family novelty tier, which lost its input
-    once the model started inventing labels (ticket #1372).
+    once the model started inventing labels (ticket #1372). Ticket #2343:
+    ``days``/``limit`` are separate so the prompt can read a wider slice
+    (PROMPT_AVOID_WINDOW_DAYS/PROMPT_AVOID_LABEL_LIMIT) than the gate.
     """
     try:
         state = ag_queue.load_state(data_dir)
@@ -2828,9 +2899,50 @@ def recent_labels(data_dir: Path, today=None,
         label = str(s.get("anomaly") or "")
         if label and label not in out:
             out.append(label)
-        if len(out) >= REPEAT_LABEL_LIMIT:
+        if len(out) >= limit:
             break
     return out
+
+
+def family_counts(data_dir: Path, today=None,
+                  days: int = FAMILY_BUDGET_WINDOW_DAYS) -> Counter:
+    """Scenes per anomaly family added in the budget window (ticket #2343).
+
+    A scene whose label the catalog cannot bucket is skipped, the same as
+    the gate's family match. The result feeds ``over_budget_families``.
+    """
+    try:
+        state = ag_queue.load_state(data_dir)
+    except (OSError, ValueError):
+        return Counter()
+    day = today or datetime.date.today()
+    cutoff = (day - datetime.timedelta(days=days)).isoformat()
+    counts = Counter()
+    for s in state.get("scenes", {}).values():
+        if str(s.get("added") or "") < cutoff:
+            continue
+        family = ag_catalog.family_of(str(s.get("anomaly") or ""))
+        if family:
+            counts[family] += 1
+    return counts
+
+
+def over_budget_families(counts, share: float = FAMILY_BUDGET_SHARE,
+                         min_scenes: int = FAMILY_BUDGET_MIN_SCENES) -> list:
+    """Families over their share of the recent scenes (ticket #2343).
+
+    A family is over budget when it has at least ``min_scenes`` scenes and
+    more than ``share`` of the window. Ordered by count, most-used first, so
+    the prompt's avoid line leads with the worst offender. An empty window
+    has no over-budget family.
+    """
+    total = sum((counts or {}).values())
+    if total <= 0:
+        return []
+    rows = [(str(fam), int(n)) for fam, n in counts.items()
+            if int(n) >= min_scenes and int(n) / total > share]
+    rows.sort(key=lambda r: (-r[1], r[0]))
+    return [fam for fam, _ in rows]
 
 
 def refused_elements_path(data_dir: Path) -> Path:
@@ -3267,11 +3379,25 @@ def _run(args, data_dir: Path, lock) -> dict:
     # measured guidance) and to the gates (its carrier and small rules).
     patterns = ag_patterns.load_patterns()
     recent = recent_labels(data_dir, day, days=adapt_days)
+    # Ticket #2343: the prompt reads a wider slice than the gate (14 days /
+    # 40 labels), so a family the queue leaned on last week is still named
+    # without widening the strict window that drives the re-asks.
+    prompt_recent = recent_labels(data_dir, day, days=PROMPT_AVOID_WINDOW_DAYS,
+                                  limit=PROMPT_AVOID_LABEL_LIMIT)
     # Ticket #1439: elements the provider refused keep out of the proposal
     # pool for the repeat window, so a refusal is not re-proposed next run.
     for label in refused_labels(data_dir, day, days=adapt_days):
         if label not in recent:
             recent.append(label)
+    for label in refused_labels(data_dir, day, days=PROMPT_AVOID_WINDOW_DAYS):
+        if label not in prompt_recent:
+            prompt_recent.append(label)
+    # Ticket #2343: the families that already fill more than their share of
+    # the recent scenes join the prompt's hard avoid line and the family
+    # budget gate. The window is wider than the repeat window so a family
+    # cannot return the moment its labels slide out.
+    budget_families = over_budget_families(family_counts(data_dir, day))
+    report["budget_families"] = budget_families
     # Ticket #1537: labels the reviewer keeps rejecting are blocked for the
     # same window, so a run cannot keep proposing the element Evan already
     # threw out. The tally is rebuilt from state.json + feedback.json and
@@ -3300,16 +3426,17 @@ def _run(args, data_dir: Path, lock) -> dict:
         report["plan"] = [
             {"source": s["id"], "title": clean_title(s),
              "place": scene_place(s),
-             "proposal_prompt": proposal_prompt(s, recent, blocked=blocked,
-                                                examples=examples,
-                                                avoid_families=avoid_families,
-                                                patterns=patterns),
+             "proposal_prompt": proposal_prompt(
+                 s, prompt_recent, blocked=blocked, examples=examples,
+                 avoid_families=avoid_families, patterns=patterns,
+                 budget_families=budget_families),
              "edit_prompt_template": edit_prompt({"anomaly": "<anomaly>",
                                                   "placement": "<placement>",
                                                   "figure": False})}
             for s in picked
         ]
         report["recent_labels"] = recent
+        report["prompt_avoid_labels"] = prompt_recent
         return report
 
     api_key = os.environ.get("OPENROUTER_API_KEY", "")
@@ -3361,7 +3488,10 @@ def _run(args, data_dir: Path, lock) -> dict:
                                       emit, index, target, stats=stats,
                                       blocked=blocked, examples=examples,
                                       avoid_families=avoid_families,
-                                      patterns=patterns, batch_keys=batch_keys)
+                                      patterns=patterns, batch_keys=batch_keys,
+                                      budget_families=budget_families,
+                                      prompt_avoid=prompt_recent
+                                      + sorted(used_prompts))
         if scene is not None:
             report["added"].append(scene["report"])
             used_prompts.add(scene["label"])
@@ -4259,7 +4389,8 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
                   out_dir: Path, recent: list, totals: dict, emit,
                   scene_index: int = 1, scene_total: int = 1,
                   stats: dict | None = None, blocked=(), examples=None,
-                  avoid_families=(), patterns=(), batch_keys=None) -> tuple:
+                  avoid_families=(), patterns=(), batch_keys=None,
+                  budget_families=(), prompt_avoid=None) -> tuple:
     """One source through the whole flow; returns (scene|None, failure|None).
 
     Ticket #1436: a source yields exactly one scene, drawn as exactly one
@@ -4274,7 +4405,9 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
     ``batch_keys`` maps the element keys already shipped in this batch to
     their labels; a proposal whose element key collides with one is never
     shipped, the attempts re-ask for another element and the caller replaces
-    the source when every attempt still collides.
+    the source when every attempt still collides. ``budget_families`` and
+    ``prompt_avoid`` are ticket #2343: the over-budget families and the wide
+    prompt avoid list, while ``recent`` stays the strict gate window.
     """
     api_key = os.environ.get("OPENROUTER_API_KEY", "")
     source_image = ag_sources.sources_dir(data_dir) / source["image"]
@@ -4319,9 +4452,11 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
     for attempt in range(1, args.max_attempts + 1):
         progress("proposing")
         proposal, proposal_call, errors = _attempt_proposal(
-            source_image, source, recent, args, api_key, blocked=blocked,
-            examples=examples, avoid_families=avoid_families,
-            patterns=patterns)
+            source_image, source,
+            prompt_avoid if prompt_avoid is not None else recent, args,
+            api_key, blocked=blocked, examples=examples,
+            avoid_families=avoid_families, patterns=patterns,
+            budget_families=budget_families)
         record_call(data_dir, trace, {"stage": "proposal", "attempt": attempt,
                                       **_call_trace(proposal_call)})
         ag_llm.add_usage(totals, proposal_call.get("usage"))
@@ -4337,7 +4472,8 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
         proposal, gate = enforce_proposal_gates(
             proposal, source_image, source, recent, args, api_key, attempt,
             data_dir, trace, totals, blocked=blocked, examples=examples,
-            avoid_families=avoid_families, patterns=patterns)
+            avoid_families=avoid_families, patterns=patterns,
+            budget_families=budget_families, prompt_avoid=prompt_avoid)
         note_avoidance(stats, gate)
         # Ticket #1622: the batch's own element keys are a hard rule. The
         # gate above already re-asks against the recency window (which
@@ -4752,7 +4888,7 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
 
 def _attempt_proposal(source_image: Path, source: dict, recent: list, args,
                       api_key: str, conflict=None, blocked=(), examples=None,
-                      avoid_families=(), patterns=()):
+                      avoid_families=(), patterns=(), budget_families=()):
     """Call 1 with its error handling; returns (proposal, call, errors)."""
     try:
         result = propose_anomaly(source_image, source, recent, api_key,
@@ -4761,11 +4897,13 @@ def _attempt_proposal(source_image: Path, source: dict, recent: list, args,
                                  args.temperature, conflict=conflict,
                                  blocked=blocked, examples=examples,
                                  avoid_families=avoid_families,
-                                 patterns=patterns)
+                                 patterns=patterns,
+                                 budget_families=budget_families)
     except ag_llm.LLMError as e:
         call = {"model": args.model,
                 "prompt": proposal_prompt(source, recent, conflict, blocked,
-                                          examples, avoid_families, patterns),
+                                          examples, avoid_families, patterns,
+                                          budget_families),
                 "answer": "", "usage": ag_llm.zero_usage(), "error": str(e),
                 "duration_s": 0.0}
         return None, call, [str(e)]

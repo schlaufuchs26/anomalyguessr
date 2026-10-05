@@ -15,7 +15,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import ag_catalog
 import ag_feedback as fb
 import ag_generate as g
 import ag_patterns as ap
@@ -156,19 +155,21 @@ class FamilyExampleTest(unittest.TestCase):
                          [fb.example_label(e) for e in applied["examples"]])
 
     def test_a_starved_list_stays_whole_and_becomes_a_finding(self):
-        # Three bad families would leave two of the six examples; the range
-        # of shapes must survive, so nothing drops. Five scenes per family
-        # clear the family sample floor.
+        # Dropping the bad families would leave two of the six examples; the
+        # range of shapes must survive, so nothing drops. Five scenes per
+        # family clear the family sample floor.
         scenes = {}
         labels = ["Plastic bottle (clear PET)", "Wheeled suitcase",
                   "Portable transistor radio"]
         for i in range(15):
             label = labels[i % len(labels)]
             scenes[f"s{i}"] = scene(f"s{i}", label)
+        examples = ["Plastic bottle (clear PET)", "Paper coffee cup with lid",
+                    "Wheeled suitcase", "Portable transistor radio",
+                    "Hula hoop", "Bicycle helmet"]
         applied = fb.adapt(fb.acceptance_stats(scenes, verdicts(
-            rejected=list(scenes)), today=TODAY))
-        self.assertEqual(len(applied["examples"]),
-                         len(ag_catalog.inspiration_lines()))
+            rejected=list(scenes)), today=TODAY), examples=examples)
+        self.assertEqual(len(applied["examples"]), len(examples))
         self.assertEqual(applied["droppedExamples"], [])
         self.assertEqual(applied["proposals"][0]["kind"], "examples")
 
