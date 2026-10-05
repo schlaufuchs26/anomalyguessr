@@ -508,6 +508,15 @@ class PresentationOnlyFixTest(unittest.TestCase):
         self.assertIn("sits on that surface", text)
         self.assertIn("never as modifying", text)
 
+    def test_proposal_prompt_prefers_a_modification(self):
+        # The feedback pass (2026-10-05 window) measured 66 % rejected for
+        # standalone placements against 44 % for modifications, so the
+        # prompt states the preference instead of merely allowing both.
+        text = g.proposal_prompt(source(), [])
+        self.assertIn("Prefer a modification", text)
+        self.assertIn("66 % of standalone elements", text)
+        self.assertIn("44 % of modifications", text)
+
 
 # ── Proposal validation ────────────────────────────────────────────────────
 

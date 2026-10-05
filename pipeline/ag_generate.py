@@ -669,11 +669,15 @@ def proposal_prompt(source: dict, recent=(), conflict=None, blocked=(),
         "futuristic tell is a small detail (for a person, the year their "
         "modern tell became available).",
         "- Say how the element enters the scene (placement_kind): "
-        '"standalone" when it is its own object standing or lying in the '
-        'scene, "modification" when it changes an object that is already '
-        'there. A modification is welcome: describe it as adding a small '
+        '"modification" when it sits on an object that is already in the '
+        'photograph, "standalone" when it is its own object standing or '
+        'lying in the scene. Prefer a modification: the reviewer rejected '
+        "66 % of standalone elements against 44 % of modifications over "
+        "a recent sample. Describe a modification as adding a small "
         'object that sits on that surface ("a small sticker that sits on '
-        'the sign"), never as modifying, covering or replacing the object.',
+        'the sign"), never as modifying, covering or replacing the object; '
+        'use "standalone" only when this photograph offers nothing the '
+        "element can sit on.",
         "- Name what this photograph shows and does BEFORE the element: one "
         "short phrase for the setting and its activity (engine repair, "
         "market stall, workshop, office desk, railway yard), then pick an "
