@@ -25,9 +25,11 @@ URL: a scene carries no pool id, but its generation trace names the source
 pool entry's ``fileUrl``.
 
 The features are deliberately coarse and fixed. They are a fitting hint, not a
-correctness fact: the year and place rules never read them, and nothing here
-changes the proposal prompt or the source picker (that is a follow-up card,
-only if the numbers support it).
+correctness fact: the year and place rules never read them. Since ticket #2348
+the two weak signals the measurement supports do steer the generator: the
+proposal prompt names the fitting kind of element for a busy or sepia photo
+(``ag_generate.photo_tag_lines``) and the source picker prefers busy,
+populated, non-sepia photographs (``ag_generate.source_tag_rank``).
 
 CLI::
 
