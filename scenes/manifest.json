@@ -1,189 +1,191 @@
 {
   "version": 2,
-  "date": "2026-10-05",
+  "date": "2026-10-06",
   "scenes": [
     {
-      "id": "nb-gate-1954-e20b36-modern-parking-meter",
-      "title": "Gate",
+      "id": "nb-oslo-havn-1956-3ca7ea-modern-construction-cran",
+      "title": "Oslo Harbour",
       "title_source": "catalog",
       "place": "",
-      "year": "1954",
-      "description": "A photograph from the National Library of Norway, dated 1954 and in the public domain, showing a gate. No photographer, location, or further details are stated in the record.",
-      "anomaly": "Modern parking meter",
+      "year": "1956",
+      "description": "A photograph titled Oslo havn, showing the harbour in Oslo in 1956. It is held by the National Library of Norway and is in the public domain; the record does not name a photographer.",
+      "anomaly": "Modern construction crane with air-conditioned operator cab",
       "answer": {
-        "x": 0.778,
-        "y": 0.735,
+        "x": 0.25,
+        "y": 0.56,
         "r": 0.22
       },
-      "explanation": "Coin-operated parking meters were not installed in Oslo until well after 1954, so one standing on this street is impossible for the year.",
+      "explanation": "Tower cranes with enclosed operator cabs and hydraulic jibs did not exist in 1956; only simple scaffolding and hoists were available.",
       "references": [
         {
-          "label": "Wikipedia: Parking meter",
-          "url": "https://en.wikipedia.org/wiki/Parking_meter"
+          "label": "National Library of Norway",
+          "url": "https://www.nb.no"
         }
       ],
       "source": {
         "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20190503_00039_NB_HS_54_00421",
-        "originalTitle": "Gate",
-        "date": "1954",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20150223_00063_NB_MIT_FNR_16675_A",
+        "originalTitle": "Oslo havn",
+        "date": "1956",
         "place": "",
         "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-08-26T13:42:12.510Z', 'firstDigitalContentTime': '2025-08-26T13:54:04.861Z', 'indexLastModified': '2025-08-26T13:54:04.861Z'}",
-        "titleEn": "Gate"
+        "description": "{'firstIndexTime': '2025-08-20T07:01:12.434Z', 'firstDigitalContentTime': '2025-08-20T07:26:39.603Z', 'indexLastModified': '2025-08-20T07:26:39.603Z'}",
+        "titleEn": "Oslo Harbour"
       },
-      "credit": "Henriksen & Steen via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20190503_00039_NB_HS_54_00421",
+      "credit": "Mittet & Co. AS, Brun, Jac via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20150223_00063_NB_MIT_FNR_16675_A",
       "added": "2026-09-15",
-      "shown": "2026-10-05",
-      "image": "scenes/nb-gate-1954-e20b36-modern-parking-meter.jpg",
-      "original": "scenes/nb-gate-1954-e20b36-modern-parking-meter-original.jpg"
+      "shown": "2026-10-06",
+      "image": "scenes/nb-oslo-havn-1956-3ca7ea-modern-construction-cran.jpg",
+      "original": "scenes/nb-oslo-havn-1956-3ca7ea-modern-construction-cran-original.jpg"
     },
     {
-      "id": "nb-nf-wb-45850-b-fabrikk-1940-52893d-modern-plastic-squeeze-b",
-      "title": "[NF.WB 45850* B Fabrikk]",
+      "id": "nb-wider-e-flyveselskaps-flyfoto-fra-sarpsborg-kommune-s-454a6c-modern-led-street-lamp",
+      "title": "Aerial Photograph of Sarpsborg Square and Centre",
       "title_source": "catalog",
       "place": "",
-      "year": "1940",
-      "description": "A photograph from 1940, held by the National Library of Norway under the catalogue number NF.WB 45850* B Fabrikk, showing a factory. It is in the public domain, and the record does not state a photographer.",
-      "anomaly": "modern plastic squeeze bottle of bookbinding glue",
+      "year": "1950",
+      "description": "An aerial photograph from Widerøe Flyveselskaps flyfoto showing Sarpsborg torg and the town centre in Sarpsborg kommune, taken on 13 May 1950.",
+      "anomaly": "modern LED street lamp",
       "answer": {
-        "x": 0.684,
-        "y": 0.677,
-        "r": 0.045
+        "x": 0.295,
+        "y": 0.665,
+        "r": 0.22
       },
-      "explanation": "A molded plastic squeeze bottle with a nozzle cap did not exist in 1940, when glue was sold in glass jars, tins or pots.",
+      "explanation": "The first practical visible-spectrum LED was only demonstrated in 1962, so an LED street lamp cannot exist in a photograph taken in 1950.",
       "references": [
         {
-          "label": "Science Museum - History of plastics",
-          "url": "https://www.sciencemuseum.org.uk/objects-and-stories/chemistry/plastic"
+          "label": "Nobel Prize - The Nobel Prize in Physics 2014",
+          "url": "https://www.nobelprize.org/prizes/physics/2014/popular-information/"
         }
       ],
       "source": {
         "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_NF_WB_45850_B",
-        "originalTitle": "[NF.WB 45850* B Fabrikk]",
-        "date": "1940",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20230209_00051_NB_WF_SABK_021928",
+        "originalTitle": "Widerøe Flyveselskaps flyfoto fra Sarpsborg kommune : Sarpsborg torg og sentrum",
+        "date": "1950-05-13",
         "place": "",
         "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-08-22T16:26:11.668Z', 'firstDigitalContentTime': '2025-11-21T12:01:19.136Z', 'indexLastModified': '2025-11-21T12:01:19.156Z'}"
+        "description": "{'firstIndexTime': '2025-08-22T16:32:14.773Z', 'firstDigitalContentTime': '2025-08-22T16:47:28.280Z', 'indexLastModified': '2025-08-29T07:27:51.285Z'}",
+        "titleEn": "Aerial Photograph of Sarpsborg Square and Centre"
       },
-      "credit": "Wilse, Anders Beer, Norsk folkemuseum via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_NF_WB_45850_B",
-      "added": "2026-09-26",
-      "shown": "2026-10-05",
-      "image": "scenes/nb-nf-wb-45850-b-fabrikk-1940-52893d-modern-plastic-squeeze-b.jpg",
-      "original": "scenes/nb-nf-wb-45850-b-fabrikk-1940-52893d-modern-plastic-squeeze-b-original.jpg"
+      "credit": "Widerøes Flyveselskap AS, Skappel, Vilhelm via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20230209_00051_NB_WF_SABK_021928",
+      "added": "2026-09-28",
+      "shown": "2026-10-06",
+      "image": "scenes/nb-wider-e-flyveselskaps-flyfoto-fra-sarpsborg-kommune-s-454a6c-modern-led-street-lamp.jpg",
+      "original": "scenes/nb-wider-e-flyveselskaps-flyfoto-fra-sarpsborg-kommune-s-454a6c-modern-led-street-lamp-original.jpg"
     },
     {
-      "id": "gallica-25-2-12-course-de-c-te-de-montanglaust-nervy-sur-54295b-modern-plastic-zip-tie",
-      "title": "Hill climb at Montanglaust, first in the first motorcycle category",
+      "id": "gallica-25-1-31-autobus-tarif-unique-vue-int-rieure-phot-eed255-modern-quadcopter-drone",
+      "title": "Single-fare bus, interior view",
       "title_source": "catalog",
       "place": "",
-      "year": "1912",
-      "description": "A press photograph by Agence Rol showing the first-place finisher in the first category of motorcycles at the Montanglaust hill climb at Nervy sur Levis, dated 25 February 1912. It belongs to the Bibliothèque nationale de France, département Estampes et photographie, and is in the public domain.",
-      "anomaly": "modern plastic zip tie",
+      "year": "1931",
+      "description": "An interior view of a single-fare autobus in Paris, photographed in 1931 by the Agence Rol press agency. The photograph is held by the Bibliothèque nationale de France, département Estampes et photographie.",
+      "anomaly": "modern quadcopter drone",
       "answer": {
-        "x": 0.318,
-        "y": 0.635,
+        "x": 0.477,
+        "y": 0.139,
         "r": 0.22
       },
-      "explanation": "Plastic zip ties were not invented until 1958, so this fastening cannot exist on a 1912 motorcycle.",
+      "explanation": "The quadcopter is a later-era object; consumer drones did not exist in 1931.",
       "references": [
         {
-          "label": "Zip tie - Wikipedia",
-          "url": "https://en.wikipedia.org/wiki/Zip_tie"
+          "label": "Wikipedia: Quadcopter",
+          "url": "https://en.wikipedia.org/wiki/Quadcopter"
         }
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b69190977",
-        "originalTitle": "25-2-12, course de côte de Montanglaust, Nervy sur Levis, 1er de la 1ère cat[égorie] [motos] : [photographie de presse] / [Agence Rol]",
-        "date": "1912",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b532391937",
+        "originalTitle": "[25-1-31], autobus à tarif unique, vue intérieure : [photographie de presse] / [Agence Rol]",
+        "date": "1931",
         "place": "",
         "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 18694 Appartient à l’ensemble documentaire : Pho20Rol",
-        "titleEn": "Hill climb at Montanglaust, first in the first motorcycle category"
+        "description": "Référence bibliographique : Rol, 151580 Appartient à l’ensemble documentaire : Pho20Rol Image de presse",
+        "titleEn": "Single-fare bus, interior view"
       },
       "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b69190977",
-      "added": "2026-09-28",
-      "shown": "2026-10-05",
-      "image": "scenes/gallica-25-2-12-course-de-c-te-de-montanglaust-nervy-sur-54295b-modern-plastic-zip-tie.jpg",
-      "original": "scenes/gallica-25-2-12-course-de-c-te-de-montanglaust-nervy-sur-54295b-modern-plastic-zip-tie-original.jpg"
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b532391937",
+      "added": "2026-10-01",
+      "shown": "2026-10-06",
+      "image": "scenes/gallica-25-1-31-autobus-tarif-unique-vue-int-rieure-phot-eed255-modern-quadcopter-drone.jpg",
+      "original": "scenes/gallica-25-1-31-autobus-tarif-unique-vue-int-rieure-phot-eed255-modern-quadcopter-drone-original.jpg"
     },
     {
-      "id": "nb-barnehage-p-tur-med-sporvogn-1947-b0a902-modern-wheeled-inline-sk",
-      "title": "Kindergarten Outing by Tram",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1947",
-      "description": "A photograph from 1947 in the collection of the National Library of Norway shows a barnehage på tur med sporvogn, that is, a kindergarten on an outing by tram. It is in the public domain.",
-      "anomaly": "modern wheeled inline skate",
-      "answer": {
-        "x": 0.902,
-        "y": 0.925,
-        "r": 0.22
-      },
-      "explanation": "Inline skates with a single row of wheels did not exist in 1947; they only became common in the 1980s.",
-      "references": [
-        {
-          "label": "Inline skating history",
-          "url": "https://en.wikipedia.org/wiki/Inline_skating"
-        }
-      ],
-      "source": {
-        "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20160209_00332_NB_MIT_FNR_05600",
-        "originalTitle": "[Barnehage på tur med sporvogn]",
-        "date": "1947",
-        "place": "",
-        "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-08-19T23:14:29.166Z', 'firstDigitalContentTime': '2025-08-20T05:19:06.232Z', 'indexLastModified': '2025-08-20T05:19:06.232Z'}",
-        "titleEn": "Kindergarten Outing by Tram"
-      },
-      "credit": "Mittet & Co. AS via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20160209_00332_NB_MIT_FNR_05600",
-      "added": "2026-09-28",
-      "shown": "2026-10-05",
-      "image": "scenes/nb-barnehage-p-tur-med-sporvogn-1947-b0a902-modern-wheeled-inline-sk.jpg",
-      "original": "scenes/nb-barnehage-p-tur-med-sporvogn-1947-b0a902-modern-wheeled-inline-sk-original.jpg"
-    },
-    {
-      "id": "nb-denofa-fabrikk-i-fredrikstad-1900-d017f7-modern-shipping-containe",
-      "title": "[Denofa, fabrikk i Fredrikstad]",
+      "id": "nb-personer-p-brygge-1900-3c4754-modern-telescoping-alumi",
+      "title": "People on a Pier",
       "title_source": "catalog",
       "place": "",
       "year": "1900",
-      "description": "A photograph from 1900 shows the Denofa factory in Fredrikstad. It is held by the National Library of Norway and is in the public domain.",
-      "anomaly": "modern shipping container",
+      "description": "A photograph from 1900, held by the National Library of Norway, shows persons on a brygge. The record does not name a photographer.",
+      "anomaly": "modern telescoping aluminum selfie stick",
       "answer": {
-        "x": 0.735,
-        "y": 0.505,
+        "x": 0.663,
+        "y": 0.474,
         "r": 0.22
       },
-      "explanation": "Intermodal steel shipping containers were not introduced until the 1950s, so none could exist on this 1900 quay.",
+      "explanation": "Telescoping aluminum selfie sticks did not exist in 1900; they became common consumer products only in the 1980s and later.",
       "references": [
         {
-          "label": "Shipping container - Wikipedia",
-          "url": "https://en.wikipedia.org/wiki/Shipping_container"
+          "label": "Wikipedia: Selfie stick",
+          "url": "https://en.wikipedia.org/wiki/Selfie_stick"
         }
       ],
       "source": {
         "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20180109_00024_NB_NS_NM_06598",
-        "originalTitle": "[Denofa, fabrikk i Fredrikstad]",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20170511_00143_NB_MIT_GNR_15792",
+        "originalTitle": "[Personer på brygge]",
         "date": "1900",
         "place": "",
         "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-08-26T13:42:59.441Z', 'firstDigitalContentTime': '2025-08-26T14:02:24.294Z', 'indexLastModified': '2025-08-26T14:02:24.294Z'}"
+        "description": "{'firstIndexTime': '2025-08-20T07:00:44.582Z', 'firstDigitalContentTime': '2025-08-20T07:33:54.265Z', 'indexLastModified': '2025-08-20T07:33:54.265Z'}",
+        "titleEn": "People on a Pier"
       },
-      "credit": "Skarpmoen, Narve via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20180109_00024_NB_NS_NM_06598",
-      "added": "2026-09-30",
-      "shown": "2026-10-05",
-      "image": "scenes/nb-denofa-fabrikk-i-fredrikstad-1900-d017f7-modern-shipping-containe.jpg",
-      "original": "scenes/nb-denofa-fabrikk-i-fredrikstad-1900-d017f7-modern-shipping-containe-original.jpg"
+      "credit": "Mittet & Co. AS, Neupert, Hermann Christian via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20170511_00143_NB_MIT_GNR_15792",
+      "added": "2026-09-28",
+      "shown": "2026-10-06",
+      "image": "scenes/nb-personer-p-brygge-1900-3c4754-modern-telescoping-alumi.jpg",
+      "original": "scenes/nb-personer-p-brygge-1900-3c4754-modern-telescoping-alumi-original.jpg"
+    },
+    {
+      "id": "nb-oslojente-p-brygge-1900-74460b-modern-white-athletic-sn",
+      "title": "Oslo Girl on a Pier",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1900",
+      "description": "A girl from Oslo stands on a pier in this photograph from 1900, held by the National Library of Norway. The image is in the public domain.",
+      "anomaly": "modern white athletic sneaker",
+      "answer": {
+        "x": 0.6,
+        "y": 0.84,
+        "r": 0.22
+      },
+      "explanation": "The modern athletic sneaker with a thick rubber sole did not exist in 1900; the first mass-produced canvas rubber-soled sneakers appeared in 1917.",
+      "references": [
+        {
+          "label": "Converse history",
+          "url": "https://www.converse.com/c/history"
+        }
+      ],
+      "source": {
+        "repository": "National Library of Norway",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20170307_00108_NB_MIT_ENR_03865",
+        "originalTitle": "Oslojente på brygge",
+        "date": "1900",
+        "place": "",
+        "license": "Public domain",
+        "description": "{'firstIndexTime': '2025-08-19T00:33:23.316Z', 'firstDigitalContentTime': '2025-08-19T03:01:24.533Z', 'indexLastModified': '2025-08-19T03:01:24.533Z'}",
+        "titleEn": "Oslo Girl on a Pier"
+      },
+      "credit": "Mittet & Co. AS, Neupert, Hermann Christian via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20170307_00108_NB_MIT_ENR_03865",
+      "added": "2026-10-02",
+      "shown": "2026-10-06",
+      "image": "scenes/nb-oslojente-p-brygge-1900-74460b-modern-white-athletic-sn.jpg",
+      "original": "scenes/nb-oslojente-p-brygge-1900-74460b-modern-white-athletic-sn-original.jpg"
     }
   ]
 }
