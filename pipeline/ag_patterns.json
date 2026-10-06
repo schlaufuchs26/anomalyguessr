@@ -269,10 +269,7 @@
         "subject": "manufactured objects"
       },
       "prompt": "Fails: a modern wheeled or telescoping object standing on its own (shopping trolley, suitcase, cooler, ladder, tripod). The reviewer calls it too easy; pick an element that sits on or in something the photograph already shows.",
-      "matches": [
-        "wheeled",
-        "telescoping"
-      ],
+      "matches": ["wheeled", "telescoping"],
       "evidence": {
         "counted": true,
         "note": "wheeled 9/37, telescoping 4/20 over the 14-day window (2026-10-06); 44 of 115 rejections",
