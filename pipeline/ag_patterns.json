@@ -253,6 +253,33 @@
         "examples": { "accepted": [], "rejected": [] }
       },
       "rule": null
+    },
+    {
+      "id": "wheeled-or-telescoping",
+      "title": "A modern wheeled or telescoping object standing on its own",
+      "kind": "negative",
+      "status": "active",
+      "added": "2026-10-06",
+      "updated": "2026-10-06",
+      "summary": "Wheeled and telescoping manufactured objects (shopping trolley, suitcase, cooler, ladder, tripod) are the largest single rejection class. In the 14-day window of the 2026-10-06 feedback pass 13 of 57 such scenes were accepted (23%) against 39% overall, and they account for 44 of the 115 rejections. The class fails on its own, not only through placement: 2 of 7 modifications (29%) were accepted against 55% for other modifications.",
+      "requirement": {
+        "element": "an element that is not a wheeled or telescoping manufactured object (a shopping trolley, suitcase, cooler, ladder, tripod, hiking pole)",
+        "placement": "on or in something the photograph already shows, never a large object standing on its own",
+        "rendering": "same medium as the photo, small and readable",
+        "subject": "manufactured objects"
+      },
+      "prompt": "Fails: a modern wheeled or telescoping object standing on its own (shopping trolley, suitcase, cooler, ladder, tripod). The reviewer calls it too easy; pick an element that sits on or in something the photograph already shows.",
+      "matches": [
+        "wheeled",
+        "telescoping"
+      ],
+      "evidence": {
+        "counted": true,
+        "note": "wheeled 9/37, telescoping 4/20 over the 14-day window (2026-10-06); 44 of 115 rejections",
+        "counts": { "decided": 57, "accepted": 13, "rejected": 44 },
+        "examples": { "accepted": [], "rejected": [] }
+      },
+      "rule": { "type": "class", "keywords": ["wheeled", "telescoping"] }
     }
   ]
 }

@@ -1414,7 +1414,8 @@ def proposal_conflicts(proposal, source, avoid, blocked=(),
     labels the reviewer's verdicts keep rejecting; ``avoid_families`` the
     families the feedback pass blocked (ticket #1538). ``patterns`` is the
     anomaly-pattern catalogue (ticket #1539): its carrier rules feed the
-    carrier gate and its ``small`` rule widens the too-small bar. Ticket
+    carrier gate, its ``small`` rule widens the too-small bar, and its
+    ``class`` rule (2026-10-06) re-asks a wheeled/telescoping object. Ticket
     #1540: the proposal must name the photograph's activity, so an answer
     that jumps straight to the element is a finding too. Ticket #2343:
     ``budget_families`` are the families that already fill their share of
@@ -1449,6 +1450,11 @@ def proposal_conflicts(proposal, source, avoid, blocked=(),
             ag_catalog.entry_for_label(label) is None
             and ag_patterns.matches_rule(patterns, "small", label)):
         out["small"] = label
+    # The catalogue's class rule (2026-10-06 feedback pass): a modern wheeled
+    # or telescoping object is the largest rejection class, so a proposal in
+    # it gets the same one re-ask as a blocked label.
+    if ag_patterns.matches_rule(patterns, "class", label):
+        out["element_class"] = label
     return out
 
 
@@ -1488,6 +1494,11 @@ def conflict_reason(conflicts: dict) -> str:
     if conflicts.get("small"):
         parts.append(f"\"{conflicts['small']}\" is too small for a player to "
                      "find fairly in this photograph")
+    if conflicts.get("element_class"):
+        parts.append(f"\"{conflicts['element_class']}\" is the kind of modern "
+                     "wheeled or telescoping object the reviewer keeps "
+                     "rejecting as too easy; pick an element that sits on or "
+                     "in something the photograph already shows")
     return "; ".join(parts)
 
 
@@ -1581,6 +1592,8 @@ def note_avoidance(stats, info) -> None:
         row["carrier_reasks"] += 1
     if "small" in findings:
         row["small_reasks"] += 1
+    if "element_class" in findings:
+        row["class_reasks"] += 1
     if info.get("repeated"):
         row["unresolved_repeats"] += 1
 
@@ -1590,7 +1603,7 @@ def _blank_avoidance() -> dict:
             "activity_reasks": 0, "blocked_reasks": 0,
             "family_budget_reasks": 0,
             "setting_reasks": 0, "carrier_reasks": 0,
-            "small_reasks": 0, "unresolved_repeats": 0}
+            "small_reasks": 0, "class_reasks": 0, "unresolved_repeats": 0}
 
 
 def avoidance_summary(stats, added) -> dict:

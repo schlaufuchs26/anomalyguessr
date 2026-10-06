@@ -1386,8 +1386,8 @@ class ProposalGateTest(unittest.TestCase):
     def test_a_clean_proposal_has_no_findings(self):
         self.assertEqual(
             g.proposal_conflicts(
-                {"anomaly": "Wheeled suitcase",
-                 "activity": "travellers waiting with their luggage"},
+                {"anomaly": "Cardboard shipping crate",
+                 "activity": "traders unloading goods at a market stall"},
                 source(title="Busy market street", description=""), []), {})
 
 
@@ -1637,6 +1637,22 @@ class AnomalyPatternsTest(unittest.TestCase):
         self.assertNotIn("small", g.proposal_conflicts(
             {"anomaly": "Plastic bottle (clear PET)"}, source(), [],
             patterns=self.patterns))
+
+    def test_the_class_rule_reasks_a_wheeled_object(self):
+        # 2026-10-06 feedback pass: the largest rejection class gets the
+        # same one re-ask as a blocked label.
+        findings = g.proposal_conflicts(
+            {"anomaly": "Modern plastic wheeled suitcase",
+             "activity": "travellers waiting with their luggage"},
+            source(), [], patterns=self.patterns)
+        self.assertIn("element_class", findings)
+        self.assertIn("wheeled", g.conflict_reason(findings))
+        self.assertIn("different element", g.conflict_instruction(findings))
+        # an element outside the class stays clean
+        self.assertNotIn("element_class", g.proposal_conflicts(
+            {"anomaly": "Portable transistor radio",
+             "activity": "a family listening in a parlour"},
+            source(), [], patterns=self.patterns))
 
 
 class LabelVerdictsTest(TempDataMixin, unittest.TestCase):

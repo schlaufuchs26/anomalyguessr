@@ -13,7 +13,7 @@ import ag_patterns as ap
 REQUIRED_FIELDS = ("id", "title", "kind", "status", "added", "updated",
                    "summary", "prompt", "matches", "evidence")
 KNOWN_STATUS = (ap.STATUS_ACTIVE, ap.STATUS_OBSERVE, ap.STATUS_RETIRED)
-KNOWN_RULES = ("carrier", "small", "presentation")
+KNOWN_RULES = ("carrier", "small", "presentation", "class")
 
 
 class SeededCatalogueTest(unittest.TestCase):
@@ -99,6 +99,20 @@ class PatternMatchTest(unittest.TestCase):
                                         "Paper coffee cup"))
         self.assertFalse(ap.matches_rule(self.patterns, "small",
                                          "Traffic cone (orange)"))
+
+    def test_the_wheeled_class_rule_matches_its_class(self):
+        # 2026-10-06 feedback pass: the largest rejection class
+        self.assertTrue(ap.matches_rule(self.patterns, "class",
+                                        "Modern plastic wheeled suitcase"))
+        self.assertTrue(ap.matches_rule(self.patterns, "class",
+                                        "Modern telescoping aluminum ladder"))
+        self.assertFalse(ap.matches_rule(self.patterns, "class",
+                                         "Paper coffee cup"))
+        pattern = ap.pattern_by_id(self.patterns, "wheeled-or-telescoping")
+        self.assertEqual(pattern["status"], ap.STATUS_ACTIVE)
+        self.assertIn("wheeled-or-telescoping",
+                      ap.patterns_for_label("Modern plastic wheeled cooler",
+                                            self.patterns))
 
     def test_a_retired_pattern_contributes_nothing(self):
         patterns = [{"id": "x", "status": ap.STATUS_RETIRED, "kind": "negative",
