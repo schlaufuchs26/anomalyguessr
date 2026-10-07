@@ -1,191 +1,188 @@
 {
   "version": 2,
-  "date": "2026-10-06",
+  "date": "2026-10-07",
   "scenes": [
     {
-      "id": "nb-oslo-havn-1956-3ca7ea-modern-construction-cran",
-      "title": "Oslo Harbour",
+      "id": "nb-overfylt-trikk-fotballkamp-1952-9fde3d-modern-contactless-payme",
+      "title": "Overfylt trikk (fotballkamp)",
       "title_source": "catalog",
       "place": "",
-      "year": "1956",
-      "description": "A photograph titled Oslo havn, showing the harbour in Oslo in 1956. It is held by the National Library of Norway and is in the public domain; the record does not name a photographer.",
-      "anomaly": "Modern construction crane with air-conditioned operator cab",
+      "year": "1952",
+      "description": "A photograph from 1952, held by the National Library of Norway, shows a tram (trikk) that is full, taken in connection with a football match (fotballkamp). The record does not state the photographer, the location, or any further details.",
+      "anomaly": "Modern contactless payment terminal",
       "answer": {
-        "x": 0.25,
-        "y": 0.56,
+        "x": 0.301,
+        "y": 0.531,
         "r": 0.22
       },
-      "explanation": "Tower cranes with enclosed operator cabs and hydraulic jibs did not exist in 1956; only simple scaffolding and hoists were available.",
+      "explanation": "Contactless payment terminals did not exist in 1952, so this object could not be present on a tram then.",
       "references": [
         {
-          "label": "National Library of Norway",
-          "url": "https://www.nb.no"
+          "label": "Contactless payment",
+          "url": "https://en.wikipedia.org/wiki/Contactless_payment"
         }
       ],
       "source": {
         "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20150223_00063_NB_MIT_FNR_16675_A",
-        "originalTitle": "Oslo havn",
-        "date": "1956",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20190508_00001_NB_HS_52_01417",
+        "originalTitle": "Overfylt trikk (fotballkamp)",
+        "date": "1952",
         "place": "",
         "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-08-20T07:01:12.434Z', 'firstDigitalContentTime': '2025-08-20T07:26:39.603Z', 'indexLastModified': '2025-08-20T07:26:39.603Z'}",
-        "titleEn": "Oslo Harbour"
+        "description": "{'firstIndexTime': '2025-08-26T13:41:01.726Z', 'firstDigitalContentTime': '2025-08-26T14:01:54.681Z', 'indexLastModified': '2025-08-26T14:01:54.681Z'}"
+      },
+      "credit": "Henriksen & Steen via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20190508_00001_NB_HS_52_01417",
+      "added": "2026-09-15",
+      "shown": "2026-10-07",
+      "image": "scenes/nb-overfylt-trikk-fotballkamp-1952-9fde3d-modern-contactless-payme.jpg",
+      "original": "scenes/nb-overfylt-trikk-fotballkamp-1952-9fde3d-modern-contactless-payme-original.jpg"
+    },
+    {
+      "id": "nb-bakkehaugen-kirke-1960-71c9b6-modern-led-table-lamp",
+      "title": "Bakkehaugen kirke",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1960",
+      "description": "A photograph from the National Library of Norway showing Bakkehaugen kirke in 1960. The record lists the image as public domain.",
+      "anomaly": "modern LED table lamp",
+      "answer": {
+        "x": 0.504,
+        "y": 0.657,
+        "r": 0.22
+      },
+      "explanation": "White LED lamps did not exist in 1960, so this lamp cannot belong to the scene.",
+      "references": [
+        {
+          "label": "LED lamp history",
+          "url": "https://en.wikipedia.org/wiki/LED_lamp"
+        }
+      ],
+      "source": {
+        "repository": "National Library of Norway",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20150126_00227_NB_MIT_FNR_19408",
+        "originalTitle": "Bakkehaugen kirke",
+        "date": "1960",
+        "place": "",
+        "license": "Public domain",
+        "description": "{'firstIndexTime': '2025-08-20T10:54:19.016Z', 'firstDigitalContentTime': '2025-08-20T10:56:12.213Z', 'indexLastModified': '2025-08-20T10:56:12.214Z'}"
       },
       "credit": "Mittet & Co. AS, Brun, Jac via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20150223_00063_NB_MIT_FNR_16675_A",
-      "added": "2026-09-15",
-      "shown": "2026-10-06",
-      "image": "scenes/nb-oslo-havn-1956-3ca7ea-modern-construction-cran.jpg",
-      "original": "scenes/nb-oslo-havn-1956-3ca7ea-modern-construction-cran-original.jpg"
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20150126_00227_NB_MIT_FNR_19408",
+      "added": "2026-10-01",
+      "shown": "2026-10-07",
+      "image": "scenes/nb-bakkehaugen-kirke-1960-71c9b6-modern-led-table-lamp.jpg",
+      "original": "scenes/nb-bakkehaugen-kirke-1960-71c9b6-modern-led-table-lamp-original.jpg"
     },
     {
-      "id": "nb-wider-e-flyveselskaps-flyfoto-fra-sarpsborg-kommune-s-454a6c-modern-led-street-lamp",
-      "title": "Aerial Photograph of Sarpsborg Square and Centre",
+      "id": "nb-lillehammer-mathiesens-gate-1900-260638-modern-plastic-wheeled-t",
+      "title": "Mathiesens gate, Lillehammer",
       "title_source": "catalog",
       "place": "",
-      "year": "1950",
-      "description": "An aerial photograph from Widerøe Flyveselskaps flyfoto showing Sarpsborg torg and the town centre in Sarpsborg kommune, taken on 13 May 1950.",
-      "anomaly": "modern LED street lamp",
+      "year": "1900",
+      "description": "A photograph of Mathiesens gate in Lillehammer, dated 1900, held by the National Library of Norway in Lillehammer. The record lists the photograph as public domain but does not name a photographer.",
+      "anomaly": "modern plastic wheeled trash bin",
       "answer": {
-        "x": 0.295,
-        "y": 0.665,
+        "x": 0.862,
+        "y": 0.777,
         "r": 0.22
       },
-      "explanation": "The first practical visible-spectrum LED was only demonstrated in 1962, so an LED street lamp cannot exist in a photograph taken in 1950.",
+      "explanation": "Molded plastic wheeled refuse bins did not exist in 1900, so a bin of this shape and material cannot belong to the scene.",
       "references": [
         {
-          "label": "Nobel Prize - The Nobel Prize in Physics 2014",
-          "url": "https://www.nobelprize.org/prizes/physics/2014/popular-information/"
+          "label": "Wheelie bin — Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Wheelie_bin"
         }
       ],
       "source": {
         "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20230209_00051_NB_WF_SABK_021928",
-        "originalTitle": "Widerøe Flyveselskaps flyfoto fra Sarpsborg kommune : Sarpsborg torg og sentrum",
-        "date": "1950-05-13",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20170509_00274_NB_MIT_GNR_06460",
+        "originalTitle": "Lillehammer. Mathiesens gate.",
+        "date": "1900",
         "place": "",
         "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-08-22T16:32:14.773Z', 'firstDigitalContentTime': '2025-08-22T16:47:28.280Z', 'indexLastModified': '2025-08-29T07:27:51.285Z'}",
-        "titleEn": "Aerial Photograph of Sarpsborg Square and Centre"
+        "description": "{'firstIndexTime': '2025-08-19T07:43:13.425Z', 'firstDigitalContentTime': '2025-08-19T08:17:46.955Z', 'indexLastModified': '2025-08-19T08:17:46.955Z'}",
+        "titleEn": "Mathiesens gate, Lillehammer"
       },
-      "credit": "Widerøes Flyveselskap AS, Skappel, Vilhelm via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20230209_00051_NB_WF_SABK_021928",
-      "added": "2026-09-28",
-      "shown": "2026-10-06",
-      "image": "scenes/nb-wider-e-flyveselskaps-flyfoto-fra-sarpsborg-kommune-s-454a6c-modern-led-street-lamp.jpg",
-      "original": "scenes/nb-wider-e-flyveselskaps-flyfoto-fra-sarpsborg-kommune-s-454a6c-modern-led-street-lamp-original.jpg"
+      "credit": "Mittet & Co. AS via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20170509_00274_NB_MIT_GNR_06460",
+      "added": "2026-10-01",
+      "shown": "2026-10-07",
+      "image": "scenes/nb-lillehammer-mathiesens-gate-1900-260638-modern-plastic-wheeled-t.jpg",
+      "original": "scenes/nb-lillehammer-mathiesens-gate-1900-260638-modern-plastic-wheeled-t-original.jpg"
     },
     {
-      "id": "gallica-25-1-31-autobus-tarif-unique-vue-int-rieure-phot-eed255-modern-quadcopter-drone",
-      "title": "Single-fare bus, interior view",
+      "id": "nb-arkitekt-bjercke-bryllup-1959-05-02-056155-modern-white-athletic-sn",
+      "title": "Arkitekt Bjercke, Bryllup",
       "title_source": "catalog",
       "place": "",
-      "year": "1931",
-      "description": "An interior view of a single-fare autobus in Paris, photographed in 1931 by the Agence Rol press agency. The photograph is held by the Bibliothèque nationale de France, département Estampes et photographie.",
-      "anomaly": "modern quadcopter drone",
+      "year": "1959",
+      "description": "A photograph titled Arkitekt Bjercke, Bryllup, dated 1959-05-02, held by the National Library of Norway and in the public domain.",
+      "anomaly": "modern white athletic sneaker",
       "answer": {
-        "x": 0.477,
-        "y": 0.139,
+        "x": 0.5,
+        "y": 0.9,
         "r": 0.22
       },
-      "explanation": "The quadcopter is a later-era object; consumer drones did not exist in 1931.",
+      "explanation": "The groom's footwear is a modern athletic sneaker, a shoe style that did not exist in 1959.",
       "references": [
         {
-          "label": "Wikipedia: Quadcopter",
-          "url": "https://en.wikipedia.org/wiki/Quadcopter"
+          "label": "Wikipedia: Sneakers",
+          "url": "https://en.wikipedia.org/wiki/Sneakers"
+        }
+      ],
+      "source": {
+        "repository": "National Library of Norway",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20190514_00209_NB_HS_59_00362",
+        "originalTitle": "Arkitekt Bjercke, Bryllup",
+        "date": "1959-05-02",
+        "place": "",
+        "license": "Public domain",
+        "description": "{'firstIndexTime': '2025-08-26T13:41:51.514Z', 'firstDigitalContentTime': '2025-08-26T13:50:16.604Z', 'indexLastModified': '2025-08-26T13:50:16.605Z'}"
+      },
+      "credit": "Henriksen & Steen via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20190514_00209_NB_HS_59_00362",
+      "added": "2026-10-03",
+      "shown": "2026-10-07",
+      "image": "scenes/nb-arkitekt-bjercke-bryllup-1959-05-02-056155-modern-white-athletic-sn.jpg",
+      "original": "scenes/nb-arkitekt-bjercke-bryllup-1959-05-02-056155-modern-white-athletic-sn-original.jpg"
+    },
+    {
+      "id": "gallica-les-obs-ques-de-m-maginot-d-fil-des-troupes-cole-0566b1-modern-plastic-wheeled-w",
+      "title": "The funeral of M. Maginot: troops parading, Saint Cyr school",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1932",
+      "description": "A press photograph by Agence Mondial showing troops of the École spéciale militaire de Saint-Cyr marching in the funeral procession of André Maginot, taken in 1932.",
+      "anomaly": "modern plastic wheeled walker (rollator)",
+      "answer": {
+        "x": 0.166,
+        "y": 0.596,
+        "r": 0.22
+      },
+      "explanation": "A four-wheeled tubular rollator with hand brakes is a late-20th-century walking aid that did not exist in 1932.",
+      "references": [
+        {
+          "label": "Rollator - Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Rollator"
         }
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b532391937",
-        "originalTitle": "[25-1-31], autobus à tarif unique, vue intérieure : [photographie de presse] / [Agence Rol]",
-        "date": "1931",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b9047007g",
+        "originalTitle": "Les obsèques de M. Maginot : défilé des troupes, école Saint Cyr : [photographie de presse] / Agence Mondial",
+        "date": "1932",
         "place": "",
         "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 151580 Appartient à l’ensemble documentaire : Pho20Rol Image de presse",
-        "titleEn": "Single-fare bus, interior view"
+        "description": "Référence bibliographique : Mondial, 321 Appartient à l’ensemble documentaire : Pho20MPP Image de presse",
+        "titleEn": "The funeral of M. Maginot: troops parading, Saint Cyr school"
       },
-      "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b532391937",
-      "added": "2026-10-01",
-      "shown": "2026-10-06",
-      "image": "scenes/gallica-25-1-31-autobus-tarif-unique-vue-int-rieure-phot-eed255-modern-quadcopter-drone.jpg",
-      "original": "scenes/gallica-25-1-31-autobus-tarif-unique-vue-int-rieure-phot-eed255-modern-quadcopter-drone-original.jpg"
-    },
-    {
-      "id": "nb-personer-p-brygge-1900-3c4754-modern-telescoping-alumi",
-      "title": "People on a Pier",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1900",
-      "description": "A photograph from 1900, held by the National Library of Norway, shows persons on a brygge. The record does not name a photographer.",
-      "anomaly": "modern telescoping aluminum selfie stick",
-      "answer": {
-        "x": 0.663,
-        "y": 0.474,
-        "r": 0.22
-      },
-      "explanation": "Telescoping aluminum selfie sticks did not exist in 1900; they became common consumer products only in the 1980s and later.",
-      "references": [
-        {
-          "label": "Wikipedia: Selfie stick",
-          "url": "https://en.wikipedia.org/wiki/Selfie_stick"
-        }
-      ],
-      "source": {
-        "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20170511_00143_NB_MIT_GNR_15792",
-        "originalTitle": "[Personer på brygge]",
-        "date": "1900",
-        "place": "",
-        "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-08-20T07:00:44.582Z', 'firstDigitalContentTime': '2025-08-20T07:33:54.265Z', 'indexLastModified': '2025-08-20T07:33:54.265Z'}",
-        "titleEn": "People on a Pier"
-      },
-      "credit": "Mittet & Co. AS, Neupert, Hermann Christian via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20170511_00143_NB_MIT_GNR_15792",
-      "added": "2026-09-28",
-      "shown": "2026-10-06",
-      "image": "scenes/nb-personer-p-brygge-1900-3c4754-modern-telescoping-alumi.jpg",
-      "original": "scenes/nb-personer-p-brygge-1900-3c4754-modern-telescoping-alumi-original.jpg"
-    },
-    {
-      "id": "nb-oslojente-p-brygge-1900-74460b-modern-white-athletic-sn",
-      "title": "Oslo Girl on a Pier",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1900",
-      "description": "A girl from Oslo stands on a pier in this photograph from 1900, held by the National Library of Norway. The image is in the public domain.",
-      "anomaly": "modern white athletic sneaker",
-      "answer": {
-        "x": 0.6,
-        "y": 0.84,
-        "r": 0.22
-      },
-      "explanation": "The modern athletic sneaker with a thick rubber sole did not exist in 1900; the first mass-produced canvas rubber-soled sneakers appeared in 1917.",
-      "references": [
-        {
-          "label": "Converse history",
-          "url": "https://www.converse.com/c/history"
-        }
-      ],
-      "source": {
-        "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20170307_00108_NB_MIT_ENR_03865",
-        "originalTitle": "Oslojente på brygge",
-        "date": "1900",
-        "place": "",
-        "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-08-19T00:33:23.316Z', 'firstDigitalContentTime': '2025-08-19T03:01:24.533Z', 'indexLastModified': '2025-08-19T03:01:24.533Z'}",
-        "titleEn": "Oslo Girl on a Pier"
-      },
-      "credit": "Mittet & Co. AS, Neupert, Hermann Christian via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20170307_00108_NB_MIT_ENR_03865",
-      "added": "2026-10-02",
-      "shown": "2026-10-06",
-      "image": "scenes/nb-oslojente-p-brygge-1900-74460b-modern-white-athletic-sn.jpg",
-      "original": "scenes/nb-oslojente-p-brygge-1900-74460b-modern-white-athletic-sn-original.jpg"
+      "credit": "Agence de presse Mondial Photo-Presse. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b9047007g",
+      "added": "2026-09-29",
+      "shown": "2026-10-07",
+      "image": "scenes/gallica-les-obs-ques-de-m-maginot-d-fil-des-troupes-cole-0566b1-modern-plastic-wheeled-w.jpg",
+      "original": "scenes/gallica-les-obs-ques-de-m-maginot-d-fil-des-troupes-cole-0566b1-modern-plastic-wheeled-w-original.jpg"
     }
   ]
 }
