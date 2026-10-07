@@ -3445,6 +3445,33 @@ class RunTest(TempDataMixin, unittest.TestCase):
             picked = g.select_sources(self.data_dir, 1, seed=seed)
             self.assertEqual([s["id"] for s in picked], ["commons-busy"])
 
+    def test_select_sources_drops_sepia_photos(self):
+        # #2371: a sepia photograph is the worst medium by far (17% accepted,
+        # 53 decided on 2026-10-07) and the tone gate cannot repair its
+        # element's colour clash, so it leaves the pool instead of being
+        # ranked last: no run spends a slot on one while a non-sepia photo is
+        # available, whatever the seed and the spread passes.
+        sepia = source(sid="commons-sepia-only", date="1905-01-01")
+        sepia["tags"] = {"clutter": "busy", "medium": "sepia",
+                         "people": "few"}
+        gray = source(sid="commons-gray", date="1915-01-01")
+        gray["tags"] = {"clutter": "clean", "medium": "grayscale",
+                        "people": "none"}
+        self.write_source(src=sepia)
+        self.write_source(src=gray)
+        for seed in range(6):
+            picked = g.select_sources(self.data_dir, 5, seed=seed)
+            self.assertEqual([s["id"] for s in picked], ["commons-gray"])
+
+    def test_select_sources_with_only_sepia_yields_nothing(self):
+        # #2371: the exclusion is a filter, not a fallback. A pool whose only
+        # tagged photo is sepia returns no source, so the caller can top up
+        # rather than ship a scene the tone gate cannot clean.
+        sepia = source(sid="commons-sepia-only", date="1905-01-01")
+        sepia["tags"] = {"medium": "sepia"}
+        self.write_source(src=sepia)
+        self.assertEqual(g.select_sources(self.data_dir, 5), [])
+
 
 # ── Scene-time anchor (#1403) ──────────────────────────────────────────────
 

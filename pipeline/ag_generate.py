@@ -3250,6 +3250,23 @@ def source_tag_rank(entry: dict) -> tuple:
             0 if people in PEOPLE_LEVELS_WITH_PEOPLE else 1)
 
 
+def is_sepia(entry: dict) -> bool:
+    """True when the photo tags measure the source as sepia (ticket #2344).
+
+    A sepia photograph is the worst medium by far (17% accepted against 43%
+    for grayscale, 53 decided on 2026-10-07), and the failures are the ones
+    the deterministic tone gate cannot catch: a coloured element on a sepia
+    frame clashes with its warm tone ("doesn't match style of image") and
+    reads at a glance ("too easy"). The tone check and its repair only run
+    on grayscale sources, so such a render ships and is rejected. Untagged
+    sources stay in the pool: the tag is the only sepia signal the pick has.
+    """
+    tags = (entry or {}).get("tags")
+    if not isinstance(tags, dict):
+        return False
+    return str(tags.get("medium") or "").strip().lower() == "sepia"
+
+
 def figure_slots(sources, every: int = FIGURE_SLOT_EVERY) -> set:
     """Source ids that should carry a time-traveller figure (ticket #2345).
 
@@ -3289,10 +3306,14 @@ def select_sources(data_dir: Path, count: int, seed=None) -> list:
     one named motif is not starved, and ``MOTIF_OTHER`` is never capped.
     Ticket #2348: within every pass a photo whose tags measure better wins
     (``source_tag_rank``), so the day leans to busy, populated, non-sepia
-    photographs without changing the spread caps.
+    photographs without changing the spread caps. Ticket #2371: a sepia
+    photograph is dropped from the pool outright (``is_sepia``), not merely
+    ranked last: it is the worst medium by far (17% accepted) and the tone
+    gate cannot repair its element's colour clash.
     """
     unused = [s for s in ag_sources.list_sources(data_dir, unused=True)
               if s.get("image")
+              and not is_sepia(s)
               and (ag_sources.sources_dir(data_dir) / s["image"]).exists()]
     rng = random.Random(seed)
     rng.shuffle(unused)
