@@ -75,9 +75,21 @@ class PromptGuidanceTest(unittest.TestCase):
         self.assertEqual(len(lines), 2)  # the third 50-char line crosses 120
 
     def test_the_seeded_active_patterns_fit_one_prompt(self):
-        lines = ap.prompt_guidance(ap.load_patterns())
+        patterns = ap.load_patterns()
+        lines = ap.prompt_guidance(patterns)
         self.assertGreaterEqual(len(lines), 3)
         self.assertTrue(any("WD-40" in line for line in lines))
+
+    def test_the_prompt_cap_covers_every_active_pattern(self):
+        # The guidance is read in catalogue order, so a pattern appended past
+        # the cap is dropped silently. That starved `wheeled-or-telescoping`
+        # (the largest rejection class) from the 2026-10-08 prompt: it was the
+        # fifth active pattern against a four-line cap. Fail loudly here
+        # instead, so a new pattern forces a conscious cap raise or a retire.
+        patterns = ap.load_patterns()
+        want = [str(p["prompt"]).strip() for p in ap.active_patterns(patterns)
+                if str(p.get("prompt") or "").strip()]
+        self.assertEqual(ap.prompt_guidance(patterns), want)
 
 
 class PatternMatchTest(unittest.TestCase):

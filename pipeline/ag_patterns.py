@@ -38,8 +38,17 @@ STATUS_RETIRED = "retired"
 # The proposal prompt carries at most this many guidance lines and this many
 # characters, so a growing catalogue cannot crowd out the prompt's own rules
 # (the same "capped, like the avoid line" budget the ticket asks for).
-PROMPT_LINE_LIMIT = 4
-PROMPT_CHAR_CAP = 800
+#
+# The cap must cover every active pattern's lesson: the lines are read in
+# catalogue order, so a pattern appended past the cap is dropped silently.
+# That starved the catalogue's largest measured rejection class for two
+# nights: `wheeled-or-telescoping` (48 of the 132 rejections in the
+# 2026-10-08 window, 23 % accepted) was the fifth active pattern and never
+# reached the prompt while the cap stayed at 4 lines / 800 characters.
+# Raising it is a deliberate act: either fit the new lesson or retire an old
+# one (the catalogue's lifecycle keeps retired entries readable).
+PROMPT_LINE_LIMIT = 5
+PROMPT_CHAR_CAP = 1000
 
 
 def load_patterns(path=None) -> list:
