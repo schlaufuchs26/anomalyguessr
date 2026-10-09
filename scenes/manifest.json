@@ -1,21 +1,21 @@
 {
   "version": 2,
-  "date": "2026-10-08",
+  "date": "2026-10-09",
   "scenes": [
     {
-      "id": "gallica-el-torres-se-rendant-la-mosqu-e-1905-photographi-32cdaa-modern-cargo-trolley-han",
-      "title": "El Torres on his way to the mosque",
+      "id": "gallica-inondations-de-paris-janvier-1910-photographie-d-19b6d9-modern-traffic-cone",
+      "title": "Floods in Paris",
       "title_source": "catalog",
       "place": "",
-      "year": "1905",
-      "description": "A press photograph, taken in 1905 by Jean du Taillis with the Agence Rol as commissioning agency, showing El Torres on his way to the mosque. The record is held by the Bibliothèque nationale de France, département Estampes et photographie.",
-      "anomaly": "Modern cargo trolley handle",
+      "year": "1910",
+      "description": "A press photograph from Agence Rol showing the January 1910 floods in Paris, taken on 29 January 1910. It is held by the Bibliothèque nationale de France, département Estampes et photographie, and is in the public domain.",
+      "anomaly": "Modern traffic cone",
       "answer": {
-        "x": 0.26,
-        "y": 0.205,
-        "r": 0.22
+        "x": 0.617,
+        "y": 0.522,
+        "r": 0.1113
       },
-      "explanation": "Telescopic luggage handles with plastic grips did not exist in 1905, so this handle cannot belong to the scene.",
+      "explanation": "The reflective-banded traffic cone did not exist in 1910, so it cannot belong to this flooded park scene.",
       "references": [
         {
           "label": "Bibliothèque nationale de France (Gallica)",
@@ -24,167 +24,168 @@
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53207051p",
-        "originalTitle": "[El Torres se rendant à la mosquée, 1905] : [photographie de presse] / [Agence Rol] ; [d'après la photographie originale de Jean du Taillis]",
-        "date": "1905",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6913432d",
+        "originalTitle": "[Inondations de Paris, janvier 1910] : [photographie de presse] / [Agence Rol]",
+        "date": "1910",
         "place": "",
         "license": "Public domain",
-        "description": "Référence bibliographique : K257990 Appartient à l’ensemble documentaire : Pho20Rol Image de presse",
-        "titleEn": "El Torres on his way to the mosque"
+        "description": "Référence bibliographique : Rol, 8286 Appartient à l’ensemble documentaire : Pho20Rol",
+        "titleEn": "Floods in Paris"
       },
       "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53207051p",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6913432d",
       "added": "2026-09-16",
-      "shown": "2026-10-08",
-      "image": "scenes/gallica-el-torres-se-rendant-la-mosqu-e-1905-photographi-32cdaa-modern-cargo-trolley-han.jpg",
-      "original": "scenes/gallica-el-torres-se-rendant-la-mosqu-e-1905-photographi-32cdaa-modern-cargo-trolley-han-original.jpg"
+      "shown": "2026-10-09",
+      "image": "scenes/gallica-inondations-de-paris-janvier-1910-photographie-d-19b6d9-modern-traffic-cone.jpg",
+      "original": "scenes/gallica-inondations-de-paris-janvier-1910-photographie-d-19b6d9-modern-traffic-cone-original.jpg"
     },
     {
-      "id": "gallica-m-fibiger-cnews-photographie-de-presse-agence-ro-b40728-modern-led-desk-lamp",
-      "title": "M. Fibiger (CNews)",
+      "id": "europeana--1900-53d912-modern-led-clip-on-readi",
+      "title": "Church of Saint George",
       "title_source": "catalog",
-      "place": "",
-      "year": "1927",
-      "description": "A press photograph from November 1927 shows M. Fibiger (CNews), taken by the Agence Rol after the original photograph by the Central News photographic agency. It is held by the Bibliothèque nationale de France, département Estampes et photographie, and is in the public domain.",
-      "anomaly": "modern LED desk lamp",
+      "place": "Χαϊδάρι",
+      "year": "1900",
+      "description": "A church interior with wall paintings, photographed in 1900 in Chaidari. The record does not name the photographer.",
+      "anomaly": "modern LED clip-on reading lamp",
       "answer": {
-        "x": 0.385,
-        "y": 0.505,
+        "x": 0.192,
+        "y": 0.512,
         "r": 0.22
       },
-      "explanation": "Practical visible-spectrum LEDs did not exist in 1927, so this lamp cannot belong to the scene.",
+      "explanation": "Clip-on LED reading lamps with a flat diode head did not exist in 1900, when icon lighting was oil or candle based.",
       "references": [
         {
-          "label": "LED lamp history",
+          "label": "Wikipedia: LED lamp",
           "url": "https://en.wikipedia.org/wiki/LED_lamp"
         }
       ],
       "source": {
-        "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53190884d",
-        "originalTitle": "M. Fibiger (CNews) : [photographie de presse] / [Agence Rol] ; [d'après la photographie originale de l'agence photographique Central News]",
-        "date": "1927",
-        "place": "",
-        "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 124440 Appartient à l’ensemble documentaire : Pho20Rol Image de presse"
+        "repository": "Europeana",
+        "fileUrl": "https://www.europeana.eu/item/2064927/https___www_searchculture_gr_aggregator_edm_Haidari_000066__3A1303",
+        "originalTitle": "Ναός Αγίου Γεωργίου",
+        "date": "1900",
+        "place": "Χαϊδάρι",
+        "license": "CC BY-SA",
+        "description": "Η ίδρυση του ναΐσκου του Αγίου Γεωργίου ανάγεται στα μεταβυζαντινά χρόνια, όπως μαρτυρεί η τοιχογραφία που σώζεται στο ιερό, στην κόγχη της πρόθεσης, με την παράσταση της Άκρας Ταπείνωσης, η οποία τοποθετείται στον 16ο αιώνα. Πολλαπλά μέρη του ναού τοιχογραφήθηκαν κατά το β' ήμισυ της δεκαετίας του 19ου αιώνα. Στον Λύτρα αποδίδονται με βεβαιότητα οι παραστάσεις του Αποκεφαλισμού του Ιωάννου του Προδρόμου (ύψος: 1,2 μ. και πλάτος 0,9 μ.) και του Έφιππου Αγίου Γεωργίου να σκοτώνει τον δράκοντα (ύψος: 1,18 μ. και πλάτος 0,92 μ.). Οι δύο παραστάσεις βρίσκονται στον νότιο και τον βόρειο τοίχο της εκκλησίας αντιστοίχως, σε εξαιρετικά αποσπασματική κατάσταση εξαιτίας των πολλαπλών επιχρωματισμών και της φθοράς του χρόνου. Στην παράσταση του Αποκεφαλισμού διακρίνεται μια καλά ισορροπημένη σύνθεση με τον Ιωάννη να γονατίζει στο κέντρο και τον Ρωμαίο δήμιο να στέκεται στα δεξιά. Η σύνθεση συμπληρώνεται στα αριστερά από δύο γυναικείες μορφές, τη Σαλώμη και μία θεραπαινίδα της. Οι μορφές είναι πλασμένες δυνατά και τα χρώματα πλούσια και ζεστά. Σώζονται ίχνη κόκκινων, ωχρών και καφετιών. Ανάλογα είναι τα χαρακτηριστικά της παράστασης του αγίου Γεωργίου, που σώζεται ελάχιστα. Η δυναμική κίνηση του αγίου, που κατατροπώνει τον δράκοντα στο κάτω μέρος της σκηνής, υπογραμμίζεται από τον πορφυρό μανδύα που ανεμίζει πίσω του, αιχμαλωτίζοντας το βλέμμα του θεατή. Στο κτιστό τέμπλο του ναού, εκατέρωθεν της Ωραίας Πύλης, υπάρχουν οι παραστάσεις του Χριστού (ύψος: 1,18 μ. και πλάτος 0,4 μ.) της Θεοτόκου με το Θείο Βρέφος (ύψος: 1,2 μ. και πλάτος 0,4 μ.) και της Αγίας Παρασκευής (ύψος: 1,2 μ. και πλάτος 0,42 μ.). Και οι τρεις μορφές εικονίζονται ιστάμενες. Η ιδιαίτερα κακή διατήρησή τους εμποδίζει τη λεπτομερή περιγραφή τους, καθώς και την ταύτιση του καλλιτέχνη που τις φιλοτέχνησε. Η πιο καλοδιατηρημένη μορφή είναι αυτή της Αγίας Παρασκευής, που βρίσκεται στα νότια της Ωραίας Πύλης, στα δεξιά της εικόνας του Χριστού. Είναι πιθανό ότι και οι τοιχογραφίες του τέμπλου ζωγραφίστηκαν από τον Νικηφόρο Λύτρα. Επίσης, έχει προταθεί ότι οι τοιχογραφίες αυτές είναι προϊόν συνεργασίας του Λύτρα με τον Τήνιο ζωγράφο Νικόλαο Γύζη. Πάντως, η συμμετοχή του Γύζη στην αγιογράφηση του Αγίου Γεωργίου προκύπτει από αναφορές του ζωγράφου στην αλληλογραφία του και άλλες φιλολογικές πηγές. Στους Λύτρα και Γύζη θα πρέπει πιθανόν να αποδοθεί και η παράσταση της Πλατυτέρας που κοσμεί την κόγχη του ιερού (μέγιστο πλάτος: 1,6 μ. και ύψος: 1,25 μ.). Πρόκειται για την πλέον καλοδιατηρημένη από τις τοιχογραφίες. Η Παναγία εικονίζεται με τον μικρό Χριστό καθισμένο στα πόδια της και τα χέρια ανοικτά, σε χειρονομία δέησης. Φορά πορφυρό μανδύα με πλούσιες πτυχώσεις. Οι μορφές διαθέτουν σωματική ουσία και πλαστικότητα, ενώ τα καλοπλασμένα πρόσωπα της Παναγίας και του Χριστού αποπνέουν ήρεμη αυστηρότητα. Κλείνοντας την περιγραφή των τοιχογραφιών του Αγίου Γεωργίου αναφέρουμε κεφαλή μικρού αγγέλου σε ημικυκλικό τόξο που επιστέφει το τέμπλο. Και εδώ ο καλλιτέχνης δεν έχει ταυτιστεί. Βέβαια, η τεχνοτροπική ομοιότητα που παρουσιάζει με τις υπόλοιπες εικόνες του τέμπλου μας οδηγεί στην υπόθεση ότι και αυτή φιλοτεχνήθηκε από τους Γύζη και Λύτρα. Ο Γεώργιος Δροσίνης αναφέρει ότι στο εκκλησάκι υπήρχαν και οι δύο άγγελοι της Παναγίας Σιξτίνας του Ραφαήλ με τα χαρακτηριστικά των δύο παιδιών του Νικόλαου Νάζου.",
+        "titleEn": "Church of Saint George"
       },
-      "credit": "Central News (Agence photographique). Agence photographique pour le document reproduit (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53190884d",
-      "added": "2026-10-03",
-      "shown": "2026-10-08",
-      "image": "scenes/gallica-m-fibiger-cnews-photographie-de-presse-agence-ro-b40728-modern-led-desk-lamp.jpg",
-      "original": "scenes/gallica-m-fibiger-cnews-photographie-de-presse-agence-ro-b40728-modern-led-desk-lamp-original.jpg"
+      "credit": "Europeana",
+      "sourceUrl": "https://www.europeana.eu/item/2064927/https___www_searchculture_gr_aggregator_edm_Haidari_000066__3A1303",
+      "added": "2026-10-04",
+      "shown": "2026-10-09",
+      "image": "scenes/europeana--1900-53d912-modern-led-clip-on-readi.jpg",
+      "original": "scenes/europeana--1900-53d912-modern-led-clip-on-readi-original.jpg"
     },
     {
-      "id": "nb-personer-seilb-t-brygge-1929-be2609-modern-plastic-wheeled-c",
-      "title": "People, Sailboat, Pier",
+      "id": "finna-tuomaan-markkinat-2023-12-02-00-00-00-2f2700-small-humanoid-service-r",
+      "title": "Thomas's Market",
       "title_source": "catalog",
       "place": "",
-      "year": "1929",
-      "description": "A photograph from 1929 showing people, a sailboat and a pier, held by the National Library of Norway. The record does not name a photographer or a specific location.",
-      "anomaly": "modern plastic wheeled cooler",
+      "year": "2023",
+      "description": "A photograph taken on 2 December 2023 showing an outdoor market with a carousel and a courtyard for food and coffee, where visitors can enjoy and taste the flavours of the season. The record describes Tuomaan markkinat as the oldest outdoor market of its kind in the area, focused on delicious food experiences, personal and high-quality gifts, and an unhurried atmosphere.",
+      "anomaly": "small humanoid service robot",
       "answer": {
-        "x": 0.795,
-        "y": 0.725,
-        "r": 0.035
-      },
-      "explanation": "A molded plastic wheeled cooler could not exist in 1929 because plastic coolers with wheels were not made until the 1950s.",
-      "references": [
-        {
-          "label": "Coleman cooler history",
-          "url": "https://www.coleman.com/about-us/our-history/"
-        }
-      ],
-      "source": {
-        "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20130813_00096_NB_PWZ_N03_08_038",
-        "originalTitle": "[Personer, seilbåt, brygge]",
-        "date": "1929",
-        "place": "",
-        "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-08-19T12:26:55.337Z', 'firstDigitalContentTime': '2025-08-19T14:01:19.530Z', 'indexLastModified': '2025-08-19T14:01:19.530Z'}",
-        "titleEn": "People, Sailboat, Pier"
-      },
-      "credit": "Zapffe, Peter Wessel via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20130813_00096_NB_PWZ_N03_08_038",
-      "added": "2026-10-03",
-      "shown": "2026-10-08",
-      "image": "scenes/nb-personer-seilb-t-brygge-1929-be2609-modern-plastic-wheeled-c.jpg",
-      "original": "scenes/nb-personer-seilb-t-brygge-1929-be2609-modern-plastic-wheeled-c-original.jpg"
-    },
-    {
-      "id": "finna-juhla-messukeskuksessa-1942-06-04-00-00-00-7142af-modern-led-stage-light-b",
-      "title": "Celebration at the Exhibition and Convention Centre",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1942",
-      "description": "A photograph taken on 4 June 1942 at Juhla Messukeskuksessa in Finland.",
-      "anomaly": "modern LED stage light bar",
-      "answer": {
-        "x": 0.58,
-        "y": 0.075,
+        "x": 0.687,
+        "y": 0.858,
         "r": 0.22
       },
-      "explanation": "LED stage lighting fixtures did not exist in 1942; they became common only in the 2010s.",
+      "explanation": "A walking humanoid service robot mingling with a market crowd does not exist in 2026, so it cannot belong to a photograph taken in 2023.",
       "references": [
         {
-          "label": "LED stage lighting",
-          "url": "https://en.wikipedia.org/wiki/Stage_lighting#LED"
+          "label": "Wikipedia: Humanoid robot",
+          "url": "https://en.wikipedia.org/wiki/Humanoid_robot"
         }
       ],
       "source": {
         "repository": "Finna (Finland)",
-        "fileUrl": "https://www.finna.fi/Record/sa-kuva.sa-kuva/15800",
-        "originalTitle": "Juhla Messukeskuksessa.",
-        "date": "1942-06-04T00:00:00Z",
+        "fileUrl": "https://www.finna.fi/Record/hkm.b40c4bbb-0a42-4243-9236-8a62d1448f21",
+        "originalTitle": "Tuomaan markkinat.",
+        "date": "2023-12-02T00:00:00Z",
         "place": "",
         "license": "CC BY 4.0",
-        "description": "",
-        "titleEn": "Celebration at the Exhibition and Convention Centre"
+        "description": "sisällön kuvaus: Tuomaan Markkinat on Helsingin vanhin ulkoilmassa järjestettävä joulutori. Markkinoilla panostetaan herkullisiin ruokakokemuksiin, persoonallisiin ja laadukkaisiin lahjoihin sekä kiireettömään joulun tunnelmaan. Markkinoiden sydämenä toimivat karuselli sekä ruoka- ja kahvilapiha, joka kutsuu viihtymään ja maistelemaan joulun makuja.",
+        "titleEn": "Thomas's Market"
       },
       "credit": "Finna (Finland)",
-      "sourceUrl": "https://www.finna.fi/Record/sa-kuva.sa-kuva/15800",
+      "sourceUrl": "https://www.finna.fi/Record/hkm.b40c4bbb-0a42-4243-9236-8a62d1448f21",
       "added": "2026-10-04",
-      "shown": "2026-10-08",
-      "image": "scenes/finna-juhla-messukeskuksessa-1942-06-04-00-00-00-7142af-modern-led-stage-light-b.jpg",
-      "original": "scenes/finna-juhla-messukeskuksessa-1942-06-04-00-00-00-7142af-modern-led-stage-light-b-original.jpg"
+      "shown": "2026-10-09",
+      "image": "scenes/finna-tuomaan-markkinat-2023-12-02-00-00-00-2f2700-small-humanoid-service-r.jpg",
+      "original": "scenes/finna-tuomaan-markkinat-2023-12-02-00-00-00-2f2700-small-humanoid-service-r-original.jpg"
     },
     {
-      "id": "gallica-automobile-cl-ment-bayard-de-mr-briand-photograp-780f3a-modern-plastic-jerrycan",
-      "title": "Mr Briand's Clément-Bayard automobile",
+      "id": "gallica-wagon-cole-du-po-compagnie-du-chemin-de-fer-de-p-e8a4ca-modern-photovoltaic-sola",
+      "title": "Railway School Car of the PO",
       "title_source": "catalog",
       "place": "",
-      "year": "1913",
-      "description": "A press photograph from 1913 by Agence Rol shows the Clément-Bayard automobile of Mr Briand, with a private chauffeur. The glass negative is held by the Bibliothèque nationale de France, département Estampes et photographie.",
-      "anomaly": "modern plastic jerrycan",
+      "year": "1922",
+      "description": "A press photograph taken by Agence Rol in July 1922, showing a railway study and teaching car of the Compagnie du chemin de fer de Paris à Orléans. The record identifies it as a glass negative held by the Bibliothèque nationale de France, département Estampes et photographie.",
+      "anomaly": "modern photovoltaic solar panel",
       "answer": {
-        "x": 0.46,
-        "y": 0.777,
+        "x": 0.4,
+        "y": 0.42,
         "r": 0.22
       },
-      "explanation": "The jerrycan is a pressed-steel or plastic fuel container that did not exist in 1913, so it cannot belong to this pre-war automobile scene.",
+      "explanation": "Photovoltaic solar panels did not exist in 1922; the first practical silicon solar cell was demonstrated in 1954, so no panel could be mounted on this wagon.",
       "references": [
         {
-          "label": "Jerrycan - Wikipedia",
-          "url": "https://en.wikipedia.org/wiki/Jerrycan"
+          "label": "Solar cell - Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Solar_cell"
         }
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6925495t",
-        "originalTitle": "Automobile Clément-Bayard de Mr Briand : [photographie de presse] / [Agence Rol]",
-        "date": "1913",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53087125j",
+        "originalTitle": "Wagon-école du PO [Compagnie du chemin de fer de Paris à Orléans] : [photographie de presse] / [Agence Rol]",
+        "date": "1922",
         "place": "",
         "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 30102 Appartient à l’ensemble documentaire : Pho20Rol Appartient à l’ensemble documentaire : MnS000",
-        "titleEn": "Mr Briand's Clément-Bayard automobile"
+        "description": "Référence bibliographique : Rol, 76688 Appartient à l’ensemble documentaire : Pho20Rol Image de presse",
+        "titleEn": "Railway School Car of the PO"
       },
       "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b6925495t",
-      "added": "2026-10-02",
-      "shown": "2026-10-08",
-      "image": "scenes/gallica-automobile-cl-ment-bayard-de-mr-briand-photograp-780f3a-modern-plastic-jerrycan.jpg",
-      "original": "scenes/gallica-automobile-cl-ment-bayard-de-mr-briand-photograp-780f3a-modern-plastic-jerrycan-original.jpg"
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53087125j",
+      "added": "2026-10-04",
+      "shown": "2026-10-09",
+      "image": "scenes/gallica-wagon-cole-du-po-compagnie-du-chemin-de-fer-de-p-e8a4ca-modern-photovoltaic-sola.jpg",
+      "original": "scenes/gallica-wagon-cole-du-po-compagnie-du-chemin-de-fer-de-p-e8a4ca-modern-photovoltaic-sola-original.jpg"
+    },
+    {
+      "id": "finna-ravintola-konja-2023-01-03-00-00-00-2b6adb-small-hovering-anti-grav",
+      "title": "Restaurant Konja",
+      "title_source": "catalog",
+      "place": "",
+      "year": "2023",
+      "description": "A photograph of one of the many food and drink establishments at Ylä-Malmintori, taken in 2023. The restaurant, which has operated since 1992, offers bingo, billiards and poker, and also hosts various competitions.",
+      "anomaly": "small hovering anti-gravity drink tray",
+      "answer": {
+        "x": 0.575,
+        "y": 0.635,
+        "r": 0.1021
+      },
+      "explanation": "A silently hovering tray with no support cannot exist in 2023, since no anti-gravity device has ever been built.",
+      "references": [
+        {
+          "label": "Wikipedia: Anti-gravity",
+          "url": "https://en.wikipedia.org/wiki/Anti-gravity"
+        }
+      ],
+      "source": {
+        "repository": "Finna (Finland)",
+        "fileUrl": "https://www.finna.fi/Record/hkm.1532b817-eeb6-4fa3-9fc4-a5aedd9863fc",
+        "originalTitle": "Ravintola Konja.",
+        "date": "2023-01-03T00:00:00Z",
+        "place": "",
+        "license": "CC BY 4.0",
+        "description": "sisällön kuvaus: Konja on yksi lukuisista ravitsemusliikkeistä Ylä-Malmintorilla. Ravintola on toiminut jo vuodesta 1992. Konjassa voi pelata bingoa, biljardia sekä pokeria. Siellä järjestetään myös erilaisia kilpailuja.",
+        "titleEn": "Restaurant Konja"
+      },
+      "credit": "Finna (Finland)",
+      "sourceUrl": "https://www.finna.fi/Record/hkm.1532b817-eeb6-4fa3-9fc4-a5aedd9863fc",
+      "added": "2026-10-05",
+      "shown": "2026-10-09",
+      "image": "scenes/finna-ravintola-konja-2023-01-03-00-00-00-2b6adb-small-hovering-anti-grav.jpg",
+      "original": "scenes/finna-ravintola-konja-2023-01-03-00-00-00-2b6adb-small-hovering-anti-grav-original.jpg"
     }
   ]
 }
