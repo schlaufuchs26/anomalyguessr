@@ -1458,6 +1458,22 @@ def proposal_conflicts(proposal, source, avoid, blocked=(),
     return out
 
 
+def class_conflict(proposal, patterns=()) -> str | None:
+    """The label when a proposal still belongs to a catalogue class rule.
+
+    The ``class`` rule (2026-10-06) is the largest measured rejection class:
+    wheeled and telescoping objects are rejected on every reason (too easy,
+    no sense, wrong scale). ``enforce_proposal_gates`` only re-asks once, so
+    a survivor still ships and is rejected. Ticket #2451: the caller treats a
+    survivor as a retry, the way it treats a batch duplicate, so the class
+    never reaches the queue. Returns ``None`` for a clean proposal.
+    """
+    label = str((proposal or {}).get("anomaly") or "")
+    if label and ag_patterns.matches_rule(patterns, "class", label):
+        return label
+    return None
+
+
 def conflict_reason(conflicts: dict) -> str:
     """One sentence naming every gate finding, for the re-ask prompt."""
     parts = []
@@ -4677,6 +4693,20 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
                           "attempt": attempt, "duplicate": duplicate}
             set_trace_error(data_dir, trace, last_error["reason"])
             continue
+        # Ticket #2451: the catalogue's class rule is the largest measured
+        # rejection class (wheeled/telescoping, 22 % accepted over the
+        # 2026-10-10 window). The gate above only re-asks once, so a
+        # surviving element of the class would ship and be rejected; a
+        # survivor is a retry like a batch duplicate, never a shipped scene.
+        class_hit = class_conflict(proposal, patterns)
+        if class_hit is not None:
+            last_error = {"id": source["id"], "stage": "element-class",
+                          "reason": (f"proposal is still a wheeled or "
+                                     f"telescoping object ({class_hit}); "
+                                     "asking for another element"),
+                          "attempt": attempt}
+            set_trace_error(data_dir, trace, last_error["reason"])
+            continue
         gate_review = ""
         if gate.get("repeated"):
             gate_review = ("proposal still repeats an element already used "
@@ -4969,6 +4999,20 @@ def _generate_one(source: dict, args, data_dir: Path, date: str,
                                      f"({duplicate}); asking for another "
                                      "element"),
                           "attempt": attempt, "duplicate": duplicate}
+            set_trace_error(data_dir, trace, last_error["reason"])
+            continue
+        # Ticket #2451: the catalogue's class rule is the largest measured
+        # rejection class (wheeled/telescoping, 22 % accepted over the
+        # 2026-10-10 window). The gate above only re-asks once, so a
+        # surviving element of the class would ship and be rejected; a
+        # survivor is a retry like a batch duplicate, never a shipped scene.
+        class_hit = class_conflict(proposal, patterns)
+        if class_hit is not None:
+            last_error = {"id": source["id"], "stage": "element-class",
+                          "reason": (f"proposal is still a wheeled or "
+                                     f"telescoping object ({class_hit}); "
+                                     "asking for another element"),
+                          "attempt": attempt}
             set_trace_error(data_dir, trace, last_error["reason"])
             continue
         entry = build_entry(source, proposal, answer, date, scene=st,

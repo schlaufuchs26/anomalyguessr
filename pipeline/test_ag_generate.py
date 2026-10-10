@@ -1638,6 +1638,18 @@ class AnomalyPatternsTest(unittest.TestCase):
             {"anomaly": "Plastic bottle (clear PET)"}, source(), [],
             patterns=self.patterns))
 
+    def test_the_class_rule_is_a_rule_not_only_a_reask(self):
+        # Ticket #2451: a wheeled/telescoping proposal that survives the one
+        # re-ask must not ship; class_conflict names it so the caller retries.
+        patterns = ap.load_patterns()
+        self.assertEqual(
+            g.class_conflict({"anomaly": "Modern plastic wheeled suitcase"},
+                             patterns),
+            "Modern plastic wheeled suitcase")
+        self.assertIsNone(
+            g.class_conflict({"anomaly": "Paper coffee cup"}, patterns))
+        self.assertIsNone(g.class_conflict({"anomaly": ""}, patterns))
+
     def test_the_class_rule_reasks_a_wheeled_object(self):
         # 2026-10-06 feedback pass: the largest rejection class gets the
         # same one re-ask as a blocked label.
