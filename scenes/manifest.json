@@ -1,191 +1,191 @@
 {
   "version": 2,
-  "date": "2026-10-10",
+  "date": "2026-10-11",
   "scenes": [
     {
-      "id": "nb-narvik-havn-1941-11-17-9eadf8-jet-ski",
-      "title": "Narvik Harbour",
+      "id": "nb-stavanger-torg-1967-b4f4d6-modern-plastic-pallet",
+      "title": "Stavanger Square",
       "title_source": "catalog",
       "place": "",
-      "year": "1941",
-      "description": "A photograph from the National Library of Norway shows the harbour in Narvik, dated 17 November 1941. The record does not state a photographer.",
-      "anomaly": "jet ski",
+      "year": "1967",
+      "description": "A photograph titled Stavanger torg 1967, held by the National Library of Norway and in the public domain. The record does not state a photographer.",
+      "anomaly": "modern plastic pallet",
       "answer": {
-        "x": 0.731,
-        "y": 0.657,
+        "x": 0.655,
+        "y": 0.795,
         "r": 0.22
       },
-      "explanation": "Personal watercraft with a saddle seat and handlebar steering did not exist in 1941, so nothing in this harbour could be one.",
+      "explanation": "Slotted plastic pallets did not exist in 1967; only wooden pallets were in use then.",
       "references": [
         {
           "label": "National Library of Norway",
-          "url": "https://www.nb.no/"
+          "url": "https://www.nb.no"
         }
       ],
       "source": {
         "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20170118_00101_NB_MIT_GNR_13156",
-        "originalTitle": "Narvik. Havn.",
-        "date": "1941-11-17",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20160901_00181_NB_MIT_FNR_23190",
+        "originalTitle": "Stavanger torg",
+        "date": "1967",
         "place": "",
         "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-08-19T11:55:20.209Z', 'firstDigitalContentTime': '2025-08-19T12:27:07.044Z', 'indexLastModified': '2025-08-19T12:27:07.044Z'}",
-        "titleEn": "Narvik Harbour"
+        "description": "{'firstIndexTime': '2025-08-20T03:12:19.002Z', 'firstDigitalContentTime': '2025-08-20T07:23:07.441Z', 'indexLastModified': '2025-08-20T07:23:07.442Z'}",
+        "titleEn": "Stavanger Square"
       },
-      "credit": "Mittet & Co. AS via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20170118_00101_NB_MIT_GNR_13156",
+      "credit": "Mittet & Co. AS, Brun, Jac via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20160901_00181_NB_MIT_FNR_23190",
       "added": "2026-09-16",
-      "shown": "2026-10-10",
-      "image": "scenes/nb-narvik-havn-1941-11-17-9eadf8-jet-ski.jpg",
-      "original": "scenes/nb-narvik-havn-1941-11-17-9eadf8-jet-ski-original.jpg"
+      "shown": "2026-10-11",
+      "image": "scenes/nb-stavanger-torg-1967-b4f4d6-modern-plastic-pallet.jpg",
+      "original": "scenes/nb-stavanger-torg-1967-b4f4d6-modern-plastic-pallet-original.jpg"
     },
     {
-      "id": "europeana-interieur-tijdens-tentoonstelling-1928-ab967a-modern-led-desk-lamp",
-      "title": "Interior during an exhibition",
+      "id": "finna-ravintola-esplanadikappeli-1989-01-01-00-00-00-535649-modern-plastic-wheeled-s",
+      "title": "Restaurant Esplanadikappeli",
       "title_source": "catalog",
-      "place": "Kasteelplein",
-      "year": "1928",
-      "description": "An interior view taken during an exhibition. The photograph is from Europeana and is licensed CC BY-SA.",
-      "anomaly": "modern LED desk lamp",
+      "place": "",
+      "year": "1989",
+      "description": "A restaurant interior photographed in 1989. The record credits the image to Finna and licenses it under CC BY 4.0.",
+      "anomaly": "modern plastic wheeled shopping trolley",
       "answer": {
-        "x": 0.755,
-        "y": 0.655,
-        "r": 0.035
+        "x": 0.884,
+        "y": 0.702,
+        "r": 0.22
       },
-      "explanation": "LED desk lamps did not exist in 1928; the first practical visible-spectrum LEDs appeared in the 1960s and domestic LED lamps became common only in the 1990s.",
+      "explanation": "The wheeled wire shopping trolley with casters is a mid-20th-century supermarket fixture that did not exist in the 1989 scene's setting.",
       "references": [
         {
-          "label": "Wikipedia: LED lamp",
-          "url": "https://en.wikipedia.org/wiki/LED_lamp"
+          "label": "Wikipedia: Shopping cart",
+          "url": "https://en.wikipedia.org/wiki/Shopping_cart"
+        }
+      ],
+      "source": {
+        "repository": "Finna (Finland)",
+        "fileUrl": "https://www.finna.fi/Record/hkm.44871711-05BC-47A0-976D-4E1D36AAF163",
+        "originalTitle": "Ravintola Esplanadikappeli",
+        "date": "1989-01-01T00:00:00Z",
+        "place": "",
+        "license": "CC BY 4.0",
+        "description": "sisällön kuvaus: Ravintola  Esplanadikappeli.",
+        "titleEn": "Restaurant Esplanadikappeli"
+      },
+      "credit": "Finna (Finland)",
+      "sourceUrl": "https://www.finna.fi/Record/hkm.44871711-05BC-47A0-976D-4E1D36AAF163",
+      "added": "2026-10-05",
+      "shown": "2026-10-11",
+      "image": "scenes/finna-ravintola-esplanadikappeli-1989-01-01-00-00-00-535649-modern-plastic-wheeled-s.jpg",
+      "original": "scenes/finna-ravintola-esplanadikappeli-1989-01-01-00-00-00-535649-modern-plastic-wheeled-s-original.jpg"
+    },
+    {
+      "id": "gallica-viaduc-d-aumessas-et-vue-d-ensemble-de-la-ligne-7bbc6d-modern-wind-turbine",
+      "title": "Aumessas Viaduct and the Railway Line Toward the Bouffiac Tunnel",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1899",
+      "description": "A photograph by A. Bonnaud, dated 1899, showing the Aumessas stone viaduct and an overall view of the railway line between that structure and the Bouffiac tunnel, in the Gard, France. It relates to the Tournemire–Le Vigan railway of the Compagnie des chemins de fer du Midi and is held by the Ecole nationale des ponts et chaussées.",
+      "anomaly": "modern wind turbine",
+      "answer": {
+        "x": 0.333,
+        "y": 0.333,
+        "r": 0.22
+      },
+      "explanation": "Modern wind turbines did not exist in 1899, so this object cannot belong to the scene's year.",
+      "references": [
+        {
+          "label": "Wind turbine - Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Wind_turbine"
+        }
+      ],
+      "source": {
+        "repository": "Bibliothèque nationale de France (Gallica)",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b10484106p",
+        "originalTitle": "Viaduc d'Aumessas et vue d'ensemble de la ligne entre cet ouvrage et le souterrain de Bouffiac / Bonnaud, A.",
+        "date": "1899",
+        "place": "",
+        "license": "Public domain",
+        "description": "Appartient à l’ensemble documentaire : EnPC000 Appartient à l’ensemble documentaire : EnPCthèm02 Appartient à l’ensemble documentaire : EnPCcorp17 Appartient à l’ensemble documentaire : EnPCtypo02",
+        "titleEn": "Aumessas Viaduct and the Railway Line Toward the Bouffiac Tunnel"
+      },
+      "credit": "Bonnaud, A.. Auteur du texte via Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b10484106p",
+      "added": "2026-10-05",
+      "shown": "2026-10-11",
+      "image": "scenes/gallica-viaduc-d-aumessas-et-vue-d-ensemble-de-la-ligne-7bbc6d-modern-wind-turbine.jpg",
+      "original": "scenes/gallica-viaduc-d-aumessas-et-vue-d-ensemble-de-la-ligne-7bbc6d-modern-wind-turbine-original.jpg"
+    },
+    {
+      "id": "gallica-canon-de-280-allemand-expos-la-gare-du-champs-de-46bbfd-modern-telescoping-selfi",
+      "title": "German 280 Cannon Displayed at the Champ de Mars Station",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1918",
+      "description": "A press photograph by Agence Meurisse, dated 1918, shows a 280 cannon displayed at the gare du Champs de Mars in Paris. The record lists it among material of the Guerre mondiale (1914-1918) and notes the gare Saint Lazare-Champ de Mars.",
+      "anomaly": "Modern telescoping selfie stick",
+      "answer": {
+        "x": 0.672,
+        "y": 0.585,
+        "r": 0.22
+      },
+      "explanation": "Telescoping selfie sticks with phone mounts did not exist in 1918, so this object could not be present at this wartime display.",
+      "references": [
+        {
+          "label": "Wikipedia: Selfie stick",
+          "url": "https://en.wikipedia.org/wiki/Selfie_stick"
+        }
+      ],
+      "source": {
+        "repository": "Bibliothèque nationale de France (Gallica)",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b90311387",
+        "originalTitle": "Canon de 280, allemand, exposé à la gare du Champs de Mars : [photographie de presse] / Agence Meurisse",
+        "date": "1918",
+        "place": "",
+        "license": "Public domain",
+        "description": "Référence bibliographique : Meurisse, 68885 Appartient à l’ensemble documentaire : Pho20Meu Image de presse",
+        "titleEn": "German 280 Cannon Displayed at the Champ de Mars Station"
+      },
+      "credit": "Agence de presse Meurisse. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b90311387",
+      "added": "2026-09-17",
+      "shown": "2026-10-11",
+      "image": "scenes/gallica-canon-de-280-allemand-expos-la-gare-du-champs-de-46bbfd-modern-telescoping-selfi.jpg",
+      "original": "scenes/gallica-canon-de-280-allemand-expos-la-gare-du-champs-de-46bbfd-modern-telescoping-selfi-original.jpg"
+    },
+    {
+      "id": "europeana-plattegrond-1658-gemeente-archief-amsterdam-19-374c13-modern-led-exit-sign",
+      "title": "Map of Amsterdam",
+      "title_source": "catalog",
+      "place": "Keizersgracht",
+      "year": "1979",
+      "description": "A map of Amsterdam, dated 1658, held by the Gemeente Archief Amsterdam. The photograph of it was taken in 1979 and is licensed CC BY-SA.",
+      "anomaly": "modern LED exit sign",
+      "answer": {
+        "x": 0.038,
+        "y": 0.64,
+        "r": 0.22
+      },
+      "explanation": "LED exit signs with the running-man pictogram did not exist in 1979; they became common only in the 1990s.",
+      "references": [
+        {
+          "label": "Wikipedia: Exit sign",
+          "url": "https://en.wikipedia.org/wiki/Exit_sign"
         }
       ],
       "source": {
         "repository": "Europeana",
-        "fileUrl": "https://www.europeana.eu/item/2058632/034c1e18_3c16_d508_ace2_a9e8ab387815_media_3cd1fb5d_a4aa_b5be_7ad0_a1c419c5ad01",
-        "originalTitle": "Interieur tijdens tentoonstelling",
-        "date": "1928",
-        "place": "Kasteelplein",
+        "fileUrl": "https://www.europeana.eu/item/2058632/0233add9_516a_0161_8968_5850c200ceee_media_57341537_c6c8_ce75_4539_26dbc64b2e4d",
+        "originalTitle": "plattegrond 1658 Gemeente Archief Amsterdam",
+        "date": "1979",
+        "place": "Keizersgracht",
         "license": "CC BY-SA",
-        "description": "Interieur tijdens tentoonstelling",
-        "titleEn": "Interior during an exhibition"
+        "description": "plattegrond 1658 Gemeente Archief Amsterdam",
+        "titleEn": "Map of Amsterdam"
       },
       "credit": "Europeana",
-      "sourceUrl": "https://www.europeana.eu/item/2058632/034c1e18_3c16_d508_ace2_a9e8ab387815_media_3cd1fb5d_a4aa_b5be_7ad0_a1c419c5ad01",
-      "added": "2026-10-05",
-      "shown": "2026-10-10",
-      "image": "scenes/europeana-interieur-tijdens-tentoonstelling-1928-ab967a-modern-led-desk-lamp.jpg",
-      "original": "scenes/europeana-interieur-tijdens-tentoonstelling-1928-ab967a-modern-led-desk-lamp-original.jpg"
-    },
-    {
-      "id": "gallica-canon-dans-une-tranch-e-photographie-de-presse-a-ed14df-modern-red-dot-reflex-si",
-      "title": "Cannon in a Trench",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1917",
-      "description": "A cannon is shown in a trench, photographed by Agence Rol in avril 1917. The record notes the subject as Guerre mondiale (1914-1918) -- Guerre de tranchées, and the photograph is held by the Bibliothèque nationale de France, département Estampes et photographie, EI-13 (547).",
-      "anomaly": "modern red-dot reflex sight",
-      "answer": {
-        "x": 0.489,
-        "y": 0.456,
-        "r": 0.22
-      },
-      "explanation": "The red-dot reflex sight is a firearm optic that did not exist in 1917, so it cannot be mounted on a field gun of that era.",
-      "references": [
-        {
-          "label": "Aimpoint - history of the red dot sight",
-          "url": "https://www.aimpoint.com/company/about-aimpoint/"
-        }
-      ],
-      "source": {
-        "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b530003724",
-        "originalTitle": "[Canon dans une tranchée] : [photographie de presse] / [Agence Rol]",
-        "date": "1917",
-        "place": "",
-        "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 49158 Appartient à l’ensemble documentaire : Pho20Rol Appartient à l’ensemble documentaire : GG14182 Image de presse",
-        "titleEn": "Cannon in a Trench"
-      },
-      "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b530003724",
-      "added": "2026-10-05",
-      "shown": "2026-10-10",
-      "image": "scenes/gallica-canon-dans-une-tranch-e-photographie-de-presse-a-ed14df-modern-red-dot-reflex-si.jpg",
-      "original": "scenes/gallica-canon-dans-une-tranch-e-photographie-de-presse-a-ed14df-modern-red-dot-reflex-si-original.jpg"
-    },
-    {
-      "id": "gallica-31-3-12-anniversaire-de-gambetta-aux-jardies-dis-ec9815-modern-clip-on-lavalier",
-      "title": "Gambetta's birthday at Les Jardies, Poincaré's speech",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1912",
-      "description": "A press photograph by Agence Rol showing a speech at the Jardies on 31 March 1912, for the anniversary of Gambetta. It is held by the Bibliothèque nationale de France, département Estampes et photographie.",
-      "anomaly": "modern clip-on lavalier microphone",
-      "answer": {
-        "x": 0.54,
-        "y": 0.44,
-        "r": 0.22
-      },
-      "explanation": "Clip-on lavalier microphones were not available in 1912; they became common only in the later 20th century.",
-      "references": [
-        {
-          "label": "Lavalier microphone - Wikipedia",
-          "url": "https://en.wikipedia.org/wiki/Lavalier_microphone"
-        }
-      ],
-      "source": {
-        "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53113549d",
-        "originalTitle": "31-3-12, anniversaire de Gambetta aux Jardies, discours de Poincaré : [photographie de presse] / [Agence Rol]",
-        "date": "1912",
-        "place": "",
-        "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 19391 Appartient à l’ensemble documentaire : Pho20Rol Discours (art oratoire)",
-        "titleEn": "Gambetta's birthday at Les Jardies, Poincaré's speech"
-      },
-      "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53113549d",
-      "added": "2026-10-05",
-      "shown": "2026-10-10",
-      "image": "scenes/gallica-31-3-12-anniversaire-de-gambetta-aux-jardies-dis-ec9815-modern-clip-on-lavalier.jpg",
-      "original": "scenes/gallica-31-3-12-anniversaire-de-gambetta-aux-jardies-dis-ec9815-modern-clip-on-lavalier-original.jpg"
-    },
-    {
-      "id": "gallica-le-retour-de-grands-bless-s-intern-s-en-allemagn-6347dd-modern-plastic-water-bot",
-      "title": "The return of seriously wounded men interned in Germany",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1915",
-      "description": "Le retour de grands blessés internés en Allemagne, à la descente du train une collation est distribuée · Bibliothèque nationale de France (Gallica).",
-      "anomaly": "modern plastic water bottle with a sports cap",
-      "answer": {
-        "x": 0.345,
-        "y": 0.525,
-        "r": 0.22
-      },
-      "explanation": "Molded clear plastic sports-cap bottles did not exist in 1915; glass and ceramic bottles were used instead.",
-      "references": [
-        {
-          "label": "Plastic bottle - Wikipedia",
-          "url": "https://en.wikipedia.org/wiki/Plastic_bottle"
-        }
-      ],
-      "source": {
-        "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b9044189r",
-        "originalTitle": "Le retour de grands blessés internés en Allemagne, à la descente du train une collation est distribuée : [photographie de presse] / Agence Meurisse",
-        "date": "1915",
-        "place": "",
-        "license": "Public domain",
-        "description": "Référence bibliographique : Meurisse, 58754 Appartient à l’ensemble documentaire : Pho20Meu Image de presse",
-        "titleEn": "The return of seriously wounded men interned in Germany"
-      },
-      "credit": "Agence de presse Meurisse. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b9044189r",
-      "added": "2026-10-05",
-      "shown": "2026-10-10",
-      "image": "scenes/gallica-le-retour-de-grands-bless-s-intern-s-en-allemagn-6347dd-modern-plastic-water-bot.jpg",
-      "original": "scenes/gallica-le-retour-de-grands-bless-s-intern-s-en-allemagn-6347dd-modern-plastic-water-bot-original.jpg"
+      "sourceUrl": "https://www.europeana.eu/item/2058632/0233add9_516a_0161_8968_5850c200ceee_media_57341537_c6c8_ce75_4539_26dbc64b2e4d",
+      "added": "2026-10-09",
+      "shown": "2026-10-11",
+      "image": "scenes/europeana-plattegrond-1658-gemeente-archief-amsterdam-19-374c13-modern-led-exit-sign.jpg",
+      "original": "scenes/europeana-plattegrond-1658-gemeente-archief-amsterdam-19-374c13-modern-led-exit-sign-original.jpg"
     }
   ]
 }
