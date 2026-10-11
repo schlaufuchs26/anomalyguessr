@@ -3266,21 +3266,47 @@ def source_tag_rank(entry: dict) -> tuple:
             0 if people in PEOPLE_LEVELS_WITH_PEOPLE else 1)
 
 
-def is_sepia(entry: dict) -> bool:
-    """True when the photo tags measure the source as sepia (ticket #2344).
+# A sepia photograph leaves the pool. The ``medium: sepia`` tag (#2344) is
+# the cheap signal; an *untagged* photo from before this year falls back to
+# the deterministic tone check (#2501), because a pre-1900 photograph has no
+# colour of its own, so a warm mean hue is a toned print and not a real
+# colour scene. Later years keep the tag signal only: a warm mean hue there
+# can be a genuine colour photograph, and dropping one would cost a valid
+# source.
+SEPIA_TONE_MAX_YEAR = 1900
 
-    A sepia photograph is the worst medium by far (17% accepted against 43%
-    for grayscale, 53 decided on 2026-10-07), and the failures are the ones
-    the deterministic tone gate cannot catch: a coloured element on a sepia
-    frame clashes with its warm tone ("doesn't match style of image") and
-    reads at a glance ("too easy"). The tone check and its repair only run
-    on grayscale sources, so such a render ships and is rejected. Untagged
-    sources stay in the pool: the tag is the only sepia signal the pick has.
+
+def is_sepia(entry: dict, image_path=None) -> bool:
+    """True when the source is a sepia photograph.
+
+    Two signals, cheapest first. The ``medium: sepia`` tag (#2344) is a fact
+    from the tag pass. An *untagged* source before 1900 falls back to the
+    deterministic tone check (#2501): the tag pass left the whole pre-1900
+    pool untagged, so its sepia album prints passed the tag-only filter and
+    the 1860s/1880s/1890s proposals sat at 13% accepted against 43%
+    elsewhere. A later untagged photo keeps only the tag signal (a warm mean
+    hue there can be a genuine colour scene). ``image_path`` is the
+    downloaded photo, needed for the tone fallback; None skips it, so the
+    tag-only callers stay pure.
+
+    Why sepia is dropped rather than ranked last: it is the worst medium by
+    far (17% accepted against 43% for grayscale, 53 decided on 2026-10-07),
+    and the failures are the ones the deterministic tone gate cannot catch: a
+    coloured element on a sepia frame clashes with its warm tone ("doesn't
+    match style of image") and reads at a glance ("too easy"). The tone check
+    and its repair only run on grayscale sources, so such a render ships and
+    is rejected.
     """
     tags = (entry or {}).get("tags")
-    if not isinstance(tags, dict):
+    if isinstance(tags, dict) and str(
+            tags.get("medium") or "").strip().lower() == "sepia":
+        return True
+    if image_path is None:
         return False
-    return str(tags.get("medium") or "").strip().lower() == "sepia"
+    year, _field = ag_sources.source_year(entry)
+    if year is None or year >= SEPIA_TONE_MAX_YEAR:
+        return False
+    return ag_checks.source_is_sepia(Path(image_path))
 
 
 def figure_slots(sources, every: int = FIGURE_SLOT_EVERY) -> set:
@@ -3304,6 +3330,15 @@ def figure_slots(sources, every: int = FIGURE_SLOT_EVERY) -> set:
     return {str(s.get("id")) for s in ranked[:want]}
 
 
+def pool_image(data_dir: Path, entry: dict) -> Path | None:
+    """The entry's downloaded source photo, None when it is missing."""
+    name = entry.get("image")
+    if not name:
+        return None
+    path = ag_sources.sources_dir(data_dir) / name
+    return path if path.exists() else None
+
+
 def select_sources(data_dir: Path, count: int, seed=None) -> list:
     """Up to ``count`` unused sources with an image, spread by source.
 
@@ -3325,12 +3360,16 @@ def select_sources(data_dir: Path, count: int, seed=None) -> list:
     photographs without changing the spread caps. Ticket #2371: a sepia
     photograph is dropped from the pool outright (``is_sepia``), not merely
     ranked last: it is the worst medium by far (17% accepted) and the tone
-    gate cannot repair its element's colour clash.
+    gate cannot repair its element's colour clash. Ticket #2501: the drop
+    also reads the photo's own tone for an untagged pre-1900 source, so the
+    sepia album prints the tag pass missed leave the pool too.
     """
-    unused = [s for s in ag_sources.list_sources(data_dir, unused=True)
-              if s.get("image")
-              and not is_sepia(s)
-              and (ag_sources.sources_dir(data_dir) / s["image"]).exists()]
+    unused = []
+    for s in ag_sources.list_sources(data_dir, unused=True):
+        path = pool_image(data_dir, s)
+        if path is None or is_sepia(s, path):
+            continue
+        unused.append(s)
     rng = random.Random(seed)
     rng.shuffle(unused)
     # Ticket #2348: a stable sort, so the seeded shuffle still decides among
@@ -3413,15 +3452,16 @@ def select_spares(data_dir: Path, picked: list, limit: int) -> list:
 
     A batch that loses a scene to the uniqueness rule pulls one from here so
     the day keeps its scene count. Same shape as ``select_sources`` (an image
-    present, source unused) but without the spread caps: a spare is an extra,
-    not a planned scene, so the fair-share rules do not apply.
+    present, source unused, not sepia) but without the spread caps: a spare
+    is an extra, not a planned scene, so the fair-share rules do not apply.
     """
     chosen = {s["id"] for s in picked}
     out = []
     for s in ag_sources.list_sources(data_dir, unused=True):
-        if s["id"] in chosen or not s.get("image"):
+        if s["id"] in chosen:
             continue
-        if not (ag_sources.sources_dir(data_dir) / s["image"]).exists():
+        path = pool_image(data_dir, s)
+        if path is None or is_sepia(s, path):
             continue
         out.append(s)
         if limit and len(out) >= limit:

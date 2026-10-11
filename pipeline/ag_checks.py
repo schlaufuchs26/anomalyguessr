@@ -23,6 +23,9 @@ checks, so they no longer depend on the language model's judgement:
   scene's own scale (:func:`relative_size`). Since #1487 this is a *report
   line only*: absolute element height does not separate Evan's size
   rejections from the elements he keeps, so it never flags a scene.
+- **source sepia** (:func:`source_is_sepia`): a source photo's own mean HSL
+  tone, to drop the sepia prints the medium tag left untagged (ticket #2501);
+  used by the pool pick in ``ag_generate``, not by the post-render flow.
 
 Presence and tone are flags: a failure flags the scene for moderation and a
 presence failure can drive one repair attempt. A tone failure on a grayscale
@@ -188,6 +191,50 @@ def match_source_tone(source: Path, image: Path, out_path: Path) -> Path:
     if r.returncode != 0:
         raise RuntimeError(f"tone match for {image} failed: {r.stderr[:300]}")
     return out_path
+
+
+# ── Source tone: sepia detection (ticket #2501) ────────────────────────────
+#
+# The medium tag (#2344) is the cheap sepia signal, but the tag pass only
+# labelled part of the pool: all 115 unused pre-1900 sources were untagged,
+# so their sepia album prints passed the tag-only filter and the
+# 1860s/1880s/1890s proposals sat at 13% accepted against 43% elsewhere. A
+# sepia album print is a monochrome photo with a warm orange-brown tint, so
+# its mean HSL saturation is small but nonzero; a true grayscale scan sits at
+# zero. Measured on the pre-1900 pool (2026-10-11): dropped 81 of 115, kept
+# the grayscale remainder.
+SEPIA_MIN_SATURATION = 0.06
+SEPIA_MAX_HUE = 60.0
+
+
+def source_tone(path: Path) -> dict:
+    """Mean HSL hue (degrees) and saturation of a source photo (#2501).
+
+    Deterministic, no model call. Downscaled to 128 px first: the mean tone
+    is a global property, and the full image costs ~4x (measured 2026-10-11,
+    40 ms against 170 ms per photo).
+    """
+    out = _convert_text(str(path), "-resize", "128x128", "-colorspace", "HSL",
+                        "-format", "%[fx:mean.r] %[fx:mean.g]", "info:")
+    parts = out.split()
+    if len(parts) != 2:
+        raise RuntimeError(f"tone read for {path} gave {out!r}")
+    hue, sat = float(parts[0]), float(parts[1])
+    return {"hue": round(hue * 360, 1), "saturation": round(sat, 4)}
+
+
+def source_is_sepia(path: Path) -> bool:
+    """True when a photo's own tone reads as sepia (#2501).
+
+    A warm mean hue (orange-brown) with any saturation is a sepia or
+    otherwise warm-toned print; a grayscale scan has zero saturation. The
+    caller gates this to photographs that cannot carry real colour
+    (``ag_generate.is_sepia`` restricts it to pre-1900 sources), because a
+    genuine colour photo with a warm mean hue would read the same.
+    """
+    tone = source_tone(path)
+    return (tone["saturation"] >= SEPIA_MIN_SATURATION
+            and tone["hue"] <= SEPIA_MAX_HUE)
 
 
 def relative_size(height_fraction: float,

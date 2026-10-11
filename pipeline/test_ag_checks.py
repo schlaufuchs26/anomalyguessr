@@ -64,6 +64,28 @@ class SaturationTest(TempDirMixin, unittest.TestCase):
         self.assertEqual(out["colored_fraction"], 0.0)
 
 
+class SourceSepiaToneTest(TempDirMixin, unittest.TestCase):
+    """The deterministic source tone check (#2501)."""
+
+    def test_gray_is_not_sepia_and_a_sepia_tint_is(self):
+        gray = make_img(self._tmp / "gray.png", color="gray")
+        sepia = make_img(self._tmp / "sepia.png", color="#704214")
+        self.assertFalse(c.source_is_sepia(gray))
+        self.assertTrue(c.source_is_sepia(sepia))
+
+    def test_a_cool_colour_is_not_sepia(self):
+        # The hue ceiling keeps a blue/green photograph: only a warm mean hue
+        # reads as a sepia print.
+        blue = make_img(self._tmp / "blue.png", color="blue")
+        self.assertFalse(c.source_is_sepia(blue))
+
+    def test_source_tone_reports_hue_and_saturation(self):
+        sepia = make_img(self._tmp / "sepia.png", color="#704214")
+        tone = c.source_tone(sepia)
+        self.assertAlmostEqual(tone["hue"], 30.0, delta=3.0)
+        self.assertGreaterEqual(tone["saturation"], c.SEPIA_MIN_SATURATION)
+
+
 class ToneTest(TempDirMixin, unittest.TestCase):
     def test_color_on_a_grayscale_source_is_flagged(self):
         source = make_img(self._tmp / "src.png", color="gray")

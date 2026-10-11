@@ -238,9 +238,9 @@ class TempDataMixin:
             os.environ["OPENROUTER_API_KEY"] = self._old_key
         shutil.rmtree(self._tmp, ignore_errors=True)
 
-    def write_source(self, src=None, w=1200, h=800):
+    def write_source(self, src=None, w=1200, h=800, color="gray"):
         src = src or source()
-        make_img(self.data_dir / "sources" / src["image"], w, h)
+        make_img(self.data_dir / "sources" / src["image"], w, h, color)
         index = ag_sources.load_index(self.data_dir)
         index["sources"][src["id"]] = src
         ag_sources.save_index(self.data_dir, index)
@@ -3483,6 +3483,37 @@ class RunTest(TempDataMixin, unittest.TestCase):
         sepia["tags"] = {"medium": "sepia"}
         self.write_source(src=sepia)
         self.assertEqual(g.select_sources(self.data_dir, 5), [])
+
+    def test_select_sources_drops_untagged_sepia_before_1900(self):
+        # #2501: the tag pass left the whole pre-1900 pool untagged, so its
+        # sepia album prints passed the tag-only filter and those decades sat
+        # at 13% accepted against 43% elsewhere. The deterministic tone check
+        # drops an untagged pre-1900 sepia photo while a grayscale one stays.
+        sepia = source(sid="gallica-sepia-1890", date="1890-01-01")
+        gray = source(sid="gallica-gray-1890", date="1891-01-01")
+        self.write_source(src=sepia, color="#704214")
+        self.write_source(src=gray, color="gray")
+        picked = g.select_sources(self.data_dir, 5)
+        self.assertEqual([s["id"] for s in picked], ["gallica-gray-1890"])
+
+    def test_select_sources_keeps_a_warm_photo_after_1900(self):
+        # #2501: the tone fallback is gated to pre-1900. A warm mean hue in a
+        # later year can be a genuine colour scene, so only the medium tag
+        # drops it there.
+        warm = source(sid="nb-warm-1920", date="1920-01-01")
+        self.write_source(src=warm, color="#704214")
+        picked = g.select_sources(self.data_dir, 5)
+        self.assertEqual([s["id"] for s in picked], ["nb-warm-1920"])
+
+    def test_select_spares_skips_sepia_photos(self):
+        # #2501: a spare replaces a scene the batch lost, so it must not
+        # reintroduce a sepia photo the pick just dropped.
+        sepia = source(sid="gallica-sepia-1890", date="1890-01-01")
+        gray = source(sid="gallica-gray-1891", date="1891-01-01")
+        self.write_source(src=sepia, color="#704214")
+        self.write_source(src=gray, color="gray")
+        spares = g.select_spares(self.data_dir, [], 5)
+        self.assertEqual([s["id"] for s in spares], ["gallica-gray-1891"])
 
 
 # ── Scene-time anchor (#1403) ──────────────────────────────────────────────
