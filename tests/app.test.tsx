@@ -1543,3 +1543,70 @@ describe("multi-select rejection reasons (#1627, #2585)", () => {
     expect(screen.getByText("2 / 2")).toBeInTheDocument();
   });
 });
+
+describe("needs-work repair action (#2590)", () => {
+  test("the button is inert until a reason is ticked", async () => {
+    payload = { ...MANIFEST, moderation: true };
+    const container = await renderGame("moderation");
+    clickPhoto(container, 0.5, 0.5);
+
+    const button = screen.getByRole("button", { name: "🛠 Needs work" });
+    expect(button).toBeDisabled();
+    fireEvent.click(
+      screen.getByRole("checkbox", {
+        name: "click area doesn't cover anomaly",
+      }),
+    );
+    expect(button).not.toBeDisabled();
+  });
+
+  test("posts the ticked reasons as a needs_work request", async () => {
+    payload = { ...MANIFEST, moderation: true, scenes: [SCENE_A] };
+    const container = await renderGame("moderation");
+    clickPhoto(container, 0.5, 0.5);
+
+    fireEvent.click(
+      screen.getByRole("checkbox", {
+        name: "click area doesn't cover anomaly",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "🛠 Needs work" }));
+
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(posts[0]?.url).toBe("/anomalyguessr/api/scenes/a/moderate");
+    expect(posts[0]?.body).toEqual({
+      action: "needs_work",
+      reasons: ["click area doesn't cover anomaly"],
+      feedback: "",
+    });
+    expect(
+      await screen.findByText(
+        "🛠 Needs work · click area doesn't cover anomaly",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  test("a repaired scene shows the marker and the reason that sent it", async () => {
+    payload = {
+      ...MANIFEST,
+      moderation: true,
+      scenes: [
+        {
+          ...SCENE_A,
+          repair: {
+            status: "repaired",
+            reasons: ["click area doesn't cover anomaly"],
+            detail: "re-localized on the vision box",
+          },
+        },
+      ],
+    };
+    const container = await renderGame("moderation");
+    clickPhoto(container, 0.5, 0.5);
+    const marker = await screen.findByTestId("moderate-repair");
+    expect(marker).toHaveTextContent(
+      "Repaired — was: click area doesn't cover anomaly",
+    );
+    expect(marker).toHaveAttribute("title", "re-localized on the vision box");
+  });
+});

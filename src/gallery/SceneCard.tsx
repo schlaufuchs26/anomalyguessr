@@ -156,6 +156,24 @@ export function SceneCard({
               needs review
             </span>
           ) : null}
+          {scene.repair ? (
+            <span
+              className={
+                scene.repair.status === "repaired"
+                  ? "td-chip td-chip-repaired"
+                  : "td-chip td-chip-unrepairable"
+              }
+              title={
+                scene.repair.detail ??
+                `Needs work: ${scene.repair.reasons.join(", ")}`
+              }
+              data-testid={`td-repair-${scene.id}`}
+            >
+              {scene.repair.status === "repaired"
+                ? "repaired"
+                : "not repairable"}
+            </span>
+          ) : null}
           {scene.checker ? (
             <span
               className={

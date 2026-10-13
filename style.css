@@ -747,6 +747,13 @@ main {
   display: block;
   margin-bottom: 0.3em;
 }
+/* The resolved "Needs work" marker (ticket #2590): says the repair pass
+   touched this scene, and the reasons that sent it there. */
+.moderate-repair {
+  margin: 0 0 0.3em;
+  font-size: 0.9em;
+  opacity: 0.85;
+}
 /* The verdict row (ticket #1888): the two verdict buttons lead, the optional
    tags trail; the six one-click reasons sit in their own compact group below. */
 .moderate-verdict {

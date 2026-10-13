@@ -375,6 +375,17 @@ body {
   color: #e66e5a;
 }
 
+/* The "Needs work" outcome marker (#2590): repaired (green) or named as not
+   repairable (red), with the request reasons in the tooltip. */
+.td-chip-repaired {
+  background: rgba(120, 200, 140, 0.16);
+  color: #78c88c;
+}
+.td-chip-unrepairable {
+  background: rgba(230, 110, 90, 0.16);
+  color: #e66e5a;
+}
+
 /* Soft-point counter (#1502): the second pot next to the hard defects. */
 .td-chip-points {
   background: rgba(120, 170, 240, 0.14);

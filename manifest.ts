@@ -57,6 +57,17 @@ export interface Scene {
   description: string;
   /** Normalized answer position (0..1, top-left origin) and hit radius. */
   answer: { x: number; y: number; r: number };
+  /**
+   * The resolved "Needs work" marker (ticket #2590): present on a scene the
+   * heartbeat's repair pass touched, so the moderation view can say it was
+   * repaired and why. Dev-side curation metadata; the public Pages manifest
+   * never carries it. A pending request is not in the queue at all.
+   */
+  repair?: {
+    status: "repaired" | "unrepairable";
+    reasons: string[];
+    detail?: string;
+  };
 }
 
 export interface Manifest {
@@ -100,6 +111,26 @@ function parseSource(raw: unknown, where: string): SceneSource {
     license: reqString(raw.license, where, "source.license"),
     description: optString(raw.description, where, "source.description"),
   };
+}
+
+/**
+ * The optional "Needs work" marker (ticket #2590). Only the two resolved
+ * states are accepted; a malformed or pending marker is dropped, so an
+ * older or stranger payload cannot smuggle in a bogus badge.
+ */
+function parseRepair(
+  raw: unknown,
+):
+  | { status: "repaired" | "unrepairable"; reasons: string[]; detail?: string }
+  | undefined {
+  if (!isRecord(raw)) return undefined;
+  const status = raw.status;
+  if (status !== "repaired" && status !== "unrepairable") return undefined;
+  const reasons = Array.isArray(raw.reasons)
+    ? raw.reasons.filter((r): r is string => typeof r === "string")
+    : [];
+  const detail = typeof raw.detail === "string" ? raw.detail : undefined;
+  return { status, reasons, ...(detail !== undefined ? { detail } : {}) };
 }
 
 function parseScene(
@@ -168,6 +199,8 @@ function parseScene(
   if (raw.source !== undefined || requireSource) {
     scene.source = parseSource(raw.source, where);
   }
+  const repair = parseRepair(raw.repair);
+  if (repair !== undefined) scene.repair = repair;
   return scene;
 }
 

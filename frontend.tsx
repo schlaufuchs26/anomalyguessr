@@ -616,13 +616,15 @@ export function App() {
    * the production bundle (#1374) together with the queue API prefix it calls.
    * A landed verdict advances to the next scene (ticket #1888); only the last
    * scene stays, so its status is readable and Next still ends the run.
-   * A reject carries every ticked reason (ticket #2585).
+   * A reject carries every ticked reason (ticket #2585); a "Needs work"
+   * request carries them too, but sends the scene to the repair pass instead
+   * of rejecting it (ticket #2590).
    */
   const postModerationAction =
     process.env.NODE_ENV !== "production"
-      ? async (action: "accept" | "reject") => {
+      ? async (action: "accept" | "reject" | "needs_work") => {
           if (!scene || mod.busy || mod.done) return;
-          const reasons = action === "reject" ? modReasons : [];
+          const reasons = action === "accept" ? [] : modReasons;
           setMod({ ...mod, busy: true, status: "Saving…" });
           try {
             await postModeration(scene.id, action, modFeedback.trim(), reasons);
@@ -630,9 +632,11 @@ export function App() {
               status:
                 action === "accept"
                   ? "✓ Accepted."
-                  : reasons.length > 0
-                    ? `✕ Rejected · ${reasons.join(", ")}`
-                    : "✕ Rejected.",
+                  : action === "needs_work"
+                    ? `🛠 Needs work · ${reasons.join(", ")}`
+                    : reasons.length > 0
+                      ? `✕ Rejected · ${reasons.join(", ")}`
+                      : "✕ Rejected.",
               done: true,
               busy: false,
             });
@@ -894,6 +898,17 @@ export function App() {
           {moderation && answered && process.env.NODE_ENV !== "production" ? (
             <div id="moderate" className="moderate">
               <span className="moderate-label">Moderation verdict</span>
+              {scene?.repair ? (
+                <p
+                  className="moderate-repair"
+                  data-testid="moderate-repair"
+                  title={scene.repair.detail ?? ""}
+                >
+                  {scene.repair.status === "repaired"
+                    ? `🛠 Repaired — was: ${scene.repair.reasons.join(", ")}`
+                    : `🚫 Not repairable — ${scene.repair.reasons.join(", ")}`}
+                </p>
+              ) : null}
               <div className="moderate-verdict">
                 <button
                   id="accept-btn"
@@ -912,6 +927,20 @@ export function App() {
                   onClick={() => void postModerationAction?.("reject")}
                 >
                   ✕ Reject
+                </button>
+                <button
+                  id="needs-work-btn"
+                  className="btn ghost"
+                  type="button"
+                  disabled={mod.busy || mod.done || modReasons.length === 0}
+                  title={
+                    modReasons.length === 0
+                      ? "Tick at least one reason the repair should fix"
+                      : "Send the scene back for repair with the ticked reasons (ticket #2590)"
+                  }
+                  onClick={() => void postModerationAction?.("needs_work")}
+                >
+                  🛠 Needs work
                 </button>
                 <div className="moderate-tags">
                   {TAGS.map(({ tag, label }) => (
@@ -938,7 +967,7 @@ export function App() {
               </div>
               <div className="moderate-reasons-group">
                 <span className="moderate-reasons-label">
-                  Reject reasons (tick any)
+                  Reasons (tick any)
                 </span>
                 <div className="moderate-reasons">
                   {REJECT_REASONS.map((reason) => (

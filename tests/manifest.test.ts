@@ -241,4 +241,39 @@ describe("parseManifest version 2 (pipeline daily manifest)", () => {
       ).toThrow(/url/);
     });
   });
+
+  describe("parseManifest repair marker (#2590)", () => {
+    test("accepts a resolved repair marker with its reasons", () => {
+      const m = parseManifest(
+        validManifest({
+          repair: {
+            status: "repaired",
+            reasons: ["click area doesn't cover anomaly"],
+            detail: "re-localized on the vision box",
+          },
+        }),
+      );
+      expect(m.scenes[0]?.repair?.status).toBe("repaired");
+      expect(m.scenes[0]?.repair?.reasons).toEqual([
+        "click area doesn't cover anomaly",
+      ]);
+      expect(m.scenes[0]?.repair?.detail).toBe(
+        "re-localized on the vision box",
+      );
+    });
+
+    test("drops a pending or malformed marker", () => {
+      expect(
+        parseManifest(validManifest({ repair: { status: "requested" } }))
+          .scenes[0]?.repair,
+      ).toBeUndefined();
+      expect(
+        parseManifest(validManifest({ repair: "x" })).scenes[0]?.repair,
+      ).toBeUndefined();
+      expect(
+        parseManifest(validManifest({ repair: { status: "repaired" } }))
+          .scenes[0]?.repair?.reasons,
+      ).toEqual([]);
+    });
+  });
 });

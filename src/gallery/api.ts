@@ -92,7 +92,7 @@ export interface TDScene {
   state: "unshown" | "shown" | "rejected";
   rejected: boolean;
   rejectedAt?: string | null;
-  moderation: "accepted" | "rejected" | "unmoderated";
+  moderation: "accepted" | "rejected" | "unmoderated" | "repair";
   comments: TDComment[];
   /** A generation trace sidecar exists (ticket #1373); the modal then
    *  offers the collapsible "Generation trace" panel. Scenes generated
@@ -122,7 +122,21 @@ export interface TDScene {
   great: boolean;
   /** When the tag was set, when it is (RFC3339). */
   greatAt?: string | null;
+  /** The "Needs work" repair record (ticket #2590), when the scene carries
+   *  one: the request reasons and the outcome. A pending request takes the
+   *  scene out of the unmoderated view; a resolved one shows the marker. */
+  repair?: RepairRecord | null;
   images: TDSceneImages;
+}
+
+/** The "Needs work" record as the API serves it (ticket #2590). */
+interface RepairRecord {
+  status: "requested" | "repaired" | "unrepairable";
+  reasons: string[];
+  requestedAt: string;
+  resolvedAt?: string;
+  kind?: "click" | "text" | "none";
+  detail?: string;
 }
 export interface TDList {
   summary: {
@@ -132,6 +146,8 @@ export interface TDList {
     accepted: number;
     rejected: number;
     unmoderated: number;
+    /** Scenes with an open "Needs work" request (ticket #2590). */
+    repair?: number;
   };
   scenes: TDScene[];
   /** Ship-eligible scene ids in the pipeline's daily pick order (#1208);
@@ -185,6 +201,7 @@ export const MOD_LABELS: Record<TDScene["moderation"], string> = {
   accepted: "Accepted",
   rejected: "Rejected",
   unmoderated: "Unmoderated",
+  repair: "Needs work",
 };
 
 /** Whether the card and the lightbox show the "needs review" chip (ticket

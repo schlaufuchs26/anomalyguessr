@@ -130,11 +130,13 @@ export async function loadLiveManifest(
  * moderation view can send several at once and the API stores them as a
  * list. When given they travel alongside the free-text `feedback` (the
  * note). Without them the body stays the legacy {action, feedback} an accept
- * or a prose-only reject sends.
+ * or a prose-only reject sends. Since #2590 `action` may also be
+ * "needs_work": the reasons then name what the heartbeat's repair pass
+ * should fix, and the scene leaves the moderation queue until it ran.
  */
 export async function postModeration(
   sceneId: string,
-  action: "accept" | "reject",
+  action: "accept" | "reject" | "needs_work",
   feedback: string,
   reasons: string[] = [],
 ): Promise<void> {
