@@ -149,8 +149,8 @@ export interface RepairEntry {
   requestedAt: string;
   /** When the repair pass resolved it (RFC3339); absent while requested. */
   resolvedAt?: string;
-  /** What the repair targeted: the click area, the text, or nothing. */
-  kind?: "click" | "text" | "none";
+  /** What the repair targeted: the click area, the text, both, or nothing. */
+  kind?: "click" | "text" | "click+text" | "none";
   /** The repair pass's one-line account (what changed / why not fixable). */
   detail?: string;
   /** The answer circle before the click-area repair. */

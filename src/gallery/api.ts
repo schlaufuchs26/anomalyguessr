@@ -135,7 +135,7 @@ interface RepairRecord {
   reasons: string[];
   requestedAt: string;
   resolvedAt?: string;
-  kind?: "click" | "text" | "none";
+  kind?: "click" | "text" | "click+text" | "none";
   detail?: string;
 }
 export interface TDList {

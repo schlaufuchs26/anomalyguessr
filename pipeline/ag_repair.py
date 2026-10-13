@@ -243,12 +243,13 @@ def repair_click(scene: dict, data_dir: Path, api_key: str, model: str,
     check = confirm(edited, original, answer, scene["anomaly"], api_key, model)
     if not check["ok"]:
         return {"ok": False, "reason": check["reason"]}
+    box = verdict.get("box") or (verdict.get("vision") or {}).get("box")
     return {
         "ok": True,
         "answer": {"x": float(answer["x"]), "y": float(answer["y"]),
                    "r": float(answer["r"])},
-        "box": verdict.get("box"),
-        "detail": f"re-localized on the vision box {verdict.get('box')}; "
+        "box": box,
+        "detail": f"re-localized on the vision box {box}; "
                   f"crop contact-sheet confirmed",
     }
 
