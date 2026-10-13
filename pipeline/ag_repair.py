@@ -130,42 +130,103 @@ def library_paths(data_dir: Path, scene_id: str):
 
 # ── The two repairs ────────────────────────────────────────────────────────
 
-def confirm_crop(edited: Path, original: Path, answer: dict, anomaly: str,
-                 api_key: str, model: str, vision_check=None) -> dict:
-    """The crop contact-sheet test for a proposed click-area center.
+def _parse_json_answer(content: str) -> dict:
+    """The JSON object in a model answer, {} when there is none."""
+    import re
+    s = re.sub(r"^```(?:json)?\s*|\s*```$", "", str(content or "").strip())
+    m = re.search(r"\{.*\}", s, re.S)
+    if not m:
+        return {}
+    try:
+        obj = json.loads(m.group(0))
+    except json.JSONDecodeError:
+        return {}
+    return obj if isinstance(obj, dict) else {}
 
-    The anomaly must be visible in the crop around the proposed center in the
-    EDITED image and absent in the same crop of the ORIGINAL. That is the
-    manual #1285 recipe, made routine: it rejects a re-localization that
-    landed on a JPEG re-encode artifact (present in both crops) or on empty
-    background (present in neither).
+
+def _vision_ask(image: Path, prompt: str, api_key: str, model: str) -> str:
+    """One raw vision call on an image with a custom prompt; returns text."""
+    import base64
+    b64 = base64.b64encode(Path(image).read_bytes()).decode()
+    payload = {"model": model, "messages": [{"role": "user", "content": [
+        {"type": "text", "text": prompt},
+        {"type": "image_url",
+         "image_url": {"url": f"data:image/png;base64,{b64}"}},
+    ]}]}
+    body = ag_verify._vision_post(payload, api_key)
+    return ag_verify._message_content(body, model)
+
+
+def _montage(left: Path, right: Path, dest: Path) -> None:
+    """Append two crops side by side into one contact sheet (ImageMagick)."""
+    import subprocess
+    subprocess.run(["convert", str(left), str(right), "+append", str(dest)],
+                   check=True, capture_output=True)
+
+
+def contact_sheet_prompt(anomaly: str) -> str:
+    return (
+        "Two crops of the same region of a historical photograph, side by "
+        "side. The LEFT crop comes from the edited photo, the RIGHT crop from "
+        "the untouched original. Exactly one anomaly was edited into the "
+        "original photo: " + anomaly + ". In which crop is that anomaly "
+        "visible? Answer as strict JSON only, no prose: "
+        '{"present_in": "left"|"right"|"both"|"neither", "note": "<one short '
+        'sentence>"}'
+    )
+
+
+def confirm_crop(edited: Path, original: Path, answer: dict, anomaly: str,
+                 api_key: str, model: str, ask=None, montage=None) -> dict:
+    """The crop contact-sheet test for a proposed click-area center (#2590).
+
+    One contact sheet shows the crop around the proposed center in the EDITED
+    image (left) and the same crop of the ORIGINAL (right); the vision model
+    must say the anomaly is visible in the LEFT crop only. That is the manual
+    #1285 recipe, made routine: it rejects a re-localization that landed on a
+    JPEG re-encode artifact (visible in both) or on empty background (visible
+    in neither), and a single side-by-side call is sturdier than two separate
+    presence questions.
     """
-    vision_check = vision_check or ag_verify.vision_check
+    ask = ask or _vision_ask
     window, _ = ag_verify.crop_window(
         Path(edited), {"cx": answer["x"], "cy": answer["y"]})
     with tempfile.TemporaryDirectory() as td:
         ec = Path(td) / "edited-crop.png"
         oc = Path(td) / "original-crop.png"
+        sheet = Path(td) / "contact.png"
         ag_verify.save_crop(Path(edited), window, ec)
         ag_verify.save_crop(Path(original), window, oc)
-        ve = vision_check(ec, anomaly, api_key, model, full_image=False)
-        if not ve.get("present"):
-            return {"ok": False,
-                    "reason": "the anomaly is not visible in the crop around "
-                              "the proposed center"}
-        vo = vision_check(oc, anomaly, api_key, model, full_image=False)
-        if vo.get("present"):
-            return {"ok": False,
-                    "reason": "the original already shows the anomaly there, "
-                              "so the new center is likely a re-encode "
-                              "artifact, not the edit"}
-        return {"ok": True, "note": str(ve.get("note") or "")[:200]}
+        (montage or _montage)(ec, oc, sheet)
+        content = ask(sheet, contact_sheet_prompt(anomaly), api_key, model)
+    parsed = _parse_json_answer(content)
+    where = str(parsed.get("present_in") or "").strip().lower()
+    note = str(parsed.get("note") or "")[:200]
+    if where == "left":
+        return {"ok": True, "note": note}
+    if where == "both":
+        return {"ok": False,
+                "reason": "the anomaly is visible in both crops, so the "
+                          "proposed center is likely a re-encode artifact, "
+                          "not the edit"}
+    if where == "right":
+        return {"ok": False,
+                "reason": "the anomaly is visible only in the original crop, "
+                          "not at the proposed center in the edited one"}
+    if where == "neither":
+        return {"ok": False,
+                "reason": "the anomaly is not visible in the crop around the "
+                          "proposed center"}
+    return {"ok": False,
+            "reason": "the contact-sheet check gave no usable answer: "
+                      f"{note or str(content)[:120]}"}
 
 
 def repair_click(scene: dict, data_dir: Path, api_key: str, model: str,
-                 verify=None, vision_check=None) -> dict:
+                 verify=None, confirm=None) -> dict:
     """Re-localize the answer; only a crop-confirmed vision box is returned."""
     verify = verify or ag_verify.verify
+    confirm = confirm or confirm_crop
     edited, original = library_paths(data_dir, scene["id"])
     if not edited.exists() or not original.exists():
         return {"ok": False,
@@ -179,10 +240,9 @@ def repair_click(scene: dict, data_dir: Path, api_key: str, model: str,
         return {"ok": False,
                 "reason": "the vision pass returned no usable bounding box"}
     answer = verdict["answer"]
-    confirm = confirm_crop(edited, original, answer, scene["anomaly"],
-                           api_key, model, vision_check=vision_check)
-    if not confirm["ok"]:
-        return {"ok": False, "reason": confirm["reason"]}
+    check = confirm(edited, original, answer, scene["anomaly"], api_key, model)
+    if not check["ok"]:
+        return {"ok": False, "reason": check["reason"]}
     return {
         "ok": True,
         "answer": {"x": float(answer["x"]), "y": float(answer["y"]),
@@ -276,7 +336,7 @@ def repair_text(scene: dict, data_dir: Path, api_key: str, model: str,
 
 def repair_one(scene_id: str, scene: dict, kind: str, reasons: list,
                data_dir: Path, api_key: str, vision_model: str,
-               text_model: str, *, verify=None, vision_check=None,
+               text_model: str, *, verify=None, confirm=None,
                chat=None) -> dict:
     """The outcome of one request: repaired, unrepairable or failed.
 
@@ -297,7 +357,7 @@ def repair_one(scene_id: str, scene: dict, kind: str, reasons: list,
     try:
         if "click" in kind:
             click = repair_click(scene, data_dir, api_key, vision_model,
-                                 verify=verify, vision_check=vision_check)
+                                 verify=verify, confirm=confirm)
             if not click["ok"]:
                 return {**result, "status": "unrepairable",
                         "detail": click["reason"]}
@@ -405,7 +465,7 @@ def apply_results(data_dir: Path, results: list, now: str) -> dict:
 
 def run(data_dir, *, env_path=None, dry_run: bool = False,
         vision_model: str = None, text_model: str = None,
-        verify=None, vision_check=None, chat=None) -> dict:
+        verify=None, confirm=None, chat=None) -> dict:
     """Resolve every pending request; returns the report dict."""
     data_dir = Path(data_dir)
     feedback = ag_queue.load_feedback(data_dir)
@@ -437,7 +497,7 @@ def run(data_dir, *, env_path=None, dry_run: bool = False,
             continue
         results.append(repair_one(sid, scene, kind, reasons, data_dir,
                                   api_key, vision_model, text_model,
-                                  verify=verify, vision_check=vision_check,
+                                  verify=verify, confirm=confirm,
                                   chat=chat))
     if not dry_run:
         apply_results(data_dir, results, _now())
@@ -450,7 +510,10 @@ def run(data_dir, *, env_path=None, dry_run: bool = False,
         elif status == "unrepairable":
             report["unrepairable"] += 1
             blocking = unrepairable_reasons(r["reasons"])
-            key = blocking[0] if blocking else "unknown"
+            if blocking:
+                key = blocking[0]
+            else:
+                key = f"{r['kind']} check failed"
             report["unrepairableByReason"][key] = \
                 report["unrepairableByReason"].get(key, 0) + 1
         elif status == "failed":

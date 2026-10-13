@@ -95,51 +95,49 @@ class PendingRequestsTest(unittest.TestCase):
 
 
 class ConfirmCropTest(unittest.TestCase):
-    def test_present_in_edited_absent_in_original_passes(self):
-        edited = Path("/tmp/e.jpg")
-        original = Path("/tmp/o.jpg")
-        calls = []
-
-        def vision_check(image, anomaly, key, model, full_image=True):
-            calls.append(str(image))
-            return {"present": "original-crop" not in str(image)}
+    def _run(self, present_in):
+        def ask(image, prompt, key, model):
+            return json.dumps({"present_in": present_in, "note": "n"})
 
         with mock.patch.object(rep.ag_verify, "crop_window",
                                return_value=((0, 0, 512, 512), (1000, 1000))), \
-                mock.patch.object(rep.ag_verify, "save_crop"):
-            out = rep.confirm_crop(edited, original, {"x": 0.5, "y": 0.5},
-                                   "Plastic bottle", "k", "m",
-                                   vision_check=vision_check)
+                mock.patch.object(rep.ag_verify, "save_crop"), \
+                mock.patch.object(rep, "_montage"):
+            return rep.confirm_crop(Path("/tmp/e.jpg"), Path("/tmp/o.jpg"),
+                                    {"x": 0.5, "y": 0.5}, "Plastic bottle",
+                                    "k", "m", ask=ask)
+
+    def test_visible_in_the_edited_crop_only_passes(self):
+        out = self._run("left")
         self.assertTrue(out["ok"])
-        self.assertEqual(len(calls), 2)
 
-    def test_absent_in_edited_fails(self):
-        def vision_check(image, anomaly, key, model, full_image=True):
-            return {"present": False}
+    def test_visible_in_both_is_a_reencode_artifact(self):
+        out = self._run("both")
+        self.assertFalse(out["ok"])
+        self.assertIn("re-encode", out["reason"])
+
+    def test_visible_in_neither_fails(self):
+        self.assertFalse(self._run("neither")["ok"])
+
+    def test_a_garbled_answer_fails(self):
+        def ask(image, prompt, key, model):
+            return "not json"
 
         with mock.patch.object(rep.ag_verify, "crop_window",
                                return_value=((0, 0, 512, 512), (1000, 1000))), \
-                mock.patch.object(rep.ag_verify, "save_crop"):
+                mock.patch.object(rep.ag_verify, "save_crop"), \
+                mock.patch.object(rep, "_montage"):
             out = rep.confirm_crop(Path("/tmp/e.jpg"), Path("/tmp/o.jpg"),
-                                   {"x": 0.5, "y": 0.5}, "x", "k", "m",
-                                   vision_check=vision_check)
-        self.assertFalse(out["ok"])
-
-    def test_present_in_original_fails(self):
-        def vision_check(image, anomaly, key, model, full_image=True):
-            return {"present": True}
-
-        with mock.patch.object(rep.ag_verify, "crop_window",
-                               return_value=((0, 0, 512, 512), (1000, 1000))), \
-                mock.patch.object(rep.ag_verify, "save_crop"):
-            out = rep.confirm_crop(Path("/tmp/e.jpg"), Path("/tmp/o.jpg"),
-                                   {"x": 0.5, "y": 0.5}, "x", "k", "m",
-                                   vision_check=vision_check)
+                                   {"x": 0.5, "y": 0.5}, "x", "k", "m", ask=ask)
         self.assertFalse(out["ok"])
 
 
-def vision_ok(image, anomaly, key, model, full_image=True):
-    return {"present": "original-crop" not in str(image)}
+def confirm_ok(edited, original, answer, anomaly, key, model):
+    return {"ok": True, "note": "confirmed"}
+
+
+def confirm_fail(edited, original, answer, anomaly, key, model):
+    return {"ok": False, "reason": "the anomaly is visible in both crops"}
 
 
 def verify_vision(edited, original, anomaly, **kw):
@@ -163,11 +161,7 @@ class RunTest(TempDataMixin, unittest.TestCase):
     def test_click_repair_writes_the_new_answer_and_keeps_the_old(self):
         self.write({"a": scene("a")},
                    {"a": request(["click area doesn't cover anomaly"])})
-        with mock.patch.object(rep.ag_verify, "crop_window",
-                               return_value=((0, 0, 512, 512), (1000, 1000))), \
-                mock.patch.object(rep.ag_verify, "save_crop"):
-            report = rep.run(self.data_dir, verify=verify_vision,
-                             vision_check=vision_ok)
+        report = rep.run(self.data_dir, verify=verify_vision, confirm=confirm_ok)
         self.assertEqual(report["repaired"], 1)
         self.assertEqual(report["repairedByKind"], {"click": 1})
         st = self.state()
@@ -183,15 +177,8 @@ class RunTest(TempDataMixin, unittest.TestCase):
     def test_unconfirmed_click_repair_is_unrepairable(self):
         self.write({"a": scene("a")},
                    {"a": request(["click area too big"])})
-
-        def vision_absent(image, anomaly, key, model, full_image=True):
-            return {"present": False}
-
-        with mock.patch.object(rep.ag_verify, "crop_window",
-                               return_value=((0, 0, 512, 512), (1000, 1000))), \
-                mock.patch.object(rep.ag_verify, "save_crop"):
-            report = rep.run(self.data_dir, verify=verify_vision,
-                             vision_check=vision_absent)
+        report = rep.run(self.data_dir, verify=verify_vision,
+                         confirm=confirm_fail)
         self.assertEqual(report["unrepairable"], 1)
         fb = self.feedback()
         self.assertEqual(fb["repairs"]["a"]["status"], "unrepairable")
@@ -229,8 +216,7 @@ class RunTest(TempDataMixin, unittest.TestCase):
         def verify_boom(*a, **kw):
             raise RuntimeError("network down")
 
-        report = rep.run(self.data_dir, verify=verify_boom,
-                         vision_check=vision_ok)
+        report = rep.run(self.data_dir, verify=verify_boom, confirm=confirm_ok)
         self.assertEqual(report["failed"], 1)
         fb = self.feedback()
         self.assertEqual(fb["repairs"]["a"]["status"], "requested")
