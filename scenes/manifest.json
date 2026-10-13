@@ -1,195 +1,194 @@
 {
   "version": 2,
-  "date": "2026-10-12",
+  "date": "2026-10-13",
   "scenes": [
     {
-      "id": "nb-troms-havn-94-1894-fffea2-modern-kayak-paddle",
-      "title": "Tromsö Harbour",
+      "id": "gallica-29-2-12-monte-carlo-kid-mac-koy-carpentier-boxeu-1e8a50-modern-athletic-slide-sa",
+      "title": "29-2-12, Monte Carlo, Kid Mac Koy - Carpentier [boxeurs]",
       "title_source": "catalog",
       "place": "",
-      "year": "1894",
-      "description": "A photograph titled Tromsö havn 94, held by the National Library of Norway, shows the harbour in Tromsö and dates from 1894. The record does not name a photographer.",
-      "anomaly": "Modern kayak paddle",
+      "year": "1912",
+      "description": "A press photograph by Agence Rol, dated 29 February 1912, showing the boxers Kid Mac Koy and Carpentier in Monte Carlo.",
+      "anomaly": "modern athletic slide sandal",
       "answer": {
-        "x": 0.135,
-        "y": 0.635,
-        "r": 0.22
+        "x": 0.876,
+        "y": 0.895,
+        "r": 0.078
       },
-      "explanation": "Double-bladed kayak paddles did not exist in 1894, as kayaks and their paddles were not yet introduced to this region.",
+      "explanation": "Foam-soled slide sandals did not exist in 1912, when footwear was leather boots and laced shoes.",
       "references": [
         {
-          "label": "National Library of Norway",
-          "url": "https://www.nb.no"
+          "label": "Bibliothèque nationale de France (Gallica)",
+          "url": "https://gallica.bnf.fr/"
         }
       ],
       "source": {
-        "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20231107_00115_bldsa_rn392",
-        "originalTitle": "Tromsö havn 94",
-        "date": "1894",
+        "repository": "Bibliothèque nationale de France (Gallica)",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b531128511",
+        "originalTitle": "29-2-12, Monte Carlo, Kid Mac Koy - Carpentier [boxeurs] : [photographie de presse] / [Agence Rol]",
+        "date": "1912",
         "place": "",
         "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-08-27T08:07:31.982Z', 'firstDigitalContentTime': '2025-08-27T08:13:41.576Z', 'indexLastModified': '2025-08-27T08:13:41.577Z'}",
-        "titleEn": "Tromsö Harbour"
+        "description": "Référence bibliographique : Rol, 18870 Appartient à l’ensemble documentaire : Pho20Rol"
       },
-      "credit": "Collett, Robert via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20231107_00115_bldsa_rn392",
-      "added": "2026-09-16",
-      "shown": "2026-10-12",
-      "image": "scenes/nb-troms-havn-94-1894-fffea2-modern-kayak-paddle.jpg",
-      "original": "scenes/nb-troms-havn-94-1894-fffea2-modern-kayak-paddle-original.jpg"
-    },
-    {
-      "id": "nb-kristiania-carl-johans-gate-1900-0ea277-modern-parking-meter",
-      "title": "Kristiania. Carl Johans gate.",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1900",
-      "description": "A photograph held by the National Library of Norway showing Carl Johans gate in Kristiania, dated 1900. It is in the public domain.",
-      "anomaly": "modern parking meter",
-      "answer": {
-        "x": 0.848,
-        "y": 0.72,
-        "r": 0.22
-      },
-      "explanation": "Parking meters were not introduced until the 1930s, so this device cannot belong to a street scene from 1900.",
-      "references": [
-        {
-          "label": "Smithsonian Magazine: The History of the Parking Meter",
-          "url": "https://www.smithsonianmag.com/innovation/history-parking-meter-180963640/"
-        }
-      ],
-      "source": {
-        "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20170505_00109_NB_MIT_ENR_01746",
-        "originalTitle": "Kristiania. Carl Johans gate.",
-        "date": "1900",
-        "place": "",
-        "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-08-20T07:01:57.301Z', 'firstDigitalContentTime': '2025-08-20T07:24:17.609Z', 'indexLastModified': '2025-08-20T07:24:17.610Z'}",
-        "titleEn": "Kristiania. Carl Johans gate."
-      },
-      "credit": "Mittet & Co. AS via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20170505_00109_NB_MIT_ENR_01746",
-      "added": "2026-10-05",
-      "shown": "2026-10-12",
-      "image": "scenes/nb-kristiania-carl-johans-gate-1900-0ea277-modern-parking-meter.jpg",
-      "original": "scenes/nb-kristiania-carl-johans-gate-1900-0ea277-modern-parking-meter-original.jpg"
-    },
-    {
-      "id": "nb-wider-e-flyveselskaps-flyfoto-fra-eidskog-kommune-b-r-65b061-modern-solar-panel",
-      "title": "Aerial Photograph of Børrud Factory, Skotterud",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1965",
-      "description": "An aerial photograph taken by Widerøe Flyveselskap showing the Børrud factory in Eidskog kommune, Skotterud, dated 3 September 1965.",
-      "anomaly": "modern solar panel",
-      "answer": {
-        "x": 0.425,
-        "y": 0.655,
-        "r": 0.22
-      },
-      "explanation": "Solar panels of this kind did not exist in 1965, so the panel cannot belong to the scene.",
-      "references": [
-        {
-          "label": "Solar panel",
-          "url": "https://en.wikipedia.org/wiki/Solar_panel"
-        }
-      ],
-      "source": {
-        "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20160722_00013_NB_WF_ESK_162682",
-        "originalTitle": "Widerøe Flyveselskaps flyfoto fra Eidskog kommune : Børrud fabrikk, Skotterud.",
-        "date": "1965-09-03",
-        "place": "",
-        "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-08-20T01:56:49.544Z', 'firstDigitalContentTime': '2025-08-20T04:05:36.439Z', 'indexLastModified': '2025-08-20T04:05:36.440Z'}",
-        "titleEn": "Aerial Photograph of Børrud Factory, Skotterud"
-      },
-      "credit": "Widerøes Flyveselskap AS via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20160722_00013_NB_WF_ESK_162682",
-      "added": "2026-10-05",
-      "shown": "2026-10-12",
-      "image": "scenes/nb-wider-e-flyveselskaps-flyfoto-fra-eidskog-kommune-b-r-65b061-modern-solar-panel.jpg",
-      "original": "scenes/nb-wider-e-flyveselskaps-flyfoto-fra-eidskog-kommune-b-r-65b061-modern-solar-panel-original.jpg"
-    },
-    {
-      "id": "nb-badeplass-ved-brygge-1960-4d0636-modern-telescoping-selfi",
-      "title": "Bathing Place by the Pier",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1960",
-      "description": "A photograph titled Badeplass ved brygge, meaning bathing place by the pier, held by the National Library of Norway and dated 1960. The record lists the image as public domain but does not name a photographer.",
-      "anomaly": "Modern telescoping selfie stick",
-      "answer": {
-        "x": 0.625,
-        "y": 0.315,
-        "r": 0.22
-      },
-      "explanation": "Telescoping selfie sticks did not exist in 1960, so one cannot appear in this lakeside scene.",
-      "references": [
-        {
-          "label": "National Library of Norway",
-          "url": "https://www.nb.no"
-        }
-      ],
-      "source": {
-        "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20171102_00033_NB_MIT_24_078",
-        "originalTitle": "[Badeplass ved brygge]",
-        "date": "1960",
-        "place": "",
-        "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-08-26T13:43:29.715Z', 'firstDigitalContentTime': '2025-08-26T13:53:01.859Z', 'indexLastModified': '2025-08-26T13:53:01.859Z'}",
-        "titleEn": "Bathing Place by the Pier"
-      },
-      "credit": "Mittet & Co. AS via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20171102_00033_NB_MIT_24_078",
+      "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b531128511",
       "added": "2026-09-17",
-      "shown": "2026-10-12",
-      "image": "scenes/nb-badeplass-ved-brygge-1960-4d0636-modern-telescoping-selfi.jpg",
-      "original": "scenes/nb-badeplass-ved-brygge-1960-4d0636-modern-telescoping-selfi-original.jpg"
+      "shown": "2026-10-13",
+      "image": "scenes/gallica-29-2-12-monte-carlo-kid-mac-koy-carpentier-boxeu-1e8a50-modern-athletic-slide-sa.jpg",
+      "original": "scenes/gallica-29-2-12-monte-carlo-kid-mac-koy-carpentier-boxeu-1e8a50-modern-athletic-slide-sa-original.jpg"
     },
     {
-      "id": "europeana-naar-tekening-op-het-huis-1947-151245-modern-plastic-mooring-b",
-      "title": "Drawing on the House",
+      "id": "europeana--2006-29e406-small-humanoid-survey-ro",
+      "title": "Sanctuary of Aphrodite",
       "title_source": "catalog",
-      "place": "Vorden",
-      "year": "1947",
-      "description": "A drawing on a house in Vorden, dated 1947. The record credits Europeana, under a CC BY-SA licence, for the drawing on the house.",
-      "anomaly": "modern plastic mooring buoy",
+      "place": "Χαϊδάρι",
+      "year": "2006",
+      "description": "The photograph shows the Sanctuary of Aphrodite at Afaia Skaramagka, a site dedicated to the ancient goddess Aphrodite, with its visible remains, especially the hollows in the rock. It was taken in 2006 by Chaïdári, and the site is identified with the Sanctuary of Aphrodite mentioned by Pausanias on the road to Eleusis, though more about the type of worship there is unknown.",
+      "anomaly": "small humanoid survey robot",
       "answer": {
-        "x": 0.078,
-        "y": 0.915,
-        "r": 0.22
+        "x": 0.31,
+        "y": 0.635,
+        "r": 0.12
       },
-      "explanation": "Moulded plastic buoys did not appear until the mid-20th century, so a bright, seamless plastic float could not exist in a 1947 estate view.",
+      "explanation": "A compact self-balancing humanoid robot of this kind does not exist in 2026, so it cannot appear in a photograph taken in 2006.",
       "references": [
         {
-          "label": "Britannica - Buoy",
-          "url": "https://www.britannica.com/technology/buoy"
+          "label": "Boston Dynamics - Atlas",
+          "url": "https://bostondynamics.com/atlas/"
         },
         {
-          "label": "Science Museum - Plastics",
-          "url": "https://www.sciencemuseum.org.uk/objects-and-stories/plastics"
+          "label": "Encyclopaedia Britannica - Robot",
+          "url": "https://www.britannica.com/technology/robot-technology"
         }
       ],
       "source": {
         "repository": "Europeana",
-        "fileUrl": "https://www.europeana.eu/item/2058632/04027d01_3198_0ae7_a40a_fabf27f4aaa9_media_31f8b539_3d31_35d9_9124_aa68af397946",
-        "originalTitle": "naar tekening op het huis",
-        "date": "1947",
-        "place": "Vorden",
+        "fileUrl": "https://www.europeana.eu/item/2064927/https___www_searchculture_gr_aggregator_edm_Haidari_000066__3A1413",
+        "originalTitle": "Ιερό της Αφροδίτης",
+        "date": "2006",
+        "place": "Χαϊδάρι",
         "license": "CC BY-SA",
-        "description": "naar tekening op het huis",
-        "titleEn": "Drawing on the House"
+        "description": "Το Ιερό της Αφροδίτης στην Αφαία Σκαραμαγκά είναι ένας χώρος αφιερωμένος στην αρχαία θεά Αφροδίτη. Αυτός ο χώρος ταυτίζεται με το Ιερό της Αφροδίτης, το οποίο αναφέρεται από τον Παυσανία καθ' οδόν προς την Ελευσίνα, χωρίς όμως να γνωρίζουμε περισσότερα για το είδος της λατρείας που λάμβανε χώρα. Tα ορατά λείψανα, κυρίως δε οι εσοχές στο βράχο τράβηξαν την προσοχή των ξένων περιηγητών από την αρχή του 19ου αιώνα.",
+        "titleEn": "Sanctuary of Aphrodite"
       },
       "credit": "Europeana",
-      "sourceUrl": "https://www.europeana.eu/item/2058632/04027d01_3198_0ae7_a40a_fabf27f4aaa9_media_31f8b539_3d31_35d9_9124_aa68af397946",
-      "added": "2026-10-11",
-      "shown": "2026-10-12",
-      "image": "scenes/europeana-naar-tekening-op-het-huis-1947-151245-modern-plastic-mooring-b.jpg",
-      "original": "scenes/europeana-naar-tekening-op-het-huis-1947-151245-modern-plastic-mooring-b-original.jpg"
+      "sourceUrl": "https://www.europeana.eu/item/2064927/https___www_searchculture_gr_aggregator_edm_Haidari_000066__3A1413",
+      "added": "2026-10-07",
+      "shown": "2026-10-13",
+      "image": "scenes/europeana--2006-29e406-small-humanoid-survey-ro.jpg",
+      "original": "scenes/europeana--2006-29e406-small-humanoid-survey-ro-original.jpg"
+    },
+    {
+      "id": "gallica-l-atlantique-quai-cherbourg-photographie-de-pres-169f22-modern-led-work-light-on",
+      "title": "The Atlantique at the quay in Cherbourg",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1933",
+      "description": "A press photograph by Agence Mondial showing the Atlantique docked at a quay in Cherbourg, dated 1933. The glass negative is held by the Bibliothèque nationale de France, département Estampes et photographie.",
+      "anomaly": "modern LED work light on a tripod",
+      "answer": {
+        "x": 0.163,
+        "y": 0.777,
+        "r": 0.062
+      },
+      "explanation": "High-output LED work lights on folding tripods did not exist in 1933; portable electric floodlights of that era used incandescent bulbs and were far bulkier.",
+      "references": [
+        {
+          "label": "LED lighting history",
+          "url": "https://www.energy.gov/energysaver/led-lighting"
+        }
+      ],
+      "source": {
+        "repository": "Bibliothèque nationale de France (Gallica)",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b9050691k",
+        "originalTitle": "L'Atlantique à quai à Cherbourg : [photographie de presse] / Agence Mondial",
+        "date": "1933",
+        "place": "",
+        "license": "Public domain",
+        "description": "Référence bibliographique : Mondial, 6530 Appartient à l’ensemble documentaire : Pho20MPP Image de presse",
+        "titleEn": "The Atlantique at the quay in Cherbourg"
+      },
+      "credit": "Agence de presse Mondial Photo-Presse. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b9050691k",
+      "added": "2026-10-07",
+      "shown": "2026-10-13",
+      "image": "scenes/gallica-l-atlantique-quai-cherbourg-photographie-de-pres-169f22-modern-led-work-light-on.jpg",
+      "original": "scenes/gallica-l-atlantique-quai-cherbourg-photographie-de-pres-169f22-modern-led-work-light-on-original.jpg"
+    },
+    {
+      "id": "nb-gate-1954-7f38ff-modern-led-traffic-signa",
+      "title": "Gate",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1954",
+      "description": "A photograph from the National Library of Norway, dated 1954 and in the public domain, showing a gate. No photographer, location, or other details are stated in the record.",
+      "anomaly": "Modern LED traffic signal head",
+      "answer": {
+        "x": 0.705,
+        "y": 0.545,
+        "r": 0.22
+      },
+      "explanation": "LED traffic signal heads did not exist in 1954, when signals used incandescent lamps in simple round housings.",
+      "references": [
+        {
+          "label": "National Library of Norway",
+          "url": "https://www.nb.no/"
+        }
+      ],
+      "source": {
+        "repository": "National Library of Norway",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20190503_00042_NB_HS_54_00420",
+        "originalTitle": "Gate",
+        "date": "1954",
+        "place": "",
+        "license": "Public domain",
+        "description": "{'firstIndexTime': '2025-08-26T13:42:47.214Z', 'firstDigitalContentTime': '2025-08-26T13:58:37.037Z', 'indexLastModified': '2025-08-26T13:58:37.037Z'}",
+        "titleEn": "Gate"
+      },
+      "credit": "Henriksen & Steen via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20190503_00042_NB_HS_54_00420",
+      "added": "2026-09-17",
+      "shown": "2026-10-13",
+      "image": "scenes/nb-gate-1954-7f38ff-modern-led-traffic-signa.jpg",
+      "original": "scenes/nb-gate-1954-7f38ff-modern-led-traffic-signa-original.jpg"
+    },
+    {
+      "id": "europeana-gedeelte-van-het-gebouw-1930-d857da-modern-digital-hanging-s",
+      "title": "Part of the building",
+      "title_source": "catalog",
+      "place": "Roode Steen",
+      "year": "1930",
+      "description": "A view of part of a building, with the Roode Steen visible. The photograph was taken in 1930 and is held by Europeana under a CC BY-SA licence.",
+      "anomaly": "modern digital hanging scale",
+      "answer": {
+        "x": 0.291,
+        "y": 0.775,
+        "r": 0.22
+      },
+      "explanation": "Electronic load-cell platform scales with digital readouts did not exist in 1930, when produce was weighed on mechanical steelyard or balance scales.",
+      "references": [
+        {
+          "label": "Encyclopaedia Britannica: scale (weighing instrument)",
+          "url": "https://www.britannica.com/technology/scale-measurement"
+        }
+      ],
+      "source": {
+        "repository": "Europeana",
+        "fileUrl": "https://www.europeana.eu/item/2058632/02c3c3a4_a099_e4ea_baf3_20fe300e6c46_media_298958b3_2178_5099_28aa_587f6a8a1b6c",
+        "originalTitle": "Gedeelte van het gebouw",
+        "date": "1930",
+        "place": "Roode Steen",
+        "license": "CC BY-SA",
+        "description": "Gedeelte van het gebouw",
+        "titleEn": "Part of the building"
+      },
+      "credit": "Europeana",
+      "sourceUrl": "https://www.europeana.eu/item/2058632/02c3c3a4_a099_e4ea_baf3_20fe300e6c46_media_298958b3_2178_5099_28aa_587f6a8a1b6c",
+      "added": "2026-10-12",
+      "shown": "2026-10-13",
+      "image": "scenes/europeana-gedeelte-van-het-gebouw-1930-d857da-modern-digital-hanging-s.jpg",
+      "original": "scenes/europeana-gedeelte-van-het-gebouw-1930-d857da-modern-digital-hanging-s-original.jpg"
     }
   ]
 }
