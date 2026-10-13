@@ -2,7 +2,7 @@ import { type RefObject, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { DAILY_COUNT, dateFromKey, dateLabel, pickDaily } from "./daily";
 import { type Manifest, parseManifest, type Scene } from "./manifest";
-import { REJECT_REASONS } from "./rejectReasons";
+import { REJECT_REASONS, type RejectReason } from "./rejectReasons";
 import { bearingTo, MISS_PENALTY, runningTotal } from "./scoring";
 import {
   loadDailyManifest,
@@ -196,6 +196,12 @@ export function App() {
   const [mod, setMod] = useState<ModerationState>(IDLE_MODERATION);
   const [modFeedback, setModFeedback] = useState("");
   /**
+   * The rejection reasons ticked in the moderation box (ticket #2585):
+   * several can be selected before one Reject submit, and all of them travel
+   * with the decision.
+   */
+  const [modReasons, setModReasons] = useState<RejectReason[]>([]);
+  /**
    * The two optional moderation tags (#1502, #1541): separate, one-way
    * checkboxes next to accept/reject. "funny" is the label set the blind
    * vision test needs before it can become a point; "great" is the curation
@@ -307,6 +313,7 @@ export function App() {
     setQuizDay(day);
     setMod(IDLE_MODERATION);
     setModFeedback("");
+    setModReasons([]);
     setTags(IDLE_TAG_STATE);
     // An empty queue still enters a run state: the moderation mode shows the
     // pipeline buffer + Generate button there (#1202/#1210).
@@ -469,6 +476,7 @@ export function App() {
     setAnnounce("");
     setMod(IDLE_MODERATION);
     setModFeedback("");
+    setModReasons([]);
     setTags(IDLE_TAG_STATE);
   };
 
@@ -592,24 +600,38 @@ export function App() {
   };
 
   /**
+   * Tick or untick one rejection reason (ticket #2585): the moderation box
+   * collects several before the single Reject submit.
+   */
+  const toggleModReason = (reason: RejectReason) => {
+    setModReasons((prev) =>
+      prev.includes(reason)
+        ? prev.filter((r) => r !== reason)
+        : [...prev, reason],
+    );
+  };
+
+  /**
    * The moderation verdict (dev instance only, ticket #1163), compiled out of
    * the production bundle (#1374) together with the queue API prefix it calls.
    * A landed verdict advances to the next scene (ticket #1888); only the last
    * scene stays, so its status is readable and Next still ends the run.
+   * A reject carries every ticked reason (ticket #2585).
    */
   const postModerationAction =
     process.env.NODE_ENV !== "production"
-      ? async (action: "accept" | "reject", reason?: string) => {
+      ? async (action: "accept" | "reject") => {
           if (!scene || mod.busy || mod.done) return;
+          const reasons = action === "reject" ? modReasons : [];
           setMod({ ...mod, busy: true, status: "Saving…" });
           try {
-            await postModeration(scene.id, action, modFeedback.trim(), reason);
+            await postModeration(scene.id, action, modFeedback.trim(), reasons);
             setMod({
               status:
                 action === "accept"
                   ? "✓ Accepted."
-                  : reason
-                    ? `✕ Rejected · ${reason}`
+                  : reasons.length > 0
+                    ? `✕ Rejected · ${reasons.join(", ")}`
                     : "✕ Rejected.",
               done: true,
               busy: false,
@@ -915,21 +937,24 @@ export function App() {
                 </div>
               </div>
               <div className="moderate-reasons-group">
-                <span className="moderate-reasons-label">Reject reason</span>
+                <span className="moderate-reasons-label">
+                  Reject reasons (tick any)
+                </span>
                 <div className="moderate-reasons">
                   {REJECT_REASONS.map((reason) => (
-                    <button
+                    <label
                       key={reason}
-                      type="button"
-                      className="btn ghost moderate-reason"
-                      disabled={mod.busy || mod.done}
-                      onClick={() =>
-                        void postModerationAction?.("reject", reason)
-                      }
+                      className={`moderate-reason${modReasons.includes(reason) ? " active" : ""}`}
                       title={reason}
                     >
+                      <input
+                        type="checkbox"
+                        checked={modReasons.includes(reason)}
+                        disabled={mod.busy || mod.done}
+                        onChange={() => toggleModReason(reason)}
+                      />
                       {reason}
-                    </button>
+                    </label>
                   ))}
                 </div>
               </div>

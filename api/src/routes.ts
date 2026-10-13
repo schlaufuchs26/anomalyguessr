@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { isRejectReason, type RejectReason } from "../../rejectReasons.ts";
+import { isRejectReason } from "../../rejectReasons.ts";
 import {
   GenerateBusyError,
   type Generator,
@@ -257,12 +257,18 @@ export async function handle(
   ) {
     const id = await resolveSceneId(store, segs[1] ?? "");
     if (id === null) return notFound();
-    let body: { action?: string; feedback?: string; reason?: string };
+    let body: {
+      action?: string;
+      feedback?: string;
+      reason?: string;
+      reasons?: string[];
+    };
     try {
       body = (await req.json()) as {
         action?: string;
         feedback?: string;
         reason?: string;
+        reasons?: string[];
       };
     } catch {
       return badRequest("invalid JSON body");
@@ -272,14 +278,21 @@ export async function handle(
       return badRequest("action must be one of: accept, reject");
     }
     const feedback = (body.feedback ?? "").trim();
-    const reason = (body.reason ?? "").trim();
-    // A canonical reason is stored structured (ticket #1627). Any other
-    // string stays a plain comment, so an older client or a typo never
-    // breaks a verdict.
-    const canonical = action === "reject" && isRejectReason(reason);
-    const comment = canonical
-      ? feedback
-      : [reason, feedback].filter(Boolean).join(": ");
+    // The moderation UI posts a list (ticket #2585); the legacy single
+    // `reason` is still accepted, so an older client keeps working.
+    const posted = [
+      ...(typeof body.reason === "string" ? [body.reason] : []),
+      ...(Array.isArray(body.reasons) ? body.reasons : []),
+    ]
+      .map((r) => (typeof r === "string" ? r.trim() : ""))
+      .filter((r) => r !== "");
+    // Canonical reasons are stored structured (ticket #1627), deduplicated
+    // so a double post cannot double-count. Any other string stays a plain
+    // comment, so an older client or a typo never breaks a verdict.
+    const canonical =
+      action === "reject" ? [...new Set(posted.filter(isRejectReason))] : [];
+    const unknown = posted.filter((r) => !isRejectReason(r));
+    const comment = [...unknown, feedback].filter(Boolean).join(": ");
     if (comment.length > MAX_COMMENT) {
       return badRequest("feedback must be at most 2000 characters");
     }
@@ -293,8 +306,8 @@ export async function handle(
     } else {
       delete fb.accepted[id];
       if (!(id in fb.rejected)) fb.rejected[id] = now;
-      if (canonical) {
-        fb.reasons[id] = { reason: reason as RejectReason, at: now };
+      if (canonical.length > 0) {
+        fb.reasons[id] = { reason: canonical, at: now };
       }
     }
     if (comment !== "") {

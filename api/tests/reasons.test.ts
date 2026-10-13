@@ -6,11 +6,13 @@ import { handle } from "../src/routes.ts";
 import { makeEnv } from "./helpers.ts";
 
 /**
- * Canonical rejection reasons (ticket #1627): the moderation view's six
- * one-click buttons post `{action: "reject", reason, feedback}`, and the API
- * stores the reason structured in feedback.json. An unknown string stays a
- * plain comment so an older client cannot break. Split from routes.test.ts
- * to stay under the 500-line gate.
+ * Canonical rejection reasons (ticket #1627): the moderation view's one-click
+ * buttons post `{action: "reject", reason, feedback}`, and the API stores the
+ * reason structured in feedback.json. Since #2585 the view posts several
+ * reasons at once (`reasons: [...]`) and they all survive; the legacy single
+ * `reason` still works. An unknown string stays a plain comment so an older
+ * client cannot break. Split from routes.test.ts to stay under the 500-line
+ * gate.
  */
 
 const BASE = "http://test.local/anomalyguessr/api/scenes/beta-street";
@@ -28,7 +30,7 @@ function restore(): Request {
 }
 
 interface StoredFeedback {
-  reasons: Record<string, { reason: string; at: string }>;
+  reasons: Record<string, { reason: string | string[]; at: string }>;
   comments: Record<string, { text: string }[]>;
 }
 
@@ -39,7 +41,7 @@ async function stored(dir: string): Promise<StoredFeedback> {
 }
 
 describe("rejection reasons (#1627)", () => {
-  test("all six canonical reasons are accepted and stored structured", async () => {
+  test("all eight canonical reasons are accepted and stored structured", async () => {
     const { env, dir } = await makeEnv();
     for (const reason of REJECT_REASONS) {
       const res = await handle(
@@ -51,10 +53,54 @@ describe("rejection reasons (#1627)", () => {
       expect(res.status).toBe(200);
     }
     const fb = await stored(dir);
-    expect(fb.reasons["beta-street"]?.reason).toBe(
-      REJECT_REASONS[REJECT_REASONS.length - 1],
-    );
+    expect(fb.reasons["beta-street"]?.reason).toEqual([
+      REJECT_REASONS.at(-1) ?? "",
+    ]);
     expect(typeof fb.reasons["beta-street"]?.at).toBe("string");
+  });
+
+  test("several reasons survive one decision (#2585)", async () => {
+    const { env, dir } = await makeEnv();
+    const res = await handle(
+      env,
+      "POST",
+      "scenes/beta-street/moderate",
+      moderate({
+        action: "reject",
+        reasons: ["too easy", "text is inaccurate"],
+      }),
+    );
+    expect(res.status).toBe(200);
+    const fb = await stored(dir);
+    expect(fb.reasons["beta-street"]?.reason).toEqual([
+      "too easy",
+      "text is inaccurate",
+    ]);
+  });
+
+  test("a repeated reason is stored once (#2585)", async () => {
+    const { env, dir } = await makeEnv();
+    await handle(
+      env,
+      "POST",
+      "scenes/beta-street/moderate",
+      moderate({ action: "reject", reasons: ["too easy", "too easy"] }),
+    );
+    const fb = await stored(dir);
+    expect(fb.reasons["beta-street"]?.reason).toEqual(["too easy"]);
+  });
+
+  test("the legacy single `reason` field still works (#2585)", async () => {
+    const { env, dir } = await makeEnv();
+    const res = await handle(
+      env,
+      "POST",
+      "scenes/beta-street/moderate",
+      moderate({ action: "reject", reason: "too hard" }),
+    );
+    expect(res.status).toBe(200);
+    const fb = await stored(dir);
+    expect(fb.reasons["beta-street"]?.reason).toEqual(["too hard"]);
   });
 
   test("a reason with a typed note stores both, without duplicating prose", async () => {
@@ -65,15 +111,15 @@ describe("rejection reasons (#1627)", () => {
       "scenes/beta-street/moderate",
       moderate({
         action: "reject",
-        reason: "scaling of anomaly is wrong",
+        reasons: ["scaling of anomaly is wrong"],
         feedback: "the car is huge",
       }),
     );
     expect(res.status).toBe(200);
     const fb = await stored(dir);
-    expect(fb.reasons["beta-street"]?.reason).toBe(
+    expect(fb.reasons["beta-street"]?.reason).toEqual([
       "scaling of anomaly is wrong",
-    );
+    ]);
     expect(fb.comments["beta-street"]?.map((c) => c.text)).toEqual([
       "the car is huge",
     ]);
@@ -101,7 +147,7 @@ describe("rejection reasons (#1627)", () => {
       env,
       "POST",
       "scenes/beta-street/moderate",
-      moderate({ action: "reject", reason: "too easy" }),
+      moderate({ action: "reject", reasons: ["too easy"] }),
     );
     await handle(env, "POST", "scenes/beta-street/restore", restore());
     const fb = await stored(dir);

@@ -199,19 +199,25 @@ def commented_scene_ids(feedback: dict) -> set:
             if comments}
 
 
-def reject_reason_entry(feedback: dict, scene_id) -> str | None:
-    """The canonical reason stored for a scene, or None (ticket #1627).
+def reject_reasons(feedback: dict, scene_id) -> list:
+    """The canonical reasons stored for a scene, in order (ticket #2585).
 
     A reason-tagged rejection carries ``feedback["reasons"][id]`` =
-    ``{"reason": ..., "at": ...}``; a legacy one only has free prose in
-    ``comments``. Both stay readable, and the caller can tell which it saw
-    with ``rejection_kind``.
+    ``{"reason": [...], "at": ...}``; a row written before #2585 carries a
+    single string there, and a legacy one only has free prose in
+    ``comments``. Every reader goes through here, so a string reads as a
+    one-element list and old feedback keeps working (no migration). The
+    caller can tell a tagged from a prose rejection with ``rejection_kind``.
     """
     entry = (feedback.get("reasons") or {}).get(str(scene_id))
     if not isinstance(entry, dict):
-        return None
-    reason = str(entry.get("reason") or "").strip()
-    return reason or None
+        return []
+    raw = entry.get("reason")
+    if isinstance(raw, str):
+        raw = [raw]
+    if not isinstance(raw, list):
+        return []
+    return [str(r).strip() for r in raw if str(r).strip()]
 
 
 def rejection_kind(feedback: dict, scene_id) -> str:
@@ -221,7 +227,7 @@ def rejection_kind(feedback: dict, scene_id) -> str:
     combined a reason with a note stores both, and the reason is the
     canonical signal.
     """
-    if reject_reason_entry(feedback, scene_id):
+    if reject_reasons(feedback, scene_id):
         return "reason"
     if (feedback.get("comments") or {}).get(str(scene_id)):
         return "prose"
@@ -236,30 +242,40 @@ def reason_counts(feedback: dict, window_days: int = DEFAULT_WINDOW_DAYS,
     reason, with prose only, or silently, so the digest can say which it saw
     and a run without reason-tagged rejections reads as such instead of as a
     zero.
+
+    Since #2585 a rejection can carry several reasons, so ``counts`` is a
+    per-class tally: its sum can exceed ``tagged`` (the number of decisions
+    that carry at least one reason), and ``multi`` counts the decisions with
+    two or more. A new reason starts at zero and reads as thin rather than as
+    evidence (ticket #2585).
     """
     day = today or datetime.date.today()
     cutoff = (day - datetime.timedelta(days=window_days)).isoformat()
     counts = {reason: 0 for reason in ag_queue.REJECT_REASONS}
-    unknown = 0
-    tagged = prose = silent = 0
+    unknown = multi = tagged = prose = silent = 0
     for scene_id, at in (feedback.get("rejected") or {}).items():
         if str(at or "")[:10] < cutoff:
             continue
         kind = rejection_kind(feedback, scene_id)
         if kind == "reason":
             tagged += 1
-            reason = reject_reason_entry(feedback, scene_id)
-            if reason in counts:
-                counts[reason] += 1
-            else:
-                unknown += 1
+            reasons = reject_reasons(feedback, scene_id)
+            if len(reasons) > 1:
+                multi += 1
+            for reason in reasons:
+                if reason in counts:
+                    counts[reason] += 1
+                else:
+                    unknown += 1
         elif kind == "prose":
             prose += 1
         else:
             silent += 1
     return {"counts": counts, "unknown": unknown, "tagged": tagged,
-            "prose": prose, "silent": silent,
-            "rejected": tagged + prose + silent}
+            "multi": multi, "prose": prose, "silent": silent,
+            "rejected": tagged + prose + silent,
+            "note": "counts are per class; a scene can carry several, so "
+                    "they can sum past the number of decisions"}
 
 
 def _dimension(accepted, rejected, scenes, cutoff, pair_of,
@@ -657,6 +673,9 @@ def digest(report: dict) -> str:
         counts = reasons.get("counts") or {}
         top = sorted(((n, r) for r, n in counts.items() if n), reverse=True)
         line = f"Reject reasons: {tagged} listed, {prose} prose-only"
+        multi = int(reasons.get("multi") or 0)
+        if multi:
+            line += f" ({multi} with several reasons)"
         if top:
             line += f"; top: {top[0][1]} ({top[0][0]})"
         lines.append(line)

@@ -406,7 +406,7 @@ if __name__ == "__main__":
 
 
 class RejectReasonTest(unittest.TestCase):
-    """Ticket #1627: reason-tagged and legacy prose rejections both read."""
+    """Ticket #1627/#2585: reason-tagged, legacy string and prose read."""
 
     def record(self, **kw):
         base = {"version": 1, "accepted": {}, "rejected": {}, "comments": {}}
@@ -416,15 +416,31 @@ class RejectReasonTest(unittest.TestCase):
     def test_a_reason_tagged_rejection_is_read(self):
         rec = self.record(
             rejected={"s1": "2026-09-14T10:00:00Z"},
+            reasons={"s1": {"reason": ["too easy"],
+                            "at": "2026-09-14T10:00:00Z"}})
+        self.assertEqual(fb.reject_reasons(rec, "s1"), ["too easy"])
+        self.assertEqual(fb.rejection_kind(rec, "s1"), "reason")
+
+    def test_a_legacy_single_string_reads_as_a_list(self):
+        rec = self.record(
+            rejected={"s1": "2026-09-14T10:00:00Z"},
             reasons={"s1": {"reason": "too easy",
                             "at": "2026-09-14T10:00:00Z"}})
-        self.assertEqual(fb.reject_reason_entry(rec, "s1"), "too easy")
+        self.assertEqual(fb.reject_reasons(rec, "s1"), ["too easy"])
         self.assertEqual(fb.rejection_kind(rec, "s1"), "reason")
+
+    def test_several_reasons_survive_one_decision(self):
+        rec = self.record(
+            rejected={"s1": "2026-09-14T10:00:00Z"},
+            reasons={"s1": {"reason": ["too easy", "text is inaccurate"],
+                            "at": "2026-09-14T10:00:00Z"}})
+        self.assertEqual(fb.reject_reasons(rec, "s1"),
+                         ["too easy", "text is inaccurate"])
 
     def test_a_legacy_prose_rejection_is_read(self):
         rec = self.record(rejected={"s1": "2026-09-14T10:00:00Z"},
                           comments={"s1": [{"text": "too obvious"}]})
-        self.assertIsNone(fb.reject_reason_entry(rec, "s1"))
+        self.assertEqual(fb.reject_reasons(rec, "s1"), [])
         self.assertEqual(fb.rejection_kind(rec, "s1"), "prose")
 
     def test_a_silent_rejection_has_no_kind(self):
@@ -436,38 +452,48 @@ class RejectReasonTest(unittest.TestCase):
             rejected={
                 "r1": "2026-09-14T10:00:00Z",
                 "r2": "2026-09-14T10:00:00Z",
+                "m1": "2026-09-14T10:00:00Z",
                 "p1": "2026-09-14T10:00:00Z",
                 "s1": "2026-09-14T10:00:00Z",
                 "old": "2026-01-01T10:00:00Z",
             },
             reasons={
-                "r1": {"reason": "too easy",
+                "r1": {"reason": ["too easy"],
                        "at": "2026-09-14T10:00:00Z"},
+                # A legacy row carries a single string (#2585).
                 "r2": {"reason": "too easy",
                        "at": "2026-09-14T10:00:00Z"},
-                "old": {"reason": "too easy",
+                "m1": {"reason": ["too easy", "too hard"],
+                       "at": "2026-09-14T10:00:00Z"},
+                "old": {"reason": ["too easy"],
                         "at": "2026-01-01T10:00:00Z"},
             },
             comments={"p1": [{"text": "blurry"}]},
         )
         counts = fb.reason_counts(rec, today=TODAY)
-        self.assertEqual(counts["counts"]["too easy"], 2)
-        self.assertEqual(counts["tagged"], 2)
+        # Three per-class hits: r1, r2 and m1.
+        self.assertEqual(counts["counts"]["too easy"], 3)
+        self.assertEqual(counts["counts"]["too hard"], 1)
+        # Four decisions carry a reason; one of them carries two.
+        self.assertEqual(counts["tagged"], 3)
+        self.assertEqual(counts["multi"], 1)
         self.assertEqual(counts["prose"], 1)
         self.assertEqual(counts["silent"], 1)
-        self.assertEqual(counts["rejected"], 4)
+        self.assertEqual(counts["rejected"], 5)
 
 
 class RejectReasonRunTest(TempDataMixin, unittest.TestCase):
     def test_the_report_carries_the_reason_counts(self):
         scenes, _ = outboard_fixture()
         record = verdicts(rejected=["o2", "o3"])
-        record["reasons"] = {"o3": {"reason": "too easy",
+        record["reasons"] = {"o3": {"reason": ["too easy", "too hard"],
                                     "at": "2026-09-14T10:00:00Z"}}
         self.write(scenes, record)
         report = fb.run(self.data_dir, dry_run=True, now=datetime.datetime(
             2026, 9, 15, 3, 15, tzinfo=datetime.timezone.utc))
         self.assertEqual(report["rejectReasons"]["counts"]["too easy"], 1)
+        self.assertEqual(report["rejectReasons"]["counts"]["too hard"], 1)
         self.assertEqual(report["rejectReasons"]["tagged"], 1)
+        self.assertEqual(report["rejectReasons"]["multi"], 1)
         # o2 carries no comment, so it counts as a silent rejection.
         self.assertEqual(report["rejectReasons"]["silent"], 1)

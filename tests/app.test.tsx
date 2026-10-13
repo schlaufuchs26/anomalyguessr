@@ -1481,8 +1481,8 @@ afterEach(() => {
   globalThis.fetch = fetch;
 });
 
-describe("one-click rejection reasons (#1627)", () => {
-  test("a reason button rejects with the canonical reason plus typed note", async () => {
+describe("multi-select rejection reasons (#1627, #2585)", () => {
+  test("ticked reasons reject with the canonical reasons plus typed note", async () => {
     payload = { ...MANIFEST, moderation: true };
     const container = await renderGame("moderation");
     clickPhoto(container, 0.5, 0.5);
@@ -1490,31 +1490,44 @@ describe("one-click rejection reasons (#1627)", () => {
     const feedback = screen.getByPlaceholderText(/Feedback for the pipeline/);
     fireEvent.change(feedback, { target: { value: "  the car is huge  " } });
     fireEvent.click(
-      screen.getByRole("button", { name: "scaling of anomaly is wrong" }),
+      screen.getByRole("checkbox", { name: "scaling of anomaly is wrong" }),
     );
+    fireEvent.click(screen.getByRole("checkbox", { name: "too hard" }));
+    fireEvent.click(screen.getByRole("button", { name: "✕ Reject" }));
 
     await waitFor(() => expect(posts).toHaveLength(1));
     expect(posts[0]?.url).toBe("/anomalyguessr/api/scenes/a/moderate");
     expect(posts[0]?.body).toEqual({
       action: "reject",
-      reason: "scaling of anomaly is wrong",
+      reasons: ["scaling of anomaly is wrong", "too hard"],
       feedback: "the car is huge",
     });
   });
 
-  test("all six reason buttons are offered in one compact group", async () => {
+  test("a reject with no reason ticked sends the legacy body", async () => {
+    payload = { ...MANIFEST, moderation: true };
+    const container = await renderGame("moderation");
+    clickPhoto(container, 0.5, 0.5);
+
+    fireEvent.click(screen.getByRole("button", { name: "✕ Reject" }));
+
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(posts[0]?.body).toEqual({ action: "reject", feedback: "" });
+  });
+
+  test("all eight reasons are offered as checkboxes in one compact group", async () => {
     payload = { ...MANIFEST, moderation: true };
     const container = await renderGame("moderation");
     clickPhoto(container, 0.5, 0.5);
     for (const reason of REJECT_REASONS) {
-      expect(screen.getByRole("button", { name: reason })).toBeEnabled();
+      expect(screen.getByRole("checkbox", { name: reason })).toBeEnabled();
     }
     const group = container.querySelector(".moderate-reasons");
     expect(group).not.toBeNull();
-    expect(group?.querySelectorAll("button")).toHaveLength(
+    expect(group?.querySelectorAll("input[type=checkbox]")).toHaveLength(
       REJECT_REASONS.length,
     );
-    expect(REJECT_REASONS).toHaveLength(6);
+    expect(REJECT_REASONS).toHaveLength(8);
   });
 
   test("a verdict advances to the next scene automatically (#1888)", async () => {

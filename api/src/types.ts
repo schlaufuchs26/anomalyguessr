@@ -118,8 +118,13 @@ export interface Comment {
 
 /** One canonical rejection reason stored on a scene (ticket #1627). */
 export interface RejectReasonEntry {
-  /** One of the canonical reasons in `rejectReasons.ts` (REJECT_REASONS). */
-  reason: RejectReason;
+  /**
+   * The canonical reasons in `rejectReasons.ts` (REJECT_REASONS). A row
+   * written before #2585 carries a single string; from #2585 on it is a
+   * list, so several reasons survive one decision. Readers pass it through
+   * `entryReasons()` and see a list either way.
+   */
+  reason: RejectReason | RejectReason[];
   /** When the reason was recorded (RFC3339). */
   at: string;
 }

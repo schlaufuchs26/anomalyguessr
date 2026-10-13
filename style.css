@@ -771,8 +771,8 @@ main {
   margin-top: 0.6em;
   font-size: 0.9em;
 }
-/* The six one-click rejection reasons (ticket #1627): one click rejects
-   with the canonical reason stored, no confirmation step. */
+/* The rejection reasons (ticket #1627, multi-select since #2585): tick any
+   number of chips, then one Reject stores all of them. */
 .moderate-reasons-group {
   margin-top: 0.5em;
 }
@@ -788,7 +788,17 @@ main {
   margin-top: 0.3em;
 }
 .moderate-reason {
+  align-items: center;
+  display: flex;
+  gap: 0.35em;
   font-size: 0.85em;
+  cursor: pointer;
+}
+.moderate-reason.active {
+  font-weight: 600;
+}
+.moderate-reason input:disabled {
+  cursor: default;
 }
 .moderate-verdict .btn.ghost {
   border-color: #b33;
