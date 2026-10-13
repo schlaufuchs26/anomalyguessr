@@ -32,13 +32,17 @@ Evan's verdicts worse than always rejecting, so it is not a target.
 Usage:
 
     ag_feedback.py --data DIR [--window 14] [--env .env]
-                   [--dm-channel ID] [--dry-run] [--no-dm]
+                   [--dm-channel ID] [--dry-run] [--no-dm] [--summary]
 
-Since ticket #2305 the pass runs as its own agent cron before the generator:
-the command writes ``adaptation.json`` exactly as before, prints the digest
-plus the full report, and prints ``NO_FEEDBACK_MARKER`` when the window holds
-no verdict; the cron's ``skip_if`` matches that line, so a quiet night costs
-no model call.
+Since ticket #2586 the pass runs inside the project heartbeat cron
+(`project-anomalyguessr`, `mode: terminal_agent`): the heartbeat runs this
+command with ``--summary`` first, which writes ``adaptation.json`` for the
+next generator run and prints the short digest (sample, top movers, the
+per-class rejection tally, the applied changes and the findings) instead of
+the full JSON report. The heartbeat agent then reads that digest as one input
+to its next-step decision. The old ``daily-anomalyguessr-feedback`` agent cron
+is gone. Without ``--summary`` the command still prints the digest plus the
+full report, and ``NO_FEEDBACK_MARKER`` marks a window without any verdict.
 """
 
 import argparse
@@ -651,8 +655,39 @@ def nothing_new(report: dict) -> bool:
     return int((report.get("sample") or {}).get("total") or 0) == 0
 
 
+def reject_class_lines(report: dict) -> list:
+    """One line naming every rejection class with a hit (ticket #2586).
+
+    The project heartbeat reads this as one input to its next-step decision,
+    so the whole per-class tally is printed, not only the leading class.
+    ``counts`` is per class, so its sum can exceed the number of decisions
+    (a scene can carry several reasons); the labelled kinds travel next to it.
+    """
+    reasons = report.get("rejectReasons") or {}
+    tagged = int(reasons.get("tagged") or 0)
+    prose = int(reasons.get("prose") or 0)
+    silent = int(reasons.get("silent") or 0)
+    if not (tagged or prose or silent):
+        return []
+    counts = reasons.get("counts") or {}
+    top = sorted(((n, r) for r, n in counts.items() if n), reverse=True)
+    line = "Reject classes: " + (
+        ", ".join(f"{reason} {n}" for n, reason in top) if top else "(none)")
+    multi = int(reasons.get("multi") or 0)
+    line += f" ({tagged} listed"
+    if multi:
+        line += f", {multi} with several reasons"
+    line += f", {prose} prose-only, {silent} silent)"
+    return [line]
+
+
 def digest(report: dict) -> str:
-    """A short DM digest: sample, top movers, applied changes."""
+    """A short report: sample, top movers, rejection classes, applied changes.
+
+    Since ticket #2586 this is also the output the project heartbeat reads
+    (``--summary``): it carries the whole per-class rejection tally, so the
+    heartbeat does not have to eyeball the numbers.
+    """
     sample = report.get("sample") or {}
     head = (f"AnomalyGuessr feedback {str(report.get('generatedAt'))[:10]} "
             f"({report.get('windowDays')}d window): "
@@ -666,19 +701,7 @@ def digest(report: dict) -> str:
         lines.append("Worst records: " + "; ".join(
             f"{row['key']} {row['rejected']}/{row['total']} "
             f"({_pct(_reject_share(row))})" for row in movers))
-    reasons = report.get("rejectReasons") or {}
-    tagged = int(reasons.get("tagged") or 0)
-    prose = int(reasons.get("prose") or 0)
-    if tagged or prose:
-        counts = reasons.get("counts") or {}
-        top = sorted(((n, r) for r, n in counts.items() if n), reverse=True)
-        line = f"Reject reasons: {tagged} listed, {prose} prose-only"
-        multi = int(reasons.get("multi") or 0)
-        if multi:
-            line += f" ({multi} with several reasons)"
-        if top:
-            line += f"; top: {top[0][1]} ({top[0][0]})"
-        lines.append(line)
+    lines += reject_class_lines(report)
     lines.append(_applied_line(report.get("changes") or []))
     props = report.get("proposals") or []
     if props:
@@ -780,6 +803,11 @@ def parse_args(argv=None):
                    help="Discord channel for the digest")
     p.add_argument("--no-dm", action="store_true",
                    help="do not send the digest even with --dm-channel")
+    p.add_argument("--summary", action="store_true",
+                   help="print only the short digest (the class tally, the "
+                        "applied changes and the findings), not the full JSON "
+                        "report; the project heartbeat reads this (ticket "
+                        "#2586)")
     return p.parse_args(argv)
 
 
@@ -789,7 +817,8 @@ def main(argv=None) -> int:
     report = run(data_dir, window_days=args.window, dry_run=args.dry_run)
     text = digest(report)
     print(text)
-    print(json.dumps(report, indent=2, ensure_ascii=False))
+    if not args.summary:
+        print(json.dumps(report, indent=2, ensure_ascii=False))
     if nothing_new(report):
         print(NO_FEEDBACK_MARKER)
     if args.dm_channel and not args.no_dm and not args.dry_run:

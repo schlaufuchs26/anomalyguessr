@@ -511,4 +511,66 @@ class RejectReasonRunTest(TempDataMixin, unittest.TestCase):
             },
             "changes": [],
         }
-        self.assertIn("(1 with several reasons)", fb.digest(report))
+        self.assertIn("1 with several reasons", fb.digest(report))
+
+    def test_the_digest_lists_every_rejection_class(self):
+        # Ticket #2586: the heartbeat reads the whole per-class tally, not
+        # only the leading class, so it can weigh more than one lever.
+        report = {
+            "generatedAt": "2026-09-15T03:15:00+00:00",
+            "windowDays": 14,
+            "sample": {"total": 4, "accepted": 1, "rejected": 3,
+                       "rate": 0.25},
+            "rejectReasons": {
+                "counts": {"too easy": 2, "too hard": 1,
+                           "text is inaccurate": 1, "click area too big": 0},
+                "tagged": 3, "multi": 1, "prose": 1, "silent": 0,
+                "rejected": 4,
+            },
+            "changes": [],
+        }
+        text = fb.digest(report)
+        self.assertIn("too easy 2", text)
+        self.assertIn("too hard 1", text)
+        self.assertIn("text is inaccurate 1", text)
+        # A class with no hit is not printed; the labelled kinds are.
+        self.assertNotIn("click area too big", text)
+        self.assertIn("3 listed", text)
+        self.assertIn("1 prose-only", text)
+
+
+class SummaryModeTest(TempDataMixin, unittest.TestCase):
+    """Ticket #2586: --summary is the project heartbeat's input."""
+
+    def test_summary_prints_the_class_tally_without_the_json_report(self):
+        scenes, _ = outboard_fixture()
+        today = datetime.date.today().isoformat()
+        record = {
+            "version": 1,
+            "accepted": {},
+            "rejected": {"o2": f"{today}T10:00:00Z"},
+            "reasons": {"o2": {"reason": ["too easy", "too hard"],
+                               "at": f"{today}T10:00:00Z"}},
+        }
+        self.write(scenes, record)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = fb.main(["--data", str(self.data_dir), "--dry-run",
+                          "--summary"])
+        self.assertEqual(rc, 0)
+        out = buf.getvalue()
+        self.assertIn("Reject classes:", out)
+        self.assertIn("too easy 1", out)
+        self.assertIn("too hard 1", out)
+        # The full report is not printed in summary mode.
+        self.assertNotIn('"version"', out)
+
+    def test_the_summary_still_writes_adaptation(self):
+        # The heartbeat command must not be a dry run: the generator reads
+        # adaptation.json on its next 03:15 run.
+        scenes, record = outboard_fixture()
+        self.write(scenes, record)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            fb.main(["--data", str(self.data_dir), "--summary"])
+        self.assertTrue((self.data_dir / "adaptation.json").exists())
