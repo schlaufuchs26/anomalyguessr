@@ -127,6 +127,7 @@ describe("scenes list", () => {
       accepted: 0,
       rejected: 0,
       unmoderated: 2,
+      repair: 0,
       unshownAccepted: 0,
     });
     const alpha = body.scenes.find((s) => s.id === "alpha-market");

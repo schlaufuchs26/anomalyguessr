@@ -94,6 +94,7 @@ export function normalizeFeedback(fb: FeedbackFile): FeedbackFile {
     reasons: fb.reasons ?? {},
     funny: fb.funny ?? {},
     great: fb.great ?? {},
+    repairs: fb.repairs ?? {},
   };
 }
 
@@ -106,11 +107,20 @@ export function sceneExists(st: StateFile, id: string): boolean {
   return SCENE_ID_RE.test(id) && id in st.scenes;
 }
 
-/** Derive a scene's moderation verdict from feedback.json (rejected wins). */
+/**
+ * Whether the scene carries an open "Needs work" request (ticket #2590):
+ * it left the moderation queue and waits for the repair pass.
+ */
+export function repairRequested(fb: FeedbackFile, id: string): boolean {
+  return fb.repairs?.[id]?.status === "requested";
+}
+
+/** Derive a scene's moderation verdict from feedback.json. */
 export function moderationOf(
   fb: FeedbackFile,
   id: string,
-): "accepted" | "rejected" | "unmoderated" {
+): "accepted" | "rejected" | "unmoderated" | "repair" {
+  if (repairRequested(fb, id)) return "repair";
   if (id in fb.rejected) return "rejected";
   if (id in fb.accepted) return "accepted";
   return "unmoderated";

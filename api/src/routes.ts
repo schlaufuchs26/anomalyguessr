@@ -274,8 +274,8 @@ export async function handle(
       return badRequest("invalid JSON body");
     }
     const action = (body.action ?? "").trim();
-    if (action !== "accept" && action !== "reject") {
-      return badRequest("action must be one of: accept, reject");
+    if (action !== "accept" && action !== "reject" && action !== "needs_work") {
+      return badRequest("action must be one of: accept, reject, needs_work");
     }
     const feedback = (body.feedback ?? "").trim();
     // The moderation UI posts a list (ticket #2585); the legacy single
@@ -288,13 +288,20 @@ export async function handle(
       .filter((r) => r !== "");
     // Canonical reasons are stored structured (ticket #1627), deduplicated
     // so a double post cannot double-count. Any other string stays a plain
-    // comment, so an older client or a typo never breaks a verdict.
+    // comment, so an older client or a typo never breaks a verdict. An
+    // accept carries none; a reject and a "Needs work" request keep them.
     const canonical =
-      action === "reject" ? [...new Set(posted.filter(isRejectReason))] : [];
+      action === "accept" ? [] : [...new Set(posted.filter(isRejectReason))];
     const unknown = posted.filter((r) => !isRejectReason(r));
     const comment = [...unknown, feedback].filter(Boolean).join(": ");
     if (comment.length > MAX_COMMENT) {
       return badRequest("feedback must be at most 2000 characters");
+    }
+    // A "Needs work" request says what to fix, so it needs at least one
+    // canonical reason; without one there is nothing for the repair pass to
+    // act on (ticket #2590).
+    if (action === "needs_work" && canonical.length === 0) {
+      return badRequest("needs_work requires at least one reason");
     }
     const fb = await store.feedback();
     const now = new Date().toISOString();
@@ -302,13 +309,29 @@ export async function handle(
       delete fb.rejected[id];
       // An accepted scene carries no rejection reason any more.
       delete fb.reasons[id];
+      // A human verdict supersedes an open repair request.
+      if (fb.repairs?.[id]?.status === "requested") delete fb.repairs[id];
       if (!(id in fb.accepted)) fb.accepted[id] = now;
-    } else {
+    } else if (action === "reject") {
       delete fb.accepted[id];
+      if (fb.repairs?.[id]?.status === "requested") delete fb.repairs[id];
       if (!(id in fb.rejected)) fb.rejected[id] = now;
       if (canonical.length > 0) {
         fb.reasons[id] = { reason: canonical, at: now };
       }
+    } else {
+      // "Needs work": the scene leaves the accept/reject maps and the queue
+      // (its moderation reads "repair"), carrying the ticked reasons for the
+      // repair pass (ticket #2590). The verdicts stay untouched otherwise.
+      delete fb.accepted[id];
+      delete fb.rejected[id];
+      delete fb.reasons[id];
+      fb.repairs = fb.repairs ?? {};
+      fb.repairs[id] = {
+        status: "requested",
+        reasons: canonical,
+        requestedAt: now,
+      };
     }
     if (comment !== "") {
       const comments = fb.comments[id] ?? [];
@@ -317,8 +340,16 @@ export async function handle(
     }
     await store.saveFeedback(fb);
     const moderation: Moderation =
-      action === "accept" ? "accepted" : "rejected";
-    return json({ id, moderation });
+      action === "accept"
+        ? "accepted"
+        : action === "reject"
+          ? "rejected"
+          : "repair";
+    return json({
+      id,
+      moderation,
+      ...(action === "needs_work" ? { repair: fb.repairs?.[id] } : {}),
+    });
   }
 
   // POST /scenes/{id}/comments
@@ -394,6 +425,8 @@ export async function handle(
     } else {
       delete fb.rejected[id];
       delete fb.reasons[id];
+      // Restoring supersedes an open "Needs work" request (ticket #2590).
+      if (fb.repairs?.[id]?.status === "requested") delete fb.repairs[id];
     }
     await store.saveFeedback(fb);
     return json({ id, rejected: action === "reject" });

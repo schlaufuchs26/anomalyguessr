@@ -7,6 +7,7 @@ import {
   type FeedbackFile,
   imageUrl,
   type Moderation,
+  type RepairEntry,
   SCENE_HANDLE_RE,
   SCENE_ID_RE,
   type SceneChecker,
@@ -69,6 +70,10 @@ export interface ApiScene {
   great: boolean;
   /** When the tag was set, when it is (RFC3339). */
   greatAt?: string;
+  /** The "Needs work" repair request and its outcome (ticket #2590), when
+   *  the scene carries one. A pending request (status "requested") is why
+   *  the scene reads moderation "repair" and is absent from the queue. */
+  repair?: RepairEntry;
   images: { edited: string; original: string; audit?: string };
 }
 
@@ -80,6 +85,8 @@ export interface SceneList {
     accepted: number;
     rejected: number;
     unmoderated: number;
+    /** Scenes with an open "Needs work" request (ticket #2590). */
+    repair: number;
     /** Subset of unshown a human accepted: the next daily's fresh pool. */
     unshownAccepted: number;
   };
@@ -111,6 +118,16 @@ export interface ManifestScene {
   answer: { x: number; y: number; r: number };
   image: string;
   original: string;
+  /**
+   * The "Needs work" outcome marker (ticket #2590), present on a scene the
+   * repair pass touched: the moderation queue shows that it was repaired and
+   * why. Dev-side curation metadata; never in the public Pages manifest.
+   */
+  repair?: {
+    status: "repaired" | "unrepairable";
+    reasons: string[];
+    detail?: string;
+  };
 }
 
 export interface Manifest {
@@ -164,6 +181,7 @@ export function listScenes(
     accepted: 0,
     rejected: 0,
     unmoderated: 0,
+    repair: 0,
     unshownAccepted: unshownAccepted(st, fb),
   };
   for (const s of scenes) {
@@ -172,6 +190,7 @@ export function listScenes(
     // rejected counts only toward the moderation `rejected` count below
     if (s.moderation === "accepted") summary.accepted++;
     else if (s.moderation === "rejected") summary.rejected++;
+    else if (s.moderation === "repair") summary.repair++;
     else summary.unmoderated++;
   }
   return {
@@ -193,11 +212,15 @@ export function sceneToApi(
   const rejected = id in fb.rejected;
   const accepted = id in fb.accepted;
   const rejectedAt = fb.rejected[id];
-  const moderation: Moderation = rejected
-    ? "rejected"
-    : accepted
-      ? "accepted"
-      : "unmoderated";
+  const repair = fb.repairs?.[id];
+  const moderation: Moderation =
+    repair?.status === "requested"
+      ? "repair"
+      : rejected
+        ? "rejected"
+        : accepted
+          ? "accepted"
+          : "unmoderated";
   const images: ApiScene["images"] = {
     edited: imageUrl("image", id),
     original: imageUrl("original", id),
@@ -238,6 +261,7 @@ export function sceneToApi(
   if (funnyAt !== undefined) out.funnyAt = funnyAt;
   const greatAt = fb.great?.[id];
   if (greatAt !== undefined) out.greatAt = greatAt;
+  if (repair !== undefined) out.repair = repair;
   if (rejectedAt !== undefined) out.rejectedAt = rejectedAt;
   return out;
 }
@@ -424,6 +448,20 @@ export function manifestScenes(
   if (scope === "daily") return manifestDaily(st, fb);
   if (scope === "live") return manifestLive(st, fb);
 
+  /** Attach the resolved "Needs work" marker (ticket #2590), when present. */
+  const withRepair = (e: SceneEntry): ManifestScene => {
+    const s = renderManifestScene(e);
+    const r = fb.repairs?.[e.id];
+    if (r && r.status !== "requested") {
+      s.repair = {
+        status: r.status,
+        reasons: r.reasons,
+        ...(r.detail !== undefined ? { detail: r.detail } : {}),
+      };
+    }
+    return s;
+  };
+
   const groups: Record<
     "unshown" | "shown" | "accepted" | "unmoderated",
     SceneEntry[]
@@ -436,6 +474,9 @@ export function manifestScenes(
   for (const e of Object.values(st.scenes)) {
     if (!SCENE_ID_RE.test(e.id)) continue;
     if (e.id in fb.rejected) continue;
+    // An open repair request takes the scene out of the queue (ticket
+    // #2590): it returns to the unmoderated scope once the pass resolves it.
+    if (fb.repairs?.[e.id]?.status === "requested") continue;
     if (e.source == null) continue; // legacy entry: cannot be a v2 scene
     const accepted = e.id in fb.accepted;
     if (scope === "accepted" && accepted) groups.accepted.push(e);
@@ -454,8 +495,7 @@ export function manifestScenes(
     : scope === "unmoderated"
       ? (["unmoderated"] as const)
       : (["unshown", "shown"] as const)) {
-    for (const e of groups[key].sort(newestFirst))
-      out.push(renderManifestScene(e));
+    for (const e of groups[key].sort(newestFirst)) out.push(withRepair(e));
   }
   return out;
 }

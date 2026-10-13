@@ -129,6 +129,40 @@ export interface RejectReasonEntry {
   at: string;
 }
 
+/**
+ * One "Needs work" repair request and its outcome (ticket #2590).
+ *
+ * The moderation view's third button stores the ticked reasons here and
+ * leaves the scene's accept/reject verdict alone. While `status` is
+ * "requested" the scene is out of the moderation queue (its moderation
+ * reads "repair"); the heartbeat's repair pass then either fixes what the
+ * reasons point at and puts the scene back as unmoderated ("repaired") or
+ * names the reason that cannot be fixed and returns it to rejected
+ * ("unrepairable"). The request reasons and, when repaired, what changed
+ * stay here, so a scene's old and new reasons are both traceable.
+ */
+export interface RepairEntry {
+  status: "requested" | "repaired" | "unrepairable";
+  /** The canonical reasons ticked at request time (the old reasons). */
+  reasons: RejectReason[];
+  /** When the request was stored (RFC3339). */
+  requestedAt: string;
+  /** When the repair pass resolved it (RFC3339); absent while requested. */
+  resolvedAt?: string;
+  /** What the repair targeted: the click area, the text, or nothing. */
+  kind?: "click" | "text" | "none";
+  /** The repair pass's one-line account (what changed / why not fixable). */
+  detail?: string;
+  /** The answer circle before the click-area repair. */
+  answerBefore?: { x: number; y: number; r: number };
+  /** The answer circle the repair wrote back. */
+  answerAfter?: { x: number; y: number; r: number };
+  /** The explanation before the text repair. */
+  textBefore?: string;
+  /** The explanation the repair wrote back. */
+  textAfter?: string;
+}
+
 export interface FeedbackFile {
   version: number;
   /** Scene id -> RFC3339 timestamp (written by this API). */
@@ -155,13 +189,24 @@ export interface FeedbackFile {
    * catalogue and the nightly feedback pass read as a positive example.
    */
   great?: Record<string, string>;
+  /**
+   * "Needs work" repair requests and their outcomes (ticket #2590): scene
+   * id -> RepairEntry. A pending request (status "requested") takes the
+   * scene out of the moderation queue; the repair pass resolves it.
+   */
+  repairs?: Record<string, RepairEntry>;
 }
 
 /** The two moderation tags a scene can carry beside its verdict. */
 export const MODERATION_TAGS = ["funny", "great"] as const;
 export type ModerationTag = (typeof MODERATION_TAGS)[number];
 
-export type Moderation = "accepted" | "rejected" | "unmoderated";
+/**
+ * A scene's curation state. "repair" (ticket #2590) is a scene with an open
+ * "Needs work" request: it is neither accepted nor rejected, and it stays
+ * out of the moderation queue until the repair pass resolves it.
+ */
+export type Moderation = "accepted" | "rejected" | "unmoderated" | "repair";
 
 /** The scene-id slug rule (same as ag_queue.py + the old Go handler). */
 export const SCENE_ID_RE = /^[a-z0-9][a-z0-9-]*$/;
