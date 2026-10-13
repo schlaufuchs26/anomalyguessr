@@ -497,3 +497,18 @@ class RejectReasonRunTest(TempDataMixin, unittest.TestCase):
         self.assertEqual(report["rejectReasons"]["multi"], 1)
         # o2 carries no comment, so it counts as a silent rejection.
         self.assertEqual(report["rejectReasons"]["silent"], 1)
+
+    def test_the_digest_names_the_multi_reason_case(self):
+        report = {
+            "generatedAt": "2026-09-15T03:15:00+00:00",
+            "windowDays": 14,
+            "sample": {"total": 3, "accepted": 1, "rejected": 2,
+                       "rate": 0.3333},
+            "rejectReasons": {
+                "counts": {"too easy": 2, "too hard": 1},
+                "tagged": 2, "multi": 1, "prose": 0, "silent": 0,
+                "rejected": 2,
+            },
+            "changes": [],
+        }
+        self.assertIn("(1 with several reasons)", fb.digest(report))
