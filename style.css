@@ -919,3 +919,34 @@ main {
 .meta .gen-control .live-trace-collapsible .live-trace-steps {
   max-height: 160px;
 }
+
+/* 0-10 quality rating control (ticket #2605): a range slider + value + clear. */
+.rating {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.rating-caption {
+  opacity: 0.75;
+}
+.rating-slider {
+  width: 9rem;
+  accent-color: #d8a24a;
+}
+.rating-slider.unset {
+  opacity: 0.6;
+}
+.rating-value {
+  min-width: 4.5rem;
+  font-variant-numeric: tabular-nums;
+}
+.rating-clear {
+  font: inherit;
+  padding: 0.1rem 0.45rem;
+  border-radius: 0.4rem;
+  cursor: pointer;
+}
+.rating-clear:disabled {
+  opacity: 0.4;
+  cursor: default;
+}

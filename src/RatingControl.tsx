@@ -4,8 +4,10 @@
  * "great" tick: the rating is a human quality signal, independent of the
  * accept/reject verdict, and can be changed or cleared at any time.
  *
- * Eleven buttons (0..10) keep "unrated" distinct from a real 0; clicking the
- * active value clears the rating again.
+ * A range slider (0-10, integer steps) with the number next to it; the native
+ * control handles the arrow keys. "Unrated" stays distinct from a real 0: an
+ * unrated scene shows the knob at 0 but the label reads "not rated", and the
+ * Clear button (disabled while unrated) returns it to unset.
  */
 
 /** The rating scale's top value; a scene rated at least RATING_HIGH (8) is a
@@ -13,18 +15,16 @@
 const RATING_MAX = 10;
 export const RATING_HIGH = 8;
 
-const VALUES = Array.from({ length: RATING_MAX + 1 }, (_, i) => i);
-
 export interface RatingControlProps {
   /** The current rating, or null when unrated. */
   value: number | null;
-  /** A post is in flight: the buttons are disabled. */
+  /** A post is in flight: the control is disabled. */
   busy?: boolean;
   /** Called with the new value, or null to clear. */
   onSelect: (value: number | null) => void;
-  /** Accessible prefix; each button reads "<label> 8" (default "Rate"). */
+  /** Accessible name of the slider (default "Quality rating"). */
   label?: string;
-  /** Optional data-testid prefix: buttons get `<prefix>-<value>`. */
+  /** Optional data-testid for the slider; the clear button gets `<prefix>-clear`. */
   testIdPrefix?: string;
   className?: string;
 }
@@ -33,31 +33,40 @@ export function RatingControl({
   value,
   busy = false,
   onSelect,
-  label = "Rate",
+  label = "Quality rating",
   testIdPrefix,
   className,
 }: RatingControlProps) {
+  const unrated = value === null;
   return (
     <div className={className ? `rating ${className}` : "rating"}>
       <span className="rating-caption">Quality</span>
-      {VALUES.map((v) => (
-        <button
-          key={v}
-          type="button"
-          className={`rating-btn${value === v ? " active" : ""}`}
-          aria-pressed={value === v}
-          aria-label={`${label} ${v}`}
-          title={value === v ? "Click again to clear" : `Rate ${v} of 10`}
-          disabled={busy}
-          onClick={() => onSelect(value === v ? null : v)}
-          data-testid={testIdPrefix ? `${testIdPrefix}-${v}` : undefined}
-        >
-          {v}
-        </button>
-      ))}
+      <input
+        type="range"
+        className={`rating-slider${unrated ? " unset" : ""}`}
+        min={0}
+        max={RATING_MAX}
+        step={1}
+        value={value ?? 0}
+        disabled={busy}
+        aria-label={label}
+        aria-valuetext={unrated ? "not rated" : `${value} of ${RATING_MAX}`}
+        onChange={(e) => onSelect(Number(e.target.value))}
+        data-testid={testIdPrefix}
+      />
       <span className="rating-value" aria-live="polite">
-        {value === null ? "not rated" : `${value}/${RATING_MAX}`}
+        {unrated ? "not rated" : `${value}/${RATING_MAX}`}
       </span>
+      <button
+        type="button"
+        className="rating-clear"
+        disabled={busy || unrated}
+        title="Clear the rating"
+        onClick={() => onSelect(null)}
+        data-testid={testIdPrefix ? `${testIdPrefix}-clear` : undefined}
+      >
+        clear
+      </button>
     </div>
   );
 }

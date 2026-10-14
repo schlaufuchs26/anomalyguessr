@@ -61,7 +61,7 @@ export function RatingChip({ scene }: { scene: TDScene }) {
           ? "Rated 8+ out of 10: a positive example (ticket #2605)"
           : "Quality rating (ticket #2605)"
       }
-      data-testid={`td-rating-${scene.id}`}
+      data-testid={`td-rating-chip-${scene.id}`}
     >
       {high ? "★" : "☆"} {scene.rating}/10
     </span>
@@ -160,7 +160,6 @@ export function TagToggles({
         value={scene.rating ?? null}
         busy={rate.isPending}
         onSelect={(v) => rate.mutate(v)}
-        label="Rate"
         testIdPrefix={`td-rating-${scene.id}`}
       />
       {rate.error ? (

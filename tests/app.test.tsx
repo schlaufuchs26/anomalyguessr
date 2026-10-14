@@ -1054,8 +1054,10 @@ describe("moderation mode (dev instance, #1163)", () => {
 
     const funnyBox = () => screen.getByRole("checkbox", { name: "😄 Funny" });
     expect(funnyBox()).not.toBeChecked();
-    // The rating control shows every value; none is active yet.
-    expect(screen.getByRole("button", { name: "Rate 8" })).toBeInTheDocument();
+    // The rating control is a slider; it starts unset ("not rated").
+    const slider = () => screen.getByRole("slider", { name: "Quality rating" });
+    expect(slider()).toBeInTheDocument();
+    expect(screen.getByText("not rated")).toBeInTheDocument();
 
     fireEvent.click(funnyBox());
     await waitFor(() => expect(posts).toHaveLength(1));
@@ -1068,11 +1070,18 @@ describe("moderation mode (dev instance, #1163)", () => {
     // The verdict stays untouched.
     expect(screen.getByRole("button", { name: "✓ Accept" })).not.toBeDisabled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Rate 8" }));
+    fireEvent.change(slider(), { target: { value: "8" } });
     await waitFor(() => expect(posts).toHaveLength(2));
     expect(posts[1]?.url).toBe("/anomalyguessr/api/scenes/a/rating");
     expect(posts[1]?.body).toEqual({ rating: 8 });
     expect(await screen.findByText("Rating 8/10.")).toBeInTheDocument();
+
+    // Clear returns the slider to unset ("not rated"), distinct from a real 0.
+    fireEvent.click(screen.getByTestId("moderate-rating-clear"));
+    await waitFor(() => expect(posts).toHaveLength(3));
+    expect(posts[2]?.url).toBe("/anomalyguessr/api/scenes/a/rating");
+    expect(posts[2]?.body).toEqual({ rating: null });
+    expect(await screen.findByText("not rated")).toBeInTheDocument();
   });
 
   test("the box stays hidden outside moderation mode", async () => {

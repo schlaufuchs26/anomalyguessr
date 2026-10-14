@@ -1099,7 +1099,6 @@ export function App() {
                   value={rating.value}
                   busy={rating.busy}
                   onSelect={(v) => void postRatingAction?.(v)}
-                  label="Rate"
                   testIdPrefix="moderate-rating"
                 />
               </div>

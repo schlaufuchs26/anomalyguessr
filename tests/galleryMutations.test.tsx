@@ -207,7 +207,7 @@ describe("AnomalyGuessrGalleryPage mutations", () => {
     // The set tag has a chip; the scene's rating shows as a chip too.
     expect(screen.getByTestId("td-funny-p1")).toBeInTheDocument();
     expect(screen.getByTestId("td-funny-toggle-p1")).toBeChecked();
-    expect(screen.getByTestId("td-rating-p1").textContent).toBe("☆ 6/10");
+    expect(screen.getByTestId("td-rating-chip-p1").textContent).toBe("☆ 6/10");
 
     // A gallery visit happens after the decision: each mark is undoable and
     // posts the state it moves to.
@@ -216,7 +216,9 @@ describe("AnomalyGuessrGalleryPage mutations", () => {
     expect(posted[0]?.url).toBe(agUrl("scenes/p1/funny"));
     expect(posted[0]?.body).toEqual({ tag: false });
 
-    fireEvent.click(screen.getByTestId("td-rating-p1-8"));
+    fireEvent.change(screen.getByTestId("td-rating-p1"), {
+      target: { value: "8" },
+    });
     await waitFor(() => expect(posted).toHaveLength(2));
     expect(posted[1]?.url).toBe(agUrl("scenes/p1/rating"));
     expect(posted[1]?.body).toEqual({ rating: 8 });
