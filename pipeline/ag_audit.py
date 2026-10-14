@@ -19,8 +19,8 @@ Answers three questions from the recorded queue, no model calls:
    constant-answer baselines on the same subset.
 5. **How are the two labels doing?** (#1502, #1541) How many scenes carry
    the "funny" tag, the base rate, and whether a blind vision test has earned
-   it a place as a point yet; and how many carry the "great" curation tag,
-   with the handles of the marked scenes.
+   it a place as a point yet; and how many are top-rated, with the handles of
+   the marked scenes.
 6. **Is the source pool spread?** (#1533) The repository and decade shares
    of the pool and of its unused part, so a Gallery that keeps showing the
    same archive and the same twenty years is visible in the audit, not only
@@ -365,7 +365,7 @@ def funny_labels(feedback: dict, scenes=None) -> dict:
     return tag_labels(feedback, "funny", scenes)
 
 
-def great_labels(feedback: dict, scenes=None) -> dict:
+def rated_labels(feedback: dict, scenes=None) -> dict:
     """The top-rated curation label set (ticket #2605; was "great" #1541).
 
     A scene counts when its rating is at least RATING_HIGH (8); a legacy
@@ -374,7 +374,7 @@ def great_labels(feedback: dict, scenes=None) -> dict:
     marks = {sid: {"value": value}
              for sid, value in ag_queue.scene_ratings(feedback).items()
              if value >= ag_queue.RATING_HIGH}
-    return tag_labels(feedback, "great", scenes, marks=marks)
+    return tag_labels(feedback, "rated", scenes, marks=marks)
 
 
 def _handle_list(handles, cap: int = 8) -> str:
@@ -457,7 +457,7 @@ def audit(data_dir: Path) -> dict:
     feedback = ag_queue.load_feedback(data_dir)
     scenes = state.get("scenes") or {}
     funny = funny_labels(feedback, scenes)
-    great = great_labels(feedback, scenes)
+    rated = rated_labels(feedback, scenes)
     return {"data": str(data_dir), "scene_counts": scene_counts(state),
             "sources": source_spread(data_dir),
             "classes": classify_rejections(feedback, state),
@@ -466,7 +466,7 @@ def audit(data_dir: Path) -> dict:
             "points": points_agreement(state, feedback),
             "funny": {**funny,
                       "verdict": funny_verdict(funny["tagged"], None, None)},
-            "great": great,
+            "rated": rated,
             "by_day": acceptance_by_day(feedback)}
 
 
@@ -494,7 +494,7 @@ def format_report(report: dict) -> str:
                           in list(src["repositories"].items())[:4])
     src_decades = ", ".join(f"{k} {v['count']}" for k, v
                             in list(src["decades"].items())[:6])
-    great = report["great"]
+    rated = report["rated"]
     lines += [
         f"sources (#1533): {src['total']} in the pool ({src['unused']['total']}"
         f" unused), repositories: {src_repos}",
@@ -521,8 +521,8 @@ def format_report(report: dict) -> str:
         f"{funny['judged']} judged (base rate {funny['base_rate']}), "
         f"{funny['verdict']['reason']}; "
         f"is a point: {funny['verdict']['is_a_point']}",
-        f"great labels (#1541): {great['tagged']} tagged of "
-        f"{great['judged']} judged ({_handle_list(great['handles'])}); "
+        f"rated labels (#2605): {rated['tagged']} tagged of "
+        f"{rated['judged']} judged ({_handle_list(rated['handles'])}); "
         "curation signal, no model test",
         "acceptance by day:",
     ]

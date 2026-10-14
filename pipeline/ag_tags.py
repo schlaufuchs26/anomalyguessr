@@ -15,7 +15,7 @@ This module does two things, measurement first:
    steps.
 2. ``report`` joins those tags with the verdicts that already exist
    (``feedback.json``) and answers the hypothesis with numbers: acceptance and
-   ``great`` rate per element family against crowd level, clutter and medium,
+   top-rated share per element family against crowd level, clutter and medium,
    with the sample size behind every cell. ``render_report`` turns it into the
    markdown written to the wiki page.
 
@@ -432,14 +432,14 @@ def scene_family(scene: dict) -> str:
 
 
 def _empty_row() -> dict:
-    return {"accepted": 0, "rejected": 0, "great": 0}
+    return {"accepted": 0, "rejected": 0, "rated": 0}
 
 
 def _finish(row: dict) -> dict:
     decided = row["accepted"] + row["rejected"]
     row["decided"] = decided
     row["rate"] = round(row["accepted"] / decided, 4) if decided else None
-    row["greatRate"] = round(row["great"] / decided, 4) if decided else None
+    row["ratedRate"] = round(row["rated"] / decided, 4) if decided else None
     return row
 
 
@@ -447,16 +447,16 @@ def tally(feedback: dict, state: dict, source_of: dict, tags_of: dict,
           feature: str) -> dict:
     """``{(family, value): row}`` joining verdicts with the tags of the source.
 
-    A scene counts once per verdict kind (accepted, rejected, great); a scene
+    A scene counts once per verdict kind (accepted, rejected, rated); a scene
     without a resolvable source or without tags is left out, so every row's
     ``decided`` is its real sample size.
     """
     accepted = feedback.get("accepted") or {}
     rejected = feedback.get("rejected") or {}
-    # The "great" column reads the 0-10 rating (#2605): a top-rated scene
+    # The "rated" column reads the 0-10 rating (#2605): a top-rated scene
     # (>= RATING_HIGH) stands in for the old tick, so a pre-migration file
     # still counts via scene_ratings' legacy fallback.
-    great = {sid: value
+    rated = {sid: value
              for sid, value in ag_queue.scene_ratings(feedback).items()
              if value >= ag_queue.RATING_HIGH}
     rows: dict = {}
@@ -474,8 +474,8 @@ def tally(feedback: dict, state: dict, source_of: dict, tags_of: dict,
             row["accepted"] += 1
         if scene_id in rejected:
             row["rejected"] += 1
-        if scene_id in great:
-            row["great"] += 1
+        if scene_id in rated:
+            row["rated"] += 1
     return {key: _finish(dict(row)) for key, row in rows.items()}
 
 
@@ -493,7 +493,7 @@ def overall_rows(families: dict) -> dict:
     for rows in families.values():
         for value, row in rows.items():
             agg = out.setdefault(value, _empty_row())
-            for key in ("accepted", "rejected", "great"):
+            for key in ("accepted", "rejected", "rated"):
                 agg[key] += int(row.get(key) or 0)
     return {value: _finish(dict(row)) for value, row in out.items()}
 
@@ -587,7 +587,7 @@ def _overall_table(families: dict, feature: str) -> list:
     rows = overall_rows(families)
     lines = [f"### {_FEATURE_TITLE[feature]}: all families", "",
              "| " + _FEATURE_TITLE[feature].lower() + " | decided | accepted "
-             "| rate | great | great rate |",
+             "| rate | rated | rated rate |",
              "|---|---|---|---|---|---|"]
     for value in _VALUE_ORDER[feature]:
         row = rows.get(value) or {}
@@ -595,35 +595,35 @@ def _overall_table(families: dict, feature: str) -> list:
         if not decided:
             continue
         lines.append(f"| {value} | {decided} | {row['accepted']} "
-                     f"| {_fmt_rate(row, 'rate')} | {row['great']} "
-                     f"| {_fmt_rate(row, 'greatRate')} |")
+                     f"| {_fmt_rate(row, 'rate')} | {row['rated']} "
+                     f"| {_fmt_rate(row, 'ratedRate')} |")
     lines.append("")
     return lines
 
 
 def _feature_table(families: dict, feature: str) -> list:
     cols = (["family"] + list(_VALUE_ORDER[feature])
-            + ["decided", "accepted", "rate", "great", "great rate"])
+            + ["decided", "accepted", "rate", "rated", "rated rate"])
     lines = [f"### {_FEATURE_TITLE[feature]} x element family", "",
              "| " + " | ".join(cols) + " |",
              "|" + "---|" * len(cols)]
     for family in sorted(families):
         rows = families[family]
         counts = []
-        decided = accepted = great = 0
+        decided = accepted = rated = 0
         for value in _VALUE_ORDER[feature]:
             row = rows.get(value) or {}
             decided += int(row.get("decided") or 0)
             accepted += int(row.get("accepted") or 0)
-            great += int(row.get("great") or 0)
+            rated += int(row.get("rated") or 0)
             counts.append(str(int(row.get("decided") or 0)))
         if not decided:
             continue
         rate = round(100 * accepted / decided) if decided else 0
-        grate = round(100 * great / decided) if decided else 0
+        rrate = round(100 * rated / decided) if decided else 0
         lines.append(f"| {family} | " + " | ".join(counts)
-                     + f" | {decided} | {accepted} | {rate}% | {great} "
-                     f"| {grate}% |")
+                     + f" | {decided} | {accepted} | {rate}% | {rated} "
+                     f"| {rrate}% |")
     lines.append("")
     lines.append("Cells are the number of decided scenes behind that "
                  "family and value; the rate is over the family's row.")
@@ -658,7 +658,7 @@ def render_report(report: dict) -> str:
         "",
         "- Tags come from `pipeline/ag_tags.py tag`, one call per pool entry, "
         "cached on the entry and skipped when present.",
-        "- Verdicts are the human accept/reject/great marks in "
+        "- Verdicts are the human accept/reject marks plus the 0-10 rating in "
         "`feedback.json`. A scene joins its pool source through its generation "
         "trace, then through its `sourceUrl` against the pool's `fileUrl`.",
         "- A cell's sample size is the number of decided scenes behind it; a "
@@ -723,8 +723,8 @@ def _hypothesis_section(report: dict) -> list:
         if not decided:
             return f"- {label}: no decided scenes."
         return (f"- {label}: {row['accepted']}/{decided} accepted "
-                f"({_fmt_rate(row, 'rate')}), {row['great']} great "
-                f"({_fmt_rate(row, 'greatRate')}).")
+                f"({_fmt_rate(row, 'rate')}), {row['rated']} rated "
+                f"({_fmt_rate(row, 'ratedRate')}).")
 
     lines = ["## The hypothesis", "",
              "Evan's guess: a crowded photo forgives an ostentatious time "

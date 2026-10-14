@@ -162,11 +162,12 @@ class _DataDir:
     def write_state(self, scenes):
         (self.dir / "state.json").write_text(json.dumps({"scenes": scenes}))
 
-    def write_feedback(self, accepted=(), rejected=(), great=()):
+    def write_feedback(self, accepted=(), rejected=(), ratings=None):
+        ratings = ratings or {}
         (self.dir / "feedback.json").write_text(json.dumps({
             "accepted": {s: "2026-10-01T00:00:00+02:00" for s in accepted},
             "rejected": {s: "2026-10-01T00:00:00+02:00" for s in rejected},
-            "great": {s: "2026-10-01T00:00:00+02:00" for s in great}}))
+            "rating": {s: {"value": v} for s, v in ratings.items()}}))
 
     def write_trace(self, scene_id, source_id):
         (self.dir / "traces" / f"{scene_id}.json").write_text(
@@ -282,13 +283,16 @@ class ReportTest(unittest.TestCase):
     def tearDown(self):
         self.d.close()
 
-    def _build(self, feedback_args):
-        self.d.write_feedback(**feedback_args)
+    def _build_from_file(self):
         index = ag_sources.load_index(self.d.dir)
         state = json.loads((self.d.dir / "state.json").read_text())
         source_of = ag_tags.scene_sources(self.d.dir, index, state)
         feedback = json.loads((self.d.dir / "feedback.json").read_text())
         return ag_tags.build_report(index, state, feedback, source_of)
+
+    def _build(self, feedback_args):
+        self.d.write_feedback(**feedback_args)
+        return self._build_from_file()
 
     def test_crowd_vs_empty_person_acceptance(self):
         # Two crowded person scenes (both accepted) and two empty ones (both
@@ -324,7 +328,7 @@ class ReportTest(unittest.TestCase):
         report = self._build({"accepted": ["tagged", "untagged"]})
         self.assertEqual(report["scenes"]["verdicts_resolved"], 1)
 
-    def test_great_is_a_subset_of_accepted(self):
+    def test_rated_is_a_subset_of_accepted(self):
         self.d.add_source("g1", tags=_tags(people="crowd"))
         self.d.add_source("g2", tags=_tags(people="crowd"))
         scenes = {sid: {"sourceUrl": f"u://{sid}", "family": "drinks",
@@ -333,11 +337,26 @@ class ReportTest(unittest.TestCase):
         self.d.write_state(scenes)
         for sid in ("g1", "g2"):
             self.d.write_trace(sid, sid)
-        report = self._build({"accepted": ["g1", "g2"], "great": ["g1"]})
+        # g2's 7 is below RATING_HIGH (8), so only g1 counts as top-rated.
+        report = self._build({"accepted": ["g1", "g2"],
+                              "ratings": {"g1": 9, "g2": 7}})
         drinks = report["features"]["people"]["drinks"]["crowd"]
         self.assertEqual(drinks["accepted"], 2)
-        self.assertEqual(drinks["great"], 1)
-        self.assertEqual(drinks["greatRate"], 0.5)
+        self.assertEqual(drinks["rated"], 1)
+        self.assertEqual(drinks["ratedRate"], 0.5)
+
+    def test_a_legacy_great_mark_counts_as_top_rated(self):
+        self.d.add_source("g1", tags=_tags(people="crowd"))
+        self.d.write_state({"g1": {"sourceUrl": "u://g1", "family": "drinks",
+                                   "anomaly": "Plastic bottle"}})
+        self.d.write_trace("g1", "g1")
+        # A pre-#2605 feedback.json still carries the retired tick.
+        (self.d.dir / "feedback.json").write_text(json.dumps({
+            "accepted": {"g1": "2026-10-01T00:00:00+02:00"},
+            "great": {"g1": "2026-10-01T00:00:00+02:00"}}))
+        report = self._build_from_file()
+        drinks = report["features"]["people"]["drinks"]["crowd"]
+        self.assertEqual(drinks["rated"], 1)
 
     def test_markdown_renders_a_table(self):
         self.d.add_source("g1", tags=_tags(people="crowd"))
@@ -348,6 +367,7 @@ class ReportTest(unittest.TestCase):
         md = ag_tags.render_report(report)
         self.assertIn("| family |", md)
         self.assertIn("| drinks |", md)
+        self.assertIn("| rated |", md)
         self.assertIn("## The hypothesis", md)
         self.assertIn("all families", md)
 

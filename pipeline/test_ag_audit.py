@@ -211,28 +211,33 @@ class FunnyLabelsTest(unittest.TestCase):
         self.assertTrue(v["is_a_point"])
 
 
-class GreatLabelsTest(unittest.TestCase):
-    """Ticket #1541: the "great" curation label is reported like "funny"."""
+class RatedLabelsTest(unittest.TestCase):
+    """Ticket #2605: the top-rated curation label is reported like "funny"."""
 
     def test_counts_and_handles(self):
         feedback = {"accepted": {"a": "x", "b": "x"}, "rejected": {"c": "x"},
-                    "great": {"a": "2026-09-15T10:00:00Z"}}
+                    "rating": {"a": {"value": 9}}}
         scenes = {"a": {"shortId": "AG-7"}}
-        out = a.great_labels(feedback, scenes)
+        out = a.rated_labels(feedback, scenes)
         self.assertEqual(out["tagged"], 1)
         self.assertEqual(out["judged"], 3)
         self.assertEqual(out["handles"], {"a": "AG-7"})
 
+    def test_a_legacy_great_mark_reads_as_top_rated(self):
+        feedback = {"accepted": {"a": "x"},
+                    "great": {"a": "2026-09-15T10:00:00Z"}}
+        self.assertEqual(a.rated_labels(feedback)["tagged"], 1)
+
     def test_a_scene_without_a_handle_falls_back_to_its_id(self):
-        out = a.tag_labels({"great": {"gone": "x"}}, "great", {})
+        out = a.tag_labels({}, "rated", {}, marks={"gone": {"value": 9}})
         self.assertEqual(out["handles"], {"gone": "gone"})
 
     def test_both_tags_are_tallied_from_their_own_field(self):
         feedback = {"accepted": {"a": "x"},
-                    "funny": {"a": "x"}, "great": {"a": "x"}}
+                    "funny": {"a": "x"}, "rating": {"a": {"value": 10}}}
         self.assertEqual(a.funny_labels(feedback)["tagged"], 1)
-        self.assertEqual(a.great_labels(feedback)["tagged"], 1)
-        self.assertEqual(a.great_labels({"funny": {"a": "x"}})["tagged"], 0)
+        self.assertEqual(a.rated_labels(feedback)["tagged"], 1)
+        self.assertEqual(a.rated_labels({"funny": {"a": "x"}})["tagged"], 0)
 
     def test_handle_list_is_capped(self):
         line = a._handle_list({str(i): f"AG-{i}" for i in range(10)})
