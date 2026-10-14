@@ -1,194 +1,191 @@
 {
   "version": 2,
-  "date": "2026-10-13",
+  "date": "2026-10-14",
   "scenes": [
     {
-      "id": "gallica-29-2-12-monte-carlo-kid-mac-koy-carpentier-boxeu-1e8a50-modern-athletic-slide-sa",
-      "title": "29-2-12, Monte Carlo, Kid Mac Koy - Carpentier [boxeurs]",
+      "id": "gallica-arches-de-tr-mouls-et-t-te-vigan-du-souterrain-d-facb04-modern-telescoping-selfi",
+      "title": "Trémouls Arches and the Vigan Portal of the Grand Tournant Tunnel",
       "title_source": "catalog",
       "place": "",
-      "year": "1912",
-      "description": "A press photograph by Agence Rol, dated 29 February 1912, showing the boxers Kid Mac Koy and Carpentier in Monte Carlo.",
-      "anomaly": "modern athletic slide sandal",
+      "year": "1896",
+      "description": "A photograph by A. Bonnaud, dated 1896, showing arches and a tunnel head of the Grand Tournant souterrain, part of the railways and tunnels of the Compagnie des chemins de fer du Midi. It is held by the Ecole nationale des ponts et chaussées.",
+      "anomaly": "Modern telescoping selfie stick",
       "answer": {
-        "x": 0.876,
-        "y": 0.895,
-        "r": 0.078
+        "x": 0.535,
+        "y": 0.395,
+        "r": 0.22
       },
-      "explanation": "Foam-soled slide sandals did not exist in 1912, when footwear was leather boots and laced shoes.",
+      "explanation": "Telescoping selfie sticks did not exist in 1896, so this object could not be present in the photograph.",
       "references": [
         {
-          "label": "Bibliothèque nationale de France (Gallica)",
-          "url": "https://gallica.bnf.fr/"
+          "label": "Gallica",
+          "url": "https://gallica.bnf.fr"
         }
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b531128511",
-        "originalTitle": "29-2-12, Monte Carlo, Kid Mac Koy - Carpentier [boxeurs] : [photographie de presse] / [Agence Rol]",
-        "date": "1912",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b104840927",
+        "originalTitle": "Arches de Trémouls et tête Vigan du souterrain du Grand Tournant / Bonnaud, A.",
+        "date": "1896",
         "place": "",
         "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 18870 Appartient à l’ensemble documentaire : Pho20Rol"
+        "description": "Appartient à l’ensemble documentaire : EnPC000 Appartient à l’ensemble documentaire : EnPCthèm02 Appartient à l’ensemble documentaire : EnPCcorp12 Appartient à l’ensemble documentaire : EnPCtypo02",
+        "titleEn": "Trémouls Arches and the Vigan Portal of the Grand Tournant Tunnel"
       },
-      "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b531128511",
+      "credit": "Bonnaud, A.. Auteur du texte via Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b104840927",
       "added": "2026-09-17",
-      "shown": "2026-10-13",
-      "image": "scenes/gallica-29-2-12-monte-carlo-kid-mac-koy-carpentier-boxeu-1e8a50-modern-athletic-slide-sa.jpg",
-      "original": "scenes/gallica-29-2-12-monte-carlo-kid-mac-koy-carpentier-boxeu-1e8a50-modern-athletic-slide-sa-original.jpg"
+      "shown": "2026-10-14",
+      "image": "scenes/gallica-arches-de-tr-mouls-et-t-te-vigan-du-souterrain-d-facb04-modern-telescoping-selfi.jpg",
+      "original": "scenes/gallica-arches-de-tr-mouls-et-t-te-vigan-du-souterrain-d-facb04-modern-telescoping-selfi-original.jpg"
     },
     {
-      "id": "europeana--2006-29e406-small-humanoid-survey-ro",
-      "title": "Sanctuary of Aphrodite",
+      "id": "gallica-lieutenant-allemand-bless-fait-prisonnier-photog-a6ca9e-modern-plastic-iv-fluid",
+      "title": "German lieutenant [wounded] taken prisoner",
       "title_source": "catalog",
-      "place": "Χαϊδάρι",
-      "year": "2006",
-      "description": "The photograph shows the Sanctuary of Aphrodite at Afaia Skaramagka, a site dedicated to the ancient goddess Aphrodite, with its visible remains, especially the hollows in the rock. It was taken in 2006 by Chaïdári, and the site is identified with the Sanctuary of Aphrodite mentioned by Pausanias on the road to Eleusis, though more about the type of worship there is unknown.",
-      "anomaly": "small humanoid survey robot",
+      "place": "",
+      "year": "1918",
+      "description": "Lieutenant allemand [blessé] fait prisonnier · Bibliothèque nationale de France (Gallica).",
+      "anomaly": "modern plastic IV fluid bag",
       "answer": {
-        "x": 0.31,
-        "y": 0.635,
-        "r": 0.12
+        "x": 0.384,
+        "y": 0.666,
+        "r": 0.0949
       },
-      "explanation": "A compact self-balancing humanoid robot of this kind does not exist in 2026, so it cannot appear in a photograph taken in 2006.",
+      "explanation": "Flexible plastic IV fluid bags did not exist in 1918; battlefield fluids were given from glass bottles or enamelware, so a clear plastic pouch cannot belong to this scene.",
       "references": [
         {
-          "label": "Boston Dynamics - Atlas",
-          "url": "https://bostondynamics.com/atlas/"
-        },
+          "label": "Science Museum Group — intravenous fluid bag",
+          "url": "https://collection.sciencemuseumgroup.org.uk/objects/co162147"
+        }
+      ],
+      "source": {
+        "repository": "Bibliothèque nationale de France (Gallica)",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53004949p",
+        "originalTitle": "Lieutenant allemand [blessé] fait prisonnier : [photographie de presse] / [Agence Rol]",
+        "date": "1918",
+        "place": "",
+        "license": "Public domain",
+        "description": "Référence bibliographique : Rol, 51771 Appartient à l’ensemble documentaire : Pho20Rol Appartient à l’ensemble documentaire : GG14182 Image de presse",
+        "titleEn": "German lieutenant [wounded] taken prisoner"
+      },
+      "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53004949p",
+      "added": "2026-10-07",
+      "shown": "2026-10-14",
+      "image": "scenes/gallica-lieutenant-allemand-bless-fait-prisonnier-photog-a6ca9e-modern-plastic-iv-fluid.jpg",
+      "original": "scenes/gallica-lieutenant-allemand-bless-fait-prisonnier-photog-a6ca9e-modern-plastic-iv-fluid-original.jpg"
+    },
+    {
+      "id": "europeana-documentnummer-081947-1962-411232-modern-plastic-fuel-can",
+      "title": "Voorstraat",
+      "title_source": "catalog",
+      "place": "Voorstraat",
+      "year": "1962",
+      "description": "A photograph taken in 1962 on Voorstraat. The record credits Europeana, document number 081947, under a CC BY-SA license.",
+      "anomaly": "modern plastic fuel can",
+      "answer": {
+        "x": 0.536,
+        "y": 0.858,
+        "r": 0.22
+      },
+      "explanation": "Moulded plastic fuel cans with screw caps did not exist in 1962; portable fuel containers of that era were metal.",
+      "references": [
         {
-          "label": "Encyclopaedia Britannica - Robot",
-          "url": "https://www.britannica.com/technology/robot-technology"
+          "label": "Science Museum Group - Plastic jerrycan",
+          "url": "https://collection.sciencemuseumgroup.org.uk/objects/co8412345/plastic-jerrycan"
         }
       ],
       "source": {
         "repository": "Europeana",
-        "fileUrl": "https://www.europeana.eu/item/2064927/https___www_searchculture_gr_aggregator_edm_Haidari_000066__3A1413",
-        "originalTitle": "Ιερό της Αφροδίτης",
-        "date": "2006",
-        "place": "Χαϊδάρι",
+        "fileUrl": "https://www.europeana.eu/item/2058632/01c7a06f_ea06_2155_bf41_aa1347d2ee74_media_33b7d49a_999c_074e_e999_56ea9e0c1f70",
+        "originalTitle": "Documentnummer 081947",
+        "date": "1962",
+        "place": "Voorstraat",
         "license": "CC BY-SA",
-        "description": "Το Ιερό της Αφροδίτης στην Αφαία Σκαραμαγκά είναι ένας χώρος αφιερωμένος στην αρχαία θεά Αφροδίτη. Αυτός ο χώρος ταυτίζεται με το Ιερό της Αφροδίτης, το οποίο αναφέρεται από τον Παυσανία καθ' οδόν προς την Ελευσίνα, χωρίς όμως να γνωρίζουμε περισσότερα για το είδος της λατρείας που λάμβανε χώρα. Tα ορατά λείψανα, κυρίως δε οι εσοχές στο βράχο τράβηξαν την προσοχή των ξένων περιηγητών από την αρχή του 19ου αιώνα.",
-        "titleEn": "Sanctuary of Aphrodite"
+        "description": "",
+        "titleEn": "Voorstraat"
       },
       "credit": "Europeana",
-      "sourceUrl": "https://www.europeana.eu/item/2064927/https___www_searchculture_gr_aggregator_edm_Haidari_000066__3A1413",
-      "added": "2026-10-07",
-      "shown": "2026-10-13",
-      "image": "scenes/europeana--2006-29e406-small-humanoid-survey-ro.jpg",
-      "original": "scenes/europeana--2006-29e406-small-humanoid-survey-ro-original.jpg"
+      "sourceUrl": "https://www.europeana.eu/item/2058632/01c7a06f_ea06_2155_bf41_aa1347d2ee74_media_33b7d49a_999c_074e_e999_56ea9e0c1f70",
+      "added": "2026-10-08",
+      "shown": "2026-10-14",
+      "image": "scenes/europeana-documentnummer-081947-1962-411232-modern-plastic-fuel-can.jpg",
+      "original": "scenes/europeana-documentnummer-081947-1962-411232-modern-plastic-fuel-can-original.jpg"
     },
     {
-      "id": "gallica-l-atlantique-quai-cherbourg-photographie-de-pres-169f22-modern-led-work-light-on",
-      "title": "The Atlantique at the quay in Cherbourg",
+      "id": "nb-gate-i-stavanger-1900-ecd48b-modern-plastic-hula-hoop",
+      "title": "Street in Stavanger",
       "title_source": "catalog",
       "place": "",
-      "year": "1933",
-      "description": "A press photograph by Agence Mondial showing the Atlantique docked at a quay in Cherbourg, dated 1933. The glass negative is held by the Bibliothèque nationale de France, département Estampes et photographie.",
-      "anomaly": "modern LED work light on a tripod",
+      "year": "1900",
+      "description": "A photograph titled Gate i Stavanger, showing a gate in Stavanger, held by the National Library of Norway and dated 1900. The record lists the image as public domain and does not name a photographer.",
+      "anomaly": "Modern plastic hula hoop",
       "answer": {
-        "x": 0.163,
-        "y": 0.777,
-        "r": 0.062
+        "x": 0.527,
+        "y": 0.797,
+        "r": 0.1901
       },
-      "explanation": "High-output LED work lights on folding tripods did not exist in 1933; portable electric floodlights of that era used incandescent bulbs and were far bulkier.",
-      "references": [
-        {
-          "label": "LED lighting history",
-          "url": "https://www.energy.gov/energysaver/led-lighting"
-        }
-      ],
-      "source": {
-        "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b9050691k",
-        "originalTitle": "L'Atlantique à quai à Cherbourg : [photographie de presse] / Agence Mondial",
-        "date": "1933",
-        "place": "",
-        "license": "Public domain",
-        "description": "Référence bibliographique : Mondial, 6530 Appartient à l’ensemble documentaire : Pho20MPP Image de presse",
-        "titleEn": "The Atlantique at the quay in Cherbourg"
-      },
-      "credit": "Agence de presse Mondial Photo-Presse. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b9050691k",
-      "added": "2026-10-07",
-      "shown": "2026-10-13",
-      "image": "scenes/gallica-l-atlantique-quai-cherbourg-photographie-de-pres-169f22-modern-led-work-light-on.jpg",
-      "original": "scenes/gallica-l-atlantique-quai-cherbourg-photographie-de-pres-169f22-modern-led-work-light-on-original.jpg"
-    },
-    {
-      "id": "nb-gate-1954-7f38ff-modern-led-traffic-signa",
-      "title": "Gate",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1954",
-      "description": "A photograph from the National Library of Norway, dated 1954 and in the public domain, showing a gate. No photographer, location, or other details are stated in the record.",
-      "anomaly": "Modern LED traffic signal head",
-      "answer": {
-        "x": 0.705,
-        "y": 0.545,
-        "r": 0.22
-      },
-      "explanation": "LED traffic signal heads did not exist in 1954, when signals used incandescent lamps in simple round housings.",
+      "explanation": "The plastic hula hoop was not invented until 1958, so it cannot appear in a photograph taken in 1900.",
       "references": [
         {
           "label": "National Library of Norway",
-          "url": "https://www.nb.no/"
+          "url": "https://www.nb.no"
         }
       ],
       "source": {
         "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20190503_00042_NB_HS_54_00420",
-        "originalTitle": "Gate",
-        "date": "1954",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20171204_00012_NB_NS_NM_05708",
+        "originalTitle": "[Gate i Stavanger]",
+        "date": "1900",
         "place": "",
         "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-08-26T13:42:47.214Z', 'firstDigitalContentTime': '2025-08-26T13:58:37.037Z', 'indexLastModified': '2025-08-26T13:58:37.037Z'}",
-        "titleEn": "Gate"
+        "description": "{'firstIndexTime': '2025-08-26T13:42:17.084Z', 'firstDigitalContentTime': '2025-08-26T13:54:25.514Z', 'indexLastModified': '2025-08-26T13:54:25.514Z'}",
+        "titleEn": "Street in Stavanger"
       },
-      "credit": "Henriksen & Steen via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20190503_00042_NB_HS_54_00420",
+      "credit": "Skarpmoen, Narve via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20171204_00012_NB_NS_NM_05708",
       "added": "2026-09-17",
-      "shown": "2026-10-13",
-      "image": "scenes/nb-gate-1954-7f38ff-modern-led-traffic-signa.jpg",
-      "original": "scenes/nb-gate-1954-7f38ff-modern-led-traffic-signa-original.jpg"
+      "shown": "2026-10-14",
+      "image": "scenes/nb-gate-i-stavanger-1900-ecd48b-modern-plastic-hula-hoop.jpg",
+      "original": "scenes/nb-gate-i-stavanger-1900-ecd48b-modern-plastic-hula-hoop-original.jpg"
     },
     {
-      "id": "europeana-gedeelte-van-het-gebouw-1930-d857da-modern-digital-hanging-s",
-      "title": "Part of the building",
+      "id": "gallica-h-licopt-re-espagnol-1923-photographie-de-presse-d9b889-modern-quadcopter-drone",
+      "title": "Spanish Helicopter",
       "title_source": "catalog",
-      "place": "Roode Steen",
-      "year": "1930",
-      "description": "A view of part of a building, with the Roode Steen visible. The photograph was taken in 1930 and is held by Europeana under a CC BY-SA licence.",
-      "anomaly": "modern digital hanging scale",
+      "place": "",
+      "year": "1923",
+      "description": "A press photograph from 1923, taken by Agence Meurisse, showing a helicopter. It is held by the Bibliothèque nationale de France, département Estampes et photographie.",
+      "anomaly": "Modern quadcopter drone",
       "answer": {
-        "x": 0.291,
-        "y": 0.775,
+        "x": 0.808,
+        "y": 0.333,
         "r": 0.22
       },
-      "explanation": "Electronic load-cell platform scales with digital readouts did not exist in 1930, when produce was weighed on mechanical steelyard or balance scales.",
+      "explanation": "Multi-rotor drones did not exist in 1923, so a hovering quadcopter could not appear in this photograph.",
       "references": [
         {
-          "label": "Encyclopaedia Britannica: scale (weighing instrument)",
-          "url": "https://www.britannica.com/technology/scale-measurement"
+          "label": "Wikipedia: Quadcopter",
+          "url": "https://en.wikipedia.org/wiki/Quadcopter"
         }
       ],
       "source": {
-        "repository": "Europeana",
-        "fileUrl": "https://www.europeana.eu/item/2058632/02c3c3a4_a099_e4ea_baf3_20fe300e6c46_media_298958b3_2178_5099_28aa_587f6a8a1b6c",
-        "originalTitle": "Gedeelte van het gebouw",
-        "date": "1930",
-        "place": "Roode Steen",
-        "license": "CC BY-SA",
-        "description": "Gedeelte van het gebouw",
-        "titleEn": "Part of the building"
+        "repository": "Bibliothèque nationale de France (Gallica)",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53239907b",
+        "originalTitle": "Hélicoptère espagnol, 1923 : [photographie de presse] / [Agence Meurisse]",
+        "date": "1923",
+        "place": "",
+        "license": "Public domain",
+        "description": "Référence bibliographique : Meurisse, 9530 A Appartient à l’ensemble documentaire : Pho20Meu Image de presse",
+        "titleEn": "Spanish Helicopter"
       },
-      "credit": "Europeana",
-      "sourceUrl": "https://www.europeana.eu/item/2058632/02c3c3a4_a099_e4ea_baf3_20fe300e6c46_media_298958b3_2178_5099_28aa_587f6a8a1b6c",
-      "added": "2026-10-12",
-      "shown": "2026-10-13",
-      "image": "scenes/europeana-gedeelte-van-het-gebouw-1930-d857da-modern-digital-hanging-s.jpg",
-      "original": "scenes/europeana-gedeelte-van-het-gebouw-1930-d857da-modern-digital-hanging-s-original.jpg"
+      "credit": "Agence de presse Meurisse. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53239907b",
+      "added": "2026-09-14",
+      "shown": "2026-10-14",
+      "image": "scenes/gallica-h-licopt-re-espagnol-1923-photographie-de-presse-d9b889-modern-quadcopter-drone.jpg",
+      "original": "scenes/gallica-h-licopt-re-espagnol-1923-photographie-de-presse-d9b889-modern-quadcopter-drone-original.jpg"
     }
   ]
 }
