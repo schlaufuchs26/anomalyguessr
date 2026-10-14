@@ -688,8 +688,8 @@ def photo_tag_lines(source: dict) -> list:
 
     The #2344 measurement ([[anomalyguessr-photo-tags]]) found two weak but
     positive signals and one negative one: a visually busy photograph accepts
-    an element slightly more often than a clean one (41% vs 37%) and is marked
-    "great" more often (8% vs 3%); sepia is the worst medium by far (17%
+    an element slightly more often than a clean one (41% vs 37%) and is
+    top-rated more often (8% vs 3%); sepia is the worst medium by far (17%
     accepted, 53 decided). The tags are a fitting hint, so they only steer the
     proposal - the year and place rules never read them. An untagged source
     adds nothing.
@@ -3252,7 +3252,7 @@ def source_tag_rank(entry: dict) -> tuple:
     The #2344 numbers ([[anomalyguessr-photo-tags]]) rank a sepia photograph
     last (17% accepted against 43% for grayscale) and favour a busy one (41%
     vs 37% accepted) and one that already shows people (few 45% accepted,
-    crowd 10% "great" against 4%). The key is stable, so the seeded shuffle
+    crowd 10% top-rated against 4%). The key is stable, so the seeded shuffle
     still decides the order among photos with the same tags and an untagged
     entry stays neutral instead of losing its place.
     """
