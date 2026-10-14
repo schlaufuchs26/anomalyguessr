@@ -141,14 +141,16 @@ beforeEach(() => {
       });
     }
     if (init?.method === "POST") {
-      posts.push({ url, body: JSON.parse(String(init.body)) });
-      const tag = url.endsWith("/funny")
-        ? "funny"
-        : url.endsWith("/great")
-          ? "great"
-          : null;
-      if (tag) {
-        return new Response(JSON.stringify({ [tag]: true }), {
+      const body = JSON.parse(String(init.body));
+      posts.push({ url, body });
+      if (url.endsWith("/funny")) {
+        return new Response(JSON.stringify({ funny: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (url.endsWith("/rating")) {
+        return new Response(JSON.stringify({ rating: body.rating ?? null }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
@@ -995,15 +997,15 @@ describe("moderation mode (dev instance, #1163)", () => {
     expect(screen.getByRole("button", { name: "✕ Reject" })).not.toBeDisabled();
   });
 
-  test("the funny and great tags post on their own as checkboxes (#1502/#1541)", async () => {
+  test("the funny tag and the 0-10 rating post on their own (#1502/#2605)", async () => {
     payload = { ...MANIFEST, moderation: true };
     const container = await renderGame("moderation");
     clickPhoto(container, 0.5, 0.5);
 
     const funnyBox = () => screen.getByRole("checkbox", { name: "😄 Funny" });
-    const greatBox = () => screen.getByRole("checkbox", { name: "⭐ Great" });
     expect(funnyBox()).not.toBeChecked();
-    expect(greatBox()).not.toBeChecked();
+    // The rating control shows every value; none is active yet.
+    expect(screen.getByRole("button", { name: "Rate 8" })).toBeInTheDocument();
 
     fireEvent.click(funnyBox());
     await waitFor(() => expect(posts).toHaveLength(1));
@@ -1013,16 +1015,14 @@ describe("moderation mode (dev instance, #1163)", () => {
     // One-way in the game panel: once ticked it stays ticked for the scene.
     expect(funnyBox()).toBeChecked();
     expect(funnyBox()).toBeDisabled();
-    // The verdict and the other tag stay untouched.
+    // The verdict stays untouched.
     expect(screen.getByRole("button", { name: "✓ Accept" })).not.toBeDisabled();
-    expect(greatBox()).not.toBeChecked();
 
-    fireEvent.click(greatBox());
+    fireEvent.click(screen.getByRole("button", { name: "Rate 8" }));
     await waitFor(() => expect(posts).toHaveLength(2));
-    expect(posts[1]?.url).toBe("/anomalyguessr/api/scenes/a/great");
-    expect(posts[1]?.body).toEqual({ tag: true });
-    expect(await screen.findByText("⭐ Great marked.")).toBeInTheDocument();
-    expect(greatBox()).toBeChecked();
+    expect(posts[1]?.url).toBe("/anomalyguessr/api/scenes/a/rating");
+    expect(posts[1]?.body).toEqual({ rating: 8 });
+    expect(await screen.findByText("Rating 8/10.")).toBeInTheDocument();
   });
 
   test("the box stays hidden outside moderation mode", async () => {

@@ -2,6 +2,8 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
   type FeedbackFile,
+  RATING_MAX,
+  type RatingEntry,
   SCENE_ID_RE,
   type SceneEntry,
   type StateFile,
@@ -41,7 +43,7 @@ export class Store {
         comments: {},
         reasons: {},
         funny: {},
-        great: {},
+        rating: {},
       }),
     );
   }
@@ -81,11 +83,17 @@ async function loadJson<T>(p: string, fallback: T): Promise<T> {
 }
 
 /**
- * Fill in missing map fields so downstream code can index safely, and fold
- * the pre-#1207 legacy "excluded" map into `rejected` (dropping the old key:
- * the next save writes only the new name).
+ * Fill in missing map fields so downstream code can index safely, fold the
+ * pre-#1207 legacy "excluded" map into `rejected` (dropping the old key: the
+ * next save writes only the new name), and migrate the pre-#2605 "great" tick
+ * into `rating` at RATING_MAX (10): the next save writes `rating` and drops
+ * `great`. `great` stays readable as a fallback until then.
  */
 export function normalizeFeedback(fb: FeedbackFile): FeedbackFile {
+  const rating: Record<string, RatingEntry> = { ...(fb.rating ?? {}) };
+  for (const [id, at] of Object.entries(fb.great ?? {})) {
+    if (!(id in rating)) rating[id] = { value: RATING_MAX, at };
+  }
   return {
     version: fb.version ?? 1,
     rejected: { ...(fb.excluded ?? {}), ...(fb.rejected ?? {}) },
@@ -93,7 +101,7 @@ export function normalizeFeedback(fb: FeedbackFile): FeedbackFile {
     comments: fb.comments ?? {},
     reasons: fb.reasons ?? {},
     funny: fb.funny ?? {},
-    great: fb.great ?? {},
+    rating,
     repairs: fb.repairs ?? {},
   };
 }

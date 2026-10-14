@@ -118,10 +118,10 @@ export interface TDScene {
   funny: boolean;
   /** When the tag was set, when it is (RFC3339). */
   funnyAt?: string | null;
-  /** The optional "great" curation tag (ticket #1541). */
-  great: boolean;
-  /** When the tag was set, when it is (RFC3339). */
-  greatAt?: string | null;
+  /** The 0-10 quality rating (ticket #2605); null when unrated. */
+  rating: number | null;
+  /** When the rating was last set (RFC3339), when it is. */
+  ratingAt?: string | null;
   /** The "Needs work" repair record (ticket #2590), when the scene carries
    *  one: the request reasons and the outcome. A pending request takes the
    *  scene out of the unmoderated view; a resolved one shows the marker. */

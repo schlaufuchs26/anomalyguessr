@@ -40,8 +40,8 @@ export interface FixtureScene {
   needsReview?: boolean;
   /** The optional "lustig" label (ticket #1502). */
   funny?: boolean;
-  /** The optional "great" curation label (ticket #1541). */
-  great?: boolean;
+  /** The 0-10 quality rating (ticket #2605); null when unrated. */
+  rating?: number | null;
 }
 
 export function makeScene(over: Partial<FixtureScene>): {
@@ -78,7 +78,7 @@ export function makeScene(over: Partial<FixtureScene>): {
   /** The pre-fix click ellipse when the presence recompute moved it (#1504). */
   answerBefore?: { x: number; y: number; r: number } | null;
   funny: boolean;
-  great: boolean;
+  rating: number | null;
 } {
   const moderation = over.moderation ?? "unmoderated";
   const rejected = moderation === "rejected";
@@ -111,7 +111,7 @@ export function makeScene(over: Partial<FixtureScene>): {
     comments: over.comments ?? [],
     hasTrace: over.hasTrace ?? false,
     funny: over.funny ?? false,
-    great: over.great ?? false,
+    rating: over.rating ?? null,
     ...(over.checker ? { checker: over.checker } : {}),
     ...(over.mechanical ? { mechanical: over.mechanical } : {}),
     ...(over.answerBefore ? { answerBefore: over.answerBefore } : {}),

@@ -117,11 +117,19 @@ PATTERN_NEGATIVE_PROMOTE = 0.4
 # shares is proposed for demotion, not applied.
 PATTERN_POSITIVE_DEMOTE = 0.3
 PATTERN_NEGATIVE_DEMOTE = 0.7
-# A positive pattern whose scenes Evan also marks "great" (#1541) is promoted
-# on a lower acceptance bar: this share of the pattern's decided scenes must
-# carry the great mark, and the acceptance rate must still clear the floor.
-PATTERN_GREAT_PROMOTE = 0.2
-PATTERN_POSITIVE_PROMOTE_GREAT = 0.3
+# A positive pattern whose scenes Evan also rates highly (#2605, replacing
+# the "great" tick #1541) is promoted on a lower acceptance bar: this share of
+# the pattern's decided scenes must be top-rated (>= RATING_HIGH, 8/10), and
+# the acceptance rate must still clear the floor. The 0-10 scale makes a
+# top-rated scene a stronger, rarer signal than the old tick, so the bar
+# stays at 0.2 while the lower acceptance bar stays at 0.3.
+PATTERN_TOP_RATED_PROMOTE = 0.2
+PATTERN_POSITIVE_PROMOTE_RATED = 0.3
+# A positive, already-active pattern whose scenes Evan rates low (<=
+# RATING_LOW, 3/10) this often is proposed for demotion (#2605): a low rating
+# says the shape is worth avoiding even when it is accepted.
+RATING_LOW = 3
+PATTERN_LOW_RATED_DEMOTE = 0.3
 
 DIMS = ("labels", "families", "archives", "decades", "placements")
 _YEAR_RE = re.compile(r"(?<!\d)(1[89]\d{2}|20\d{2})(?!\d)")
@@ -539,6 +547,51 @@ def proposals(stats) -> list:
 
 # ── Anomaly-pattern counts (ticket #1539) ─────────────────────────────────
 
+def _window_ratings(feedback: dict, cutoff: str) -> dict:
+    """Scene id -> 0-10 rating set inside the window (ticket #2605).
+
+    A legacy "great" mark (dropped by the API on its next write) counts as
+    RATING_MAX, so a pre-migration file still reads.
+    """
+    out = {}
+    for sid, entry in (feedback.get("rating") or {}).items():
+        if str((entry or {}).get("at") or "")[:10] < cutoff:
+            continue
+        value = (entry or {}).get("value")
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            continue
+        value = int(value)
+        if ag_queue.RATING_MIN <= value <= ag_queue.RATING_MAX:
+            out[str(sid)] = value
+    for sid, at in (feedback.get("great") or {}).items():
+        if str(at or "")[:10] >= cutoff and str(sid) not in out:
+            out[str(sid)] = ag_queue.RATING_MAX
+    return out
+
+
+def rating_distribution(feedback, window_days: int = DEFAULT_WINDOW_DAYS,
+                        today=None) -> dict:
+    """The 0-10 rating distribution over the window (ticket #2605).
+
+    Counts every rating value, the rated total and mean, and how many scenes
+    are top-rated (>= RATING_HIGH); a legacy "great" mark counts as 10. The
+    digest names it so a shift over time is visible.
+    """
+    day = today or datetime.date.today()
+    cutoff = (day - datetime.timedelta(days=window_days)).isoformat()
+    buckets = {str(v): 0
+               for v in range(ag_queue.RATING_MIN, ag_queue.RATING_MAX + 1)}
+    values = list(_window_ratings(feedback, cutoff).values())
+    for v in values:
+        buckets[str(v)] += 1
+    rated = len(values)
+    top = sum(1 for v in values if v >= ag_queue.RATING_HIGH)
+    return {"buckets": buckets, "rated": rated,
+            "mean": round(sum(values) / rated, 2) if rated else None,
+            "topRated": top,
+            "topRatedShare": round(top / rated, 3) if rated else None}
+
+
 def pattern_count_rows(scenes, feedback, patterns,
                        window_days: int = DEFAULT_WINDOW_DAYS,
                        today=None) -> dict:
@@ -551,10 +604,11 @@ def pattern_count_rows(scenes, feedback, patterns,
     """
     day = today or datetime.date.today()
     cutoff = (day - datetime.timedelta(days=window_days)).isoformat()
-    # The "great" marks (#1541) met inside the same window: the positive
-    # examples a pattern can point at, next to its acceptance rate.
-    great_ids = {str(sid) for sid, at in (feedback.get("great") or {}).items()
-                 if str(at or "")[:10] >= cutoff}
+    # The ratings (#2605) met inside the same window: the positive examples a
+    # pattern can point at (top-rated >= RATING_HIGH), the weak ones (<=
+    # RATING_LOW) it should avoid, next to its acceptance rate. A legacy
+    # "great" mark counts as RATING_MAX.
+    window_ratings = _window_ratings(feedback, cutoff)
     rows: dict = {}
     for verdicts, field in (((feedback.get("accepted") or {}), "accepted"),
                             ((feedback.get("rejected") or {}), "rejected")):
@@ -569,19 +623,30 @@ def pattern_count_rows(scenes, feedback, patterns,
             for pid in ag_patterns.patterns_for_label(label, patterns):
                 row = rows.setdefault(pid, {"pattern": pid, "accepted": 0,
                                             "rejected": 0, "last": "",
-                                            "great": 0, "greatScenes": []})
+                                            "topRated": 0, "topRatedScenes": [],
+                                            "lowRated": 0, "ratings": []})
                 row[field] += 1
-                if str(scene_id) in great_ids:
-                    row["great"] += 1
-                    row["greatScenes"].append(str(scene_id))
+                value = window_ratings.get(str(scene_id))
+                if value is not None:
+                    row["ratings"].append(value)
+                    if value >= ag_queue.RATING_HIGH:
+                        row["topRated"] += 1
+                        row["topRatedScenes"].append(str(scene_id))
+                    elif value <= RATING_LOW:
+                        row["lowRated"] += 1
                 if when > row["last"]:
                     row["last"] = when
     for row in rows.values():
         row["decided"] = row["accepted"] + row["rejected"]
         row["rate"] = _rate(row["accepted"], row["rejected"])
-        row["greatRate"] = (round(row["great"] / row["decided"], 3)
-                            if row["decided"] else None)
-        row["greatScenes"] = sorted(row["greatScenes"])
+        row["topRatedRate"] = (round(row["topRated"] / row["decided"], 3)
+                               if row["decided"] else None)
+        row["lowRatedRate"] = (round(row["lowRated"] / row["decided"], 3)
+                               if row["decided"] else None)
+        row["topRatedScenes"] = sorted(row["topRatedScenes"])
+        row["rated"] = len(row["ratings"])
+        row["meanRating"] = (round(sum(row["ratings"]) / row["rated"], 2)
+                             if row["rated"] else None)
     return rows
 
 
@@ -601,25 +666,31 @@ def pattern_change_rows(counts, patterns,
         if not row or int(row.get("decided") or 0) < min_sample:
             continue
         rate = float(row.get("rate") or 0.0)
-        great = int(row.get("great") or 0)
-        great_rate = float(row.get("greatRate") or 0.0)
+        top = int(row.get("topRated") or 0)
+        top_rate = float(row.get("topRatedRate") or 0.0)
+        low_rate = float(row.get("lowRatedRate") or 0.0)
         kind = str(pattern.get("kind") or "")
         status = str(pattern.get("status") or "")
         positive = kind == "positive"
         if positive:
-            # The "great" rate sits next to the acceptance rate (#1541): a
-            # pattern Evan keeps marking as a positive example is promoted on
-            # a lower acceptance bar, because the marks say the shape itself
-            # is worth building on.
+            # The top-rated share sits next to the acceptance rate (#2605,
+            # replacing the #1541 "great" mark): a pattern Evan keeps rating
+            # highly is promoted on a lower acceptance bar, because the rating
+            # says the shape itself is worth building on.
             good = (rate >= PATTERN_POSITIVE_PROMOTE
-                    or (great_rate >= PATTERN_GREAT_PROMOTE
-                        and rate >= PATTERN_POSITIVE_PROMOTE_GREAT))
+                    or (top_rate >= PATTERN_TOP_RATED_PROMOTE
+                        and rate >= PATTERN_POSITIVE_PROMOTE_RATED))
         else:
             good = rate <= PATTERN_NEGATIVE_PROMOTE
         bad = rate < PATTERN_POSITIVE_DEMOTE if positive \
             else rate >= PATTERN_NEGATIVE_DEMOTE
+        # A positive pattern rated low this often is proposed for demotion
+        # even when its acceptance rate holds (#2605).
+        if positive and status == ag_patterns.STATUS_ACTIVE \
+                and low_rate >= PATTERN_LOW_RATED_DEMOTE:
+            bad = True
         record = (f"{row['accepted']}/{row['decided']} accepted, "
-                  f"{great} great ({row.get('greatRate')}) over the window")
+                  f"{top} top-rated ({row.get('topRatedRate')}) over the window")
         if status == ag_patterns.STATUS_OBSERVE and good:
             out.append({"kind": "pattern", "key": pid,
                         "proposal": "promote to active",
@@ -702,6 +773,12 @@ def digest(report: dict) -> str:
             f"{row['key']} {row['rejected']}/{row['total']} "
             f"({_pct(_reject_share(row))})" for row in movers))
     lines += reject_class_lines(report)
+    ratings = report.get("ratings") or {}
+    if ratings.get("rated"):
+        lines.append(
+            f"Ratings: {ratings['rated']} rated, mean {ratings['mean']}, "
+            f"{ratings['topRated']} top-rated "
+            f"({_pct(ratings['topRatedShare'] or 0)})")
     lines.append(_applied_line(report.get("changes") or []))
     props = report.get("proposals") or []
     if props:
@@ -775,6 +852,7 @@ def run(data_dir, window_days: int = DEFAULT_WINDOW_DAYS, dry_run: bool = False,
         "changes": applied["changes"],
         "proposals": applied["proposals"] + pattern_proposals,
         "patternCounts": counts,
+        "ratings": rating_distribution(feedback, window_days, now.date()),
     }
     if not dry_run:
         _atomic_json(data_dir / g.ADAPTATION_NAME, report)

@@ -1,28 +1,24 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { RATING_HIGH, RatingControl } from "../RatingControl";
 import { agUrl, QUERY_KEY, type TDScene } from "./api";
 
 /**
- * The two optional moderation tags (tickets #1502, #1541) as true toggles.
+ * The "funny" tag (ticket #1502) and the 0-10 quality rating (ticket #2605,
+ * replacing the "great" tick), as true toggles in the gallery.
  *
  * The gallery is visited after the decision, so unlike the game panel (where
- * a tag is one-way) a wrong tick must be undoable here: each checkbox posts
- * the state it is moving to and its own pending/error state. Shared by the
- * card and the lightbox so both behave the same.
+ * a tag is one-way) a wrong mark must be undoable here: each control posts
+ * the state it is moving to and has its own pending/error state. Shared by
+ * the card and the lightbox so both behave the same.
  */
 
-/** The tags in display order, with their checkbox label and chip title. */
+/** The tag in display order, with its checkbox label and chip title. */
 export const TAGS = [
   {
     tag: "funny",
     label: "😄 Funny",
     chip: "😄 funny",
     title: "Marked as deliberately funny (ticket #1502)",
-  },
-  {
-    tag: "great",
-    label: "⭐ Great",
-    chip: "⭐ great",
-    title: "Marked as a positive example (ticket #1541)",
   },
 ] as const;
 
@@ -40,7 +36,7 @@ export function TagChip({
   chip: string;
   title: string;
 }) {
-  const on = tag === "funny" ? scene.funny : scene.great;
+  const on = tag === "funny" ? scene.funny : false;
   if (!on) return null;
   return (
     <span
@@ -53,7 +49,26 @@ export function TagChip({
   );
 }
 
-/** One checkbox tag toggle with its own mutation, pending and error state. */
+/** The read-only rating chip on the scene card (ticket #2605). */
+export function RatingChip({ scene }: { scene: TDScene }) {
+  if (scene.rating === null || scene.rating === undefined) return null;
+  const high = scene.rating >= RATING_HIGH;
+  return (
+    <span
+      className={`td-chip td-chip-rating${high ? " high" : ""}`}
+      title={
+        high
+          ? "Rated 8+ out of 10: a positive example (ticket #2605)"
+          : "Quality rating (ticket #2605)"
+      }
+      data-testid={`td-rating-${scene.id}`}
+    >
+      {high ? "★" : "☆"} {scene.rating}/10
+    </span>
+  );
+}
+
+/** The "funny" checkbox with its own mutation, pending and error state. */
 function TagCheckbox({
   scene,
   tag,
@@ -66,7 +81,7 @@ function TagCheckbox({
   title: string;
 }) {
   const queryClient = useQueryClient();
-  const checked = tag === "funny" ? scene.funny : scene.great;
+  const checked = scene.funny;
   const mark = useMutation({
     mutationFn: async (value: boolean) => {
       const res = await fetch(agUrl(`scenes/${scene.id}/${tag}`), {
@@ -107,7 +122,7 @@ function TagCheckbox({
   );
 }
 
-/** Both tag checkboxes for a scene; `className` lets the caller place them. */
+/** The funny tag and the rating control for a scene; the caller places them. */
 export function TagToggles({
   scene,
   className,
@@ -115,6 +130,21 @@ export function TagToggles({
   scene: TDScene;
   className?: string;
 }) {
+  const queryClient = useQueryClient();
+  const rate = useMutation({
+    mutationFn: async (value: number | null) => {
+      const res = await fetch(agUrl(`scenes/${scene.id}/rating`), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rating: value }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json() as Promise<{ id: string }>;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+    },
+  });
   return (
     <div className={className ? `td-tags ${className}` : "td-tags"}>
       {TAGS.map((t) => (
@@ -126,6 +156,21 @@ export function TagToggles({
           title={t.title}
         />
       ))}
+      <RatingControl
+        value={scene.rating ?? null}
+        busy={rate.isPending}
+        onSelect={(v) => rate.mutate(v)}
+        label="Rate"
+        testIdPrefix={`td-rating-${scene.id}`}
+      />
+      {rate.error ? (
+        <span
+          className="td-tag-error"
+          data-testid={`td-rating-error-${scene.id}`}
+        >
+          {rate.error.message}
+        </span>
+      ) : null}
     </div>
   );
 }

@@ -1,14 +1,15 @@
 import { describe, expect, test } from "bun:test";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { handle } from "../src/routes.ts";
 import type { SceneList } from "../src/scenes.ts";
 import type { FeedbackFile } from "../src/types.ts";
 import { makeEnv } from "./helpers.ts";
 
-// The two optional moderation tags (tickets #1502 and #1541): labels next to
-// the accept/reject verdict, each independent of the verdict and of the other
-// tag. Their own file keeps the route tests under the 500-line gate.
+// The "funny" tag (#1502) and the 0-10 quality rating (#2605, replacing the
+// old "great" tick): labels next to the accept/reject verdict, each
+// independent of the verdict and of the other. Their own file keeps the route
+// tests under the 500-line gate.
 
 function req(method: string, url: string, body?: unknown): Request {
   const init: RequestInit = { method };
@@ -32,7 +33,7 @@ async function feedback(dir: string): Promise<FeedbackFile> {
   ) as FeedbackFile;
 }
 
-describe("moderation tags (#1502/#1541)", () => {
+describe("moderation tag + rating (#1502/#2605)", () => {
   test("funny: tags, persists to feedback.json, shows on the scene, toggles off", async () => {
     const { env, dir } = await makeEnv();
     // unknown scene -> 404
@@ -81,53 +82,87 @@ describe("moderation tags (#1502/#1541)", () => {
     expect((await feedback(dir)).funny).toEqual({});
   });
 
-  test("great: same shape, its own store field and payload keys", async () => {
+  test("rating: 0-10 sets, persists, shows on the scene, clears with null", async () => {
     const { env, dir } = await makeEnv();
     expect(
       (
         await handle(
           env,
           "POST",
-          "scenes/nope/great",
-          req("POST", "x", { tag: true }),
+          "scenes/nope/rating",
+          req("POST", "x", { rating: 8 }),
         )
       ).status,
     ).toBe(404);
 
     const on = await json<{
       id: string;
-      great: boolean;
-      greatAt: string | null;
+      rating: number | null;
+      ratingAt: string | null;
     }>(
       await handle(
         env,
         "POST",
-        "scenes/beta-street/great",
-        req("POST", "x", { tag: true }),
+        "scenes/beta-street/rating",
+        req("POST", "x", { rating: 8 }),
       ),
     );
-    expect(on.great).toBe(true);
-    expect(on.greatAt).toBeTruthy();
+    expect(on.rating).toBe(8);
+    expect(on.ratingAt).toBeTruthy();
 
     const list = await json<SceneList>(
       await handle(env, "GET", "scenes", req("GET", "scenes")),
     );
     const beta = list.scenes.find((s) => s.id === "beta-street");
-    expect(beta?.great).toBe(true);
-    expect(beta?.greatAt).toBeTruthy();
+    expect(beta?.rating).toBe(8);
+    expect(beta?.ratingAt).toBeTruthy();
+    // A never-rated scene reads null, not 0.
+    const alpha = list.scenes.find((s) => s.id === "alpha-market");
+    expect(alpha?.rating).toBeNull();
 
-    expect(Object.keys((await feedback(dir)).great ?? {})).toEqual([
-      "beta-street",
-    ]);
+    const stored = await feedback(dir);
+    expect(stored.rating?.["beta-street"]?.value).toBe(8);
+    expect(stored.rating?.["beta-street"]?.at).toBeTruthy();
 
-    const off = await json<{ great: boolean }>(
-      await handle(env, "POST", "scenes/beta-street/great", req("POST", "x")),
+    // 0 is a real rating, distinct from unrated.
+    const zero = await json<{ rating: number | null }>(
+      await handle(
+        env,
+        "POST",
+        "scenes/beta-street/rating",
+        req("POST", "x", { rating: 0 }),
+      ),
     );
-    expect(off.great).toBe(false);
-    expect((await feedback(dir)).great).toEqual({});
+    expect(zero.rating).toBe(0);
+    expect((await feedback(dir)).rating?.["beta-street"]?.value).toBe(0);
+
+    // null clears it again.
+    const cleared = await json<{ rating: number | null }>(
+      await handle(
+        env,
+        "POST",
+        "scenes/beta-street/rating",
+        req("POST", "x", { rating: null }),
+      ),
+    );
+    expect(cleared.rating).toBeNull();
+    expect((await feedback(dir)).rating).toEqual({});
   });
 
-  test("the tags stay independent of each other and of other scenes", async () => {
+  test("rating rejects values outside the 0-10 scale", async () => {
+    const { env } = await makeEnv();
+    for (const bad of [11, -1, 3.5, "8", true]) {
+      const res = await handle(
+        env,
+        "POST",
+        "scenes/beta-street/rating",
+        req("POST", "x", { rating: bad }),
+      );
+      expect(res.status).toBe(400);
+    }
+  });
+
+  test("the tag and the rating stay independent of each other and the verdict", async () => {
     const { env, dir } = await makeEnv();
     await handle(
       env,
@@ -138,8 +173,8 @@ describe("moderation tags (#1502/#1541)", () => {
     await handle(
       env,
       "POST",
-      "scenes/beta-street/great",
-      req("POST", "x", { tag: true }),
+      "scenes/beta-street/rating",
+      req("POST", "x", { rating: 9 }),
     );
 
     const list = await json<SceneList>(
@@ -147,28 +182,54 @@ describe("moderation tags (#1502/#1541)", () => {
     );
     const alpha = list.scenes.find((s) => s.id === "alpha-market");
     const beta = list.scenes.find((s) => s.id === "beta-street");
-    // Each scene carries only the tag it got.
+    // Each scene carries only the mark it got.
     expect(alpha?.funny).toBe(true);
-    expect(alpha?.great).toBe(false);
+    expect(alpha?.rating).toBeNull();
     expect(beta?.funny).toBe(false);
-    expect(beta?.great).toBe(true);
+    expect(beta?.rating).toBe(9);
 
-    const fb = await feedback(dir);
-    expect(fb.funny).toEqual({ "alpha-market": expect.any(String) });
-    expect(fb.great).toEqual({ "beta-street": expect.any(String) });
-
-    // Setting the second tag on one scene leaves its first tag untouched.
+    // A verdict leaves the rating alone.
     await handle(
       env,
       "POST",
-      "scenes/alpha-market/great",
+      "scenes/beta-street/moderate",
+      req("POST", "x", { action: "accept" }),
+    );
+    expect((await feedback(dir)).rating?.["beta-street"]?.value).toBe(9);
+  });
+
+  test("a legacy great tick reads as a rating of 10 and folds on the next write", async () => {
+    const { env, dir } = await makeEnv();
+    const legacy: FeedbackFile = {
+      version: 1,
+      rejected: {},
+      accepted: {},
+      comments: {},
+      reasons: {},
+      funny: {},
+      great: { "beta-street": "2026-09-01T00:00:00Z" },
+    };
+    await writeFile(
+      path.join(dir, "feedback.json"),
+      `${JSON.stringify(legacy, null, 2)}\n`,
+    );
+
+    const list = await json<SceneList>(
+      await handle(env, "GET", "scenes", req("GET", "scenes")),
+    );
+    expect(
+      list.scenes.find((s) => s.id === "beta-street")?.rating,
+    ).toBe(10);
+
+    // Any write drops the old key and keeps the folded rating.
+    await handle(
+      env,
+      "POST",
+      "scenes/alpha-market/funny",
       req("POST", "x", { tag: true }),
     );
     const after = await feedback(dir);
-    expect(after.funny).toEqual({ "alpha-market": expect.any(String) });
-    expect(Object.keys(after.great ?? {}).sort()).toEqual([
-      "alpha-market",
-      "beta-street",
-    ]);
+    expect(after.great).toBeUndefined();
+    expect(after.rating?.["beta-street"]?.value).toBe(10);
   });
 });

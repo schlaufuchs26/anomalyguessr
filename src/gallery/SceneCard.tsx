@@ -14,7 +14,7 @@ import {
   type TDScene,
 } from "./api";
 import { SceneHandle } from "./SceneHandle";
-import { TAGS, TagChip, TagToggles } from "./TagToggles";
+import { RatingChip, TAGS, TagChip, TagToggles } from "./TagToggles";
 
 /** One queue scene card: edited image (opens the lightbox), provenance meta,
  *  moderation badge, an optional "Daily N" marker (#1208) and the
@@ -208,6 +208,7 @@ export function SceneCard({
               title={t.title}
             />
           ))}
+          <RatingChip scene={scene} />
         </div>
         {defects.length > 0 ? (
           <p

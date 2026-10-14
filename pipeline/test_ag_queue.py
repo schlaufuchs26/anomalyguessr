@@ -74,11 +74,11 @@ def make_repo(root: Path, scenes=None):
 
 
 def write_feedback(data_dir: Path, rejected=(), accepted=(), comments=None,
-                   funny=(), great=()):
+                   funny=(), rated=()):
     """Synthetic feedback.json as the dashboard API writes it (#1113/#1163).
 
-    ``funny``/``great`` are the optional moderation tags (#1502/#1541); the
-    API always writes both maps, empty when nothing is tagged.
+    ``funny`` is the optional moderation tag (#1502); ``rated`` are scene ids
+    the API stored at rating 10 (#2605), so they count as high-rated.
     """
     data_dir.mkdir(parents=True, exist_ok=True)
     fb = {
@@ -87,7 +87,8 @@ def write_feedback(data_dir: Path, rejected=(), accepted=(), comments=None,
         "rejected": {e: "2026-09-08T08:00:00+02:00" for e in rejected},
         "comments": comments or {},
         "funny": {f: "2026-09-08T08:00:00+02:00" for f in funny},
-        "great": {g: "2026-09-08T08:00:00+02:00" for g in great},
+        "rating": {r: {"value": 10, "at": "2026-09-08T08:00:00+02:00"}
+                   for r in rated},
     }
     (data_dir / "feedback.json").write_text(
         json.dumps(fb, ensure_ascii=False))
@@ -900,7 +901,7 @@ class TaggedDayTest(unittest.TestCase):
         self.data = self.tmp / "data"
         self.repo = make_repo(self.tmp, [])
 
-    def _seed(self, specs, funny=(), great=(), shown=None):
+    def _seed(self, specs, funny=(), rated=(), shown=None):
         """specs: (id, added, label). Fresh, all accepted, tagged as asked;
         each scene gets a short handle so the report reads "AG-n"."""
         for i, (eid, added, label) in enumerate(specs, start=1):
@@ -914,7 +915,7 @@ class TaggedDayTest(unittest.TestCase):
         if shown:
             set_shown(self.data, shown)
         write_feedback(self.data, accepted=[s[0] for s in specs],
-                       funny=funny, great=great)
+                       funny=funny, rated=rated)
 
     def test_tagged_scene_far_back_lands_in_the_day(self):
         # Five distinct labels fill the day first; the tagged scene sits
@@ -945,7 +946,7 @@ class TaggedDayTest(unittest.TestCase):
                  {"id": "c1", "anomaly": "Robot"},
                  {"id": "a2", "anomaly": "Bottle"},
                  {"id": "g1", "anomaly": "Statue"}]
-        day = q.choose_day(cands, 3, funny={"a2"}, great={"g1"})
+        day = q.choose_day(cands, 3, funny={"a2"}, rated={"g1"})
         self.assertEqual([c["id"] for c in day], ["g1", "b1", "a2"])
 
     def test_no_tagged_scene_leaves_the_day_alone(self):
@@ -1006,10 +1007,10 @@ class TaggedDayTest(unittest.TestCase):
             ("g4", "2026-09-04", "Statue"),
             ("g5", "2026-09-05", "Suitcase"),
             ("t1", "2026-09-06", "Watch"),
-        ], great=["g1", "g2", "g3", "g4", "g5"], funny=["t1"])
+        ], rated=["g1", "g2", "g3", "g4", "g5"], funny=["t1"])
         res = q.ship(self.data, self.repo, "2026-09-10")
         self.assertEqual(res["scenes"], ["g1", "g2", "g3", "g4", "g5"])
-        self.assertEqual(res["tags_placed"], {"great": "AG-1"})
+        self.assertEqual(res["tags_placed"], {"rated": "AG-1"})
         self.assertEqual(res["tags_unplaced"],
                          {"funny": "no untagged pick to swap"})
 

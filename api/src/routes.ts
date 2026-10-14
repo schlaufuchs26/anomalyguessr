@@ -21,7 +21,12 @@ import {
   tracePath,
 } from "./scenes.ts";
 import type { Store } from "./store.ts";
-import { MAX_COMMENT, type Moderation, type ModerationTag } from "./types.ts";
+import {
+  isRatingValue,
+  MAX_COMMENT,
+  type Moderation,
+  type ModerationTag,
+} from "./types.ts";
 
 export interface Env {
   store: Store;
@@ -49,9 +54,9 @@ function badRequest(msg: string): Response {
   return json({ error: msg }, 400);
 }
 
-/** Whether a path segment names one of the two moderation tags (#1541). */
+/** Whether a path segment names the remaining plain moderation tag (#1502). */
 function isModerationTag(value: string | undefined): value is ModerationTag {
-  return value === "funny" || value === "great";
+  return value === "funny";
 }
 
 /** Handler shared by all routes; each returns a Response. */
@@ -381,10 +386,9 @@ export async function handle(
     return json({ comment });
   }
 
-  // POST /scenes/{id}/funny | /great  (the optional moderation tags,
-  // #1502 and #1541). Same toggle semantics for both: a bodyless POST flips
-  // the mark, `{tag:true|false}` sets it, and each tag is independent of the
-  // accept/reject verdict and of the other tag.
+  // POST /scenes/{id}/funny  (the optional "funny" moderation tag, #1502).
+  // A bodyless POST flips the mark, `{tag:true|false}` sets it; independent
+  // of the accept/reject verdict and of the rating.
   const tag = segs[2];
   if (
     method === "POST" &&
@@ -411,6 +415,43 @@ export async function handle(
     fb[tag] = marks;
     await store.saveFeedback(fb);
     return json({ id, [tag]: next, [`${tag}At`]: marks[id] ?? null });
+  }
+
+  // POST /scenes/{id}/rating  (the 0-10 quality rating, ticket #2605; the
+  // old "great" tick became this). `{rating: 0..10}` sets it, `{rating:
+  // null}` clears it; independent of the accept/reject verdict, so a rating
+  // survives accept/reject/restore.
+  if (
+    method === "POST" &&
+    segs.length === 3 &&
+    segs[0] === "scenes" &&
+    segs[2] === "rating"
+  ) {
+    const id = await resolveSceneId(store, segs[1] ?? "");
+    if (id === null) return notFound();
+    let body: { rating?: unknown };
+    try {
+      body = (await req.json()) as { rating?: unknown };
+    } catch {
+      return badRequest("invalid JSON body");
+    }
+    const value = body.rating;
+    const fb = await store.feedback();
+    fb.rating = fb.rating ?? {};
+    if (value === null) {
+      delete fb.rating[id];
+    } else if (isRatingValue(value)) {
+      fb.rating[id] = { value, at: new Date().toISOString() };
+    } else {
+      return badRequest("rating must be a whole number between 0 and 10, or null");
+    }
+    await store.saveFeedback(fb);
+    const entry = fb.rating[id];
+    return json({
+      id,
+      rating: entry?.value ?? null,
+      ratingAt: entry?.at ?? null,
+    });
   }
 
   // POST /scenes/{id}/reject | /restore (and the moderate endpoint above)

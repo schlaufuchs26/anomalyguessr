@@ -453,7 +453,12 @@ def tally(feedback: dict, state: dict, source_of: dict, tags_of: dict,
     """
     accepted = feedback.get("accepted") or {}
     rejected = feedback.get("rejected") or {}
-    great = feedback.get("great") or {}
+    # The "great" column reads the 0-10 rating (#2605): a top-rated scene
+    # (>= RATING_HIGH) stands in for the old tick, so a pre-migration file
+    # still counts via scene_ratings' legacy fallback.
+    great = {sid: value
+             for sid, value in ag_queue.scene_ratings(feedback).items()
+             if value >= ag_queue.RATING_HIGH}
     rows: dict = {}
     for scene_id, scene in (state.get("scenes") or {}).items():
         source_id = source_of.get(scene_id)

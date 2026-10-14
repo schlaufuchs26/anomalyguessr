@@ -46,13 +46,14 @@ export function mkEntry(spec: Spec): SceneEntry {
 /**
  * Writes a state.json/feedback.json pair; `accepted` undefined accepts every
  * scene (pass [] to accept none), mirroring the Go/TS fixture helpers. `tags`
- * are the optional "funny"/"great" moderation marks (tickets #1502/#1541).
+ * are the optional "funny" mark (#1502) and the rated scene ids (ticket
+ * #2605; written at 10, so they count as high-rated).
  */
 export async function fixture(
   specs: Spec[],
   accepted?: string[],
   rejected: string[] = [],
-  tags: { funny?: string[]; great?: string[] } = {},
+  tags: { funny?: string[]; rated?: string[] } = {},
 ): Promise<{ env: Env; dir: string }> {
   const dir = await mkdtemp(path.join(tmpdir(), "ag-daily-"));
   const scenes: Record<string, SceneEntry> = {};
@@ -70,6 +71,12 @@ export async function fixture(
   for (const id of rejected) rej[id] = "2026-09-01T00:00:00Z";
   const tagMap = (ids: string[] = []): Record<string, string> =>
     Object.fromEntries(ids.map((id) => [id, "2026-09-01T00:00:00Z"]));
+  const ratingMap = (
+    ids: string[] = [],
+  ): Record<string, { value: number; at: string }> =>
+    Object.fromEntries(
+      ids.map((id) => [id, { value: 10, at: "2026-09-01T00:00:00Z" }]),
+    );
   await writeFile(
     path.join(dir, "feedback.json"),
     `${JSON.stringify(
@@ -79,7 +86,7 @@ export async function fixture(
         rejected: rej,
         comments: {},
         funny: tagMap(tags.funny),
-        great: tagMap(tags.great),
+        rating: ratingMap(tags.rated),
       },
       null,
       2,
@@ -98,10 +105,10 @@ export async function order(
   return dailyOrder(await env.store.state(), await env.store.feedback());
 }
 
-/** `order` with the #1542 moderation tags written into feedback.json. */
+/** `order` with the #1542 moderation signals written into feedback.json. */
 export async function orderTagged(
   specs: Spec[],
-  tags: { funny?: string[]; great?: string[] },
+  tags: { funny?: string[]; rated?: string[] },
 ): Promise<string[]> {
   const { env } = await fixture(specs, undefined, [], tags);
   return dailyOrder(await env.store.state(), await env.store.feedback());

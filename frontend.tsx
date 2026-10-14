@@ -10,6 +10,7 @@ import {
   loadManifest,
   type ModerationTag,
   postModeration,
+  postRating,
   postTag,
 } from "./src/api";
 import { buildEndData } from "./src/endView";
@@ -19,6 +20,7 @@ import { isDeliberateNavigation } from "./src/leaveGuard";
 import { ModerationEmpty } from "./src/ModerationEmpty";
 import { PhotoStage } from "./src/PhotoStage";
 import type { MissCue, PhotoHit, PhotoMarker } from "./src/photoInteractions";
+import { RatingControl } from "./src/RatingControl";
 import {
   appBase,
   effectiveMode,
@@ -97,26 +99,33 @@ const IDLE_MODERATION: ModerationState = {
   busy: false,
 };
 
-/** One moderation tag's box state: posting, set, or a failed post. */
+/** The "funny" tag's box state: posting, set, or a failed post. */
 interface TagUi {
   busy: boolean;
   tagged: boolean;
   error: string;
 }
 
-/** Both tags' box state, keyed by tag (#1541). */
+/** The tag box state keyed by tag; "funny" is the only plain tag left (#2605). */
 type TagUiState = Record<ModerationTag, TagUi>;
 
 const IDLE_TAG_STATE: TagUiState = {
   funny: { busy: false, tagged: false, error: "" },
-  great: { busy: false, tagged: false, error: "" },
 };
 
-/** The two tags in display order, with their checkbox labels. */
+/** The one tag in display order, with its checkbox label. */
 const TAGS: { tag: ModerationTag; label: string }[] = [
   { tag: "funny", label: "😄 Funny" },
-  { tag: "great", label: "⭐ Great" },
 ];
+
+/** The 0-10 quality rating's box state (#2605): posting, value, failed post. */
+interface RatingUi {
+  busy: boolean;
+  value: number | null;
+  error: string;
+}
+
+const IDLE_RATING: RatingUi = { busy: false, value: null, error: "" };
 
 function buildGuessView(
   scene: Scene,
@@ -202,12 +211,12 @@ export function App() {
    */
   const [modReasons, setModReasons] = useState<RejectReason[]>([]);
   /**
-   * The two optional moderation tags (#1502, #1541): separate, one-way
-   * checkboxes next to accept/reject. "funny" is the label set the blind
-   * vision test needs before it can become a point; "great" is the curation
-   * signal the pattern catalogue and the feedback pass read.
+   * The "funny" moderation tag (#1502): a separate, one-way checkbox next to
+   * accept/reject. The "great" tick became the 0-10 rating below (#2605).
    */
   const [tags, setTags] = useState<TagUiState>(IDLE_TAG_STATE);
+  /** The 0-10 quality rating (#2605): independent of the verdict. */
+  const [rating, setRating] = useState<RatingUi>(IDLE_RATING);
   const [loadError, setLoadError] = useState(false);
   /**
    * The mode the URL names (ticket #1223): null = frontpage, "daily" or
@@ -315,6 +324,7 @@ export function App() {
     setModFeedback("");
     setModReasons([]);
     setTags(IDLE_TAG_STATE);
+    setRating(IDLE_RATING);
     // An empty queue still enters a run state: the moderation mode shows the
     // pipeline buffer + Generate button there (#1202/#1210).
     setStatus(scenes.length === 0 ? "empty" : "playing");
@@ -478,6 +488,7 @@ export function App() {
     setModFeedback("");
     setModReasons([]);
     setTags(IDLE_TAG_STATE);
+    setRating(IDLE_RATING);
   };
 
   /**
@@ -677,6 +688,25 @@ export function App() {
               ...prev,
               [tag]: { busy: false, tagged: false, error: String(err) },
             }));
+          }
+        }
+      : null;
+
+  /**
+   * A rating click (#2605): posts the 0-10 quality value (or clears it),
+   * independent of the verdict and the "funny" tag. Compiled out of the
+   * production bundle like the moderation action above.
+   */
+  const postRatingAction =
+    process.env.NODE_ENV !== "production"
+      ? async (value: number | null) => {
+          if (!scene || rating.busy) return;
+          setRating((prev) => ({ ...prev, busy: true, error: "" }));
+          try {
+            const applied = await postRating(scene.id, value);
+            setRating({ busy: false, value: applied, error: "" });
+          } catch (err) {
+            setRating((prev) => ({ ...prev, busy: false, error: String(err) }));
           }
         }
       : null;
@@ -947,11 +977,7 @@ export function App() {
                     <label
                       key={tag}
                       className={`moderate-tag${tags[tag].tagged ? " active" : ""}`}
-                      title={
-                        tag === "funny"
-                          ? "Optional label: this scene is deliberately funny (ticket #1502)"
-                          : "Optional label: a scene worth keeping as a positive example (ticket #1541)"
-                      }
+                      title="Optional label: this scene is deliberately funny (ticket #1502)"
                     >
                       <input
                         type="checkbox"
@@ -964,6 +990,13 @@ export function App() {
                     </label>
                   ))}
                 </div>
+                <RatingControl
+                  value={rating.value}
+                  busy={rating.busy}
+                  onSelect={(v) => void postRatingAction?.(v)}
+                  label="Rate"
+                  testIdPrefix="moderate-rating"
+                />
               </div>
               <div className="moderate-reasons-group">
                 <span className="moderate-reasons-label">
@@ -1020,6 +1053,19 @@ export function App() {
                   </p>
                 ) : null,
               )}
+              {rating.busy || rating.value !== null || rating.error ? (
+                <p
+                  id="rating-status"
+                  className="moderate-status"
+                  aria-live="polite"
+                >
+                  {rating.error
+                    ? `Rating failed: ${rating.error}`
+                    : rating.busy
+                      ? "Rating saving…"
+                      : `Rating ${rating.value}/10.`}
+                </p>
+              ) : null}
             </div>
           ) : null}
         </div>

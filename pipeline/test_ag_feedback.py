@@ -356,40 +356,59 @@ class PatternCountsTest(TempDataMixin, unittest.TestCase):
                                 "rate": 1.0, "last": "2026-09-15"}}
         self.assertEqual(fb.pattern_change_rows(counts, patterns), [])
 
-    def test_great_marks_are_counted_next_to_the_verdicts(self):
+    def test_ratings_are_counted_next_to_the_verdicts(self):
+        scenes, record = outboard_fixture()
+        record["rating"] = {"o0": {"value": 9, "at": "2026-09-15T08:00:00Z"}}
+        counts = fb.pattern_count_rows(scenes, record, self.patterns,
+                                       today=TODAY)
+        row = counts["carrier-missing"]
+        self.assertEqual(row["topRated"], 1)
+        self.assertEqual(row["topRatedScenes"], ["o0"])
+        self.assertEqual(row["topRatedRate"], round(1 / 11, 3))
+        self.assertEqual(row["rated"], 1)
+        self.assertEqual(row["meanRating"], 9.0)
+
+    def test_a_rating_outside_the_window_is_not_counted(self):
+        scenes, record = outboard_fixture()
+        record["rating"] = {"o0": {"value": 9, "at": "2026-08-01T08:00:00Z"}}
+        counts = fb.pattern_count_rows(scenes, record, self.patterns,
+                                       today=TODAY)
+        self.assertEqual(counts["carrier-missing"]["topRated"], 0)
+
+    def test_a_legacy_great_mark_reads_as_a_rating_of_ten(self):
         scenes, record = outboard_fixture()
         record["great"] = {"o0": "2026-09-15T08:00:00Z"}
         counts = fb.pattern_count_rows(scenes, record, self.patterns,
                                        today=TODAY)
-        row = counts["carrier-missing"]
-        self.assertEqual(row["great"], 1)
-        self.assertEqual(row["greatScenes"], ["o0"])
-        self.assertEqual(row["greatRate"], round(1 / 11, 3))
+        self.assertEqual(counts["carrier-missing"]["topRated"], 1)
 
-    def test_a_great_mark_outside_the_window_is_not_counted(self):
-        scenes, record = outboard_fixture()
-        record["great"] = {"o0": "2026-08-01T08:00:00Z"}
-        counts = fb.pattern_count_rows(scenes, record, self.patterns,
-                                       today=TODAY)
-        self.assertEqual(counts["carrier-missing"]["great"], 0)
-
-    def test_a_great_backed_pattern_is_promoted_on_a_lower_bar(self):
+    def test_a_highly_rated_pattern_is_promoted_on_a_lower_bar(self):
         patterns = [{"id": "candidate", "kind": "positive",
                      "status": ap.STATUS_OBSERVE, "matches": ["jet ski"]}]
         backed = {"candidate": {"accepted": 2, "rejected": 3, "decided": 5,
-                                "rate": 0.4, "great": 2, "greatRate": 0.4,
-                                "last": "2026-09-15"}}
+                                "rate": 0.4, "topRated": 2,
+                                "topRatedRate": 0.4, "last": "2026-09-15"}}
         changes = fb.pattern_change_rows(backed, patterns)
         self.assertEqual(changes[0]["proposal"], "promote to active")
-        self.assertIn("2 great", changes[0]["reason"])
+        self.assertIn("2 top-rated", changes[0]["reason"])
 
-    def test_without_great_backing_the_same_record_is_no_proposal(self):
+    def test_without_rating_backing_the_same_record_is_no_proposal(self):
         patterns = [{"id": "candidate", "kind": "positive",
                      "status": ap.STATUS_OBSERVE, "matches": ["jet ski"]}]
         plain = {"candidate": {"accepted": 2, "rejected": 3, "decided": 5,
-                               "rate": 0.4, "great": 0, "greatRate": 0.0,
+                               "rate": 0.4, "topRated": 0, "topRatedRate": 0.0,
                                "last": "2026-09-15"}}
         self.assertEqual(fb.pattern_change_rows(plain, patterns), [])
+
+    def test_a_low_rated_active_pattern_is_proposed_for_demotion(self):
+        patterns = [{"id": "was-good", "kind": "positive",
+                     "status": ap.STATUS_ACTIVE, "matches": ["poster"]}]
+        counts = {"was-good": {"accepted": 6, "rejected": 1, "decided": 7,
+                               "rate": 0.857, "topRated": 0,
+                               "topRatedRate": 0.0, "lowRated": 4,
+                               "lowRatedRate": 0.571, "last": "2026-09-15"}}
+        changes = fb.pattern_change_rows(counts, patterns)
+        self.assertEqual(changes[0]["proposal"], "demote to observe")
 
     def test_run_writes_the_pattern_counts_file(self):
         scenes, record = outboard_fixture()

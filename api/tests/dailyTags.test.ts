@@ -103,7 +103,7 @@ describe("daily order tags (TaggedDayTest #1542)", () => {
     ];
     const day = pickDay(candidates, 3, {
       funny: new Set(["a2"]),
-      great: new Set(["g1"]),
+      rated: new Set(["g1"]),
     });
     expect(day.map((e) => e.id)).toEqual(["g1", "b1", "a2"]);
   });

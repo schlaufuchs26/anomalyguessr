@@ -64,12 +64,13 @@ export interface ApiScene {
   funny: boolean;
   /** When the tag was set, when it is (RFC3339). */
   funnyAt?: string;
-  /** The optional "great" curation tag (ticket #1541): no model test, it is
-   *  the positive-example source for the pattern catalogue and the nightly
-   *  feedback pass. */
-  great: boolean;
-  /** When the tag was set, when it is (RFC3339). */
-  greatAt?: string;
+  /** The human quality rating (ticket #2605): 0-10, or null when unrated.
+   *  Replaces the "great" tick; a value of at least RATING_HIGH (8) is the
+   *  positive-example signal the pattern catalogue and the daily ship rule
+   *  read. */
+  rating: number | null;
+  /** When the rating was last set (RFC3339), when it is. */
+  ratingAt?: string;
   /** The "Needs work" repair request and its outcome (ticket #2590), when
    *  the scene carries one. A pending request (status "requested") is why
    *  the scene reads moderation "repair" and is absent from the queue. */
@@ -244,7 +245,7 @@ export function sceneToApi(
     comments: fb.comments[id] ?? [],
     hasTrace: hasTrace(id),
     funny: id in (fb.funny ?? {}),
-    great: id in (fb.great ?? {}),
+    rating: fb.rating?.[id]?.value ?? null,
     images,
   };
   if (e.shortId !== undefined) out.shortId = e.shortId;
@@ -259,8 +260,8 @@ export function sceneToApi(
   if (e.answer_before !== undefined) out.answerBefore = e.answer_before;
   const funnyAt = fb.funny?.[id];
   if (funnyAt !== undefined) out.funnyAt = funnyAt;
-  const greatAt = fb.great?.[id];
-  if (greatAt !== undefined) out.greatAt = greatAt;
+  const ratingAt = fb.rating?.[id]?.at;
+  if (ratingAt !== undefined) out.ratingAt = ratingAt;
   if (repair !== undefined) out.repair = repair;
   if (rejectedAt !== undefined) out.rejectedAt = rejectedAt;
   return out;

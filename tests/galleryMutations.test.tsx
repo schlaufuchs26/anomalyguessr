@@ -165,7 +165,7 @@ describe("AnomalyGuessrGalleryPage mutations", () => {
     expect(postedBody).toBe("can too big");
   });
 
-  test("points counter, defect warning and both tag checkboxes render and toggle (#1502/#1541)", async () => {
+  test("points, defect warning, the funny tag and the rating control render and post (#1502/#2605)", async () => {
     const posted: { url: string; body: unknown }[] = [];
     const scene = makeScene({
       id: "p1",
@@ -180,6 +180,7 @@ describe("AnomalyGuessrGalleryPage mutations", () => {
       },
       mechanical: { presence: true, tone: false, size: false },
       funny: true,
+      rating: 6,
     });
     global.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
@@ -188,7 +189,7 @@ describe("AnomalyGuessrGalleryPage mutations", () => {
           status: 200,
         });
       }
-      if (url.endsWith("/p1/funny") || url.endsWith("/p1/great")) {
+      if (url.endsWith("/p1/funny") || url.endsWith("/p1/rating")) {
         posted.push({ url, body: JSON.parse(String(init?.body)) });
         return new Response(JSON.stringify({ id: "p1" }), { status: 200 });
       }
@@ -203,22 +204,21 @@ describe("AnomalyGuessrGalleryPage mutations", () => {
     expect(screen.getByTestId("td-defects-p1").textContent).toContain(
       "element missing",
     );
-    // Only the set tag has a chip; both tags have a checkbox.
+    // The set tag has a chip; the scene's rating shows as a chip too.
     expect(screen.getByTestId("td-funny-p1")).toBeInTheDocument();
-    expect(screen.queryByTestId("td-great-p1")).not.toBeInTheDocument();
     expect(screen.getByTestId("td-funny-toggle-p1")).toBeChecked();
-    expect(screen.getByTestId("td-great-toggle-p1")).not.toBeChecked();
+    expect(screen.getByTestId("td-rating-p1").textContent).toBe("☆ 6/10");
 
-    // A gallery visit happens after the decision: each tick is undoable and
+    // A gallery visit happens after the decision: each mark is undoable and
     // posts the state it moves to.
     fireEvent.click(screen.getByTestId("td-funny-toggle-p1"));
     await waitFor(() => expect(posted).toHaveLength(1));
     expect(posted[0]?.url).toBe(agUrl("scenes/p1/funny"));
     expect(posted[0]?.body).toEqual({ tag: false });
 
-    fireEvent.click(screen.getByTestId("td-great-toggle-p1"));
+    fireEvent.click(screen.getByTestId("td-rating-p1-8"));
     await waitFor(() => expect(posted).toHaveLength(2));
-    expect(posted[1]?.url).toBe(agUrl("scenes/p1/great"));
-    expect(posted[1]?.body).toEqual({ tag: true });
+    expect(posted[1]?.url).toBe(agUrl("scenes/p1/rating"));
+    expect(posted[1]?.body).toEqual({ rating: 8 });
   });
 });

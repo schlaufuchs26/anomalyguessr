@@ -163,6 +163,14 @@ export interface RepairEntry {
   textAfter?: string;
 }
 
+/** One scene's human quality rating (ticket #2605). */
+export interface RatingEntry {
+  /** The rating on the 0-10 scale (RATING_MIN..RATING_MAX). */
+  value: number;
+  /** When the rating was last set (RFC3339). */
+  at: string;
+}
+
 export interface FeedbackFile {
   version: number;
   /** Scene id -> RFC3339 timestamp (written by this API). */
@@ -184,9 +192,17 @@ export interface FeedbackFile {
    */
   funny?: Record<string, string>;
   /**
-   * The optional "great" moderation tag (ticket #1541): scene id -> RFC3339
-   * timestamp. No model test: it is the curation signal the pattern
-   * catalogue and the nightly feedback pass read as a positive example.
+   * The human quality rating per scene (ticket #2605): scene id ->
+   * {value, at}. Replaces the "great" tick; a scene rated at least
+   * RATING_HIGH counts as a positive example (the pattern catalogue, the
+   * feedback pass and the daily ship rule read it that way). Independent of
+   * the accept/reject verdict.
+   */
+  rating?: Record<string, RatingEntry>;
+  /**
+   * Legacy "great" tick (ticket #1541), kept readable as a migration
+   * fallback: normalizeFeedback folds every id here into `rating` at value
+   * RATING_MAX, and the next write drops the key. Never written anew.
    */
   great?: Record<string, string>;
   /**
@@ -197,9 +213,32 @@ export interface FeedbackFile {
   repairs?: Record<string, RepairEntry>;
 }
 
-/** The two moderation tags a scene can carry beside its verdict. */
-export const MODERATION_TAGS = ["funny", "great"] as const;
+/**
+ * The remaining moderation tag beside the rating (ticket #2605): "great"
+ * became the 0-10 rating, so only "funny" is still a plain tag.
+ */
+export const MODERATION_TAGS = ["funny"] as const;
 export type ModerationTag = (typeof MODERATION_TAGS)[number];
+
+/** The rating scale (ticket #2605): a whole number from 0 to 10. */
+export const RATING_MIN = 0;
+export const RATING_MAX = 10;
+/**
+ * A scene rated at least this counts as a positive example (ticket #2605):
+ * the daily ship rule swaps one such scene into the day, and the feedback
+ * pass promotes the patterns behind them.
+ */
+export const RATING_HIGH = 8;
+
+/** Whether `value` is a whole number on the rating scale. */
+export function isRatingValue(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= RATING_MIN &&
+    value <= RATING_MAX
+  );
+}
 
 /**
  * A scene's curation state. "repair" (ticket #2590) is a scene with an open

@@ -37,18 +37,18 @@ function moderationUrl(sceneId: string): string {
   return `/anomalyguessr/api/scenes/${sceneId}/moderate`;
 }
 
-/** The two optional moderation tags a scene can carry (tickets #1502, #1541). */
-export type ModerationTag = "funny" | "great";
+/** The remaining optional moderation tag a scene can carry (ticket #1502). */
+export type ModerationTag = "funny";
 
-/** Endpoint of one optional moderation tag (tickets #1502, #1541). */
+/** Endpoint of one optional moderation tag (ticket #1502). */
 function tagUrl(sceneId: string, tag: ModerationTag): string {
   return `/anomalyguessr/api/scenes/${sceneId}/${tag}`;
 }
 
 /**
- * POST one of the optional moderation tags (dev instance only, tickets
- * #1502/#1541); returns the server's resulting state. Each tag is
- * independent of the accept/reject verdict and of the other tag.
+ * POST the "funny" moderation tag (dev instance only, ticket #1502); returns
+ * the server's resulting state. Independent of the accept/reject verdict and
+ * of the rating.
  */
 export async function postTag(
   sceneId: string,
@@ -63,6 +63,30 @@ export async function postTag(
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const body = (await res.json()) as Record<string, unknown>;
   return body[tag] === true;
+}
+
+/** Endpoint of the 0-10 quality rating (ticket #2605). */
+function ratingUrl(sceneId: string): string {
+  return `/anomalyguessr/api/scenes/${sceneId}/rating`;
+}
+
+/**
+ * POST the scene's 0-10 quality rating (dev instance only, ticket #2605);
+ * `null` clears it. Returns the server's resulting value, so the caller shows
+ * what was stored rather than what it sent.
+ */
+export async function postRating(
+  sceneId: string,
+  value: number | null,
+): Promise<number | null> {
+  const res = await fetch(ratingUrl(sceneId), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ rating: value }),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const body = (await res.json()) as { rating?: number | null };
+  return body.rating ?? null;
 }
 
 /** Manifest JSON as served: a v1/v2 manifest plus the queue API's flag. */

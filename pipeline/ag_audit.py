@@ -340,16 +340,16 @@ def scene_handles(scenes, ids) -> dict:
     return out
 
 
-def tag_labels(feedback: dict, name: str, scenes=None) -> dict:
-    """One moderation tag's label set (#1502 "funny", #1541 "great").
+def tag_labels(feedback: dict, name: str, scenes=None, marks=None) -> dict:
+    """One moderation label set (#1502 "funny"; #2605 top-rated).
 
     ``tagged`` is how many scenes carry the label, ``judged`` how many scenes
     have a moderation verdict at all, and ``base_rate`` the share that is
     tagged: for "funny" the rate a blind vision model has to beat before the
-    label can become a point. "great" needs no such test; it is a curation
-    signal.
+    label can become a point. The top-rated set needs no such test; it is a
+    curation signal. ``marks`` overrides the map read from ``feedback``.
     """
-    marks = feedback.get(name) or {}
+    marks = marks if marks is not None else (feedback.get(name) or {})
     judged = (set(feedback.get("accepted", {}))
               | set(feedback.get("rejected", {}))
               | set(feedback.get("excluded", {})))
@@ -366,8 +366,15 @@ def funny_labels(feedback: dict, scenes=None) -> dict:
 
 
 def great_labels(feedback: dict, scenes=None) -> dict:
-    """The "great" curation label set (#1541); see ``tag_labels``."""
-    return tag_labels(feedback, "great", scenes)
+    """The top-rated curation label set (ticket #2605; was "great" #1541).
+
+    A scene counts when its rating is at least RATING_HIGH (8); a legacy
+    "great" mark reads as 10 via ``ag_queue.scene_ratings``.
+    """
+    marks = {sid: {"value": value}
+             for sid, value in ag_queue.scene_ratings(feedback).items()
+             if value >= ag_queue.RATING_HIGH}
+    return tag_labels(feedback, "great", scenes, marks=marks)
 
 
 def _handle_list(handles, cap: int = 8) -> str:

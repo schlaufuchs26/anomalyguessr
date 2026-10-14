@@ -1,5 +1,6 @@
 import {
   type FeedbackFile,
+  RATING_HIGH,
   SCENE_ID_RE,
   type SceneEntry,
   type StateFile,
@@ -21,12 +22,22 @@ import {
 export const DAILY_COUNT = 5;
 
 /**
- * The moderation tags that steer the day (tickets #1502/#1541, rule #1542):
- * scene ids Evan marked "funny" or "great" in feedback.json.
+ * The moderation signals that steer the day (tickets #1502/#2605, rule
+ * #1542): scene ids Evan marked "funny", and scene ids he rated at least
+ * RATING_HIGH (the old "great" tick became the rating).
  */
 export interface DayTags {
   funny?: ReadonlySet<string>;
-  great?: ReadonlySet<string>;
+  rated?: ReadonlySet<string>;
+}
+
+/** Scene ids rated at least RATING_HIGH (ticket #2605). */
+export function highRatedIds(fb: FeedbackFile): Set<string> {
+  const out = new Set<string>();
+  for (const [id, entry] of Object.entries(fb.rating ?? {})) {
+    if (entry.value >= RATING_HIGH) out.add(id);
+  }
+  return out;
 }
 
 /** A scene's shown date, "" when never shown (mirrors ag_queue.py's truthiness). */
@@ -83,9 +94,9 @@ export function shipCandidates(st: StateFile, fb: FeedbackFile): SceneEntry[] {
  * with fewer than `limit` distinct labels or families still fills the day
  * with repeats.
  *
- * `tags` are the tagged scene ids from feedback.json (#1502/#1541): after the
- * variety passes the day also carries one "funny" and one "great" scene when
- * the pool has one (ag_queue.py's tag rule, ticket #1542).
+ * `tags` are the tagged scene ids from feedback.json (#1502/#2605): after the
+ * variety passes the day also carries one "funny" and one high-rated scene
+ * when the pool has one (ag_queue.py's tag rule, ticket #1542).
  */
 export function pickDay(
   candidates: SceneEntry[],
@@ -134,14 +145,14 @@ export function pickDay(
     day,
     candidates,
     tags.funny ?? new Set(),
-    tags.great ?? new Set(),
+    tags.rated ?? new Set(),
   );
 }
 
 /**
- * Swap a funny and a great scene into the day when the pool has one
- * (ag_queue.py's `_place_tags`, ticket #1542). Funny first, then great, each
- * pass protecting the other tag, so a swap for one never evicts the scene the
+ * Swap a funny and a high-rated scene into the day when the pool has one
+ * (ag_queue.py's `_place_tags`, ticket #1542). Funny first, then rated, each
+ * pass protecting the other set, so a swap for one never evicts the scene the
  * other just placed. A tag the day already carries is left alone; a tag no
  * untagged pick can make room for leaves the day as it is.
  */
@@ -149,12 +160,12 @@ function placeTags(
   day: SceneEntry[],
   candidates: SceneEntry[],
   funny: ReadonlySet<string>,
-  great: ReadonlySet<string>,
+  rated: ReadonlySet<string>,
 ): SceneEntry[] {
   let out = day;
   for (const [tagIds, protect] of [
-    [funny, great],
-    [great, funny],
+    [funny, rated],
+    [rated, funny],
   ] as const) {
     if (tagIds.size === 0) continue;
     const ids = new Set(out.map((e) => e.id));
@@ -204,7 +215,7 @@ export function dailyOrder(st: StateFile, fb: FeedbackFile): string[] {
   const candidates = shipCandidates(st, fb);
   const day = pickDay(candidates, DAILY_COUNT, {
     funny: new Set(Object.keys(fb.funny ?? {})),
-    great: new Set(Object.keys(fb.great ?? {})),
+    rated: highRatedIds(fb),
   });
   const chosen = new Set(day.map((e) => e.id));
   return [
