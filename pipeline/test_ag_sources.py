@@ -1262,6 +1262,113 @@ class EuropeanaTest(unittest.TestCase):
             s.europeana_size = old_size
 
 
+def wellcome_raw(title="Street scene, Cairo. Photograph, 1897.",
+                 date="1897", physical="1 photograph : photoprint ; 23 x 28 cm",
+                 license="Public Domain Mark", image_id="V0039621",
+                 rid="abc123", width=1600, height=1000, work_type="Pictures",
+                 query="street"):
+    """One Wellcome search record shaped like the live API's response."""
+    items = [{"locations": [{"locationType": {"id": "iiif-image"},
+                             "license": {"label": license,
+                                         "url": "https://cc/x"},
+                             "url": (f"https://iiif.wellcomecollection.org/"
+                                     f"image/{image_id}/info.json")}]}] \
+        if image_id else []
+    return {"id": rid, "title": title, "workType": {"label": work_type},
+            "physicalDescription": physical, "images": [{"id": "img-1"}],
+            "production": [{"dates": [{"label": date}]}],
+            "items": items, "query": query,
+            "width": width, "height": height}
+
+
+class WellcomeTest(unittest.TestCase):
+    """Wellcome Collection adapter (ticket #2603)."""
+
+    def test_iiif_id_from_the_item_location(self):
+        self.assertEqual(s.wellcome_iiif_id(wellcome_raw()), "V0039621")
+        self.assertEqual(s.wellcome_iiif_id(wellcome_raw(image_id="")), "")
+        self.assertEqual(
+            s.wellcome_image_url("V0039621"),
+            "https://iiif.wellcomecollection.org/image/V0039621/"
+            "full/full/0/default.jpg")
+        self.assertEqual(s.wellcome_image_url(""), "")
+
+    def test_catalog_year_rejects_ranges_and_uncertainty(self):
+        self.assertEqual(s.wellcome_catalog_year(wellcome_raw())[0], 1897)
+        # Brackets are the catalogue's own convention for a supplied date.
+        self.assertEqual(
+            s.wellcome_catalog_year(wellcome_raw(date="[1816]"))[0], 1816)
+        self.assertIsNone(
+            s.wellcome_catalog_year(wellcome_raw(date="1890-1900"))[0])
+        self.assertIsNone(s.wellcome_catalog_year(wellcome_raw(date="1900s"))[0])
+        self.assertIsNone(
+            s.wellcome_catalog_year(wellcome_raw(date="ca. 1880"))[0])
+
+    def test_photo_filter_reads_the_physical_description(self):
+        self.assertTrue(s.wellcome_is_photo(wellcome_raw()))
+        self.assertFalse(s.wellcome_is_photo(
+            wellcome_raw(physical="1 print : wood engraving ; 20 x 25 cm")))
+
+    def test_normalize_stores_the_catalog_year_and_license(self):
+        adapter = s.WellcomeAdapter()
+        entry = adapter.normalize(wellcome_raw())
+        self.assertEqual(entry["repository"], "Wellcome Collection")
+        self.assertEqual(entry["year"], 1897)
+        self.assertEqual(entry["year_field"], "catalog")
+        self.assertEqual(entry["year_source"], "production.dates")
+        self.assertEqual(entry["license"], "Public Domain Mark")
+        self.assertEqual(entry["width"], 1600)
+        self.assertEqual(entry["raw"]["imageId"], "V0039621")
+        self.assertEqual(s.entry_reject_reason(entry), "")
+
+    def test_normalize_rejects_non_photo_non_license_and_no_year(self):
+        adapter = s.WellcomeAdapter()
+        self.assertIsNone(adapter.normalize(
+            wellcome_raw(physical="1 print : lithograph ; 20 x 25 cm")))
+        self.assertIsNone(adapter.normalize(
+            wellcome_raw(license="In copyright")))
+        self.assertIsNone(adapter.normalize(wellcome_raw(date="1890-1900")))
+        self.assertIsNone(adapter.normalize(wellcome_raw(image_id="")))
+
+    def test_walk_rotates_and_measures_candidates(self):
+        adapter = s.WellcomeAdapter()
+        seen = []
+
+        def fake_search(query, page, page_size=s.WELLCOME_PAGE):
+            seen.append((query, page))
+            if query in s.WELLCOME_WALK_QUERIES[:2]:
+                return [wellcome_raw(rid=f"w.{query}", query=query)], 100
+            return [], 0
+
+        old_search, old_size = adapter._search_page, s.wellcome_size
+        adapter._search_page = staticmethod(fake_search)
+        s.wellcome_size = lambda url: (1600, 1000)  # no network
+        try:
+            raws, cursor = adapter.walk_batch(1, None)
+            self.assertEqual(len(raws), 1)
+            self.assertEqual(raws[0]["width"], 1600)
+            self.assertEqual(cursor["query"], 1)
+            self.assertEqual(cursor["pages"], {"0": 1})
+            raws2, _cursor2 = adapter.walk_batch(1, cursor)
+            self.assertEqual(len(raws2), 1)
+            self.assertIn(s.WELLCOME_WALK_QUERIES[1], [q for q, _ in seen])
+        finally:
+            adapter._search_page = old_search
+            s.wellcome_size = old_size
+
+    def test_walk_parks_queries_and_ends_when_all_are_done(self):
+        adapter = s.WellcomeAdapter()
+        old_search = adapter._search_page
+        adapter._search_page = staticmethod(
+            lambda query, page, page_size=s.WELLCOME_PAGE: ([], 0))
+        try:
+            raws, cursor = adapter.walk_batch(2, None)
+            self.assertEqual(raws, [])
+            self.assertIsNone(cursor)
+        finally:
+            adapter._search_page = old_search
+
+
 class EuropeanaRepairTest(TempDirMixin, unittest.TestCase):
     """Ticket #2304: re-fetch Europeana pool entries by their record id."""
 

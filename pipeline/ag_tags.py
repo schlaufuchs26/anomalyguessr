@@ -31,6 +31,14 @@ proposal prompt names the fitting kind of element for a busy or sepia photo
 (``ag_generate.photo_tag_lines``) and the source picker prefers busy,
 populated, non-sepia photographs (``ag_generate.source_tag_rank``).
 
+Since ticket #2603 one feature is a hard fact instead of a hint: the
+``print`` flag, added because a postcard or a photochrom is not covered by
+``medium`` (tone) and the picker needs to keep those non-scenes out of the
+pool. ``non_scene_reason`` collects the cases Evan named (a postcard/print, a
+studio portrait, an empty landscape or sky) and ``ag_generate.select_sources``
+drops a source when it fires; the report prints the counts and the acceptance
+behind them so the gate can be re-measured.
+
 CLI::
 
     ag_tags.py --data DIR tag [--limit N] [--dry-run]
@@ -67,7 +75,11 @@ MEDIUMS = ("colour", "grayscale", "sepia")
 CLUTTER = ("clean", "busy")
 ENUM_FIELDS = (("people", PEOPLE), ("scene", SCENE_TYPES),
                ("medium", MEDIUMS), ("clutter", CLUTTER))
-BOOL_FIELDS = ("host", "text")
+BOOL_FIELDS = ("host", "text", "print")
+# ``print`` was added in #2603; a set written before it has no value, which
+# reads as False so a legacy set stays valid (the report keeps its sources)
+# while ``needs_tags`` still queues it for a retag.
+OPTIONAL_BOOL_FIELDS = ("print",)
 TAG_KEYS = tuple(k for k, _ in ENUM_FIELDS) + BOOL_FIELDS
 # The features the report splits on (the two booleans are recorded but not
 # split on; a binary "text" flag is not what Evan's hypothesis is about).
@@ -86,7 +98,7 @@ def _now_iso() -> str:
 
 
 def tag_prompt() -> str:
-    """The one vision prompt: six fixed features as a JSON object."""
+    """The one vision prompt: seven fixed features as a JSON object."""
     return (
         "You label one historical photograph for a spot-the-anachronism game. "
         "Look at the image and answer with one JSON object and nothing else:\n"
@@ -94,7 +106,8 @@ def tag_prompt() -> str:
         '"scene": "street"|"market"|"interior"|"portrait"|"landscape"|'
         '"industry"|"domestic", '
         '"medium": "colour"|"grayscale"|"sepia", '
-        '"clutter": "clean"|"busy", "host": true|false, "text": true|false}\n'
+        '"clutter": "clean"|"busy", "host": true|false, "text": true|false, '
+        '"print": true|false}\n'
         "Definitions:\n"
         "- people: how many people are visible. none = nobody, few = one to "
         "five, crowd = six or more or a dense gathering.\n"
@@ -113,6 +126,10 @@ def tag_prompt() -> str:
         "ground, vehicle); false when there is none.\n"
         "- text: true when the photo carries legible text or signage (signs, "
         "posters, labels).\n"
+        "- print: true when the picture is a postcard, a photochrom or another "
+        "mass-produced card or reproduction (a printed border or caption, a "
+        "lithographic look, a divided back), false for an original "
+        "photograph.\n"
         "Use exactly these words. Judge only what is visible."
     )
 
@@ -153,7 +170,12 @@ def parse_tags(answer):
     for key in BOOL_FIELDS:
         value = _as_bool(obj.get(key))
         if value is None:
-            return None
+            # A set written before #2603 has no ``print``; it reads as False
+            # so the legacy set stays usable until it is retagged.
+            if key in OPTIONAL_BOOL_FIELDS:
+                value = False
+            else:
+                return None
         out[key] = value
     return out
 
@@ -164,11 +186,60 @@ def needs_tags(entry: dict) -> bool:
     The cache lives on the entry as ``tags``; an entry whose stored set is
     complete and valid is skipped, so a re-run is cheap and idempotent. A
     legacy or truncated set (a field missing, an unknown value) is retagged.
+    A set that predates the ``print`` feature (#2603) is retagged too, so the
+    new flag reaches the whole pool.
     """
     tags = (entry or {}).get("tags")
     if not isinstance(tags, dict):
         return True
-    return parse_tags(tags) is None
+    if parse_tags(tags) is None:
+        return True
+    return any(key not in tags for key in BOOL_FIELDS)
+
+
+# ── The non-scene gate (ticket #2603) ──────────────────────────────────────
+#
+# Evan named the photographs that make bad puzzles (2026-10-14): a postcard, a
+# studio portrait, an empty landscape or a sky, because an added object needs a
+# busy place to hide in. The gate reads only the tags and is a hard filter at
+# pick time (``ag_generate.select_sources``), not another weak signal like
+# ``source_tag_rank``. An untagged entry is never dropped: the tag pass may not
+# have reached it, and dropping the untagged pool would starve the picker.
+#
+# The gate must not be read as the pool's orientation rule: ``scene``
+# "landscape" is the motif (open countryside, water or sky), a different thing
+# from a landscape-shaped photo (w > h), which every entry already is.
+
+NON_SCENE_REASONS = ("print", "portrait", "empty landscape")
+
+
+def non_scene_reason(entry: dict) -> str:
+    """Why a tagged source is not a scene the game can hide an object in.
+
+    ``""`` when the source is usable. One of ``NON_SCENE_REASONS`` otherwise:
+    a postcard/print (``print`` true), a studio portrait (``scene``
+    "portrait") or an empty landscape/sky (``scene`` "landscape" with no
+    people and no clutter). A source without a complete tag set is kept.
+    """
+    tags = (entry or {}).get("tags")
+    if not isinstance(tags, dict):
+        return ""
+    if tags.get("print") is True:
+        return "print"
+    scene = str(tags.get("scene") or "").strip().lower()
+    if scene == "portrait":
+        return "portrait"
+    if scene == "landscape":
+        people = str(tags.get("people") or "").strip().lower()
+        clutter = str(tags.get("clutter") or "").strip().lower()
+        if people == "none" and clutter == "clean":
+            return "empty landscape"
+    return ""
+
+
+def is_non_scene(entry: dict) -> bool:
+    """True when the non-scene gate drops the source at pick time (#2603)."""
+    return non_scene_reason(entry) != ""
 
 
 # ── The model call and the per-entry step ──────────────────────────────────
@@ -423,6 +494,51 @@ def overall_rows(families: dict) -> dict:
 
 
 
+def gate_summary(index: dict, state: dict, feedback: dict, source_of: dict,
+                 tags_of: dict) -> dict:
+    """Ticket #2603: the non-scene gate's counts and the acceptance behind it.
+
+    ``reasons`` counts the tagged pool entries the gate drops, per
+    ``non_scene_reason``. ``dropped_scenes``/``kept_scenes`` are the moderation
+    verdicts of the scenes whose source the gate drops or keeps, so the gate
+    can be judged on acceptance instead of intuition. A scene without a
+    resolvable tagged source is left out of both rates.
+    """
+    counts: dict = {}
+    tagged = 0
+    for entry in (index.get("sources") or {}).values():
+        if not isinstance(entry.get("tags"), dict):
+            continue
+        tagged += 1
+        reason = non_scene_reason(entry)
+        if reason:
+            counts[reason] = counts.get(reason, 0) + 1
+
+    def _rate(dropped: bool) -> dict:
+        accepted = feedback.get("accepted") or {}
+        rejected = feedback.get("rejected") or {}
+        acc = rej = 0
+        for sid in (state.get("scenes") or {}):
+            src = source_of.get(sid)
+            tags = tags_of.get(src) if src else None
+            if not tags:
+                continue
+            if bool(non_scene_reason({"tags": tags})) != dropped:
+                continue
+            if sid in accepted:
+                acc += 1
+            if sid in rejected:
+                rej += 1
+        decided = acc + rej
+        return {"accepted": acc, "rejected": rej, "decided": decided,
+                "rate": round(acc / decided, 4) if decided else None}
+
+    return {"tagged": tagged, "dropped": sum(counts.values()),
+            "reasons": {k: counts[k] for k in NON_SCENE_REASONS
+                        if k in counts},
+            "dropped_scenes": _rate(True), "kept_scenes": _rate(False)}
+
+
 def build_report(index: dict, state: dict, feedback: dict, source_of: dict,
                  generated_at: str | None = None) -> dict:
     """The measurement: per-family rates against each report feature."""
@@ -445,6 +561,7 @@ def build_report(index: dict, state: dict, feedback: dict, source_of: dict,
                    "with_verdicts": len(verdict_ids),
                    "verdicts_resolved": resolved_verdicts},
         "features": features,
+        "gate": gate_summary(index, state, feedback, source_of, tags_of),
     }
 
 
@@ -521,12 +638,16 @@ def render_report(report: dict) -> str:
         "## What this is",
         "",
         "Ticket #2344: every source photo carries a small fixed tag set "
-        "(people, scene, medium, clutter, host, text) read by one vision call, "
-        "so the pipeline can measure which element families work on which "
-        "kind of photograph. Ticket #2348 wires the two weak signals the "
-        "measurement supports into the generator: the proposal prompt is told "
-        "to prefer a modification on a busy surface, and the source picker "
-        "prefers busy, populated, non-sepia photographs.",
+        "(people, scene, medium, clutter, host, text, print) read by one "
+        "vision call, so the pipeline can measure which element families work "
+        "on which kind of photograph. Ticket #2348 wires the two weak signals "
+        "the measurement supports into the generator: the proposal prompt is "
+        "told to prefer a modification on a busy surface, and the source "
+        "picker prefers busy, populated, non-sepia photographs. Ticket #2603 "
+        "turns one feature into a hard fact: the picker drops a non-scene (a "
+        "postcard/print, a studio portrait, an empty landscape or sky), and "
+        "the gate section below carries the counts and the acceptance behind "
+        "it.",
         "",
         "## Method",
         "",
@@ -553,7 +674,37 @@ def render_report(report: dict) -> str:
         lines += _overall_table(report["features"][feature], feature)
         lines += _feature_table(report["features"][feature], feature)
     lines += _hypothesis_section(report)
+    lines += _gate_section(report)
     return "\n".join(lines) + "\n"
+
+
+def _gate_section(report: dict) -> list:
+    """Ticket #2603: the non-scene gate's counts and the acceptance behind it."""
+    gate = report.get("gate") or {}
+    if not gate:
+        return []
+    reasons = gate.get("reasons") or {}
+    detail = ", ".join(f"{k} {v}" for k, v in reasons.items()) or "none"
+    drop = gate.get("dropped_scenes") or {}
+    keep = gate.get("kept_scenes") or {}
+    lines = ["## The non-scene gate (ticket #2603)", "",
+             "The picker drops a tagged source when it is a postcard/print, a "
+             "studio portrait, or an empty landscape or sky: an added object "
+             "needs a busy place to hide in. The gate is a hard filter at pick "
+             "time; an untagged source is never dropped.", "",
+             f"- Tagged pool: {gate.get('tagged', 0)}; dropped: "
+             f"{gate.get('dropped', 0)} ({detail}).",
+             f"- Scenes behind a dropped source: {drop.get('accepted', 0)}/"
+             f"{drop.get('decided', 0)} accepted "
+             f"({_fmt_rate(drop, 'rate')}).",
+             f"- Scenes behind a kept source: {keep.get('accepted', 0)}/"
+             f"{keep.get('decided', 0)} accepted "
+             f"({_fmt_rate(keep, 'rate')}).",
+             "",
+             "The counts and the rates are the measurement behind the gate; a "
+             "rule the data does not support should not ship on intuition.",
+             ""]
+    return lines
 
 
 def _hypothesis_section(report: dict) -> list:

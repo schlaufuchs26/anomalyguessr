@@ -2324,6 +2324,220 @@ class EuropeanaAdapter(SourceAdapter):
         return europeana_image_url(raw)
 
 
+# ── Wellcome Collection adapter (ticket #2603) ─────────────────────────────
+#
+# The fifth reachable archive, and a fifth region (the United Kingdom). The
+# Wellcome Collection answers a public JSON API without a key from the Mac
+# mini (``/catalogue/v2/works``); its per-work ``production`` dates carry the
+# catalogue year and its IIIF image service serves the digitised picture, so
+# the same license/exact-year/min-width gate every adapter runs applies. Only
+# works whose own ``physicalDescription`` names a photograph are admitted, so
+# the engravings, lithographs and watercolours the collection also holds stay
+# out of the pool (measured 2026-10-14 on a ``street`` sample: of 100 works
+# with an image, 26 carried an exact year and 9 named a photograph). The
+# served size comes from the IIIF ``info.json`` (one small call per candidate
+# that already cleared the cheap filters), like the Finna adapter.
+WELLCOME_API = "https://api.wellcomecollection.org/catalogue/v2/works"
+WELLCOME_WORK = "https://wellcomecollection.org/works"
+WELLCOME_IIIF = "https://iiif.wellcomecollection.org/image"
+WELLCOME_PAGE = 100
+# Documentary-scene subject terms; the walk rotates them like the other walks.
+# "photograph" biases the search toward the collection's photographs.
+WELLCOME_WALK_QUERIES = ("street", "market", "harbour", "railway station",
+                         "village", "market place", "town square", "quay")
+
+
+def wellcome_iiif_id(work) -> str:
+    """The work's IIIF image id, "" when it has no IIIF location."""
+    for item in (work.get("items") or []):
+        for loc in (item.get("locations") or []):
+            if (loc.get("locationType") or {}).get("id") == "iiif-image":
+                m = re.search(r"/image/([^/]+)/info\.json",
+                              str(loc.get("url") or ""))
+                if m:
+                    return m.group(1)
+    return ""
+
+
+def wellcome_info_url(image_id: str) -> str:
+    """The IIIF ``info.json`` URL for an image id, "" when there is none."""
+    return f"{WELLCOME_IIIF}/{image_id}/info.json" if image_id else ""
+
+
+def wellcome_image_url(image_id: str, size: str = "full") -> str:
+    """The served IIIF image URL at ``size`` (``full`` = the whole picture)."""
+    if not image_id:
+        return ""
+    return f"{WELLCOME_IIIF}/{image_id}/full/{size}/0/default.jpg"
+
+
+def wellcome_license(work) -> tuple:
+    """``(label, url)`` of the work's IIIF location license, ("", "") if none."""
+    for item in (work.get("items") or []):
+        for loc in (item.get("locations") or []):
+            if (loc.get("locationType") or {}).get("id") == "iiif-image":
+                lic = loc.get("license") or {}
+                return str(lic.get("label") or ""), str(lic.get("url") or "")
+    return "", ""
+
+
+def wellcome_catalog_year(work) -> tuple:
+    """``(year, text)`` when the work's production dates name exactly one year.
+
+    ``production[].dates[].label`` is the catalogue's own date; the first
+    label that the shared ``single_year`` rule accepts is the anchor. The
+    second element is the raw text, so the stored entry re-reads its year the
+    same way every adapter does.
+    """
+    for prod in (work.get("production") or []):
+        for date in (prod.get("dates") or []):
+            text = str(date.get("label") or "")
+            year = single_year(text)
+            if year is not None:
+                return year, text
+    return None, ""
+
+
+def wellcome_is_photo(work) -> bool:
+    """True when the catalogue's physical description names a photograph."""
+    return "photograph" in str(work.get("physicalDescription") or "").lower()
+
+
+def wellcome_size(info_url: str) -> tuple:
+    """``(width, height)`` from the IIIF ``info.json``, ``(0, 0)`` on error."""
+    if not info_url:
+        return 0, 0
+    try:
+        data = _get_json(info_url)
+    except (urllib.error.URLError, ValueError):
+        return 0, 0
+    try:
+        return int(data.get("width") or 0), int(data.get("height") or 0)
+    except (TypeError, ValueError):
+        return 0, 0
+
+
+def wellcome_photo_ok(work) -> bool:
+    """Cheap pre-filter before the walk spends an image call on a candidate."""
+    if not wellcome_iiif_id(work):
+        return False
+    if not wellcome_is_photo(work):
+        return False
+    if not license_ok(wellcome_license(work)[0]):
+        return False
+    return wellcome_catalog_year(work)[0] is not None
+
+
+class WellcomeAdapter(SourceAdapter):
+    """Wellcome Collection, the UK's medical-history library (ticket #2603).
+
+    The year is the work's own catalogue date (``production.dates``) and the
+    licence comes from the IIIF location (Public Domain Mark / CC0 / CC BY);
+    the image is the IIIF full copy. Only photographs enter the pool.
+    """
+
+    repo = "Wellcome Collection"
+    repo_tag = "wellcome"
+
+    def search(self, query: str, limit: int, offset: int = 0):
+        page = (int(offset) // max(1, int(limit))) + 1
+        results, _total = self._search_page(query, page, max(1, int(limit)))
+        return results
+
+    @staticmethod
+    def _search_page(query: str, page: int, page_size: int = WELLCOME_PAGE) -> tuple:
+        params = {"query": query, "include": "production,images,items",
+                  "pageSize": str(max(1, int(page_size))),
+                  "page": str(max(1, int(page)))}
+        data = _get_json(WELLCOME_API + "?"
+                         + urllib.parse.urlencode(params))
+        total = int(data.get("totalResults") or 0)
+        return list(data.get("results") or []), total
+
+    def walk_batch(self, limit: int, cursor=None) -> tuple:
+        """One page of walk candidates; ``(raws, next_cursor)``.
+
+        Visits ``WELLCOME_WALK_QUERIES`` round-robin, one search page per
+        call, and parks a term once its pages run out; the cursor is
+        ``{"query", "pages", "parked"}`` like the Finna walk. Each candidate
+        that clears the photo/licence/year pre-filter gets its served size
+        measured from the IIIF ``info.json``, so ``normalize`` can apply the
+        pool's landscape/min-width rule.
+        """
+        state = dict(cursor or {})
+        pages = {int(k): int(v) for k, v in (state.get("pages") or {}).items()}
+        parked = {int(i) for i in (state.get("parked") or [])}
+        n = len(WELLCOME_WALK_QUERIES)
+        qi = int(state.get("query") or 0) % n
+        raws = []
+        for _ in range(n):
+            if len(raws) >= limit:
+                break
+            if qi in parked:
+                qi = (qi + 1) % n
+                continue
+            query = WELLCOME_WALK_QUERIES[qi]
+            page = int(pages.get(qi) or 0) + 1
+            results, total = self._search_page(query, page)
+            if results:
+                pages[qi] = page
+                if total and page * WELLCOME_PAGE >= total:
+                    parked.add(qi)
+                for work in results:
+                    if not wellcome_photo_ok(work):
+                        continue
+                    work["query"] = query
+                    work["width"], work["height"] = wellcome_size(
+                        wellcome_info_url(wellcome_iiif_id(work)))
+                    raws.append(work)
+                    if len(raws) >= limit:
+                        break
+            else:
+                parked.add(qi)
+            qi = (qi + 1) % n
+        next_cursor = None if len(parked) >= n else {
+            "query": qi,
+            "pages": {str(k): v for k, v in pages.items()},
+            "parked": sorted(parked),
+        }
+        return raws, next_cursor
+
+    def normalize(self, raw) -> dict | None:
+        if not wellcome_photo_ok(raw):
+            return None
+        year, year_text = wellcome_catalog_year(raw)
+        image_id = wellcome_iiif_id(raw)
+        width = int(raw.get("width") or 0)
+        height = int(raw.get("height") or 0)
+        title = _strip_html(str(raw.get("title") or "")).strip() \
+            or f"Wellcome {raw.get('id')}"
+        license_label, license_url = wellcome_license(raw)
+        return {
+            "repository": self.repo,
+            "fileUrl": f"{WELLCOME_WORK}/"
+                       f"{urllib.parse.quote(str(raw.get('id') or ''))}",
+            "originalTitle": title,
+            "date": year_text,
+            "place": "",
+            "license": license_label,
+            "licenseUrl": license_url,
+            "description": str(raw.get("physicalDescription") or ""),
+            "width": width, "height": height,
+            "mime": "image/jpeg",
+            "year": year,
+            "year_field": "catalog" if year is not None else "",
+            "year_source": "production.dates",
+            "year_raw": year_text,
+            "raw": {"id": raw.get("id"), "query": raw.get("query"),
+                    "workType": (raw.get("workType") or {}).get("label"),
+                    "physicalDescription": raw.get("physicalDescription"),
+                    "imageId": image_id},
+        }
+
+    def download_url(self, raw) -> str:
+        return wellcome_image_url(wellcome_iiif_id(raw))
+
+
 # ── Library of Congress adapter (query/manual escape hatch) ────────────────
 
 LOC_SEARCH = "https://www.loc.gov/search/"
@@ -2463,6 +2677,7 @@ ADAPTERS = {
     "nb": NbAdapter,
     "finna": FinnaAdapter,
     "europeana": EuropeanaAdapter,
+    "wellcome": WellcomeAdapter,
     "loc": LocAdapter,
     "manual": ManualAdapter,
 }
@@ -2986,13 +3201,13 @@ def top_up(data_dir: Path, target: int = DEFAULT_TOPUP_TARGET,
 # more than a third of them; until then the refresh keeps drawing from the
 # under-represented buckets.
 #
-# Only Gallica and the Nasjonalbiblioteket are reachable from this host and
-# pass the catalog-year gate (#1430/#1535), so those two fill the pool and
-# the repository cap is now real: with two archives in the walk, the pool
-# refuses to let one of them exceed its share. A single-repository pool still
-# reports rather than enforces it, since enforcing it there would starve the
-# pool.
-DEFAULT_REFRESH_SOURCES = ("gallica", "nb", "finna", "europeana")
+# Five archives are reachable from this host and pass the catalog-year gate:
+# Gallica (#1430), the Nasjonalbiblioteket (#1535), Finna (#2244), Europeana
+# (#2245) and the Wellcome Collection (#2603). They fill the pool and the
+# repository cap is real: with several archives in the walk, the pool refuses
+# to let one of them exceed its share. A single-repository pool still reports
+# rather than enforces it, since enforcing it there would starve the pool.
+DEFAULT_REFRESH_SOURCES = ("gallica", "nb", "finna", "europeana", "wellcome")
 
 
 def pool_spread_ok(entries, parts: int = SPREAD_PARTS) -> bool:

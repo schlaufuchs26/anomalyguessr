@@ -218,6 +218,7 @@ import ag_patterns  # noqa: E402
 import ag_queue  # noqa: E402
 import ag_references  # noqa: E402
 import ag_sources  # noqa: E402
+import ag_tags  # noqa: E402
 import ag_verify  # noqa: E402
 # The English-description step (ticket #1883) is a module-level name so tests
 # can stub it like the other model calls.
@@ -3362,12 +3363,16 @@ def select_sources(data_dir: Path, count: int, seed=None) -> list:
     ranked last: it is the worst medium by far (17% accepted) and the tone
     gate cannot repair its element's colour clash. Ticket #2501: the drop
     also reads the photo's own tone for an untagged pre-1900 source, so the
-    sepia album prints the tag pass missed leave the pool too.
+    sepia album prints the tag pass missed leave the pool too. Ticket #2603:
+    a tagged non-scene (postcard/print, studio portrait, empty landscape or
+    sky) is dropped the same way (``ag_tags.is_non_scene``), so an object
+    that needs a busy place to hide in never lands on one; the complexity
+    signal stays a preference (``source_tag_rank``), not a second drop.
     """
     unused = []
     for s in ag_sources.list_sources(data_dir, unused=True):
         path = pool_image(data_dir, s)
-        if path is None or is_sepia(s, path):
+        if path is None or is_sepia(s, path) or ag_tags.is_non_scene(s):
             continue
         unused.append(s)
     rng = random.Random(seed)
@@ -3452,8 +3457,9 @@ def select_spares(data_dir: Path, picked: list, limit: int) -> list:
 
     A batch that loses a scene to the uniqueness rule pulls one from here so
     the day keeps its scene count. Same shape as ``select_sources`` (an image
-    present, source unused, not sepia) but without the spread caps: a spare
-    is an extra, not a planned scene, so the fair-share rules do not apply.
+    present, source unused, not sepia, not a non-scene) but without the
+    spread caps: a spare is an extra, not a planned scene, so the fair-share
+    rules do not apply.
     """
     chosen = {s["id"] for s in picked}
     out = []
@@ -3461,7 +3467,7 @@ def select_spares(data_dir: Path, picked: list, limit: int) -> list:
         if s["id"] in chosen:
             continue
         path = pool_image(data_dir, s)
-        if path is None or is_sepia(s, path):
+        if path is None or is_sepia(s, path) or ag_tags.is_non_scene(s):
             continue
         out.append(s)
         if limit and len(out) >= limit:

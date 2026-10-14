@@ -16,9 +16,9 @@ import ag_tags
 
 
 def _tags(people="few", scene="street", medium="grayscale", clutter="busy",
-          host=True, text=False):
+          host=True, text=False, print=False):
     return {"people": people, "scene": scene, "medium": medium,
-            "clutter": clutter, "host": host, "text": text}
+            "clutter": clutter, "host": host, "text": text, "print": print}
 
 
 class ParseTagsTest(unittest.TestCase):
@@ -65,6 +65,18 @@ class ParseTagsTest(unittest.TestCase):
         self.assertIsNone(ag_tags.parse_tags("no json here"))
         self.assertIsNone(ag_tags.parse_tags("[1, 2, 3]"))
 
+    def test_print_flag_and_legacy_set_default(self):
+        # #2603: a full answer carries ``print``; a set written before the
+        # feature reads as False so it stays usable until retagged.
+        tags = ag_tags.parse_tags(
+            {"people": "few", "scene": "street", "medium": "colour",
+             "clutter": "busy", "host": True, "text": False, "print": True})
+        self.assertTrue(tags["print"])
+        legacy = ag_tags.parse_tags(
+            {"people": "few", "scene": "street", "medium": "colour",
+             "clutter": "busy", "host": True, "text": False})
+        self.assertFalse(legacy["print"])
+
 
 class CacheTest(unittest.TestCase):
     def test_missing_tags_needs_tagging(self):
@@ -76,6 +88,52 @@ class CacheTest(unittest.TestCase):
     def test_partial_or_broken_tags_are_retagged(self):
         self.assertTrue(ag_tags.needs_tags({"tags": {"people": "few"}}))
         self.assertTrue(ag_tags.needs_tags({"tags": {"people": "many"}}))
+
+    def test_a_set_without_print_is_retagged(self):
+        # #2603: a pre-print set parses (print reads False) but still wants
+        # the call so the new flag reaches the whole pool.
+        legacy = _tags()
+        legacy.pop("print")
+        self.assertIsNotNone(ag_tags.parse_tags(legacy))
+        self.assertTrue(ag_tags.needs_tags({"id": "x", "tags": legacy}))
+        self.assertFalse(ag_tags.needs_tags({"id": "x", "tags": _tags()}))
+
+
+class NonSceneGateTest(unittest.TestCase):
+    """Ticket #2603: the hard pick-time gate for non-scenes."""
+
+    def test_print_postcard_is_dropped(self):
+        self.assertEqual(ag_tags.non_scene_reason({"tags": _tags(print=True)}),
+                         "print")
+        self.assertTrue(ag_tags.is_non_scene({"tags": _tags(print=True)}))
+
+    def test_studio_portrait_is_dropped(self):
+        self.assertEqual(
+            ag_tags.non_scene_reason({"tags": _tags(scene="portrait")}),
+            "portrait")
+
+    def test_empty_landscape_is_dropped(self):
+        self.assertEqual(
+            ag_tags.non_scene_reason(
+                {"tags": _tags(scene="landscape", people="none",
+                               clutter="clean")}),
+            "empty landscape")
+
+    def test_busy_or_populated_landscape_is_kept(self):
+        self.assertEqual(
+            ag_tags.non_scene_reason(
+                {"tags": _tags(scene="landscape", people="few",
+                               clutter="clean")}), "")
+        self.assertEqual(
+            ag_tags.non_scene_reason(
+                {"tags": _tags(scene="landscape", people="none",
+                               clutter="busy")}), "")
+        self.assertEqual(
+            ag_tags.non_scene_reason({"tags": _tags(scene="street")}), "")
+
+    def test_an_untagged_entry_is_never_dropped(self):
+        self.assertFalse(ag_tags.is_non_scene({"id": "x"}))
+        self.assertFalse(ag_tags.is_non_scene({"tags": {"people": "none"}}))
 
 
 class _DataDir:
@@ -318,6 +376,33 @@ class ReportTest(unittest.TestCase):
         report = self._build({"accepted": ["s1"]})
         self.assertIn("vehicle", report["features"]["people"])
         self.assertNotIn("other", report["features"]["people"])
+
+    def test_gate_counts_dropped_sources_and_their_acceptance(self):
+        # #2603: the gate drops a portrait and an empty landscape; the street
+        # source stays. Two dropped scenes (one accepted, one rejected) and
+        # one kept (accepted).
+        self.d.add_source("portrait", tags=_tags(scene="portrait"))
+        self.d.add_source("empty", tags=_tags(scene="landscape",
+                                              people="none", clutter="clean"))
+        self.d.add_source("street", tags=_tags(scene="street"))
+        scenes = {sid: {"sourceUrl": f"u://{sid}", "family": "person",
+                        "anomaly": "Time traveler: x"}
+                  for sid in ("portrait", "empty", "street")}
+        self.d.write_state(scenes)
+        for sid in scenes:
+            self.d.write_trace(sid, sid)
+        report = self._build({"accepted": ["portrait", "street"],
+                              "rejected": ["empty"]})
+        gate = report["gate"]
+        self.assertEqual(gate["tagged"], 3)
+        self.assertEqual(gate["dropped"], 2)
+        self.assertEqual(gate["reasons"], {"portrait": 1, "empty landscape": 1})
+        self.assertEqual(gate["dropped_scenes"]["decided"], 2)
+        self.assertEqual(gate["dropped_scenes"]["rate"], 0.5)
+        self.assertEqual(gate["kept_scenes"]["decided"], 1)
+        self.assertEqual(gate["kept_scenes"]["rate"], 1.0)
+        md = ag_tags.render_report(report)
+        self.assertIn("## The non-scene gate (ticket #2603)", md)
 
 
 if __name__ == "__main__":

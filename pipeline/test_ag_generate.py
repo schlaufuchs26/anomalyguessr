@@ -3515,6 +3515,38 @@ class RunTest(TempDataMixin, unittest.TestCase):
         spares = g.select_spares(self.data_dir, [], 5)
         self.assertEqual([s["id"] for s in spares], ["gallica-gray-1891"])
 
+    def test_select_sources_drops_non_scene_photos(self):
+        # #2603: the hard gate drops a postcard/print, a studio portrait and
+        # an empty landscape/sky at pick time; a busy street photo stays.
+        postcard = source(sid="gallica-postcard", date="1905-01-01")
+        postcard["tags"] = {"scene": "street", "people": "few",
+                            "clutter": "busy", "print": True}
+        portrait = source(sid="nb-portrait", date="1915-01-01")
+        portrait["tags"] = {"scene": "portrait", "people": "few",
+                            "clutter": "clean", "print": False}
+        empty = source(sid="finna-empty", date="1925-01-01")
+        empty["tags"] = {"scene": "landscape", "people": "none",
+                         "clutter": "clean", "print": False}
+        street = source(sid="europeana-street", date="1935-01-01")
+        street["tags"] = {"scene": "street", "people": "few",
+                          "clutter": "busy", "print": False}
+        for s in (postcard, portrait, empty, street):
+            self.write_source(src=s)
+        for seed in range(6):
+            picked = g.select_sources(self.data_dir, 5, seed=seed)
+            self.assertEqual([s["id"] for s in picked], ["europeana-street"])
+
+    def test_select_spares_skips_non_scene_photos(self):
+        # #2603: a spare must not reintroduce a non-scene the pick dropped.
+        portrait = source(sid="nb-portrait", date="1905-01-01")
+        portrait["tags"] = {"scene": "portrait", "print": False}
+        street = source(sid="europeana-street", date="1915-01-01")
+        street["tags"] = {"scene": "street", "print": False}
+        self.write_source(src=portrait)
+        self.write_source(src=street)
+        spares = g.select_spares(self.data_dir, [], 5)
+        self.assertEqual([s["id"] for s in spares], ["europeana-street"])
+
 
 # ── Scene-time anchor (#1403) ──────────────────────────────────────────────
 
