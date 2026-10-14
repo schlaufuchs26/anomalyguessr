@@ -59,6 +59,12 @@ let dailyPayload: unknown = null;
  * live scope.
  */
 let livePayload: unknown = null;
+/**
+ * Payload for `scenes/remoderate.json`, the already-decided scenes (#2606).
+ * Null means "the same as the manifest"; "fail" models a server without the
+ * remoderate scope.
+ */
+let remoderatePayload: unknown = null;
 /** Requests the app made to the moderation endpoint. */
 let posts: { url: string; body: unknown }[] = [];
 /** Every URL the app fetched (documents the manifest/API base decision). */
@@ -100,9 +106,11 @@ beforeEach(() => {
   // stash) so every render starts on the frontpage again.
   history.replaceState(null, "", "/");
   sessionStorage.clear();
+  localStorage.clear();
   payload = MANIFEST;
   dailyPayload = null;
   livePayload = null;
+  remoderatePayload = null;
   posts = [];
   gets = [];
   desktop = true;
@@ -166,7 +174,9 @@ beforeEach(() => {
         ? dailyPayload
         : url.includes("scenes/live.json") && livePayload !== null
           ? livePayload
-          : payload;
+          : url.includes("scenes/remoderate.json") && remoderatePayload !== null
+            ? remoderatePayload
+            : payload;
     if (body === "fail") return new Response("boom", { status: 500 });
     return new Response(JSON.stringify(body), {
       status: 200,
@@ -223,7 +233,7 @@ async function renderFrontpage(): Promise<HTMLElement> {
  * navigation to the mode path), and wait for the first scene.
  */
 async function renderGame(
-  mode: "daily" | "moderation" | "live" = "daily",
+  mode: "daily" | "moderation" | "live" | "remoderate" = "daily",
   firstScene = "Scene A",
 ): Promise<HTMLElement> {
   history.replaceState(null, "", `/${mode}`);
@@ -415,6 +425,46 @@ describe("frontpage mode select (#1214)", () => {
     expect(screen.queryByText("Scene A")).not.toBeInTheDocument();
     expect(screen.queryByText("Scene B")).not.toBeInTheDocument();
     expect(gets).toContain("scenes/live.json");
+  });
+
+  test("the dev Remoderate plays the already-decided scenes, not the queue", async () => {
+    // dev manifest = the unmoderated queue (A+B), remoderate.json = the
+    // already-decided scenes (Scene Live): Remoderate must play that set and
+    // its box must be reachable without answering (#2606).
+    payload = { ...MANIFEST, moderation: true };
+    dailyPayload = { version: 2, date: "2026-09-11", scenes: [SCENE_B] };
+    remoderatePayload = {
+      version: 2,
+      date: "2026-09-10",
+      scenes: [SCENE_LIVE],
+    };
+    await renderGame("remoderate", "Scene Live");
+    expect(screen.queryByText("Scene A")).not.toBeInTheDocument();
+    expect(screen.queryByText("Scene B")).not.toBeInTheDocument();
+    expect(gets).toContain("scenes/remoderate.json");
+    expect(screen.getByText("Moderation verdict")).toBeInTheDocument();
+    expect(screen.getByTestId("scene-progress")).toHaveTextContent("1 of 1");
+  });
+
+  test("a /remoderate deep link without its set lands on the frontpage", async () => {
+    payload = { ...MANIFEST, moderation: true };
+    remoderatePayload = "fail";
+    history.replaceState(null, "", "/remoderate");
+    render(<App />);
+    expect(await screen.findByTestId("mode-daily")).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/");
+  });
+
+  test("Remoderate resumes the saved position (#2606)", async () => {
+    payload = { ...MANIFEST, moderation: true };
+    remoderatePayload = {
+      version: 2,
+      date: "2026-09-10",
+      scenes: [SCENE_A, SCENE_B],
+    };
+    localStorage.setItem("anomalyguessr:remoderate:index", "1");
+    await renderGame("remoderate", "Scene B");
+    expect(screen.getByTestId("scene-progress")).toHaveTextContent("2 of 2");
   });
 
   test("a /live deep link without a live set lands on the frontpage", async () => {

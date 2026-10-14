@@ -145,6 +145,7 @@ const SCOPES = new Set([
   "shown",
   "accepted",
   "unmoderated",
+  "remoderate",
   "daily",
   "live",
 ]);
@@ -432,12 +433,71 @@ export function localDate(d: Date = new Date()): string {
 }
 
 /**
+ * Attach the resolved "Needs work" marker (ticket #2590) to a rendered
+ * scene, when the entry carries one that is not an open request.
+ */
+function withRepair(fb: FeedbackFile, e: SceneEntry): ManifestScene {
+  const s = renderManifestScene(e);
+  const r = fb.repairs?.[e.id];
+  if (r && r.status !== "requested") {
+    s.repair = {
+      status: r.status,
+      reasons: r.reasons,
+      ...(r.detail !== undefined ? { detail: r.detail } : {}),
+    };
+  }
+  return s;
+}
+
+/**
+ * The timestamp of a scene's current verdict (ticket #2606), or null when the
+ * scene is unmoderated (or carries only an open repair request). Rejected
+ * wins over accepted, matching `sceneToApi`'s precedence.
+ */
+export function verdictAt(fb: FeedbackFile, id: string): string | null {
+  const rejectedAt = fb.rejected[id];
+  if (rejectedAt !== undefined) return rejectedAt;
+  const acceptedAt = fb.accepted[id];
+  if (acceptedAt !== undefined) return acceptedAt;
+  return null;
+}
+
+/**
+ * Render the scenes Evan has already decided as a playable v2 manifest
+ * (ticket #2606): the "remoderate" mode walks them, so an old verdict can be
+ * revisited and a rating added afterwards. Membership is a current
+ * accept/reject verdict; an unmoderated scene (including one waiting on a
+ * repair request) never appears, and a sourceless legacy entry is skipped
+ * like in every other scope. Order is the verdict's own timestamp, oldest
+ * first, then id, so the oldest moderation is revisited first and the queue
+ * stays deterministic.
+ */
+export function manifestRemoderate(
+  st: StateFile,
+  fb: FeedbackFile,
+): ManifestScene[] {
+  const decided: { e: SceneEntry; at: string }[] = [];
+  for (const e of Object.values(st.scenes)) {
+    if (!SCENE_ID_RE.test(e.id)) continue;
+    if (e.source == null) continue; // legacy entry: cannot be a v2 scene
+    const at = verdictAt(fb, e.id);
+    if (at === null) continue; // unmoderated: not part of this mode
+    decided.push({ e, at });
+  }
+  decided.sort(
+    (a, b) => a.at.localeCompare(b.at) || a.e.id.localeCompare(b.e.id),
+  );
+  return decided.map(({ e }) => withRepair(fb, e));
+}
+
+/**
  * Render the non-rejected queue as a playable v2 manifest. scope selects
- * all / unshown / shown / accepted / unmoderated; daily delegates to
- * manifestDaily (the day's set) and live to manifestLive (the set prod is
- * serving now). Scenes without the provenance block (`source`) are skipped:
- * the game's manifest.ts rejects the whole manifest when a v2 scene is
- * malformed. Rejected scenes are always omitted. Order: never-shipped
+ * all / unshown / shown / accepted / unmoderated / remoderate; daily
+ * delegates to manifestDaily (the day's set), live to manifestLive (the set
+ * prod is serving now) and remoderate to manifestRemoderate (the already
+ * decided scenes). Scenes without the provenance block (`source`) are
+ * skipped: the game's manifest.ts rejects the whole manifest when a v2 scene
+ * is malformed. Rejected scenes are always omitted. Order: never-shipped
  * scenes first, then shipped / accepted / unmoderated per scope selection,
  * newest added first within each group (mirrors the Go handler).
  */
@@ -448,20 +508,7 @@ export function manifestScenes(
 ): ManifestScene[] {
   if (scope === "daily") return manifestDaily(st, fb);
   if (scope === "live") return manifestLive(st, fb);
-
-  /** Attach the resolved "Needs work" marker (ticket #2590), when present. */
-  const withRepair = (e: SceneEntry): ManifestScene => {
-    const s = renderManifestScene(e);
-    const r = fb.repairs?.[e.id];
-    if (r && r.status !== "requested") {
-      s.repair = {
-        status: r.status,
-        reasons: r.reasons,
-        ...(r.detail !== undefined ? { detail: r.detail } : {}),
-      };
-    }
-    return s;
-  };
+  if (scope === "remoderate") return manifestRemoderate(st, fb);
 
   const groups: Record<
     "unshown" | "shown" | "accepted" | "unmoderated",
@@ -496,7 +543,7 @@ export function manifestScenes(
     : scope === "unmoderated"
       ? (["unmoderated"] as const)
       : (["unshown", "shown"] as const)) {
-    for (const e of groups[key].sort(newestFirst)) out.push(withRepair(e));
+    for (const e of groups[key].sort(newestFirst)) out.push(withRepair(fb, e));
   }
   return out;
 }

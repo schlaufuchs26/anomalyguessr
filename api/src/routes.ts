@@ -21,11 +21,13 @@ import {
   tracePath,
 } from "./scenes.ts";
 import type { Store } from "./store.ts";
+import { currentVerdict } from "./store.ts";
 import {
   isRatingValue,
   MAX_COMMENT,
   type Moderation,
   type ModerationTag,
+  type VerdictEntry,
 } from "./types.ts";
 
 export interface Env {
@@ -105,7 +107,7 @@ export async function handle(
     const scope = url.searchParams.get("scope") ?? "all";
     if (!isScope(scope)) {
       return badRequest(
-        "scope must be one of: all, unshown, shown, accepted, unmoderated, daily, live",
+        "scope must be one of: all, unshown, shown, accepted, unmoderated, remoderate, daily, live",
       );
     }
     const st = await store.state();
@@ -310,17 +312,34 @@ export async function handle(
     }
     const fb = await store.feedback();
     const now = new Date().toISOString();
+    // The verdict this decision replaces (ticket #2606): a changed verdict
+    // keeps the old one traceable, so the feedback pass can tell a
+    // re-decision from a first judgement. `before` is read before the branch
+    // below mutates the maps.
+    const before = currentVerdict(fb, id);
+    const remember = (next: VerdictEntry["verdict"]): void => {
+      if (before !== null && before.verdict !== next) {
+        fb.previous = fb.previous ?? {};
+        fb.previous[id] = before;
+      }
+    };
     if (action === "accept") {
       delete fb.rejected[id];
       // An accepted scene carries no rejection reason any more.
       delete fb.reasons[id];
       // A human verdict supersedes an open repair request.
       if (fb.repairs?.[id]?.status === "requested") delete fb.repairs[id];
-      if (!(id in fb.accepted)) fb.accepted[id] = now;
+      if (!(id in fb.accepted)) {
+        fb.accepted[id] = now;
+        remember("accepted");
+      }
     } else if (action === "reject") {
       delete fb.accepted[id];
       if (fb.repairs?.[id]?.status === "requested") delete fb.repairs[id];
-      if (!(id in fb.rejected)) fb.rejected[id] = now;
+      if (!(id in fb.rejected)) {
+        fb.rejected[id] = now;
+        remember("rejected");
+      }
       if (canonical.length > 0) {
         fb.reasons[id] = { reason: canonical, at: now };
       }
@@ -443,7 +462,9 @@ export async function handle(
     } else if (isRatingValue(value)) {
       fb.rating[id] = { value, at: new Date().toISOString() };
     } else {
-      return badRequest("rating must be a whole number between 0 and 10, or null");
+      return badRequest(
+        "rating must be a whole number between 0 and 10, or null",
+      );
     }
     await store.saveFeedback(fb);
     const entry = fb.rating[id];

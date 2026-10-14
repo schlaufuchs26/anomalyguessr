@@ -43,6 +43,11 @@ export const FORBIDDEN_MARKERS: ForbiddenMarker[] = [
   { marker: "Moderation verdict", surface: "the moderation verdict label" },
   { marker: "scenes/daily.json", surface: "the dev Daily manifest fetch" },
   { marker: "scenes/live.json", surface: "the dev Live manifest fetch" },
+  {
+    marker: "scenes/remoderate.json",
+    surface: "the dev Remoderate manifest fetch",
+  },
+  { marker: "mode-switch", surface: "the moderation/remoderate switch" },
 ];
 
 /** App code the bundler emits. `scenes/*.json` is scene data, not code. */

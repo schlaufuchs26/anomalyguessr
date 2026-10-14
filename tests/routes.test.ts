@@ -16,9 +16,11 @@ describe("mode paths (#1223)", () => {
     expect(modeFromPath("/daily", ROOT)).toBe("daily");
     expect(modeFromPath("/moderation", ROOT)).toBe("moderation");
     expect(modeFromPath("/live", ROOT)).toBe("live");
+    expect(modeFromPath("/remoderate", ROOT)).toBe("remoderate");
     expect(modeFromPath("/anomalyguessr/daily", DEV)).toBe("daily");
     expect(modeFromPath("/anomalyguessr/moderation", DEV)).toBe("moderation");
     expect(modeFromPath("/anomalyguessr/live", DEV)).toBe("live");
+    expect(modeFromPath("/anomalyguessr/remoderate", DEV)).toBe("remoderate");
   });
 
   test("the base, unknown and out-of-base paths are the frontpage", () => {
@@ -53,5 +55,14 @@ describe("mode paths (#1223)", () => {
     expect(effectiveMode("live", true, false)).toBeNull();
     expect(effectiveMode("live", true, true)).toBe("live");
     expect(effectiveMode("live", false, false)).toBeNull();
+  });
+
+  test("remoderate degrades to the frontpage until its set is loaded (#2606)", () => {
+    expect(effectiveMode("remoderate", true, false, false)).toBeNull();
+    expect(effectiveMode("remoderate", true, false, true)).toBe("remoderate");
+    // no dev flag (prod): the mode is dropped even with a stale set
+    expect(effectiveMode("remoderate", false, false, true)).toBeNull();
+    // the fourth argument is optional; the older call shape stays valid
+    expect(effectiveMode("remoderate", true, false)).toBeNull();
   });
 });

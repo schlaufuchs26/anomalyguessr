@@ -163,6 +163,20 @@ export interface RepairEntry {
   textAfter?: string;
 }
 
+/**
+ * A verdict a re-decision replaced (ticket #2606).
+ *
+ * When the moderation view re-decides a scene that already carries a verdict
+ * (the "remoderate" mode), the new verdict overwrites the old one and the
+ * old one is kept here, so a change stays traceable: a first judgement has no
+ * entry, a changed one does, and the feedback pass can tell the two apart.
+ */
+export interface VerdictEntry {
+  verdict: "accepted" | "rejected";
+  /** When that verdict was made (RFC3339). */
+  at: string;
+}
+
 /** One scene's human quality rating (ticket #2605). */
 export interface RatingEntry {
   /** The rating on the 0-10 scale (RATING_MIN..RATING_MAX). */
@@ -211,6 +225,15 @@ export interface FeedbackFile {
    * scene out of the moderation queue; the repair pass resolves it.
    */
   repairs?: Record<string, RepairEntry>;
+  /**
+   * The verdict a re-decision replaced (ticket #2606): scene id -> the
+   * verdict that the scene's current accept/reject overwrote. Written only
+   * when a re-decision changes the verdict (accepted -> rejected or the
+   * other way); a first judgement has no entry here. The current verdict
+   * stays in `accepted`/`rejected` with its own timestamp, so a change and a
+   * first judgement are both readable.
+   */
+  previous?: Record<string, VerdictEntry>;
 }
 
 /**

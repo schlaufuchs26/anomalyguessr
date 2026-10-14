@@ -8,6 +8,7 @@
  *   frontpage  `<base>/`                   e.g. `/` or `/anomalyguessr/`
  *   Daily      `<base>/daily`
  *   Moderation `<base>/moderation`
+ *   Remoderate `<base>/remoderate`         (dev only, #2606)
  *   Live       `<base>/live`
  *
  * The app base is the directory the document was loaded from; `<base
@@ -18,8 +19,8 @@
  * mode and never changes what the base directory is.
  */
 
-/** The game modes the frontpage offers (tickets #1214, #1237). */
-export type Mode = "daily" | "moderation" | "live";
+/** The game modes the frontpage offers (tickets #1214, #1237, #2606). */
+export type Mode = "daily" | "moderation" | "live" | "remoderate";
 
 /** The app base directory URL (always ends with "/"). */
 export function appBase(): URL {
@@ -35,10 +36,11 @@ export function modePath(base: URL, mode: Mode | null): string {
  * The mode a pathname names under this base; null (the frontpage) for the
  * base itself, an unknown path or anything outside the base.
  *
- * Moderation and Live resolve only outside a production build (ticket
- * #1374): the public Pages build compiles their branches away, so a
- * `/moderation` or `/live` deep link there lands on the frontpage through
- * the caller's fallback instead of starting a run it cannot serve.
+ * Moderation, Remoderate and Live resolve only outside a production build
+ * (ticket #1374): the public Pages build compiles their branches away, so a
+ * `/moderation`, `/remoderate` or `/live` deep link there lands on the
+ * frontpage through the caller's fallback instead of starting a run it
+ * cannot serve.
  */
 export function modeFromPath(pathname: string, base: URL): Mode | null {
   const basePath = base.pathname;
@@ -47,7 +49,7 @@ export function modeFromPath(pathname: string, base: URL): Mode | null {
   if (rest === "daily") return "daily";
   if (
     process.env.NODE_ENV !== "production" &&
-    (rest === "moderation" || rest === "live")
+    (rest === "moderation" || rest === "live" || rest === "remoderate")
   ) {
     return rest;
   }
@@ -55,9 +57,10 @@ export function modeFromPath(pathname: string, base: URL): Mode | null {
 }
 
 /**
- * The mode to actually start on this host. Moderation and Live exist only
- * where the queue API serves them: a `/moderation` deep link on prod (no dev
- * flag) and a `/live` load whose scope=live fetch failed degrade to the
+ * The mode to actually start on this host. Moderation, Remoderate and Live
+ * exist only where the queue API serves them: a `/moderation` deep link on
+ * prod (no dev flag), a `/remoderate` load whose scope=remoderate fetch
+ * failed, and a `/live` load whose scope=live fetch failed degrade to the
  * frontpage instead of starting a run over the wrong set. Daily is always
  * there.
  *
@@ -69,11 +72,19 @@ export function effectiveMode(
   requested: Mode | null,
   moderationAvailable: boolean,
   liveAvailable: boolean,
+  remoderateAvailable = false,
 ): Mode | null {
   if (process.env.NODE_ENV === "production") {
     return requested === "daily" ? "daily" : null;
   }
   if (requested === "moderation" && !moderationAvailable) return null;
   if (requested === "live" && !liveAvailable) return null;
+  // Remoderate is a dev-only view of the moderation queue, so it needs both
+  // the dev flag and its own set (ticket #2606).
+  if (
+    requested === "remoderate" &&
+    !(moderationAvailable && remoderateAvailable)
+  )
+    return null;
   return requested;
 }

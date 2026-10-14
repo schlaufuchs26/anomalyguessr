@@ -7,6 +7,7 @@ import {
   SCENE_ID_RE,
   type SceneEntry,
   type StateFile,
+  type VerdictEntry,
 } from "./types.ts";
 
 /**
@@ -103,6 +104,7 @@ export function normalizeFeedback(fb: FeedbackFile): FeedbackFile {
     funny: fb.funny ?? {},
     rating,
     repairs: fb.repairs ?? {},
+    previous: fb.previous ?? {},
   };
 }
 
@@ -132,6 +134,22 @@ export function moderationOf(
   if (id in fb.rejected) return "rejected";
   if (id in fb.accepted) return "accepted";
   return "unmoderated";
+}
+
+/**
+ * The scene's current verdict, if any (ticket #2606): its accept/reject with
+ * the timestamp, or null when the scene is undecided (or only waiting on a
+ * repair request). Rejected wins over accepted, matching `moderationOf`.
+ */
+export function currentVerdict(
+  fb: FeedbackFile,
+  id: string,
+): VerdictEntry | null {
+  const rejectedAt = fb.rejected[id];
+  if (rejectedAt !== undefined) return { verdict: "rejected", at: rejectedAt };
+  const acceptedAt = fb.accepted[id];
+  if (acceptedAt !== undefined) return { verdict: "accepted", at: acceptedAt };
+  return null;
 }
 
 /** Scene entries sorted newest-added first (then id), for the queue list. */

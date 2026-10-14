@@ -8,6 +8,7 @@ import {
   loadDailyManifest,
   loadLiveManifest,
   loadManifest,
+  loadRemoderateManifest,
   type ModerationTag,
   postModeration,
   postRating,
@@ -33,6 +34,34 @@ import {
 const APP_BASE = appBase();
 /** sessionStorage key the 404 shim fills before redirecting to the base. */
 const REDIRECT_KEY = "anomalyguessr:redirect";
+/** localStorage key the Remoderate mode's position survives a reload (#2606). */
+const REMODERATE_INDEX_KEY = "anomalyguessr:remoderate:index";
+
+/**
+ * The saved Remoderate position (ticket #2606), clamped to a valid index for
+ * a queue of `length` scenes. Returns 0 when nothing is saved, the value is
+ * unreadable, or the saved position is past a now-shorter queue.
+ */
+function readRemoderateIndex(length: number): number {
+  if (length <= 0) return 0;
+  try {
+    const raw = localStorage.getItem(REMODERATE_INDEX_KEY);
+    const n = raw === null ? 0 : Number.parseInt(raw, 10);
+    if (!Number.isFinite(n) || n < 0) return 0;
+    return Math.min(n, length - 1);
+  } catch {
+    return 0;
+  }
+}
+
+/** Remember the Remoderate position so a reload continues (#2606). */
+function saveRemoderateIndex(index: number): void {
+  try {
+    localStorage.setItem(REMODERATE_INDEX_KEY, String(index));
+  } catch {
+    // localStorage unavailable: the run still works, it just restarts
+  }
+}
 
 /**
  * The path the app was asked for at boot: the 404 shim's stashed target on a
@@ -177,7 +206,17 @@ export function App() {
    * the fetch failed, which is what hides the Live mode.
    */
   const [liveManifest, setLiveManifest] = useState<Manifest | null>(null);
+  /**
+   * The already-decided scenes (`scenes/remoderate.json`, ticket #2606),
+   * fetched on the dev instance for the Remoderate mode; null on prod and
+   * whenever the fetch failed, which is what hides the mode.
+   */
+  const [remoderateManifest, setRemoderateManifest] = useState<Manifest | null>(
+    null,
+  );
   const [moderation, setModeration] = useState(false);
+  /** The Remoderate mode (#2606): same box, decided scenes, oldest first. */
+  const [remoderate, setRemoderate] = useState(false);
   /** The manifest's dev-instance flag; gates the gallery menu (#1204). */
   const [devMode, setDevMode] = useState(false);
   const [queue, setQueue] = useState<Scene[]>([]);
@@ -262,6 +301,11 @@ export function App() {
   useEffect(() => {
     if (status === "home") firstModeRef.current?.focus();
   }, [status]);
+  // Remember where the Remoderate run is, so a reload continues instead of
+  // starting over (ticket #2606).
+  useEffect(() => {
+    if (remoderate) saveRemoderateIndex(index);
+  }, [remoderate, index]);
 
   /**
    * Reload/close guard (ticket #1225): Evan's rule is "reload the page in the
@@ -304,10 +348,18 @@ export function App() {
   }, [runInProgress]);
 
   /** Start (or restart) a run over the given scene queue. */
-  const startRun = (scenes: Scene[], on: boolean, day: Date) => {
+  const startRun = (
+    scenes: Scene[],
+    on: boolean,
+    remod: boolean,
+    day: Date,
+  ) => {
     setModeration(on);
+    setRemoderate(remod);
     setQueue(scenes);
-    setIndex(0);
+    // Remoderate resumes where the last run left off (ticket #2606); every
+    // other mode starts at the first scene.
+    setIndex(remod ? readRemoderateIndex(scenes.length) : 0);
     setMisses(0);
     setCue(null);
     setScores([]);
@@ -332,14 +384,17 @@ export function App() {
   /** Start the run of a frontpage mode over the loaded manifest (#1214). */
   const startMode = (mode: Mode, loaded: Manifest) => {
     const now = new Date();
-    // Moderation reviews the raw queue; Daily and Live play a daily set
-    // (prepared v2 scenes in order, or 5 seeded from a v1 pool). Moderation
-    // is dev-only, so the production bundle drops the comparison (#1374).
-    const moderation =
-      process.env.NODE_ENV !== "production" && mode === "moderation";
+    // Moderation and Remoderate review the raw queue; Daily and Live play a
+    // daily set (prepared v2 scenes in order, or 5 seeded from a v1 pool).
+    // Both review modes are dev-only, so the production bundle drops the
+    // comparison (#1374).
+    const reviewing =
+      process.env.NODE_ENV !== "production" &&
+      (mode === "moderation" || mode === "remoderate");
     startRun(
-      moderation ? loaded.scenes : dailySet(loaded, now),
-      moderation,
+      reviewing ? loaded.scenes : dailySet(loaded, now),
+      reviewing,
+      mode === "remoderate",
       now,
     );
   };
@@ -363,16 +418,24 @@ export function App() {
    */
   useEffect(() => {
     if (!manifest || !dailyManifest) return;
-    const mode = effectiveMode(route, devMode, liveManifest !== null);
+    const mode = effectiveMode(
+      route,
+      devMode,
+      liveManifest !== null,
+      remoderateManifest !== null,
+    );
     // Daily previews the next set to ship (#1221); Live replays the set prod
-    // serves now (#1237); Moderation plays the raw queue. Live's manifest is
-    // null when its fetch failed, which already degraded the mode above.
+    // serves now (#1237); Moderation plays the raw queue and Remoderate the
+    // already-decided scenes (#2606). Live's and Remoderate's manifests are
+    // null when their fetch failed, which already degraded the mode above.
     const source =
       process.env.NODE_ENV !== "production" && mode === "live"
         ? liveManifest
-        : process.env.NODE_ENV !== "production" && mode === "moderation"
-          ? manifest
-          : dailyManifest;
+        : process.env.NODE_ENV !== "production" && mode === "remoderate"
+          ? remoderateManifest
+          : process.env.NODE_ENV !== "production" && mode === "moderation"
+            ? manifest
+            : dailyManifest;
     if (mode && source) {
       const path = modePath(APP_BASE, mode);
       if (window.location.pathname !== path) {
@@ -389,7 +452,14 @@ export function App() {
     }
     if (route !== null) setRoute(null);
     setStatus("home");
-  }, [route, manifest, dailyManifest, liveManifest, devMode]);
+  }, [
+    route,
+    manifest,
+    dailyManifest,
+    liveManifest,
+    remoderateManifest,
+    devMode,
+  ]);
 
   /**
    * Fetch the manifest and set the dev flag; on the dev instance also fetch
@@ -416,6 +486,7 @@ export function App() {
       // played before #1221.
       let daily = loaded;
       let live: Manifest | null = null;
+      let remoderate: Manifest | null = null;
       if (dev && process.env.NODE_ENV !== "production") {
         // The dev instance's manifest is the unmoderated queue; fetch the
         // day's set for the Daily mode (ticket #1221) and the set prod serves
@@ -435,10 +506,19 @@ export function App() {
         } catch (err) {
           console.warn("live manifest load failed; no Live mode", err);
         }
+        try {
+          remoderate = await loadRemoderateManifest(parseManifest);
+        } catch (err) {
+          console.warn(
+            "remoderate manifest load failed; no Remoderate mode",
+            err,
+          );
+        }
       }
       setManifest(loaded);
       setDailyManifest(daily);
       setLiveManifest(live);
+      setRemoderateManifest(remoderate);
       setDevMode(dev);
     } catch (err) {
       console.error("manifest load failed", err);
@@ -600,7 +680,7 @@ export function App() {
   };
 
   const restart = () => {
-    startRun(queue, moderation, new Date());
+    startRun(queue, moderation, remoderate, new Date());
   };
 
   const quizLabel = (): string => {
@@ -818,9 +898,32 @@ export function App() {
           <span id="scene-place" className="scene-place">
             {scene ? scenePlaceLine(scene) : ""}
           </span>
-          <span id="scene-progress" className="progress">
-            {`${index + 1} / ${queue.length}`}
+          <span
+            id="scene-progress"
+            className="progress"
+            data-testid="scene-progress"
+          >
+            {remoderate
+              ? `${index + 1} of ${queue.length}`
+              : `${index + 1} / ${queue.length}`}
           </span>
+          {moderation && process.env.NODE_ENV !== "production" ? (
+            <a
+              className="mode-switch"
+              href={modePath(
+                APP_BASE,
+                remoderate ? "moderation" : "remoderate",
+              )}
+              title={
+                remoderate
+                  ? "Back to the unmoderated queue"
+                  : "Revisit scenes that already have a verdict"
+              }
+              data-testid="mode-switch"
+            >
+              {remoderate ? "← Moderation" : "↻ Remoderate"}
+            </a>
+          ) : null}
           {moderation && process.env.NODE_ENV !== "production" ? (
             <GenerateControl
               onFinished={() => void mergeQueue()}
@@ -919,13 +1022,15 @@ export function App() {
               ref={nextBtnRef}
               className="btn primary"
               type="button"
-              hidden={!answered}
+              hidden={!answered && !remoderate}
               onClick={next}
             >
               {index >= queue.length - 1 ? "Results →" : "Next →"}
             </button>
           </div>
-          {moderation && answered && process.env.NODE_ENV !== "production" ? (
+          {moderation &&
+          (answered || remoderate) &&
+          process.env.NODE_ENV !== "production" ? (
             <div id="moderate" className="moderate">
               <span className="moderate-label">Moderation verdict</span>
               {scene?.repair ? (

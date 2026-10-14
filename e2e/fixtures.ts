@@ -80,6 +80,7 @@ export async function stubManifest(
   await target.route("**/scenes/manifest.json", handler);
   await target.route("**/scenes/daily.json", handler);
   await target.route("**/scenes/live.json", handler);
+  await target.route("**/scenes/remoderate.json", handler);
 }
 
 /** One live pipeline step of the running-generation stub (#2329). */

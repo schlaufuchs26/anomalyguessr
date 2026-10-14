@@ -32,6 +32,14 @@ const DAILY_MANIFEST_URL = "scenes/daily.json";
  */
 const LIVE_MANIFEST_URL = "scenes/live.json";
 
+/**
+ * The dev instance's Remoderate set (ticket #2606), fetched for the
+ * Remoderate mode: the scenes that already carry a verdict (queue API's
+ * scope=remoderate), oldest verdict first, so an old decision can be
+ * revisited. Prod never fetches it: it has no moderation UI at all.
+ */
+const REMODERATE_MANIFEST_URL = "scenes/remoderate.json";
+
 /** Moderation endpoint for the dev workflow (ticket #1163). */
 function moderationUrl(sceneId: string): string {
   return `/anomalyguessr/api/scenes/${sceneId}/moderate`;
@@ -145,6 +153,18 @@ export async function loadLiveManifest(
   parse: (raw: unknown) => Manifest,
 ): Promise<Manifest> {
   return (await loadManifestFrom(LIVE_MANIFEST_URL, parse)).manifest;
+}
+
+/**
+ * Load the dev instance's Remoderate set for the Remoderate mode (ticket
+ * #2606); throws when the fetch fails, and the caller then drops the mode
+ * instead of walking the wrong queue. Only called when the manifest carries
+ * the dev flag.
+ */
+export async function loadRemoderateManifest(
+  parse: (raw: unknown) => Manifest,
+): Promise<Manifest> {
+  return (await loadManifestFrom(REMODERATE_MANIFEST_URL, parse)).manifest;
 }
 
 /**

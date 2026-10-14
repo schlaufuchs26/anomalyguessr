@@ -217,9 +217,7 @@ describe("moderation tag + rating (#1502/#2605)", () => {
     const list = await json<SceneList>(
       await handle(env, "GET", "scenes", req("GET", "scenes")),
     );
-    expect(
-      list.scenes.find((s) => s.id === "beta-street")?.rating,
-    ).toBe(10);
+    expect(list.scenes.find((s) => s.id === "beta-street")?.rating).toBe(10);
 
     // Any write drops the old key and keeps the folded rating.
     await handle(
