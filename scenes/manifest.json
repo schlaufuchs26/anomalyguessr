@@ -1,132 +1,132 @@
 {
   "version": 2,
-  "date": "2026-10-14",
+  "date": "2026-10-15",
   "scenes": [
     {
-      "id": "gallica-arches-de-tr-mouls-et-t-te-vigan-du-souterrain-d-facb04-modern-telescoping-selfi",
-      "title": "Trémouls Arches and the Vigan Portal of the Grand Tournant Tunnel",
+      "id": "gallica-viadotto-della-gessiera-al-km-81-500-viaduc-de-g-457694-modern-tower-crane",
+      "title": "Gessiera Viaduct at km 81.500",
       "title_source": "catalog",
       "place": "",
-      "year": "1896",
-      "description": "A photograph by A. Bonnaud, dated 1896, showing arches and a tunnel head of the Grand Tournant souterrain, part of the railways and tunnels of the Compagnie des chemins de fer du Midi. It is held by the Ecole nationale des ponts et chaussées.",
-      "anomaly": "Modern telescoping selfie stick",
+      "year": "1883",
+      "description": "A photograph by Achille Mauri, dated 1883, showing the Gessiera at kilometre 81.500 on the Termoli-Campobasso railway line.",
+      "anomaly": "Modern tower crane",
       "answer": {
-        "x": 0.535,
-        "y": 0.395,
+        "x": 0.229,
+        "y": 0.352,
         "r": 0.22
       },
-      "explanation": "Telescoping selfie sticks did not exist in 1896, so this object could not be present in the photograph.",
+      "explanation": "Tower cranes with steel lattice jibs were not developed until the mid-20th century, making them impossible in an 1883 construction scene.",
       "references": [
         {
-          "label": "Gallica",
-          "url": "https://gallica.bnf.fr"
+          "label": "Tower crane history",
+          "url": "https://en.wikipedia.org/wiki/Tower_crane"
         }
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b104840927",
-        "originalTitle": "Arches de Trémouls et tête Vigan du souterrain du Grand Tournant / Bonnaud, A.",
-        "date": "1896",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b10483533r",
+        "originalTitle": "Viadotto della Gessiera al km 81.500 [Viaduc de Gessiera au km 81.500] / Mauri, Achille",
+        "date": "1883",
         "place": "",
         "license": "Public domain",
-        "description": "Appartient à l’ensemble documentaire : EnPC000 Appartient à l’ensemble documentaire : EnPCthèm02 Appartient à l’ensemble documentaire : EnPCcorp12 Appartient à l’ensemble documentaire : EnPCtypo02",
-        "titleEn": "Trémouls Arches and the Vigan Portal of the Grand Tournant Tunnel"
+        "description": "Appartient à l’ensemble documentaire : EnPC000 Appartient à l’ensemble documentaire : EnPCthèm02 Appartient à l’ensemble documentaire : EnPCcorp17 Appartient à l’ensemble documentaire : EnPCtypo02",
+        "titleEn": "Gessiera Viaduct at km 81.500"
       },
-      "credit": "Bonnaud, A.. Auteur du texte via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b104840927",
+      "credit": "Mauri, Achille (1835?-1909?). Auteur du texte via Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b10483533r",
       "added": "2026-09-17",
-      "shown": "2026-10-14",
-      "image": "scenes/gallica-arches-de-tr-mouls-et-t-te-vigan-du-souterrain-d-facb04-modern-telescoping-selfi.jpg",
-      "original": "scenes/gallica-arches-de-tr-mouls-et-t-te-vigan-du-souterrain-d-facb04-modern-telescoping-selfi-original.jpg"
+      "shown": "2026-10-15",
+      "image": "scenes/gallica-viadotto-della-gessiera-al-km-81-500-viaduc-de-g-457694-modern-tower-crane.jpg",
+      "original": "scenes/gallica-viadotto-della-gessiera-al-km-81-500-viaduc-de-g-457694-modern-tower-crane-original.jpg"
     },
     {
-      "id": "gallica-lieutenant-allemand-bless-fait-prisonnier-photog-a6ca9e-modern-plastic-iv-fluid",
-      "title": "German lieutenant [wounded] taken prisoner",
+      "id": "europeana-interieur-gebrandschilderd-glas-1990-64e57a-modern-led-strip-light",
+      "title": "Interior, Stained Glass",
       "title_source": "catalog",
-      "place": "",
-      "year": "1918",
-      "description": "Lieutenant allemand [blessé] fait prisonnier · Bibliothèque nationale de France (Gallica).",
-      "anomaly": "modern plastic IV fluid bag",
+      "place": "Losser",
+      "year": "1990",
+      "description": "A photograph of an interior with stained glass, taken in 1990 in Losser. The record credits the photograph to Europeana and licenses it under CC BY-SA.",
+      "anomaly": "modern LED strip light",
       "answer": {
-        "x": 0.384,
-        "y": 0.666,
-        "r": 0.0949
-      },
-      "explanation": "Flexible plastic IV fluid bags did not exist in 1918; battlefield fluids were given from glass bottles or enamelware, so a clear plastic pouch cannot belong to this scene.",
-      "references": [
-        {
-          "label": "Science Museum Group — intravenous fluid bag",
-          "url": "https://collection.sciencemuseumgroup.org.uk/objects/co162147"
-        }
-      ],
-      "source": {
-        "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53004949p",
-        "originalTitle": "Lieutenant allemand [blessé] fait prisonnier : [photographie de presse] / [Agence Rol]",
-        "date": "1918",
-        "place": "",
-        "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 51771 Appartient à l’ensemble documentaire : Pho20Rol Appartient à l’ensemble documentaire : GG14182 Image de presse",
-        "titleEn": "German lieutenant [wounded] taken prisoner"
-      },
-      "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53004949p",
-      "added": "2026-10-07",
-      "shown": "2026-10-14",
-      "image": "scenes/gallica-lieutenant-allemand-bless-fait-prisonnier-photog-a6ca9e-modern-plastic-iv-fluid.jpg",
-      "original": "scenes/gallica-lieutenant-allemand-bless-fait-prisonnier-photog-a6ca9e-modern-plastic-iv-fluid-original.jpg"
-    },
-    {
-      "id": "europeana-documentnummer-081947-1962-411232-modern-plastic-fuel-can",
-      "title": "Voorstraat",
-      "title_source": "catalog",
-      "place": "Voorstraat",
-      "year": "1962",
-      "description": "A photograph taken in 1962 on Voorstraat. The record credits Europeana, document number 081947, under a CC BY-SA license.",
-      "anomaly": "modern plastic fuel can",
-      "answer": {
-        "x": 0.536,
-        "y": 0.858,
+        "x": 0.692,
+        "y": 0.75,
         "r": 0.22
       },
-      "explanation": "Moulded plastic fuel cans with screw caps did not exist in 1962; portable fuel containers of that era were metal.",
+      "explanation": "Flexible white LED strip lighting did not exist in 1990, so a lit tape strip on this window frame is impossible for the photograph's year.",
       "references": [
         {
-          "label": "Science Museum Group - Plastic jerrycan",
-          "url": "https://collection.sciencemuseumgroup.org.uk/objects/co8412345/plastic-jerrycan"
+          "label": "Wikipedia: LED lamp",
+          "url": "https://en.wikipedia.org/wiki/LED_lamp"
         }
       ],
       "source": {
         "repository": "Europeana",
-        "fileUrl": "https://www.europeana.eu/item/2058632/01c7a06f_ea06_2155_bf41_aa1347d2ee74_media_33b7d49a_999c_074e_e999_56ea9e0c1f70",
-        "originalTitle": "Documentnummer 081947",
-        "date": "1962",
-        "place": "Voorstraat",
+        "fileUrl": "https://www.europeana.eu/item/2058632/038d4e9c_8a16_34b4_d4fc_14b4b649feeb_media_a9cfc133_3464_12f7_5c05_e6e0bbc58ee2",
+        "originalTitle": "Interieur, gebrandschilderd glas",
+        "date": "1990",
+        "place": "Losser",
         "license": "CC BY-SA",
-        "description": "",
-        "titleEn": "Voorstraat"
+        "description": "Interieur, gebrandschilderd glas",
+        "titleEn": "Interior, Stained Glass"
       },
       "credit": "Europeana",
-      "sourceUrl": "https://www.europeana.eu/item/2058632/01c7a06f_ea06_2155_bf41_aa1347d2ee74_media_33b7d49a_999c_074e_e999_56ea9e0c1f70",
+      "sourceUrl": "https://www.europeana.eu/item/2058632/038d4e9c_8a16_34b4_d4fc_14b4b649feeb_media_a9cfc133_3464_12f7_5c05_e6e0bbc58ee2",
       "added": "2026-10-08",
-      "shown": "2026-10-14",
-      "image": "scenes/europeana-documentnummer-081947-1962-411232-modern-plastic-fuel-can.jpg",
-      "original": "scenes/europeana-documentnummer-081947-1962-411232-modern-plastic-fuel-can-original.jpg"
+      "shown": "2026-10-15",
+      "image": "scenes/europeana-interieur-gebrandschilderd-glas-1990-64e57a-modern-led-strip-light.jpg",
+      "original": "scenes/europeana-interieur-gebrandschilderd-glas-1990-64e57a-modern-led-strip-light-original.jpg"
     },
     {
-      "id": "nb-gate-i-stavanger-1900-ecd48b-modern-plastic-hula-hoop",
-      "title": "Street in Stavanger",
+      "id": "gallica-over-arm-stroke-natation-photographie-de-presse-4bf3da-modern-swim-cap-with-sil",
+      "title": "Over arm stroke [swimming]",
       "title_source": "catalog",
       "place": "",
-      "year": "1900",
-      "description": "A photograph titled Gate i Stavanger, showing a gate in Stavanger, held by the National Library of Norway and dated 1900. The record lists the image as public domain and does not name a photographer.",
-      "anomaly": "Modern plastic hula hoop",
+      "year": "1911",
+      "description": "This press photograph, taken by Agence Rol in 1911, shows swimmers. It is held by the Bibliothèque nationale de France, département Estampes et photographie, and is in the public domain.",
+      "anomaly": "modern swim cap with silicone dome shape",
       "answer": {
-        "x": 0.527,
-        "y": 0.797,
-        "r": 0.1901
+        "x": 0.462,
+        "y": 0.393,
+        "r": 0.22
       },
-      "explanation": "The plastic hula hoop was not invented until 1958, so it cannot appear in a photograph taken in 1900.",
+      "explanation": "Stretch silicone swim caps did not exist in 1911; swimmers then used bare heads or cloth and rubber caps of a different shape.",
+      "references": [
+        {
+          "label": "Speedo history of the swim cap",
+          "url": "https://www.speedo.com/history-of-swim-caps"
+        }
+      ],
+      "source": {
+        "repository": "Bibliothèque nationale de France (Gallica)",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53111993m",
+        "originalTitle": "Over arm stroke [?] [natation] : [photographie de presse] / [Agence Rol]",
+        "date": "1911",
+        "place": "",
+        "license": "Public domain",
+        "description": "Référence bibliographique : Rol, 16009 Appartient à l’ensemble documentaire : Pho20Rol",
+        "titleEn": "Over arm stroke [swimming]"
+      },
+      "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53111993m",
+      "added": "2026-10-08",
+      "shown": "2026-10-15",
+      "image": "scenes/gallica-over-arm-stroke-natation-photographie-de-presse-4bf3da-modern-swim-cap-with-sil.jpg",
+      "original": "scenes/gallica-over-arm-stroke-natation-photographie-de-presse-4bf3da-modern-swim-cap-with-sil-original.jpg"
+    },
+    {
+      "id": "nb-lillestr-m-torg-1963-6567cb-modern-folding-camping-c",
+      "title": "Lillestrøm Square",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1963",
+      "description": "A photograph from the National Library of Norway shows Lillestrøm torg in 1963. It is in the public domain.",
+      "anomaly": "Modern folding camping chair",
+      "answer": {
+        "x": 0.925,
+        "y": 0.855,
+        "r": 0.22
+      },
+      "explanation": "Compact folding camping chairs with tubular frames and fabric seats did not exist in 1963.",
       "references": [
         {
           "label": "National Library of Norway",
@@ -135,57 +135,57 @@
       ],
       "source": {
         "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20171204_00012_NB_NS_NM_05708",
-        "originalTitle": "[Gate i Stavanger]",
-        "date": "1900",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20170619_00035_NB_MIT_KNR_1220_017",
+        "originalTitle": "Lillestrøm torg",
+        "date": "1963",
         "place": "",
         "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-08-26T13:42:17.084Z', 'firstDigitalContentTime': '2025-08-26T13:54:25.514Z', 'indexLastModified': '2025-08-26T13:54:25.514Z'}",
-        "titleEn": "Street in Stavanger"
+        "description": "{'firstIndexTime': '2025-08-19T10:32:32.197Z', 'firstDigitalContentTime': '2025-08-19T12:21:40.731Z', 'indexLastModified': '2025-08-19T12:21:40.731Z'}",
+        "titleEn": "Lillestrøm Square"
       },
-      "credit": "Skarpmoen, Narve via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20171204_00012_NB_NS_NM_05708",
-      "added": "2026-09-17",
-      "shown": "2026-10-14",
-      "image": "scenes/nb-gate-i-stavanger-1900-ecd48b-modern-plastic-hula-hoop.jpg",
-      "original": "scenes/nb-gate-i-stavanger-1900-ecd48b-modern-plastic-hula-hoop-original.jpg"
+      "credit": "Mittet & Co. AS via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20170619_00035_NB_MIT_KNR_1220_017",
+      "added": "2026-09-18",
+      "shown": "2026-10-15",
+      "image": "scenes/nb-lillestr-m-torg-1963-6567cb-modern-folding-camping-c.jpg",
+      "original": "scenes/nb-lillestr-m-torg-1963-6567cb-modern-folding-camping-c-original.jpg"
     },
     {
-      "id": "gallica-h-licopt-re-espagnol-1923-photographie-de-presse-d9b889-modern-quadcopter-drone",
-      "title": "Spanish Helicopter",
+      "id": "finna-aleksis-kiven-katu-1-3-2017-08-29-00-00-00-f9499b-small-humanoid-robot-ins",
+      "title": "Aleksis Kiven katu 1, 3",
       "title_source": "catalog",
       "place": "",
-      "year": "1923",
-      "description": "A press photograph from 1923, taken by Agence Meurisse, showing a helicopter. It is held by the Bibliothèque nationale de France, département Estampes et photographie.",
-      "anomaly": "Modern quadcopter drone",
+      "year": "2017",
+      "description": "A photograph showing the brick wall and windows of the Harju youth centre, with graffiti on the foundation and eaves and stickers also glued to the eavestroughs. It was taken in Finland on Aleksis Kiven katu 1, 3 on 2017-08-29 and licensed CC BY 4.0.",
+      "anomaly": "small humanoid robot inspector",
       "answer": {
-        "x": 0.808,
-        "y": 0.333,
+        "x": 0.333,
+        "y": 0.4,
         "r": 0.22
       },
-      "explanation": "Multi-rotor drones did not exist in 1923, so a hovering quadcopter could not appear in this photograph.",
+      "explanation": "A humanoid robot that climbs brickwork and inspects a drainpipe on its own is a fictional future machine and cannot exist in 2017.",
       "references": [
         {
-          "label": "Wikipedia: Quadcopter",
-          "url": "https://en.wikipedia.org/wiki/Quadcopter"
+          "label": "Encyclopaedia Britannica: Robot",
+          "url": "https://www.britannica.com/technology/robot-technology"
         }
       ],
       "source": {
-        "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53239907b",
-        "originalTitle": "Hélicoptère espagnol, 1923 : [photographie de presse] / [Agence Meurisse]",
-        "date": "1923",
+        "repository": "Finna (Finland)",
+        "fileUrl": "https://www.finna.fi/Record/hkm.0AE01E4F-CC7D-4364-A55D-AB8BC98BC6A9",
+        "originalTitle": "Aleksis Kiven katu 1, 3",
+        "date": "2017-08-29T00:00:00Z",
         "place": "",
-        "license": "Public domain",
-        "description": "Référence bibliographique : Meurisse, 9530 A Appartient à l’ensemble documentaire : Pho20Meu Image de presse",
-        "titleEn": "Spanish Helicopter"
+        "license": "CC BY 4.0",
+        "description": "sisällön kuvaus: Aleksis Kiven katu 1, 3. Harjun nuorisotalon tiiliseinää sekä ikkunoita. Kivijalassa ja räystäässä graffiteja. Räystäsputkiin liimattu myös tarroja.",
+        "titleEn": "Aleksis Kiven katu 1, 3"
       },
-      "credit": "Agence de presse Meurisse. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53239907b",
-      "added": "2026-09-14",
-      "shown": "2026-10-14",
-      "image": "scenes/gallica-h-licopt-re-espagnol-1923-photographie-de-presse-d9b889-modern-quadcopter-drone.jpg",
-      "original": "scenes/gallica-h-licopt-re-espagnol-1923-photographie-de-presse-d9b889-modern-quadcopter-drone-original.jpg"
+      "credit": "Finna (Finland)",
+      "sourceUrl": "https://www.finna.fi/Record/hkm.0AE01E4F-CC7D-4364-A55D-AB8BC98BC6A9",
+      "added": "2026-10-14",
+      "shown": "2026-10-15",
+      "image": "scenes/finna-aleksis-kiven-katu-1-3-2017-08-29-00-00-00-f9499b-small-humanoid-robot-ins.jpg",
+      "original": "scenes/finna-aleksis-kiven-katu-1-3-2017-08-29-00-00-00-f9499b-small-humanoid-robot-ins-original.jpg"
     }
   ]
 }
