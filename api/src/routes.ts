@@ -269,6 +269,7 @@ export async function handle(
       feedback?: string;
       reason?: string;
       reasons?: string[];
+      rating?: unknown;
     };
     try {
       body = (await req.json()) as {
@@ -276,6 +277,7 @@ export async function handle(
         feedback?: string;
         reason?: string;
         reasons?: string[];
+        rating?: unknown;
       };
     } catch {
       return badRequest("invalid JSON body");
@@ -309,6 +311,19 @@ export async function handle(
     // act on (ticket #2590).
     if (action === "needs_work" && canonical.length === 0) {
       return badRequest("needs_work requires at least one reason");
+    }
+    // An optional rating rides with the verdict (#2666): the moderation view
+    // keeps the slider local and sends the score here instead of one POST per
+    // drag step. Absent means "leave the rating alone"; null clears it.
+    const rawRating = body.rating;
+    let rating: number | null | undefined;
+    if (rawRating === undefined) rating = undefined;
+    else if (rawRating === null) rating = null;
+    else if (isRatingValue(rawRating)) rating = rawRating;
+    else {
+      return badRequest(
+        "rating must be a whole number between 0 and 10, or null",
+      );
     }
     const fb = await store.feedback();
     const now = new Date().toISOString();
@@ -362,6 +377,11 @@ export async function handle(
       comments.push({ text: comment, createdAt: now });
       fb.comments[id] = comments;
     }
+    if (rating !== undefined) {
+      fb.rating = fb.rating ?? {};
+      if (rating === null) delete fb.rating[id];
+      else fb.rating[id] = { value: rating, at: now };
+    }
     await store.saveFeedback(fb);
     const moderation: Moderation =
       action === "accept"
@@ -372,6 +392,7 @@ export async function handle(
     return json({
       id,
       moderation,
+      ...(rating !== undefined ? { rating: rating ?? null } : {}),
       ...(action === "needs_work" ? { repair: fb.repairs?.[id] } : {}),
     });
   }

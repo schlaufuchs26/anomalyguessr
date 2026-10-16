@@ -8,6 +8,13 @@
  * control handles the arrow keys. "Unrated" stays distinct from a real 0: an
  * unrated scene shows the knob at 0 but the label reads "not rated", and the
  * Clear button (disabled while unrated) returns it to unset.
+ *
+ * Two callbacks keep the caller in control of when a request goes out (#2666):
+ * `onSelect` fires on every change (each drag step, arrow key, clear) so the
+ * caller can hold the value locally, and `onCommit` fires when the interaction
+ * ends (pointer/key release, blur, clear click) with the settled value. The
+ * gallery posts on every `onSelect`; the moderation panel keeps the drag local
+ * and only saves on commit or with the verdict.
  */
 
 /** The rating scale's top value; a scene rated at least RATING_HIGH (8) is a
@@ -20,8 +27,10 @@ export interface RatingControlProps {
   value: number | null;
   /** A post is in flight: the control is disabled. */
   busy?: boolean;
-  /** Called with the new value, or null to clear. */
+  /** Called with the new value on every change, live: keep it local. */
   onSelect: (value: number | null) => void;
+  /** Called when the interaction ends, with the settled value. */
+  onCommit?: (value: number | null) => void;
   /** Accessible name of the slider (default "Quality rating"). */
   label?: string;
   /** Optional data-testid for the slider; the clear button gets `<prefix>-clear`. */
@@ -33,6 +42,7 @@ export function RatingControl({
   value,
   busy = false,
   onSelect,
+  onCommit,
   label = "Quality rating",
   testIdPrefix,
   className,
@@ -52,6 +62,11 @@ export function RatingControl({
         aria-label={label}
         aria-valuetext={unrated ? "not rated" : `${value} of ${RATING_MAX}`}
         onChange={(e) => onSelect(Number(e.target.value))}
+        // The release ends the interaction; the caller decides whether the
+        // settled value still needs a request (ticket #2666).
+        onPointerUp={(e) => onCommit?.(Number(e.currentTarget.value))}
+        onKeyUp={(e) => onCommit?.(Number(e.currentTarget.value))}
+        onBlur={(e) => onCommit?.(Number(e.currentTarget.value))}
         data-testid={testIdPrefix}
       />
       <span className="rating-value" aria-live="polite">
@@ -62,7 +77,10 @@ export function RatingControl({
         className="rating-clear"
         disabled={busy || unrated}
         title="Clear the rating"
-        onClick={() => onSelect(null)}
+        onClick={() => {
+          onSelect(null);
+          onCommit?.(null);
+        }}
         data-testid={testIdPrefix ? `${testIdPrefix}-clear` : undefined}
       >
         clear

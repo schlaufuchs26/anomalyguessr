@@ -1047,7 +1047,7 @@ describe("moderation mode (dev instance, #1163)", () => {
     expect(screen.getByRole("button", { name: "✕ Reject" })).not.toBeDisabled();
   });
 
-  test("the funny tag and the 0-10 rating post on their own (#1502/#2605)", async () => {
+  test("the funny tag posts on its own; the rating waits for the verdict (#1502/#2605/#2666)", async () => {
     payload = { ...MANIFEST, moderation: true };
     const container = await renderGame("moderation");
     clickPhoto(container, 0.5, 0.5);
@@ -1070,18 +1070,89 @@ describe("moderation mode (dev instance, #1163)", () => {
     // The verdict stays untouched.
     expect(screen.getByRole("button", { name: "✓ Accept" })).not.toBeDisabled();
 
+    // The rating stays local until the verdict (#2666): changing it and
+    // clearing it again sends nothing of their own.
     fireEvent.change(slider(), { target: { value: "8" } });
-    await waitFor(() => expect(posts).toHaveLength(2));
-    expect(posts[1]?.url).toBe("/anomalyguessr/api/scenes/a/rating");
-    expect(posts[1]?.body).toEqual({ rating: 8 });
-    expect(await screen.findByText("Rating 8/10.")).toBeInTheDocument();
+    expect(screen.getByText("8/10")).toBeInTheDocument();
+    expect(screen.getByText(/not saved yet/)).toBeInTheDocument();
+    expect(posts).toHaveLength(1);
 
     // Clear returns the slider to unset ("not rated"), distinct from a real 0.
     fireEvent.click(screen.getByTestId("moderate-rating-clear"));
-    await waitFor(() => expect(posts).toHaveLength(3));
-    expect(posts[2]?.url).toBe("/anomalyguessr/api/scenes/a/rating");
-    expect(posts[2]?.body).toEqual({ rating: null });
-    expect(await screen.findByText("not rated")).toBeInTheDocument();
+    expect(screen.getByText("not rated")).toBeInTheDocument();
+    expect(posts).toHaveLength(1);
+  });
+
+  test("dragging the rating slider posts nothing until the verdict carries it (#2666)", async () => {
+    payload = { ...MANIFEST, moderation: true };
+    const container = await renderGame("moderation");
+    clickPhoto(container, 0.5, 0.5);
+    const slider = () => screen.getByRole("slider", { name: "Quality rating" });
+
+    // A drag of 11 steps: every input event must stay local (no request).
+    for (let v = 0; v <= 10; v++) {
+      fireEvent.change(slider(), { target: { value: String(v) } });
+    }
+    expect(posts).toHaveLength(0);
+    fireEvent.pointerUp(slider());
+    // The keyboard and focus releases commit too (a drag is one of three ways
+    // to finish); none of them may post in the open queue either.
+    fireEvent.keyUp(slider(), { key: "ArrowRight" });
+    fireEvent.blur(slider());
+    expect(posts).toHaveLength(0);
+    // The local value is shown, but the box does not pretend it was saved.
+    expect(screen.getByText("10/10")).toBeInTheDocument();
+    expect(screen.getByText(/not saved yet/)).toBeInTheDocument();
+
+    // The verdict call carries the score; one request for the whole drag.
+    fireEvent.click(screen.getByRole("button", { name: "✓ Accept" }));
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(posts[0]?.url).toBe("/anomalyguessr/api/scenes/a/moderate");
+    expect(posts[0]?.body).toEqual({
+      action: "accept",
+      feedback: "",
+      rating: 10,
+    });
+  });
+
+  test("a score-only change on a decided scene saves itself, debounced on release (#2666)", async () => {
+    payload = { ...MANIFEST, moderation: true };
+    remoderatePayload = { version: 2, date: "2026-09-10", scenes: [SCENE_A] };
+    await renderGame("remoderate", "Scene A");
+    const slider = () => screen.getByRole("slider", { name: "Quality rating" });
+
+    for (let v = 0; v <= 7; v++) {
+      fireEvent.change(slider(), { target: { value: String(v) } });
+    }
+    expect(posts).toHaveLength(0);
+    fireEvent.pointerUp(slider());
+    await waitFor(() => expect(posts).toHaveLength(1), { timeout: 2000 });
+    expect(posts[0]?.url).toBe("/anomalyguessr/api/scenes/a/rating");
+    expect(posts[0]?.body).toEqual({ rating: 7 });
+    expect(await screen.findByText("Rating 7/10.")).toBeInTheDocument();
+  });
+
+  test("a failed rating save keeps the value and retries once, then reports (#2666)", async () => {
+    payload = { ...MANIFEST, moderation: true };
+    remoderatePayload = { version: 2, date: "2026-09-10", scenes: [SCENE_A] };
+    await renderGame("remoderate", "Scene A");
+    const slider = () => screen.getByRole("slider", { name: "Quality rating" });
+
+    fireEvent.change(slider(), { target: { value: "6" } });
+    let ratingCalls = 0;
+    globalThis.fetch = (async (input: unknown, init?: RequestInit) => {
+      if (String(input).endsWith("/rating") && init?.method === "POST") {
+        ratingCalls++;
+        return new Response("nope", { status: 500 });
+      }
+      return new Response("{}", { status: 200 });
+    }) as unknown as typeof fetch;
+
+    fireEvent.pointerUp(slider());
+    // Retried once, then the failure is reported and the value stays put.
+    await waitFor(() => expect(ratingCalls).toBe(2), { timeout: 2000 });
+    expect(await screen.findByText(/Rating failed/)).toBeInTheDocument();
+    expect(screen.getByText("6/10")).toBeInTheDocument();
   });
 
   test("the box stays hidden outside moderation mode", async () => {

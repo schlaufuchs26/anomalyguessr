@@ -230,4 +230,58 @@ describe("moderation tag + rating (#1502/#2605)", () => {
     expect(after.great).toBeUndefined();
     expect(after.rating?.["beta-street"]?.value).toBe(10);
   });
+
+  test("a verdict carries an optional rating in the same write (#2666)", async () => {
+    const { env, dir } = await makeEnv();
+    // An accept with a rating stores both in one write.
+    const accepted = await json<{ moderation: string; rating?: number | null }>(
+      await handle(
+        env,
+        "POST",
+        "scenes/beta-street/moderate",
+        req("POST", "x", { action: "accept", rating: 9 }),
+      ),
+    );
+    expect(accepted.moderation).toBe("accepted");
+    expect(accepted.rating).toBe(9);
+    let stored = await feedback(dir);
+    expect(stored.accepted["beta-street"]).toBeTruthy();
+    expect(stored.rating?.["beta-street"]?.value).toBe(9);
+
+    // An untouched slider sends no rating: the verdict leaves the value alone.
+    const rejected = await json<{ rating?: number | null }>(
+      await handle(
+        env,
+        "POST",
+        "scenes/beta-street/moderate",
+        req("POST", "x", { action: "reject", feedback: "too easy" }),
+      ),
+    );
+    expect(rejected.rating).toBeUndefined();
+    stored = await feedback(dir);
+    expect(stored.rejected["beta-street"]).toBeTruthy();
+    expect(stored.rating?.["beta-street"]?.value).toBe(9);
+
+    // null clears the rating; an off-scale value is refused before any write.
+    const cleared = await json<{ rating?: number | null }>(
+      await handle(
+        env,
+        "POST",
+        "scenes/beta-street/moderate",
+        req("POST", "x", { action: "accept", rating: null }),
+      ),
+    );
+    expect(cleared.rating).toBeNull();
+    expect((await feedback(dir)).rating?.["beta-street"]).toBeUndefined();
+    expect(
+      (
+        await handle(
+          env,
+          "POST",
+          "scenes/beta-street/moderate",
+          req("POST", "x", { action: "accept", rating: 11 }),
+        )
+      ).status,
+    ).toBe(400);
+  });
 });

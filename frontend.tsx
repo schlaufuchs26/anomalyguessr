@@ -148,14 +148,22 @@ const TAGS: { tag: ModerationTag; label: string }[] = [
   { tag: "funny", label: "😄 Funny" },
 ];
 
-/** The 0-10 quality rating's box state (#2605): posting, value, failed post. */
+/** The 0-10 quality rating's box state (#2605): posting, value, failed post.
+ *  `dirty` marks a value the server has not confirmed yet (#2666): while a
+ *  drag is held locally, and until the verdict call or its own save lands. */
 interface RatingUi {
   busy: boolean;
   value: number | null;
+  dirty: boolean;
   error: string;
 }
 
-const IDLE_RATING: RatingUi = { busy: false, value: null, error: "" };
+const IDLE_RATING: RatingUi = {
+  busy: false,
+  value: null,
+  dirty: false,
+  error: "",
+};
 
 function buildGuessView(
   scene: Scene,
@@ -268,6 +276,25 @@ export function App() {
   );
 
   const scene = queue[index];
+  /** The current scene's id, so an in-flight rating save can tell whether the
+   *  run has already moved on (#2666). */
+  const sceneIdRef = useRef<string | null>(null);
+  sceneIdRef.current = scene?.id ?? null;
+  /** The pending debounced rating save (#2666), or null when none is set. */
+  const ratingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Cancel a scheduled rating save (scene change, verdict, unmount). */
+  const cancelRatingSave = () => {
+    if (ratingTimerRef.current !== null) {
+      clearTimeout(ratingTimerRef.current);
+      ratingTimerRef.current = null;
+    }
+  };
+  useEffect(
+    () => () => {
+      if (ratingTimerRef.current !== null) clearTimeout(ratingTimerRef.current);
+    },
+    [],
+  );
   /**
    * True while a run is under way and at least one scene already carries a
    * score (ticket #1225). Reloading then throws away answers Evan cares
@@ -355,6 +382,7 @@ export function App() {
     remod: boolean,
     day: Date,
   ) => {
+    cancelRatingSave();
     setModeration(on);
     setRemoderate(remod);
     setQueue(scenes);
@@ -378,8 +406,7 @@ export function App() {
     setModReasons([]);
     setTags(IDLE_TAG_STATE);
     setRating(IDLE_RATING);
-    // An empty queue still enters a run state: the moderation mode shows the
-    // pipeline buffer + Generate button there (#1202/#1210).
+    // An empty queue still enters a run state: the moderation mode shows the    // pipeline buffer + Generate button there (#1202/#1210).
     setStatus(scenes.length === 0 ? "empty" : "playing");
   };
   /** Start the run of a frontpage mode over the loaded manifest (#1214). */
@@ -555,6 +582,7 @@ export function App() {
 
   /** Reset every piece of per-scene state (guess, markers, reveal, mod box). */
   const resetSceneState = () => {
+    cancelRatingSave();
     setMisses(0);
     setCue(null);
     setAnswered(false);
@@ -710,16 +738,29 @@ export function App() {
    * scene stays, so its status is readable and Next still ends the run.
    * A reject carries every ticked reason (ticket #2585); a "Needs work"
    * request carries them too, but sends the scene to the repair pass instead
-   * of rejecting it (ticket #2590).
+   * of rejecting it (ticket #2590). A score the user changed locally rides
+   * with the verdict (#2666), so a drag costs no request of its own; an
+   * untouched slider sends nothing and an existing rating survives.
    */
   const postModerationAction =
     process.env.NODE_ENV !== "production"
       ? async (action: "accept" | "reject" | "needs_work") => {
           if (!scene || mod.busy || mod.done) return;
           const reasons = action === "accept" ? [] : modReasons;
+          const ratingValue = rating.dirty ? rating.value : undefined;
+          cancelRatingSave();
           setMod({ ...mod, busy: true, status: "Saving…" });
           try {
-            await postModeration(scene.id, action, modFeedback.trim(), reasons);
+            await postModeration(
+              scene.id,
+              action,
+              modFeedback.trim(),
+              reasons,
+              ratingValue,
+            );
+            if (ratingValue !== undefined) {
+              setRating((prev) => ({ ...prev, dirty: false, error: "" }));
+            }
             setMod({
               status:
                 action === "accept"
@@ -774,21 +815,64 @@ export function App() {
       : null;
 
   /**
-   * A rating click (#2605): posts the 0-10 quality value (or clears it),
-   * independent of the verdict and the "funny" tag. Compiled out of the
-   * production bundle like the moderation action above.
+   * The 0-10 quality rating (#2605), independent of the verdict and the
+   * "funny" tag. A drag stays local (#2666): `onRatingChange` only updates
+   * the shown value, and the value goes out either with the verdict
+   * (postModerationAction above) or, when the scene already carries a verdict
+   * and the user only adjusts the score, on its own after the release.
+   * Compiled out of the production bundle like the moderation action above.
    */
-  const postRatingAction =
+  const RATING_SAVE_DEBOUNCE_MS = 250;
+  /** Save a released score-only change: one POST, retried once (#2666). */
+  const saveRating =
     process.env.NODE_ENV !== "production"
       ? async (value: number | null) => {
-          if (!scene || rating.busy) return;
+          const id = scene?.id;
+          if (id === undefined) return;
           setRating((prev) => ({ ...prev, busy: true, error: "" }));
-          try {
-            const applied = await postRating(scene.id, value);
-            setRating({ busy: false, value: applied, error: "" });
-          } catch (err) {
-            setRating((prev) => ({ ...prev, busy: false, error: String(err) }));
+          for (let attempt = 0; attempt < 2; attempt++) {
+            try {
+              const applied = await postRating(id, value);
+              if (sceneIdRef.current !== id) return; // the run moved on
+              setRating({
+                busy: false,
+                value: applied,
+                dirty: false,
+                error: "",
+              });
+              return;
+            } catch (err) {
+              // One retry, then say so and keep the local value (#2666): a
+              // failed save must not silently drop the score.
+              if (attempt === 1 && sceneIdRef.current === id) {
+                setRating((prev) => ({
+                  ...prev,
+                  busy: false,
+                  error: String(err),
+                }));
+              }
+            }
           }
+        }
+      : null;
+  /** A slider step: keep the value local, no request (#2666). */
+  const onRatingChange =
+    process.env.NODE_ENV !== "production"
+      ? (value: number | null) => {
+          setRating((prev) => ({ ...prev, value, dirty: true, error: "" }));
+        }
+      : null;
+  /** The release: a decided scene saves the score on its own, debounced; in
+   *  the open queue it rides with the verdict instead (#2666). */
+  const onRatingCommit =
+    process.env.NODE_ENV !== "production"
+      ? (value: number | null) => {
+          if (!scene || !rating.dirty || !(remoderate || mod.done)) return;
+          cancelRatingSave();
+          ratingTimerRef.current = setTimeout(() => {
+            ratingTimerRef.current = null;
+            void saveRating?.(value);
+          }, RATING_SAVE_DEBOUNCE_MS);
         }
       : null;
 
@@ -1105,7 +1189,8 @@ export function App() {
                 <RatingControl
                   value={rating.value}
                   busy={rating.busy}
-                  onSelect={(v) => void postRatingAction?.(v)}
+                  onSelect={(v) => onRatingChange?.(v)}
+                  onCommit={(v) => onRatingCommit?.(v)}
                   testIdPrefix="moderate-rating"
                 />
               </div>
@@ -1164,7 +1249,10 @@ export function App() {
                   </p>
                 ) : null,
               )}
-              {rating.busy || rating.value !== null || rating.error ? (
+              {rating.busy ||
+              rating.dirty ||
+              rating.value !== null ||
+              rating.error ? (
                 <p
                   id="rating-status"
                   className="moderate-status"
@@ -1174,7 +1262,9 @@ export function App() {
                     ? `Rating failed: ${rating.error}`
                     : rating.busy
                       ? "Rating saving…"
-                      : `Rating ${rating.value}/10.`}
+                      : rating.dirty
+                        ? `Rating ${rating.value === null ? "cleared" : `${rating.value}/10`}; not saved yet.`
+                        : `Rating ${rating.value}/10.`}
                 </p>
               ) : null}
             </div>

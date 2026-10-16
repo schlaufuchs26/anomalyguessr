@@ -177,15 +177,21 @@ export async function loadRemoderateManifest(
  * or a prose-only reject sends. Since #2590 `action` may also be
  * "needs_work": the reasons then name what the heartbeat's repair pass
  * should fix, and the scene leaves the moderation queue until it ran.
+ *
+ * `rating` (#2666) travels with the verdict when the user changed the score
+ * locally: the value is stored in the same write, so a drag costs no request
+ * of its own. `undefined` sends nothing and leaves an existing rating alone.
  */
 export async function postModeration(
   sceneId: string,
   action: "accept" | "reject" | "needs_work",
   feedback: string,
   reasons: string[] = [],
+  rating?: number | null,
 ): Promise<void> {
-  const body =
-    reasons.length > 0 ? { action, feedback, reasons } : { action, feedback };
+  const body: Record<string, unknown> = { action, feedback };
+  if (reasons.length > 0) body.reasons = reasons;
+  if (rating !== undefined) body.rating = rating;
   const res = await fetch(moderationUrl(sceneId), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
