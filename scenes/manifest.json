@@ -1,132 +1,21 @@
 {
   "version": 2,
-  "date": "2026-10-15",
+  "date": "2026-10-16",
   "scenes": [
     {
-      "id": "gallica-viadotto-della-gessiera-al-km-81-500-viaduc-de-g-457694-modern-tower-crane",
-      "title": "Gessiera Viaduct at km 81.500",
+      "id": "nb-258-trondheim-nordre-gate-1920-47047c-modern-telescoping-umbre",
+      "title": "Trondheim Nordre gate",
       "title_source": "catalog",
       "place": "",
-      "year": "1883",
-      "description": "A photograph by Achille Mauri, dated 1883, showing the Gessiera at kilometre 81.500 on the Termoli-Campobasso railway line.",
-      "anomaly": "Modern tower crane",
+      "year": "1920",
+      "description": "A photograph from the National Library of Norway, number 258, showing Nordre gate in Trondheim in 1920. The record does not name a photographer.",
+      "anomaly": "Modern telescoping umbrella stroller",
       "answer": {
-        "x": 0.229,
-        "y": 0.352,
+        "x": 0.75,
+        "y": 0.815,
         "r": 0.22
       },
-      "explanation": "Tower cranes with steel lattice jibs were not developed until the mid-20th century, making them impossible in an 1883 construction scene.",
-      "references": [
-        {
-          "label": "Tower crane history",
-          "url": "https://en.wikipedia.org/wiki/Tower_crane"
-        }
-      ],
-      "source": {
-        "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b10483533r",
-        "originalTitle": "Viadotto della Gessiera al km 81.500 [Viaduc de Gessiera au km 81.500] / Mauri, Achille",
-        "date": "1883",
-        "place": "",
-        "license": "Public domain",
-        "description": "Appartient à l’ensemble documentaire : EnPC000 Appartient à l’ensemble documentaire : EnPCthèm02 Appartient à l’ensemble documentaire : EnPCcorp17 Appartient à l’ensemble documentaire : EnPCtypo02",
-        "titleEn": "Gessiera Viaduct at km 81.500"
-      },
-      "credit": "Mauri, Achille (1835?-1909?). Auteur du texte via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b10483533r",
-      "added": "2026-09-17",
-      "shown": "2026-10-15",
-      "image": "scenes/gallica-viadotto-della-gessiera-al-km-81-500-viaduc-de-g-457694-modern-tower-crane.jpg",
-      "original": "scenes/gallica-viadotto-della-gessiera-al-km-81-500-viaduc-de-g-457694-modern-tower-crane-original.jpg"
-    },
-    {
-      "id": "europeana-interieur-gebrandschilderd-glas-1990-64e57a-modern-led-strip-light",
-      "title": "Interior, Stained Glass",
-      "title_source": "catalog",
-      "place": "Losser",
-      "year": "1990",
-      "description": "A photograph of an interior with stained glass, taken in 1990 in Losser. The record credits the photograph to Europeana and licenses it under CC BY-SA.",
-      "anomaly": "modern LED strip light",
-      "answer": {
-        "x": 0.692,
-        "y": 0.75,
-        "r": 0.22
-      },
-      "explanation": "Flexible white LED strip lighting did not exist in 1990, so a lit tape strip on this window frame is impossible for the photograph's year.",
-      "references": [
-        {
-          "label": "Wikipedia: LED lamp",
-          "url": "https://en.wikipedia.org/wiki/LED_lamp"
-        }
-      ],
-      "source": {
-        "repository": "Europeana",
-        "fileUrl": "https://www.europeana.eu/item/2058632/038d4e9c_8a16_34b4_d4fc_14b4b649feeb_media_a9cfc133_3464_12f7_5c05_e6e0bbc58ee2",
-        "originalTitle": "Interieur, gebrandschilderd glas",
-        "date": "1990",
-        "place": "Losser",
-        "license": "CC BY-SA",
-        "description": "Interieur, gebrandschilderd glas",
-        "titleEn": "Interior, Stained Glass"
-      },
-      "credit": "Europeana",
-      "sourceUrl": "https://www.europeana.eu/item/2058632/038d4e9c_8a16_34b4_d4fc_14b4b649feeb_media_a9cfc133_3464_12f7_5c05_e6e0bbc58ee2",
-      "added": "2026-10-08",
-      "shown": "2026-10-15",
-      "image": "scenes/europeana-interieur-gebrandschilderd-glas-1990-64e57a-modern-led-strip-light.jpg",
-      "original": "scenes/europeana-interieur-gebrandschilderd-glas-1990-64e57a-modern-led-strip-light-original.jpg"
-    },
-    {
-      "id": "gallica-over-arm-stroke-natation-photographie-de-presse-4bf3da-modern-swim-cap-with-sil",
-      "title": "Over arm stroke [swimming]",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1911",
-      "description": "This press photograph, taken by Agence Rol in 1911, shows swimmers. It is held by the Bibliothèque nationale de France, département Estampes et photographie, and is in the public domain.",
-      "anomaly": "modern swim cap with silicone dome shape",
-      "answer": {
-        "x": 0.462,
-        "y": 0.393,
-        "r": 0.22
-      },
-      "explanation": "Stretch silicone swim caps did not exist in 1911; swimmers then used bare heads or cloth and rubber caps of a different shape.",
-      "references": [
-        {
-          "label": "Speedo history of the swim cap",
-          "url": "https://www.speedo.com/history-of-swim-caps"
-        }
-      ],
-      "source": {
-        "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53111993m",
-        "originalTitle": "Over arm stroke [?] [natation] : [photographie de presse] / [Agence Rol]",
-        "date": "1911",
-        "place": "",
-        "license": "Public domain",
-        "description": "Référence bibliographique : Rol, 16009 Appartient à l’ensemble documentaire : Pho20Rol",
-        "titleEn": "Over arm stroke [swimming]"
-      },
-      "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53111993m",
-      "added": "2026-10-08",
-      "shown": "2026-10-15",
-      "image": "scenes/gallica-over-arm-stroke-natation-photographie-de-presse-4bf3da-modern-swim-cap-with-sil.jpg",
-      "original": "scenes/gallica-over-arm-stroke-natation-photographie-de-presse-4bf3da-modern-swim-cap-with-sil-original.jpg"
-    },
-    {
-      "id": "nb-lillestr-m-torg-1963-6567cb-modern-folding-camping-c",
-      "title": "Lillestrøm Square",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1963",
-      "description": "A photograph from the National Library of Norway shows Lillestrøm torg in 1963. It is in the public domain.",
-      "anomaly": "Modern folding camping chair",
-      "answer": {
-        "x": 0.925,
-        "y": 0.855,
-        "r": 0.22
-      },
-      "explanation": "Compact folding camping chairs with tubular frames and fabric seats did not exist in 1963.",
+      "explanation": "The compact folding stroller with small swivel wheels did not exist in 1920, as perambulators of that era were large, heavy carriages.",
       "references": [
         {
           "label": "National Library of Norway",
@@ -135,57 +24,167 @@
       ],
       "source": {
         "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20170619_00035_NB_MIT_KNR_1220_017",
-        "originalTitle": "Lillestrøm torg",
-        "date": "1963",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20150622_00377_bldsa_PK17312",
+        "originalTitle": "258 Trondheim Nordre gate",
+        "date": "1920",
         "place": "",
         "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-08-19T10:32:32.197Z', 'firstDigitalContentTime': '2025-08-19T12:21:40.731Z', 'indexLastModified': '2025-08-19T12:21:40.731Z'}",
-        "titleEn": "Lillestrøm Square"
+        "description": "{'firstIndexTime': '2025-08-18T20:07:54.853Z', 'firstDigitalContentTime': '2025-08-18T22:10:23.418Z', 'indexLastModified': '2025-09-03T09:00:11.904Z'}",
+        "titleEn": "Trondheim Nordre gate"
       },
       "credit": "Mittet & Co. AS via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20170619_00035_NB_MIT_KNR_1220_017",
-      "added": "2026-09-18",
-      "shown": "2026-10-15",
-      "image": "scenes/nb-lillestr-m-torg-1963-6567cb-modern-folding-camping-c.jpg",
-      "original": "scenes/nb-lillestr-m-torg-1963-6567cb-modern-folding-camping-c-original.jpg"
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20150622_00377_bldsa_PK17312",
+      "added": "2026-09-17",
+      "shown": "2026-10-16",
+      "image": "scenes/nb-258-trondheim-nordre-gate-1920-47047c-modern-telescoping-umbre.jpg",
+      "original": "scenes/nb-258-trondheim-nordre-gate-1920-47047c-modern-telescoping-umbre-original.jpg"
     },
     {
-      "id": "finna-aleksis-kiven-katu-1-3-2017-08-29-00-00-00-f9499b-small-humanoid-robot-ins",
-      "title": "Aleksis Kiven katu 1, 3",
+      "id": "finna-ravintola-esplanadikappeli-1989-01-01-00-00-00-ae766d-modern-led-table-lamp",
+      "title": "Restaurant Esplanadikappeli",
       "title_source": "catalog",
       "place": "",
-      "year": "2017",
-      "description": "A photograph showing the brick wall and windows of the Harju youth centre, with graffiti on the foundation and eaves and stickers also glued to the eavestroughs. It was taken in Finland on Aleksis Kiven katu 1, 3 on 2017-08-29 and licensed CC BY 4.0.",
-      "anomaly": "small humanoid robot inspector",
+      "year": "1989",
+      "description": "A photograph of a restaurant, specifically the beer cellar, in Finland. It was taken on January 1, 1989, and is licensed under CC BY 4.0.",
+      "anomaly": "modern LED table lamp",
       "answer": {
-        "x": 0.333,
-        "y": 0.4,
+        "x": 0.137,
+        "y": 0.791,
         "r": 0.22
       },
-      "explanation": "A humanoid robot that climbs brickwork and inspects a drainpipe on its own is a fictional future machine and cannot exist in 2017.",
+      "explanation": "Compact LED table lamps with flat disc heads did not exist in 1989, when table lighting used bulbs and shades.",
       "references": [
         {
-          "label": "Encyclopaedia Britannica: Robot",
-          "url": "https://www.britannica.com/technology/robot-technology"
+          "label": "LED lamp history",
+          "url": "https://en.wikipedia.org/wiki/LED_lamp"
         }
       ],
       "source": {
         "repository": "Finna (Finland)",
-        "fileUrl": "https://www.finna.fi/Record/hkm.0AE01E4F-CC7D-4364-A55D-AB8BC98BC6A9",
-        "originalTitle": "Aleksis Kiven katu 1, 3",
-        "date": "2017-08-29T00:00:00Z",
+        "fileUrl": "https://www.finna.fi/Record/hkm.6BEECD09-CCA4-4BA3-B450-01D175E399B8",
+        "originalTitle": "Ravintola Esplanadikappeli",
+        "date": "1989-01-01T00:00:00Z",
         "place": "",
         "license": "CC BY 4.0",
-        "description": "sisällön kuvaus: Aleksis Kiven katu 1, 3. Harjun nuorisotalon tiiliseinää sekä ikkunoita. Kivijalassa ja räystäässä graffiteja. Räystäsputkiin liimattu myös tarroja.",
-        "titleEn": "Aleksis Kiven katu 1, 3"
+        "description": "sisällön kuvaus: Ravintola  Esplanadikappeli. Olutkellari.",
+        "titleEn": "Restaurant Esplanadikappeli"
       },
       "credit": "Finna (Finland)",
-      "sourceUrl": "https://www.finna.fi/Record/hkm.0AE01E4F-CC7D-4364-A55D-AB8BC98BC6A9",
+      "sourceUrl": "https://www.finna.fi/Record/hkm.6BEECD09-CCA4-4BA3-B450-01D175E399B8",
+      "added": "2026-10-08",
+      "shown": "2026-10-16",
+      "image": "scenes/finna-ravintola-esplanadikappeli-1989-01-01-00-00-00-ae766d-modern-led-table-lamp.jpg",
+      "original": "scenes/finna-ravintola-esplanadikappeli-1989-01-01-00-00-00-ae766d-modern-led-table-lamp-original.jpg"
+    },
+    {
+      "id": "nb-konows-gate-27-oslo-1915-ba01b6-modern-plastic-wheeled-r",
+      "title": "Konows gate 27, Oslo",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1915",
+      "description": "A photograph taken in Oslo in 1915, held by the National Library of Norway and in the public domain. It shows Konows gate 27.",
+      "anomaly": "modern plastic wheeled recycling bin",
+      "answer": {
+        "x": 0.802,
+        "y": 0.833,
+        "r": 0.22
+      },
+      "explanation": "Wheeled plastic refuse bins with hinged lids did not exist in 1915; they spread only in the later twentieth century.",
+      "references": [
+        {
+          "label": "Wheelie bin - Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Wheelie_bin"
+        }
+      ],
+      "source": {
+        "repository": "National Library of Norway",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20220328_00035_NB_RA_M2_B1_0008_K",
+        "originalTitle": "Konows gate 27, Oslo",
+        "date": "1915",
+        "place": "",
+        "license": "Public domain",
+        "description": "{'firstIndexTime': '2025-09-04T07:02:52.006Z', 'firstDigitalContentTime': '2025-09-04T08:01:59.437Z', 'indexLastModified': '2025-09-04T08:01:59.437Z'}",
+        "titleEn": "Konows gate 27, Oslo"
+      },
+      "credit": "Riksantikvaren via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20220328_00035_NB_RA_M2_B1_0008_K",
+      "added": "2026-10-08",
+      "shown": "2026-10-16",
+      "image": "scenes/nb-konows-gate-27-oslo-1915-ba01b6-modern-plastic-wheeled-r.jpg",
+      "original": "scenes/nb-konows-gate-27-oslo-1915-ba01b6-modern-plastic-wheeled-r-original.jpg"
+    },
+    {
+      "id": "nb-trikk-avsporing-1946-c90ec0-modern-high-visibility-s",
+      "title": "Trikk-avsporing",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1946",
+      "description": "This public domain photograph from the National Library of Norway shows a tram derailment and is dated 1946. The record gives no further details about the location, photographer, or circumstances.",
+      "anomaly": "modern high-visibility safety vest",
+      "answer": {
+        "x": 0.673,
+        "y": 0.548,
+        "r": 0.22
+      },
+      "explanation": "High-visibility safety vests with fluorescent fabric and reflective stripes did not exist in 1946; they were developed later for road and rail workers.",
+      "references": [
+        {
+          "label": "High-visibility clothing",
+          "url": "https://en.wikipedia.org/wiki/High-visibility_clothing"
+        }
+      ],
+      "source": {
+        "repository": "National Library of Norway",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20171026_00085_NB_HS_46_00712",
+        "originalTitle": "Trikk-avsporing",
+        "date": "1946",
+        "place": "",
+        "license": "Public domain",
+        "description": "{'firstIndexTime': '2025-08-26T13:42:32.728Z', 'firstDigitalContentTime': '2025-08-26T13:56:53.891Z', 'indexLastModified': '2025-08-26T13:56:53.891Z'}"
+      },
+      "credit": "Henriksen & Steen via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20171026_00085_NB_HS_46_00712",
+      "added": "2026-09-19",
+      "shown": "2026-10-16",
+      "image": "scenes/nb-trikk-avsporing-1946-c90ec0-modern-high-visibility-s.jpg",
+      "original": "scenes/nb-trikk-avsporing-1946-c90ec0-modern-high-visibility-s-original.jpg"
+    },
+    {
+      "id": "gallica-viaduc-de-la-bouble-20-janvier-1869-commentry-ga-452aa5-modern-tower-crane",
+      "title": "Viaduct of the Bouble",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1869",
+      "description": "A photograph taken by Hélios on 20 January 1869, showing the Bouble Viaduct on the Commentry–Gannat line. It belongs to the Bibliothèque nationale de France (Gallica) and is in the public domain.",
+      "anomaly": "modern tower crane",
+      "answer": {
+        "x": 0.769,
+        "y": 0.295,
+        "r": 0.22
+      },
+      "explanation": "The tower crane as a recognizable slewing jib crane did not exist in 1869, so it cannot appear on this construction site.",
+      "references": [
+        {
+          "label": "Tower crane history",
+          "url": "https://en.wikipedia.org/wiki/Tower_crane"
+        }
+      ],
+      "source": {
+        "repository": "Bibliothèque nationale de France (Gallica)",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b10482966h",
+        "originalTitle": "Viaduc de la Bouble - 20 janvier 1869 : Commentry-Gannat / Hélios",
+        "date": "1869",
+        "place": "",
+        "license": "Public domain",
+        "description": "Appartient à l’ensemble documentaire : EnPC000 Appartient à l’ensemble documentaire : EnPCthèm02 Appartient à l’ensemble documentaire : EnPCcorp17 Appartient à l’ensemble documentaire : EnPCtypo02",
+        "titleEn": "Viaduct of the Bouble"
+      },
+      "credit": "Berthaud, Michel (1845-1912 ; photographe). Auteur du texte via Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b10482966h",
       "added": "2026-10-14",
-      "shown": "2026-10-15",
-      "image": "scenes/finna-aleksis-kiven-katu-1-3-2017-08-29-00-00-00-f9499b-small-humanoid-robot-ins.jpg",
-      "original": "scenes/finna-aleksis-kiven-katu-1-3-2017-08-29-00-00-00-f9499b-small-humanoid-robot-ins-original.jpg"
+      "shown": "2026-10-16",
+      "image": "scenes/gallica-viaduc-de-la-bouble-20-janvier-1869-commentry-ga-452aa5-modern-tower-crane.jpg",
+      "original": "scenes/gallica-viaduc-de-la-bouble-20-janvier-1869-commentry-ga-452aa5-modern-tower-crane-original.jpg"
     }
   ]
 }
