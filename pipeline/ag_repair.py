@@ -60,6 +60,11 @@ import ag_verify  # noqa: E402
 # text change and needs a new image or a new scene.
 CLICK_REASONS = ("click area doesn't cover anomaly", "click area too big")
 TEXT_REASONS = ("text is inaccurate",)
+# The whole repairable set, derived from the two repair classes above. The
+# moderation view mirrors it (repairReasons.ts) to enable "Needs work" only for
+# these reasons; a test reads this tuple back, so a one-sided rename fails
+# (ticket #2658).
+REPAIRABLE_REASONS = CLICK_REASONS + TEXT_REASONS
 # Reasons that make a request unrepairable outright, whatever else it carries.
 UNREPAIRABLE_REASONS = (
     "doesn't match style of image",
@@ -105,7 +110,7 @@ def unrepairable_reasons(reasons) -> list:
     rs = [str(r).strip() for r in (reasons or []) if str(r).strip()]
     known = [r for r in UNREPAIRABLE_REASONS if r in rs]
     unknown = [r for r in rs if r not in UNREPAIRABLE_REASONS
-               and r not in CLICK_REASONS and r not in TEXT_REASONS]
+               and r not in REPAIRABLE_REASONS]
     return known + unknown
 
 

@@ -74,6 +74,12 @@ class ClassifyTest(unittest.TestCase):
             rep.unrepairable_reasons(["too easy", "click area too big"]),
             ["too easy"])
 
+    def test_repairable_reasons_is_the_two_repair_classes(self):
+        # The frontend mirrors this set (repairReasons.ts) to enable
+        # "Needs work" only for reasons the pass can act on (#2658).
+        self.assertEqual(rep.REPAIRABLE_REASONS,
+                         rep.CLICK_REASONS + rep.TEXT_REASONS)
+
     def test_person_label(self):
         self.assertTrue(rep.is_person({"anomaly": "Time traveler: tourist"}))
         self.assertTrue(rep.is_person({"anomaly": "Robot time traveler"}))

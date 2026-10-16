@@ -1619,6 +1619,47 @@ describe("needs-work repair action (#2590)", () => {
     expect(button).not.toBeDisabled();
   });
 
+  test("unrepairable reasons keep the button off with a title naming the cause", async () => {
+    payload = { ...MANIFEST, moderation: true };
+    const container = await renderGame("moderation");
+    clickPhoto(container, 0.5, 0.5);
+
+    const button = screen.getByRole("button", { name: "🛠 Needs work" });
+    const title =
+      "The repair pass only fixes the click area or the text; it would return this rejected: too easy";
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "too easy" }));
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute("title", title);
+
+    // A repairable reason does not help while an unrepairable one stays ticked.
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: "click area too big" }),
+    );
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute("title", title);
+
+    // Removing the unrepairable reason leaves only the fixable one.
+    fireEvent.click(screen.getByRole("checkbox", { name: "too easy" }));
+    expect(button).not.toBeDisabled();
+    expect(button).toHaveAttribute(
+      "title",
+      "Send the scene back for repair with the ticked reasons (ticket #2590)",
+    );
+  });
+
+  test("a text reason keeps the button enabled", async () => {
+    payload = { ...MANIFEST, moderation: true };
+    const container = await renderGame("moderation");
+    clickPhoto(container, 0.5, 0.5);
+
+    const button = screen.getByRole("button", { name: "🛠 Needs work" });
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: "text is inaccurate" }),
+    );
+    expect(button).not.toBeDisabled();
+  });
+
   test("posts the ticked reasons as a needs_work request", async () => {
     payload = { ...MANIFEST, moderation: true, scenes: [SCENE_A] };
     const container = await renderGame("moderation");

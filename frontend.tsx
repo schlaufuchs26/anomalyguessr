@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { DAILY_COUNT, dateFromKey, dateLabel, pickDaily } from "./daily";
 import { type Manifest, parseManifest, type Scene } from "./manifest";
 import { REJECT_REASONS, type RejectReason } from "./rejectReasons";
+import { canRequestRepair, isRepairableReason } from "./repairReasons";
 import { bearingTo, MISS_PENALTY, runningTotal } from "./scoring";
 import {
   loadDailyManifest,
@@ -1067,11 +1068,17 @@ export function App() {
                   id="needs-work-btn"
                   className="btn ghost"
                   type="button"
-                  disabled={mod.busy || mod.done || modReasons.length === 0}
+                  disabled={
+                    mod.busy || mod.done || !canRequestRepair(modReasons)
+                  }
                   title={
                     modReasons.length === 0
                       ? "Tick at least one reason the repair should fix"
-                      : "Send the scene back for repair with the ticked reasons (ticket #2590)"
+                      : canRequestRepair(modReasons)
+                        ? "Send the scene back for repair with the ticked reasons (ticket #2590)"
+                        : `The repair pass only fixes the click area or the text; it would return this rejected: ${modReasons
+                            .filter((r) => !isRepairableReason(r))
+                            .join(", ")}`
                   }
                   onClick={() => void postModerationAction?.("needs_work")}
                 >
