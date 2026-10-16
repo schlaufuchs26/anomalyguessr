@@ -8,6 +8,14 @@ import { answerScene, openGame } from "./fixtures";
  * on its own after the release. The test counts the POSTs the page issues per
  * phase, so a regression that re-introduces a request per slider step fails
  * here.
+ *
+ * The ten steps are arrow keys, not mouse clicks on the track (ticket #2669):
+ * a raw `page.mouse.click` at a `boundingBox` coordinate assumes the slider
+ * still sits where it sat when the box was measured, and on the CI runner the
+ * moderation box scrolled out from under those fixed coordinates, so the
+ * slider kept its start value and the test failed there while passing here.
+ * Arrow keys fire the same one `input` event per step, wherever the slider
+ * sits; the pointer-release path itself is covered by `tests/app.test.tsx`.
  */
 
 test("moving the slider posts nothing until the verdict carries the score (#2666)", async ({
@@ -28,14 +36,11 @@ test("moving the slider posts nothing until the verdict carries the score (#2666
   await answerScene(page);
 
   const slider = page.getByRole("slider", { name: "Quality rating" });
-  const box = await slider.boundingBox();
-  if (!box) throw new Error("the slider has no layout box");
-  const y = box.y + box.height / 2;
+  await expect(slider).toHaveValue("0");
 
-  // Ten steps across the track, each an input the old code posted on its own.
+  // Ten steps up the scale, each an input the old code posted on its own.
   for (let i = 1; i <= 10; i++) {
-    await page.mouse.click(box.x + ((box.width - 2) * i) / 10, y);
-    await page.waitForTimeout(25);
+    await slider.press("ArrowRight");
   }
 
   console.log(`MEASURE slider steps=10 ratingPosts=${ratingPosts}`);
@@ -52,9 +57,7 @@ test("moving the slider posts nothing until the verdict carries the score (#2666
   // A score-only change on the now-decided scene saves itself after the
   // release: one request, the debounce (250 ms) plus the round trip.
   const releasedAt = Date.now();
-  await page.mouse.move(box.x + (box.width - 2) * 0.4, y);
-  await page.mouse.down();
-  await page.mouse.up();
+  await slider.press("ArrowLeft");
   await expect.poll(() => ratingPosts).toBe(1);
   console.log(
     `MEASURE release->saved ${Date.now() - releasedAt} ms (debounce 250 ms)`,
