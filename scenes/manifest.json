@@ -1,190 +1,190 @@
 {
   "version": 2,
-  "date": "2026-10-16",
+  "date": "2026-10-17",
   "scenes": [
     {
-      "id": "nb-258-trondheim-nordre-gate-1920-47047c-modern-telescoping-umbre",
-      "title": "Trondheim Nordre gate",
+      "id": "gallica-yvonne-godard-nageuse-photographie-de-presse-age-896771-modern-starting-block-we",
+      "title": "Yvonne Godard, nageuse",
       "title_source": "catalog",
       "place": "",
-      "year": "1920",
-      "description": "A photograph from the National Library of Norway, number 258, showing Nordre gate in Trondheim in 1920. The record does not name a photographer.",
-      "anomaly": "Modern telescoping umbrella stroller",
+      "year": "1932",
+      "description": "A press photograph of the swimmer Yvonne Godard, taken by the Mondial Photo-Presse agency and distributed by Agence Mondial in Paris in 1932. The record identifies it as a portrait of a swimmer in France, held by the Bibliothèque nationale de France.",
+      "anomaly": "modern starting block wedge",
       "answer": {
-        "x": 0.75,
-        "y": 0.815,
-        "r": 0.22
+        "x": 0.556,
+        "y": 0.672,
+        "r": 0.028
       },
-      "explanation": "The compact folding stroller with small swivel wheels did not exist in 1920, as perambulators of that era were large, heavy carriages.",
+      "explanation": "Angled starting block wedges for swimmers were not introduced until the 1970s, so this object cannot exist in a 1932 pool.",
       "references": [
         {
-          "label": "National Library of Norway",
-          "url": "https://www.nb.no"
+          "label": "World Aquatics",
+          "url": "https://www.worldaquatics.com/"
         }
       ],
       "source": {
-        "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20150622_00377_bldsa_PK17312",
-        "originalTitle": "258 Trondheim Nordre gate",
-        "date": "1920",
+        "repository": "Bibliothèque nationale de France (Gallica)",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b9051557h",
+        "originalTitle": "Yvonne Godard, nageuse : [photographie de presse] / Agence Mondial",
+        "date": "1932",
         "place": "",
         "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-08-18T20:07:54.853Z', 'firstDigitalContentTime': '2025-08-18T22:10:23.418Z', 'indexLastModified': '2025-09-03T09:00:11.904Z'}",
-        "titleEn": "Trondheim Nordre gate"
+        "description": "Référence bibliographique : Mondial, 2039 bis Appartient à l’ensemble documentaire : Pho20MPP Image de presse"
       },
-      "credit": "Mittet & Co. AS via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20150622_00377_bldsa_PK17312",
-      "added": "2026-09-17",
-      "shown": "2026-10-16",
-      "image": "scenes/nb-258-trondheim-nordre-gate-1920-47047c-modern-telescoping-umbre.jpg",
-      "original": "scenes/nb-258-trondheim-nordre-gate-1920-47047c-modern-telescoping-umbre-original.jpg"
+      "credit": "Agence de presse Mondial Photo-Presse. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b9051557h",
+      "added": "2026-09-18",
+      "shown": "2026-10-17",
+      "image": "scenes/gallica-yvonne-godard-nageuse-photographie-de-presse-age-896771-modern-starting-block-we.jpg",
+      "original": "scenes/gallica-yvonne-godard-nageuse-photographie-de-presse-age-896771-modern-starting-block-we-original.jpg"
     },
     {
-      "id": "finna-ravintola-esplanadikappeli-1989-01-01-00-00-00-ae766d-modern-led-table-lamp",
-      "title": "Restaurant Esplanadikappeli",
+      "id": "finna-juhla-messukeskuksessa-1942-06-04-00-00-00-2da85a-modern-clip-on-led-music",
+      "title": "Celebration at the Exhibition Centre",
       "title_source": "catalog",
       "place": "",
-      "year": "1989",
-      "description": "A photograph of a restaurant, specifically the beer cellar, in Finland. It was taken on January 1, 1989, and is licensed under CC BY 4.0.",
-      "anomaly": "modern LED table lamp",
+      "year": "1942",
+      "description": "A photograph taken on 4 June 1942 at Juhla Messukeskuksessa. The record does not state who took it.",
+      "anomaly": "modern clip-on LED music stand light",
       "answer": {
-        "x": 0.137,
-        "y": 0.791,
+        "x": 0.712,
+        "y": 0.625,
         "r": 0.22
       },
-      "explanation": "Compact LED table lamps with flat disc heads did not exist in 1989, when table lighting used bulbs and shades.",
+      "explanation": "Clip-on LED music stand lights with bright white LEDs did not exist in 1942; battery-powered stand lights of the era used dim incandescent bulbs.",
       "references": [
         {
-          "label": "LED lamp history",
+          "label": "Wikipedia: LED lamp",
           "url": "https://en.wikipedia.org/wiki/LED_lamp"
         }
       ],
       "source": {
         "repository": "Finna (Finland)",
-        "fileUrl": "https://www.finna.fi/Record/hkm.6BEECD09-CCA4-4BA3-B450-01D175E399B8",
-        "originalTitle": "Ravintola Esplanadikappeli",
-        "date": "1989-01-01T00:00:00Z",
+        "fileUrl": "https://www.finna.fi/Record/sa-kuva.sa-kuva/15802",
+        "originalTitle": "Juhla Messukeskuksessa.",
+        "date": "1942-06-04T00:00:00Z",
         "place": "",
         "license": "CC BY 4.0",
-        "description": "sisällön kuvaus: Ravintola  Esplanadikappeli. Olutkellari.",
-        "titleEn": "Restaurant Esplanadikappeli"
+        "description": "",
+        "titleEn": "Celebration at the Exhibition Centre"
       },
       "credit": "Finna (Finland)",
-      "sourceUrl": "https://www.finna.fi/Record/hkm.6BEECD09-CCA4-4BA3-B450-01D175E399B8",
-      "added": "2026-10-08",
-      "shown": "2026-10-16",
-      "image": "scenes/finna-ravintola-esplanadikappeli-1989-01-01-00-00-00-ae766d-modern-led-table-lamp.jpg",
-      "original": "scenes/finna-ravintola-esplanadikappeli-1989-01-01-00-00-00-ae766d-modern-led-table-lamp-original.jpg"
+      "sourceUrl": "https://www.finna.fi/Record/sa-kuva.sa-kuva/15802",
+      "added": "2026-10-09",
+      "shown": "2026-10-17",
+      "image": "scenes/finna-juhla-messukeskuksessa-1942-06-04-00-00-00-2da85a-modern-clip-on-led-music.jpg",
+      "original": "scenes/finna-juhla-messukeskuksessa-1942-06-04-00-00-00-2da85a-modern-clip-on-led-music-original.jpg"
     },
     {
-      "id": "nb-konows-gate-27-oslo-1915-ba01b6-modern-plastic-wheeled-r",
-      "title": "Konows gate 27, Oslo",
+      "id": "nb-ris-r-indre-havn-1900-ed4ccd-modern-outboard-motor",
+      "title": "Risør. Indre Havn.",
       "title_source": "catalog",
       "place": "",
-      "year": "1915",
-      "description": "A photograph taken in Oslo in 1915, held by the National Library of Norway and in the public domain. It shows Konows gate 27.",
-      "anomaly": "modern plastic wheeled recycling bin",
+      "year": "1900",
+      "description": "A photograph of the inner harbour in Risør, held by the National Library of Norway and in the public domain, dated 1900. The record does not name a photographer.",
+      "anomaly": "modern outboard motor",
       "answer": {
-        "x": 0.802,
-        "y": 0.833,
+        "x": 0.3,
+        "y": 0.6,
         "r": 0.22
       },
-      "explanation": "Wheeled plastic refuse bins with hinged lids did not exist in 1915; they spread only in the later twentieth century.",
+      "explanation": "A compact clamp-on outboard motor could not exist in this 1900 harbour scene, because the first practical outboard motors were only introduced in 1906.",
       "references": [
         {
-          "label": "Wheelie bin - Wikipedia",
-          "url": "https://en.wikipedia.org/wiki/Wheelie_bin"
+          "label": "Ole Evinrude - Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Ole_Evinrude"
         }
       ],
       "source": {
         "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20220328_00035_NB_RA_M2_B1_0008_K",
-        "originalTitle": "Konows gate 27, Oslo",
-        "date": "1915",
+        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20170221_00135_NB_MIT_GNR_02542",
+        "originalTitle": "Risør. Indre Havn.",
+        "date": "1900",
         "place": "",
         "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-09-04T07:02:52.006Z', 'firstDigitalContentTime': '2025-09-04T08:01:59.437Z', 'indexLastModified': '2025-09-04T08:01:59.437Z'}",
-        "titleEn": "Konows gate 27, Oslo"
+        "description": "{'firstIndexTime': '2025-08-19T00:32:31.560Z', 'firstDigitalContentTime': '2025-08-19T03:02:21.417Z', 'indexLastModified': '2025-08-19T03:02:21.417Z'}",
+        "titleEn": "Risør. Indre Havn."
       },
-      "credit": "Riksantikvaren via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20220328_00035_NB_RA_M2_B1_0008_K",
-      "added": "2026-10-08",
-      "shown": "2026-10-16",
-      "image": "scenes/nb-konows-gate-27-oslo-1915-ba01b6-modern-plastic-wheeled-r.jpg",
-      "original": "scenes/nb-konows-gate-27-oslo-1915-ba01b6-modern-plastic-wheeled-r-original.jpg"
+      "credit": "Mittet & Co. AS via National Library of Norway",
+      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20170221_00135_NB_MIT_GNR_02542",
+      "added": "2026-10-09",
+      "shown": "2026-10-17",
+      "image": "scenes/nb-ris-r-indre-havn-1900-ed4ccd-modern-outboard-motor.jpg",
+      "original": "scenes/nb-ris-r-indre-havn-1900-ed4ccd-modern-outboard-motor-original.jpg"
     },
     {
-      "id": "nb-trikk-avsporing-1946-c90ec0-modern-high-visibility-s",
-      "title": "Trikk-avsporing",
+      "id": "gallica-cavalerie-portugaise-descente-d-une-forte-pente-dc8020-modern-plastic-safety-he",
+      "title": "Portuguese cavalry descending a steep slope",
       "title_source": "catalog",
       "place": "",
-      "year": "1946",
-      "description": "This public domain photograph from the National Library of Norway shows a tram derailment and is dated 1946. The record gives no further details about the location, photographer, or circumstances.",
-      "anomaly": "modern high-visibility safety vest",
+      "year": "1911",
+      "description": "A press photograph by Agence Rol showing Portuguese cavalry coming down a steep slope. It is held by the Bibliothèque nationale de France (Gallica) and dated 1911.",
+      "anomaly": "modern plastic safety helmet",
       "answer": {
-        "x": 0.673,
-        "y": 0.548,
+        "x": 0.884,
+        "y": 0.692,
         "r": 0.22
       },
-      "explanation": "High-visibility safety vests with fluorescent fabric and reflective stripes did not exist in 1946; they were developed later for road and rail workers.",
+      "explanation": "Molded plastic safety helmets of this rounded-shell type did not exist in 1911; industrial head protection then used leather or cloth caps.",
       "references": [
         {
-          "label": "High-visibility clothing",
-          "url": "https://en.wikipedia.org/wiki/High-visibility_clothing"
-        }
-      ],
-      "source": {
-        "repository": "National Library of Norway",
-        "fileUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20171026_00085_NB_HS_46_00712",
-        "originalTitle": "Trikk-avsporing",
-        "date": "1946",
-        "place": "",
-        "license": "Public domain",
-        "description": "{'firstIndexTime': '2025-08-26T13:42:32.728Z', 'firstDigitalContentTime': '2025-08-26T13:56:53.891Z', 'indexLastModified': '2025-08-26T13:56:53.891Z'}"
-      },
-      "credit": "Henriksen & Steen via National Library of Norway",
-      "sourceUrl": "https://www.nb.no/items/URN:NBN:no-nb_digifoto_20171026_00085_NB_HS_46_00712",
-      "added": "2026-09-19",
-      "shown": "2026-10-16",
-      "image": "scenes/nb-trikk-avsporing-1946-c90ec0-modern-high-visibility-s.jpg",
-      "original": "scenes/nb-trikk-avsporing-1946-c90ec0-modern-high-visibility-s-original.jpg"
-    },
-    {
-      "id": "gallica-viaduc-de-la-bouble-20-janvier-1869-commentry-ga-452aa5-modern-tower-crane",
-      "title": "Viaduct of the Bouble",
-      "title_source": "catalog",
-      "place": "",
-      "year": "1869",
-      "description": "A photograph taken by Hélios on 20 January 1869, showing the Bouble Viaduct on the Commentry–Gannat line. It belongs to the Bibliothèque nationale de France (Gallica) and is in the public domain.",
-      "anomaly": "modern tower crane",
-      "answer": {
-        "x": 0.769,
-        "y": 0.295,
-        "r": 0.22
-      },
-      "explanation": "The tower crane as a recognizable slewing jib crane did not exist in 1869, so it cannot appear on this construction site.",
-      "references": [
-        {
-          "label": "Tower crane history",
-          "url": "https://en.wikipedia.org/wiki/Tower_crane"
+          "label": "Hard hat history",
+          "url": "https://en.wikipedia.org/wiki/Hard_hat"
         }
       ],
       "source": {
         "repository": "Bibliothèque nationale de France (Gallica)",
-        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b10482966h",
-        "originalTitle": "Viaduc de la Bouble - 20 janvier 1869 : Commentry-Gannat / Hélios",
-        "date": "1869",
+        "fileUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53112485j",
+        "originalTitle": "Cavalerie portugaise [descente d'une forte pente] : [photographie de presse] / [Agence Rol]",
+        "date": "1911",
         "place": "",
         "license": "Public domain",
-        "description": "Appartient à l’ensemble documentaire : EnPC000 Appartient à l’ensemble documentaire : EnPCthèm02 Appartient à l’ensemble documentaire : EnPCcorp17 Appartient à l’ensemble documentaire : EnPCtypo02",
-        "titleEn": "Viaduct of the Bouble"
+        "description": "Référence bibliographique : Rol, 16957 Appartient à l’ensemble documentaire : Pho20Rol",
+        "titleEn": "Portuguese cavalry descending a steep slope"
       },
-      "credit": "Berthaud, Michel (1845-1912 ; photographe). Auteur du texte via Bibliothèque nationale de France (Gallica)",
-      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b10482966h",
-      "added": "2026-10-14",
-      "shown": "2026-10-16",
-      "image": "scenes/gallica-viaduc-de-la-bouble-20-janvier-1869-commentry-ga-452aa5-modern-tower-crane.jpg",
-      "original": "scenes/gallica-viaduc-de-la-bouble-20-janvier-1869-commentry-ga-452aa5-modern-tower-crane-original.jpg"
+      "credit": "Agence Rol. Agence photographique (commanditaire) via Bibliothèque nationale de France (Gallica)",
+      "sourceUrl": "https://gallica.bnf.fr/ark:/12148/btv1b53112485j",
+      "added": "2026-10-16",
+      "shown": "2026-10-17",
+      "image": "scenes/gallica-cavalerie-portugaise-descente-d-une-forte-pente-dc8020-modern-plastic-safety-he.jpg",
+      "original": "scenes/gallica-cavalerie-portugaise-descente-d-une-forte-pente-dc8020-modern-plastic-safety-he-original.jpg"
+    },
+    {
+      "id": "finna-itsen-isyysp-iv-n-juhla-1959-3ab408-modern-digital-stopwatch",
+      "title": "Independence Day Celebration",
+      "title_source": "catalog",
+      "place": "",
+      "year": "1959",
+      "description": "The photograph shows soldiers standing in ranks in a field during a celebration. It was taken at Marjoniemen kentällä in 1959.",
+      "anomaly": "modern digital stopwatch",
+      "answer": {
+        "x": 0.283,
+        "y": 0.525,
+        "r": 0.0413
+      },
+      "explanation": "Digital LCD stopwatches did not exist in 1959; the first digital stopwatches appeared in the 1970s.",
+      "references": [
+        {
+          "label": "Wikipedia: Stopwatch",
+          "url": "https://en.wikipedia.org/wiki/Stopwatch"
+        }
+      ],
+      "source": {
+        "repository": "Finna (Finland)",
+        "fileUrl": "https://www.finna.fi/Record/kouvolanmuseo.KMV55%3A439",
+        "originalTitle": "Itsenäisyyspäivän juhla",
+        "date": "1959",
+        "place": "",
+        "license": "CC BY 4.0",
+        "description": "Sotilaita rivissä Itsenäisyyspäivän aikana Marjoniemen kentällä.",
+        "titleEn": "Independence Day Celebration"
+      },
+      "credit": "Finna (Finland)",
+      "sourceUrl": "https://www.finna.fi/Record/kouvolanmuseo.KMV55%3A439",
+      "added": "2026-10-15",
+      "shown": "2026-10-17",
+      "image": "scenes/finna-itsen-isyysp-iv-n-juhla-1959-3ab408-modern-digital-stopwatch.jpg",
+      "original": "scenes/finna-itsen-isyysp-iv-n-juhla-1959-3ab408-modern-digital-stopwatch-original.jpg"
     }
   ]
 }
